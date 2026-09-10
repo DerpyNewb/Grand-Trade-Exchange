@@ -1,4 +1,4 @@
-# The Zharr Exchange
+# The Grand Trade Exchange
 
 A commodities market and stock exchange for *Total War: WARHAMMER III*, built as a
 Chaos Dwarf campaign mod. Written entirely in the game's own extension surface -
