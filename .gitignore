@@ -1,0 +1,10 @@
+# CA-derived caches - rebuilt from a local WH3 install, never committed
+.skilltree_cache/
+_bak_*/
+
+# build outputs
+*.pack
+docs/workshop/
+
+__pycache__/
+*.pyc

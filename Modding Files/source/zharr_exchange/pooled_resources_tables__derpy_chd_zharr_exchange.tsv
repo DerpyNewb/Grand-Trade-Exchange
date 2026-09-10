@@ -1,0 +1,19 @@
+key	maximum	minimum	ai_ignored	default_factor	optional_icon_path	income_policy	reset_before_income	scope	has_persistent_factors	sort_order	battle_conversion	appy_income_on_creation	always_display_zero_factors	can_scale_effect_thresholds_per_unit
+#pooled_resources_tables;2;db/pooled_resources_tables/derpy_chd_zharr_exchange
+derpy_chd_ex_hold_animals	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_dyes	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_gems	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_gold_idols	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_ivory	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_medicine	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_obsidian	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_furs	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_glass	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_iron	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_lead	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_marble	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_textiles	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_timber	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_rom_wine	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_spices	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false
+derpy_chd_ex_hold_trinkets	1000000	0	true	other		END_OF_ROUND	false	FACTION	false	0		false	true	false

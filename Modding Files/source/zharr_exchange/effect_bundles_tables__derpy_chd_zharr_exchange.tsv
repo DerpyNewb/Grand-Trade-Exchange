@@ -1,0 +1,213 @@
+key	localised_description	localised_title	bundle_target	priority	ui_icon	is_global_effect	show_in_3d_space	owner_only
+#effect_bundles_tables;4;db/effect_bundles_tables/derpy_chd_zharr_exchange
+derpy_chd_ex_trade_neg40	Commodity prices are depressed and this faction's trade goods fetch less.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_neg30	Commodity prices are depressed and this faction's trade goods fetch less.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_neg20	Commodity prices are depressed and this faction's trade goods fetch less.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_neg10	Commodity prices are depressed and this faction's trade goods fetch less.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_pos10	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_pos20	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_pos30	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_trade_pos40	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_stock_animals_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Exotic Animals	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_animals_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Exotic Animals	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_animals_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Exotic Animals	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_dyes_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Dyes	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_dyes_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Dyes	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_dyes_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Dyes	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gems_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Gemstones	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gems_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Gemstones	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gems_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Gemstones	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gold_idols_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Golden Idols	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gold_idols_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Golden Idols	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_gold_idols_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Golden Idols	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_ivory_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Tusks	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_ivory_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Tusks	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_ivory_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Tusks	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_medicine_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Medicinal Plants	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_medicine_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Medicinal Plants	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_medicine_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Medicinal Plants	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_obsidian_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Carved Obsidian	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_obsidian_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Carved Obsidian	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_obsidian_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Carved Obsidian	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_furs_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Furs	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_furs_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Furs	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_furs_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Furs	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_glass_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Dwarf Beer	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_glass_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Dwarf Beer	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_glass_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Dwarf Beer	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_iron_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Iron	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_iron_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Iron	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_iron_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Iron	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_lead_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Salt	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_lead_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Salt	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_lead_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Salt	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_marble_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Marble	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_marble_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Marble	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_marble_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Marble	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_textiles_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Pottery	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_textiles_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Pottery	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_textiles_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Pottery	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_timber_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Timber	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_timber_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Timber	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_timber_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Timber	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_wine_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Wine	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_wine_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Wine	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_rom_wine_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Wine	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_spices_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Spices	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_spices_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Spices	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_spices_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Spices	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_trinkets_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Elven Trinkets	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_trinkets_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Elven Trinkets	faction	1	cargo.png	true	false	true
+derpy_chd_ex_stock_trinkets_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Elven Trinkets	faction	1	cargo.png	true	false	true
+derpy_chd_ex_teb_offering_animals	The feast is held at the Compact's expense and the crowd is told whose expense it was.	Consigned to the Temple: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_dyes	A house in good standing with the Compact is a house whose cargo clears the mole first.	Consigned to the Temple: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_gems	A house in good standing with the Compact is a house whose cargo clears the mole first.	Consigned to the Temple: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_gold_idols	Gold in the strongroom buys letters of introduction, and letters buy people.	Consigned to the Temple: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_ivory	The ivory endows a chair at Remas, and a chair returns findings to its endower.	Consigned to the Temple: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_medicine	The surgeons are paid by the Compact and billeted with your companies.	Consigned to the Temple: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_obsidian	The colleges take the glass and the wind runs deeper for those who paid.	Consigned to the Temple: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_furs	Furs, remounts and a courier's warrant: your columns keep the road in weather that closes it.	Consigned to the Temple: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_glass	The feast is held at the Compact's expense and the crowd is told whose expense it was.	Consigned to the Temple: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_iron	The metal goes to the armourers of Miragliano and comes back as plate, on schedule.	Consigned to the Temple: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_lead	The surgeons are paid by the Compact and billeted with your companies.	Consigned to the Temple: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_marble	Materials pledged in advance are materials bought at last year's price.	Consigned to the Temple: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_textiles	Cloth delivered to the muster is a company clothed before it is paid, and cheaper for it.	Consigned to the Temple: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_timber	Materials pledged in advance are materials bought at last year's price.	Consigned to the Temple: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_rom_wine	The feast is held at the Compact's expense and the crowd is told whose expense it was.	Consigned to the Temple: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_spices	The feast is held at the Compact's expense and the crowd is told whose expense it was.	Consigned to the Temple: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_offering_trinkets	A house in good standing with the Compact is a house whose cargo clears the mole first.	Consigned to the Temple: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_teb_myrmidia_pleased	The consignment was delivered, weighed and receipted without a query. The Compact extends terms it does not extend to everyone.	Discharged in Full	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_teb_myrmidia_wrath	The note came back unpaid and was protested before a notary the same morning. Every counting house on the coast reads that register.	Protested for Non-Payment	faction	1	attrition.png	true	false	true
+derpy_chd_ex_def_offering_animals	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	Given to the Temple: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_dyes	A house in favour at the temple is a house whose cargo is not looked at closely.	Given to the Temple: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_gems	A house in favour at the temple is a house whose cargo is not looked at closely.	Given to the Temple: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_gold_idols	Melted gold buys the kind of servant who is already in the room.	Given to the Temple: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_ivory	Curiosities go to the Convent and come back as a method nobody wants explained.	Given to the Temple: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_medicine	Physic and salt for the host, and the ranks close up again.	Given to the Temple: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_obsidian	The Convent takes the black glass, and the winds answer more readily than is wise.	Given to the Temple: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_furs	Furs for the long marches, and the columns cross Naggaroth without losing a quarter of themselves.	Given to the Temple: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_glass	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	Given to the Temple: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_iron	The iron goes to Hag Graef and comes back as plate, worked by hands that were not paid for it.	Given to the Temple: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_lead	Physic and salt for the host, and the ranks close up again.	Given to the Temple: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_marble	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	Given to the Temple: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_textiles	Tribute paid early buys a levy at the temple's rate, which stays low for exactly as long as you keep paying it.	Given to the Temple: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_timber	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	Given to the Temple: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_wine	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	Given to the Temple: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_spices	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	Given to the Temple: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_trinkets	A house in favour at the temple is a house whose cargo is not looked at closely.	Given to the Temple: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_khaine_pleased	The portion was given whole and on the day named. The temple has noticed, which is not the same as being safe and is better than the alternative.	Khaine is Served	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_def_khaine_wrath	The portion was not given, and the Hag Queens were told the same evening. They did not seem surprised, which is the part worth worrying about.	Marked at the Temple	faction	1	attrition.png	true	false	true
+derpy_chd_ex_hef_offering_animals	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	Tribute to Asuryan: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_dyes	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	Tribute to Asuryan: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_gems	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	Tribute to Asuryan: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_gold_idols	Melted gold pays for the sort of Elf who arrives before the message does.	Tribute to Asuryan: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_ivory	Curiosities reach the White Tower, and the White Tower returns something more useful than thanks.	Tribute to Asuryan: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_medicine	Physic reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_obsidian	Saphery takes the black glass, and the winds run deeper for whoever gave it.	Tribute to Asuryan: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_furs	Furs for the northern watch, and the columns keep the pace they are famous for.	Tribute to Asuryan: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_glass	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	Tribute to Asuryan: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_iron	The iron goes to the armourers of Lothern and comes back as something a mortal smith would not attempt.	Tribute to Asuryan: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_lead	Physic reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_marble	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	Tribute to Asuryan: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_textiles	Tribute rendered early is a levy raised cheaply. The Court remembers which houses were early.	Tribute to Asuryan: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_timber	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	Tribute to Asuryan: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_wine	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	Tribute to Asuryan: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_spices	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	Tribute to Asuryan: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_trinkets	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	Tribute to Asuryan: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_phoenix_pleased	The tribute was rendered in full and on the day named. The Court has said so once, in public, which is a great deal.	Well Regarded	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_hef_phoenix_wrath	The request was not met, and the omission was noticed by people whose noticing carries. Nobody has said anything. Nobody will need to.	Noted at Court	faction	1	attrition.png	true	false	true
+derpy_chd_ex_skv_offering_animals	The feast goes to the warren and the squeaking stops for a while.	Tribute to the Council: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_dyes	A clan that pays promptly is a clan that is robbed last.	Tribute to the Council: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_gems	A clan that pays promptly is a clan that is robbed last.	Tribute to the Council: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_gold_idols	Melted gold buys the sort of underling who arrives unannounced.	Tribute to the Council: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_ivory	Strange goods reach Skryre and something explodes productively.	Tribute to the Council: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_medicine	The Council releases the breeding quotas and the swarm refills.	Tribute to the Council: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_obsidian	Burnt black glass, and the Seers see further than is good for anyone.	Tribute to the Council: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_furs	Furs for the deep tunnels, and the columns run further.	Tribute to the Council: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_glass	The feast goes to the warren and the squeaking stops for a while.	Tribute to the Council: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_iron	Skryre takes the iron and returns plate that mostly holds.	Tribute to the Council: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_lead	The Council releases the breeding quotas and the swarm refills.	Tribute to the Council: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_marble	Materials surrendered are materials not stolen twice, and the digging goes cheaper.	Tribute to the Council: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_textiles	Tribute paid up front buys clanrats at the lower rate.	Tribute to the Council: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_timber	Materials surrendered are materials not stolen twice, and the digging goes cheaper.	Tribute to the Council: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_rom_wine	The feast goes to the warren and the squeaking stops for a while.	Tribute to the Council: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_spices	The feast goes to the warren and the squeaking stops for a while.	Tribute to the Council: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_offering_trinkets	A clan that pays promptly is a clan that is robbed last.	Tribute to the Council: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_skv_council_pleased	The tribute arrived whole and on time, which the Council was not expecting and has decided to reward anyway.	The Council is Pleased	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_skv_council_wrath	The tribute did not arrive and thirteen of the wrong sort noticed. Word travels faster underground than anywhere.	Marked by the Council	faction	1	attrition.png	true	false	true
+derpy_chd_ex_offering_animals	Beasts screaming on the altar, and the columns come home heavier with slaves.	Offering to Hashut: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_dyes	Treasure fed to the furnace buys favour in every market.	Offering to Hashut: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_gems	Treasure fed to the furnace buys favour in every market.	Offering to Hashut: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_gold_idols	Idols melt on the altar and ambitious men come to the Conclave.	Offering to Hashut: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_ivory	Burnt tusk and rare ash teach the workshops something new.	Offering to Hashut: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_medicine	Hashut blesses the supply train and the armies fill again.	Offering to Hashut: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_obsidian	The smoke of burnt obsidian opens the Sorcerer-Prophets' sight.	Offering to Hashut: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_furs	Furs burn, the Bull God warms the road, and columns march further.	Offering to Hashut: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_glass	The feast is given to the flames, and the slaves are quiet.	Offering to Hashut: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_iron	Hashut takes the iron and hardens every plate in the host.	Offering to Hashut: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_lead	Hashut blesses the supply train and the armies fill again.	Offering to Hashut: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_marble	Timber and stone burn on the altar; the work goes cheaper.	Offering to Hashut: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_textiles	Goods offered up buy conscripts cheaper than gold does.	Offering to Hashut: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_timber	Timber and stone burn on the altar; the work goes cheaper.	Offering to Hashut: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_rom_wine	The feast is given to the flames, and the slaves are quiet.	Offering to Hashut: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_spices	The feast is given to the flames, and the slaves are quiet.	Offering to Hashut: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_offering_trinkets	Treasure fed to the furnace buys favour in every market.	Offering to Hashut: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hashut_pleased	The tithe was paid in full and on the day it was asked. Word of that travels too.	Hashut is Pleased	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_hashut_wrath	The altar went cold and the priests said why. Word travels faster than any order you can give.	Hashut's Displeasure	faction	1	attrition.png	true	false	true
+derpy_chd_ex_cth_offering_animals	The banquet is given to the province and harmony is restored.	Levied by the Court: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_dyes	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	Levied by the Court: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_gems	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	Levied by the Court: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_gold_idols	Melted idols fund appointments, and appointments are how the Court moves.	Levied by the Court: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_ivory	Curiosities reach the Celestial archives and are catalogued, which is how Cathay learns.	Levied by the Court: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_medicine	The requisition clears and the garrisons are made whole.	Levied by the Court: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_obsidian	Correct offerings at the correct hour; the winds answer on schedule.	Levied by the Court: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_furs	Furs for the northern roads, and the caravans keep pace.	Levied by the Court: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_glass	The banquet is given to the province and harmony is restored.	Levied by the Court: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_iron	The Ministry of Works receives its iron and every lamellar plate is inspected and passed.	Levied by the Court: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_lead	The requisition clears and the garrisons are made whole.	Levied by the Court: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_marble	Materials correctly surrendered are materials correctly reissued, at a discount.	Levied by the Court: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_textiles	Levies raised under seal cost the treasury less.	Levied by the Court: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_timber	Materials correctly surrendered are materials correctly reissued, at a discount.	Levied by the Court: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_rom_wine	The banquet is given to the province and harmony is restored.	Levied by the Court: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_spices	The banquet is given to the province and harmony is restored.	Levied by the Court: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_offering_trinkets	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	Levied by the Court: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_cth_court_pleased	The levy was surrendered in full and on the day named. The record says so, and the record is what matters.	Correctly Filed	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_cth_court_wrath	The assessment lapsed and the lapse was filed. A file of that kind is copied to more offices than you have dealings with.	Found Out of Harmony	faction	1	attrition.png	true	false	true
+derpy_chd_ex_dwf_offering_animals	The barrels go round the galleries and the grumbling drops to its usual level.	Offered to Grungni: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_dyes	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	Offered to Grungni: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_gems	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	Offered to Grungni: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_gold_idols	Melted idols pay the sort of Dwarf who travels alone and reports back in person.	Offered to Grungni: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_ivory	The apprentices get the tusk and the engineers get three ideas out of what is left.	Offered to Grungni: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_medicine	Salt and physic reach the throng, and the throng comes back up to strength.	Offered to Grungni: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_obsidian	The runesmiths take the black glass, and something in the deep workings runs stronger.	Offered to Grungni: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_furs	Furs for the high passes, and the throng marches further before it stops to complain.	Offered to Grungni: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_glass	The barrels go round the galleries and the grumbling drops to its usual level.	Offered to Grungni: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_iron	The iron goes to the Guild's forges and comes back as plate, correctly, and a little late.	Offered to Grungni: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_lead	Salt and physic reach the throng, and the throng comes back up to strength.	Offered to Grungni: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_marble	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	Offered to Grungni: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_textiles	Goods pledged up front buy a muster at last decade's rate, which the Guild considers generous.	Offered to Grungni: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_timber	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	Offered to Grungni: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_wine	The barrels go round the galleries and the grumbling drops to its usual level.	Offered to Grungni: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_spices	The barrels go round the galleries and the grumbling drops to its usual level.	Offered to Grungni: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_trinkets	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	Offered to Grungni: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_ancestors_pleased	The due was paid in full and on the day named. The entry has been struck through, which is as close to praise as the Book allows.	The Book is Balanced	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_dwf_ancestors_wrath	The due was not paid and the failure was written down. Nothing was said about it, which is worse, and the Book is read aloud once a generation.	A Grudge Recorded	faction	1	attrition.png	true	false	true
+derpy_chd_ex_emp_offering_animals	The feast is given to the poor and the province is quiet.	Tithe to Sigmar: Exotic Animals	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_dyes	A generous house is a trusted house, and trusted houses are charged less.	Tithe to Sigmar: Dyes	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_gems	A generous house is a trusted house, and trusted houses are charged less.	Tithe to Sigmar: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_gold_idols	Melted idols pay for men willing to travel and ask questions.	Tithe to Sigmar: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_ivory	Rare goods reach the colleges, and the colleges write something down.	Tithe to Sigmar: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_medicine	The Temple blesses the muster and the regiments fill again.	Tithe to Sigmar: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_obsidian	Burnt offerings open the Celestial College's sight.	Tithe to Sigmar: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_furs	Cloaks for the column, and the roads pass quicker.	Tithe to Sigmar: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_glass	The feast is given to the poor and the province is quiet.	Tithe to Sigmar: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_iron	Sigmar takes the iron and every plate in the host is blessed at the anvil.	Tithe to Sigmar: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_lead	The Temple blesses the muster and the regiments fill again.	Tithe to Sigmar: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_marble	Timber and stone given to the Temple; the masons work for alms.	Tithe to Sigmar: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_textiles	A pious lord recruits cheaper than a rich one.	Tithe to Sigmar: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_timber	Timber and stone given to the Temple; the masons work for alms.	Tithe to Sigmar: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_rom_wine	The feast is given to the poor and the province is quiet.	Tithe to Sigmar: Wine	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_spices	The feast is given to the poor and the province is quiet.	Tithe to Sigmar: Spices	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_offering_trinkets	A generous house is a trusted house, and trusted houses are charged less.	Tithe to Sigmar: Elven Trinkets	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_emp_sigmar_pleased	The tithe was paid in full and on the day it was asked. The Temple says so from the pulpit too.	The Temple is Satisfied	faction	1	trait_chaos_dwarfs.png	true	false	true
+derpy_chd_ex_emp_sigmar_wrath	The plate went round and came back empty, and the priests said so from the pulpit. Word travels faster than any order you can give.	The Temple's Displeasure	faction	1	attrition.png	true	false	true
