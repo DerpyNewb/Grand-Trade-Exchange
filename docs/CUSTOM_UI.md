@@ -2,8 +2,8 @@
 
 Traced end to end while building the Zharr Exchange panel, 2026-09-04/05. Every rule below was
 **measured in game**, most of them after shipping the wrong thing first; the screenshot that
-caught each one is named. `docs/TOWER_OF_ZHARR_CUSTOM_SEATS.md` §5 covers reading and
-re-laying out **CA's** panels — this file covers shipping **your own**.
+caught each one is named. It covers shipping **your own** panel, as opposed to re-laying
+out one of CA's.
 
 The build is `tools/gen_exchange_ui.py` (three `.twui.xml` files) plus
 `Modding Files/pack/script/campaign/mod/zzz_derpy_chd_exchange.lua` (creation, layout, text,
@@ -690,10 +690,6 @@ Two lessons about the checks themselves, from the same day:
   missing.
 - **A harness that stubs a setter away cannot tell "painted" from "left up".** Record what
   `SetImagePath` and `SetStateText` were handed and assert on that, not on `SetVisible`.
-
-`tools/check_rite_panel_ui.py` does the same job for the three commission-panel widgets, with
-the game shut: component names the Lua reaches for, CCO properties, GUID pairing, root-vs-child
-extent, and the visibility gate a list-reading widget needs.
 
 ## Reading CA's names LIVE: the context viewer
 

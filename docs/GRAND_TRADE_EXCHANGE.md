@@ -1,11 +1,10 @@
-# The Zharr Exchange — complete reference
+# The Grand Trade Exchange — complete reference
 
-`derpy_zharr_exchange.pack`. A live commodities market, a stock exchange in Chaos Dwarf
-houses, a patron's tithe, a warehouse and a war-shock model, on a panel of its own.
+`derpy_zharr_exchange.pack`, which ships in-game as **the Zharr Exchange**. A live
+commodities market, a stock exchange in Chaos Dwarf houses, a patron's tithe, a warehouse
+and a war-shock model, on a panel of its own.
 
-This is the **reference for what shipped**. `STOCK_MARKET_DESIGN.md` is the design record — why
-each decision was taken, what was rejected, and which of its own conclusions the game later
-overturned. Where the two disagree, this file is current.
+This is the **reference for what shipped**.
 
 | | |
 |---|---|
@@ -1345,11 +1344,11 @@ its turn numbers and the commodity icon (2026-09-09, turn 2, one bar and one stu
 (measured: `covered=true`, race "Merchant Compact", patron Myrmidia, `seg=teb_`, feed 7441, all
 five tabs open, seven houses, every profiled knob on its intended value, `spread` at ×1).
 
-**Not yet run in a campaign** (from `STOCK_MARKET_DESIGN.md` §10.1):
+**Not yet run in a campaign:**
 
 - **The settlement PAYOUT** — buyout 1.25 and wind-up 0.5, resolved through a *cached* region
   key. **The chain around it is no longer unplayed:** a live Chaos Dwarf campaign on the
-  2026-09-09 build (`script_log_090926_1815.txt`, about five turn rounds) delisted
+  2026-09-09 build (about five turn rounds) delisted
   `cr_chd_slaves_of_the_black_dwarf` into `wh3_dlc23_chd_conclave` — the player's own faction,
   so the buyout branch — then logged the settlement and pruned the house the following turn:
   `delisted ... paid 0` / `settlement logged` / `pruned 1 delisted house(s) held at zero`.
@@ -1419,8 +1418,7 @@ war lock is close to off for that race.
 ## 18. Multiplayer
 
 Built 2026-09-09. **Never run on two machines.** Everything below is built to CA's own
-documentation and proven self-consistent under `lua.exe`; none of it is verified in play. Full
-account: `docs/sessions/HANDOFF_20260909_EXCHANGE_MULTIPLAYER.md`.
+documentation and proven self-consistent under `lua.exe`; none of it is verified in play.
 
 **Before this, the mod did not desync in multiplayer — it died.**
 `cm:get_local_faction_name()` *throws a script error* in a multiplayer campaign unless `true` is
@@ -1560,10 +1558,5 @@ are the round-trip algebra, and a race factor on any of them can mint gold.
 
 ## 20. See also
 
-| | |
-|---|---|
-| `docs/STOCK_MARKET_DESIGN.md` | the design record and the arguments behind these numbers |
-| `docs/CUSTOM_UI.md` | runtime `.twui.xml`, GUIDs, `MoveTo`, the silent-failure traps |
-| `docs/RITUALS.md` | why this is *not* a ritual and *not* the rites panel |
-| `docs/sessions/HANDOFF_20260908_TIER1_RACES_PLAN.md` | the race build, section by section |
-| `docs/SESSION_INDEX.md` | which handoff is current for a given subsystem |
+`docs/CUSTOM_UI.md` - runtime `.twui.xml`, GUIDs, `MoveTo`, and the silent-failure
+traps behind this panel.

@@ -3,7 +3,8 @@
 A commodities market and stock exchange for *Total War: WARHAMMER III*, built as a
 Chaos Dwarf campaign mod. Written entirely in the game's own extension surface -
 DB tables, Lua 5.1 and CA's `.twui.xml` UI layer - with no engine access, no
-decompiler, and no official API beyond CA's published script reference.
+decompiler, and no official API beyond CA's published script reference. It ships
+in-game as **the Zharr Exchange**.
 
 The game ships 17 tradeable resources, every one priced at a flat value of 50, with
 no price discovery anywhere. The Exchange is that missing layer: each good gets a
@@ -18,7 +19,7 @@ Five things you can do with gold in it:
 - **Buy shares in AI factions** - they pay a per-turn dividend and settle when the faction dies, at a premium if you were the one who killed it.
 - **Pay a patron's tithe**, or refuse it and take the consequences.
 
-Full reference: **[docs/ZHARR_EXCHANGE.md](docs/ZHARR_EXCHANGE.md)**.
+Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**.
 
 ---
 
@@ -127,7 +128,7 @@ Modding Files/
   pack/                       1:1 mirror of the in-pack layout (generated)
   source/zharr_exchange/      the generated DB and loc, as TSV
 docs/
-  ZHARR_EXCHANGE.md           complete reference for what ships
+  GRAND_TRADE_EXCHANGE.md     complete reference for what ships
   CUSTOM_UI.md                building a runtime UI panel in this engine
 ```
 
