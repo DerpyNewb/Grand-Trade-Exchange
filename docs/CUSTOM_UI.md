@@ -1,9 +1,14 @@
 # Building a custom UI panel (WH3)
 
+> **The public copy is edited - do not overwrite it.** `zharr-exchange/` stages this doc
+> for github.com/DerpyNewb/Grand-Trade-Exchange with the `TOWER_OF_ZHARR_CUSTOM_SEATS` and
+> `check_rite_panel_ui.py` references stripped, since neither is in that repo. Copying this
+> file over it re-breaks those links. Edit here, then re-apply the strip.
+
 Traced end to end while building the Zharr Exchange panel, 2026-09-04/05. Every rule below was
 **measured in game**, most of them after shipping the wrong thing first; the screenshot that
-caught each one is named. It covers shipping **your own** panel, as opposed to re-laying
-out one of CA's.
+caught each one is named. `docs/TOWER_OF_ZHARR_CUSTOM_SEATS.md` §5 covers reading and
+re-laying out **CA's** panels — this file covers shipping **your own**.
 
 The build is `tools/gen_exchange_ui.py` (three `.twui.xml` files) plus
 `Modding Files/pack/script/campaign/mod/zzz_derpy_chd_exchange.lua` (creation, layout, text,
@@ -55,6 +60,7 @@ DE15xxxx  RETIRED (was derpy_chd_ex_delta) - do not reuse
 DE16xxxx  derpy_chd_exchange_panel
 DE17xxxx  derpy_chd_exchange_row
 DE18xxxx  derpy_chd_exchange_button
+GG21xxxx  derpy_gg_panel / _card / _row   (The Great Guilds, claimed 2026-09-10)
 ```
 
 ## The file skeleton
@@ -158,6 +164,124 @@ that is a `Loading mod file` line with no `loaded successfully`, the quietest fa
 The same rule holds one level down for a row's cells, and one level up for the rows themselves.
 Three levels, one rule, and each was found the hard way.
 
+## Scrolling lists: five reserved names, four reserved callbacks
+
+**Confirmed working in game 2026-09-13**, after shipping inert once.
+
+There is no scroll widget in this engine and no attribute that turns scrolling on. A list that
+scrolls is a fixed arrangement the engine recognises **by component name**, with the behaviour
+attached **by `callback_id`**. Get a name or a callback wrong and there is no error, no log
+line, and usually something that looks right on screen:
+
+```
+listview          callback_id="Listview"        <- binds the other three together
+  list_clip       clipchildren="true"           isrelativeresize="true"
+    list_box      callback_id="List"            LayoutEngine type="List"
+                                                sizetocontent="true"
+  vslider         callback_id="VSlider"         a track image
+    handle        callback_id="VSliderHandle"   moveable="Movable XP", a handle image
+```
+
+Five names, four callbacks. `list_box` and `vslider` are **siblings** under the container;
+`list_box` lives inside `list_clip` and `handle` inside `vslider`.
+
+### The container callback is the one that gets forgotten
+
+**This shipped.** The Great Guilds' faction list had `list_clip`, `list_box`, `vslider` and
+`handle` all correct, and a container named `derpy_gg_list` carrying no callback at all. The
+result is the quietest failure of the four: every other part works, so the list drew its rows,
+stacked them in order, clipped the seventh cleanly at the window edge — and would not scroll a
+line. Nothing joined the slider to the box.
+
+**Do not use `ui/common ui/tab_completer.twui.xml` as the donor.** It is the smallest CA panel
+in the game with exactly one scrolling list, which is what makes it look ideal, and its
+container carries a bespoke `TabCompleteSuggestionList` callback instead of `Listview` — so
+copying its four inner parts copies everything except the binding. That is exactly how the
+inert build happened.
+
+Copy **`ui/templates/listview.twui.xml`** instead. That is the subtree CA's own panels pull in
+with `template_id="Listview"`, and its root carries `callback_id="Listview"`.
+
+Measured across all 824 panels in `ui3.pack`:
+
+| | |
+|---|---|
+| components that parent a `list_clip` | 317 |
+| of those, named `listview` outright | 144 |
+| panels referencing `template_id="Listview"` | 145 |
+| panels referencing `template_id="listview"` by path | 1 |
+
+Name the container `listview` as well as giving it the callback. The engine binds the four
+inner parts by name, and there is no reason to find out the hard way whether it binds this one
+by name too. It sits inside your own panel, so it collides with nothing — CA's own scripts
+reach their lists through a parent chain.
+
+### CA's template is reusable, but only at its own size
+
+`CreateComponent` accepts a CA template path directly, extension and all:
+
+```lua
+UIComponent(parent:CreateComponent("my_list", "ui/templates/listview.twui.xml"))
+```
+
+That brings the whole subtree, its art and its callbacks for free — and it is **300x500 with
+`<column width="264"/>` baked into its `list_box` layout engine**, which no runtime call
+changes. For any other width, emit your own subtree with these names and callbacks rather than
+fighting a column you cannot reach. `ui/skins/default/slider_vertical_mid.png`,
+`slider_vertical_handle.png` and `slider_vertical_handle_underlay.png` are the textures CA's
+own listview draws through `parchment_slider_vertical`.
+
+### Filling it from Lua
+
+**No CA script ever populates a `list_box`** — the engine fills them from CCO contexts, and
+CA's scripts only ever read them. A grep of all 5,778 shipped Lua files finds nothing to copy.
+The idiom comes from mods (`!better_recruitment_ui` among them):
+
+```lua
+local box = find_uicomponent(list, "list_clip", "list_box")
+box:DestroyChildren()
+for i = 1, #rows do
+    box:CreateComponent("row_" .. i, "ui/campaign ui/my_row")
+    -- ... write the row's text
+end
+box:Layout()          -- without this the rows sit stacked at the box's origin
+```
+
+`sizetocontent="true"` on the `list_box` is what lets it grow taller than the clip window. A
+box pinned to the window's height has nothing below the fold, so there is nothing to scroll to
+and the slider is correct to refuse to move.
+
+### A row in the list must have NO children
+
+This follows straight from `dockpoint` being ignored. Every child in your panel is placed by
+absolute `MoveTo`, which is fine for a card that never moves again — but **the engine moves a
+scrolled row itself, and raises no event you can re-run a layout pass on**. A child cell would
+keep the screen position it was given while its row travelled out from under it: the fourth
+faction's name left hanging in the middle of the panel.
+
+So a row is **one component**, and anything that would have been a child icon goes inside its
+text with `[[img:<full path>]][[/img]]` markup — measured working from Lua-built strings, not
+just from loc. The cost is real and worth stating: a proportional font cannot be padded into
+columns, so a row reads as one line rather than aligned columns.
+
+`[[wh3-twui-img-markup-from-lua]]`, `[[wh3-layout-group-overrides-moveto]]`
+
+### What to position, and what to leave alone
+
+The container, the clip window and the slider are yours to `MoveTo`. **`list_box` and `handle`
+are not** — the List and VSlider callbacks own where those sit, and moving a `list_box` by hand
+is how a list scrolls to somewhere it is not. `gen_guilds_ui.py` refuses either name in the
+Lua's placement table for that reason.
+
+### The check
+
+`check_scroll_parts()` in `tools/gen_guilds_ui.py` asserts the five names, the four callbacks,
+`sizetocontent` and the layout engine — and re-reads **CA's template**, not `tab_completer`, to
+confirm the contract still holds after a patch. Checking against `tab_completer` is precisely
+what let the inert build pass.
+
+`[[wh3-scrolling-list-needs-listview-callback]]`
+
 ## Textures
 
 **Every `imagepath` must be a real entry in a shipped pack.** A path that does not exist renders
@@ -195,6 +319,43 @@ through as a grid of seams. It also must be smaller than half the component: mar
 **A panel background is two layers**, copied from CA's `ui/templates/panel_frame.twui.xml`:
 `panel_back_tile.png` at margin 5 and `panel_back_border.png` at margin 30, both at
 `priority="60"`. One flat image stretched to panel size reads as no background at all.
+
+### Changing that background at runtime
+
+**A panel's ground can be swapped from Lua, and the swap is addressed by INDEX.**
+`SetImagePath(path, index)` replaces one of the images in the component's
+`<componentimages>` list, counted in the order they are declared — CA's own words are that
+an index set here "takes precedence over any set `script_icon_index` property", and with no
+index at all it swaps image 0. The Great Guilds' panel declares four (tile, art, scrim,
+frame) and the campaign Lua repaints image **1** as the player pages from guild to guild,
+which is what makes the hall behind the text change with the guild on screen.
+
+Three things follow, and each of them fails in silence:
+
+- **The index is positional, so a new layer renumbers it.** Insert anything above the art
+  and the same call now replaces the tile *underneath* it — hidden, so nothing on screen
+  ever changes again — or the scrim, which is what every unplated label's contrast rests
+  on. Nothing ties the Lua's constant to the generator's layer list, so
+  `gen_guilds_ui.check_panel_bg()` does: it fails the build when `GGUI.BG_INDEX` stops
+  matching the art's position in `PANEL_LAYERS`.
+- **You cannot read back what is there.** `GetImagePath` hard-crashes the game, exactly as
+  `GetTooltipText` does, so "only repaint when it changed" has to be a variable you keep —
+  and a memo of that shape is wrong the moment the panel is destroyed and recreated, which
+  presents as a panel stuck on its default ground. Repainting unconditionally on a refresh
+  driven by clicks (not by a timer) is the cheaper correct answer.
+- **A swapped-in ground is a text-contrast change, not a decoration change.** The Guilds
+  panel's ground was picked on what it measures under its own scrim — p99 luminance 34,
+  peak 131 — because the Help tab draws twenty-one lines straight onto it with no plate
+  between. Every picture in `Modding Files/reference/` measures brighter than that (the
+  darkest is p99 55, most are 70 to 95), so `tools/make_guild_backgrounds.py` multiplies
+  each one down until it measures what the original ground measures, reading that ceiling
+  off the shipped file rather than from a number typed into the script. It also trims the
+  letterbox bars and the bottom 16% of each source, because CA's logo is burnt into the
+  artwork and a 9% crop left its crown sitting in the middle of five of the six grounds.
+
+`tools/preview_guilds_panel.py <guild>` renders the panel with that guild's ground, since a
+preview that only reads the `.twui.xml` draws the one background nobody with the mod
+installed ever sees.
 
 **`dockpoint` and `offset` on an `<image>` are cumulative, not alternatives.** CA insets its
 body by (9,3) *and* docks it Center inside a 418x530 frame; copying both shifted our body 18
@@ -234,6 +395,19 @@ that does exist is **`ui/skins/default/icon_credits_back.png`**: a flat bronze t
 LEFT on transparency, 56x56 — the same family as `icon_cross_small` and `icon_question_mark`,
 so it sits on `button_round_small_active.png` exactly the way a close or help button does.
 
+**A 9-slice cannot bend, so a curved border is ART.** CA's frame is four straight rails and
+four corner ornaments; there is no rotation and nothing that follows a path, so a round or
+half-round widget gets its border the same way it gets its fill - as a picture the same size
+as the box, declared after everything it covers. Do not invent the metal: **measure CA's**.
+`ui/skins/default/panel_back_border.png` is the same six pixels on all four sides - one of
+soft edge at alpha 25, three of bronze, then black at alpha 172 and 54 going inward - and the
+bronze is **lit from above**, so the top rail's outer pixel is `(181,152,107)` and the bottom
+rail's is `(76,44,19)`. Interpolating those three rails by the outward normal's up-component
+gives an arc that belongs to the same panel; one flat bronze all the way round does not. Three
+pixels is right against a panel edge and reads as a hairline round a 210px radius - resample
+the ramp to widen it rather than padding it, so the bevel keeps CA's shape.
+(`tools/gen_ic_ui.py::rim_pixels`, the Iron Court dial, 2026-09-13.)
+
 **To see a texture before you ship it**, pull it out of the pack and look: `read_pack_index.read`
 gives the bytes, `read_vanilla_loc._decompress` strips the `u32`+zstd wrapper, and Pillow will
 build a contact sheet. Twelve candidates on one sheet answered "which of these is a bare arrow"
@@ -247,8 +421,8 @@ in one look, after two rounds of guessing from filenames had produced the wrong 
 <component_text texthalign="Center" textvalign="Center"
                 textxoffset="4.00,0.00" textyoffset="0.00,0.00"
                 texthbehaviour="Never split"
-                font_m_size="13" font_m_colour="#FFF8D7FF"
-                font_m_leading="3" fontcat_name="body_13"/>
+                font_m_size="12" font_m_colour="#FFF8D7FF"
+                font_m_leading="3" fontcat_name="body_12"/>
 ```
 
 - `texthalign` is **horizontal**, `textvalign` is **vertical**. The generator had them the other
@@ -256,6 +430,16 @@ in one look, after two rounds of guessing from filenames had produced the wrong 
 - The value is American **`Center`**. `Centre` is not in the engine's vocabulary and an unknown
   value is **ignored in silence**, so every button label sat left and high. Counted in
   `ui3.pack`: `textvalign` Center 8734 / Bottom 219, `texthalign` Center 3981 / Right 631.
+- **`fontcat_name` is a name from a fixed vocabulary, not a size.** Counted across `ui.pack`,
+  `ui2.pack` and `ui3.pack`: **32 distinct values**, and the only `body_*` sizes CA has are
+  **body_10, body_12, body_16** (plus `body_12_bold`, `body_12_italic`, `body_alternative_12`).
+  The header family is `header_12/14/16/18`, `header_16_bold/18_bold/20_bold/24_bold`,
+  `header_alternative_18`. An unknown value is **not an error and not a blank** — the engine falls
+  back, so the label draws at a size nobody chose, and `font_m_size` does not rescue it. The
+  example above said `body_13` and the shared emitter built the name as `"body_%d" % size`, so
+  every size-14 label in the Zharr Exchange and The Great Guilds shipped `body_14`. Fixed at
+  source: `EU.fontcat()` snaps a requested size to the nearest real category or takes an explicit
+  `fontcat=`, and `gen_guilds_ui.check()` refuses on any name outside `EU.FONTCATS`.
 - Set the string from Lua with `SetStateText`. Do not build a padded single-line header — the
   font is proportional, so spaces never line up with the columns below. Use **one label per
   column** and keep its x in step with the row's.
@@ -504,6 +688,23 @@ actually drawn, live, on every placement call** — never derive a HUD position 
 (the strip's `docked Top Center` + `anchor 0.50` + `offset 404` works out to ~968 by hand and is
 wrong by 460px), and never from a parent's declared size.
 
+**And this cuts both ways: nothing is clipped to its parent.** CA's `resources_bar`
+overhanging its holder by 133px is not a special case, it is the rule. An `<image>` in a
+component's `<imagemetrics>` draws at exactly the rect it is given, so a rect larger than
+the component paints *outside the panel*, over the campaign map.
+
+MEASURED IN GAME 2026-09-12. The Great Guilds panel's 790x700 ground was overscanned to
+822x732 at offset `-16,-16`, on the assumption that the engine would crop the picture's dead
+outer rows to the component. It does not. The art and its scrim ringed the panel with 16px
+of black **outside the gold frame**. The outermost thing a panel draws must be its frame.
+
+There is no "overscan to crop" idiom in twui — a picture's own edges are what you get. If an
+art file's edge is unusable, the frame's 9-slice `margin` is the knob, or pick other art.
+Deliberate insets go the other way and are safe for exactly the same reason: a **negative**
+`dw`/`dh` with `dockpoint="Center"` draws inside the component and cannot escape, which is
+what every icon and button plate here uses. A positive `dw`/`dh` is always a bug, and
+`tools/gen_guilds_ui.py` `check()` now refuses one.
+
 ### A fallback must not resolve to different geometry
 
 The teleport that followed: the anchor fell back to the holder when the child was not yet
@@ -659,8 +860,10 @@ copy into the next UI generator:
 | every `imagepath` present in a shipped `ui*.pack` | blank white square |
 | every `interactive` component has a `soundcategory` | a silent panel |
 | `texthalign`/`textvalign` in the engine's vocabulary | labels left and high |
+| `fontcat_name` in `EU.FONTCATS` | every label in a fallback font |
 | header x == row column x + holder inset | headers not over their columns |
 | no column's width reaches the next column's x | "TrendLast 12 turns" |
+| a RUNTIME width override may only cover columns that view leaves empty | a description drawn underneath the widened column beside it |
 | the last column leaves under 24px inside the row | 90px of dead space right of Sell |
 | the panel background keeps two layers with non-zero margins | tiling seams |
 | no `\|\|` in any **loc** value (literal attribute text only) | pipes drawn verbatim on screen |
@@ -670,6 +873,11 @@ copy into the next UI generator:
 | every component in the XML is named by some layout table | a cell nothing ever places, hidden on every page, drawing nowhere |
 | the XML's geometry constants equal the runtime's own copies | the fortieth bar walked off the end of the plot |
 | a label is asserted on its TEXT, not on its visibility | a dead commodity's price scale beside "nothing chosen" |
+| a scrolling list declares all five names AND all four callbacks | a list that draws, stacks, clips and never moves |
+| a row inside a list has no child components | a cell left hanging mid-panel the moment the list scrolls |
+| a clickable component has `interactive="true"` on a state | a click target that raises no event at all |
+| a runtime image index still names the layer it was written for | a background that silently stops changing, or a scrim replaced by a picture |
+| every runtime-swapped picture is on disk AND measured | a blank ground, or unplated text on a picture half again too bright |
 
 The last three are 2026-09-09 and are worth a sentence each. **A component the layout tables do
 not name cannot draw at all** once the hide pass walks their union — the fault flips from "draws
@@ -679,6 +887,8 @@ same constants share nothing but a comment**, and a pitch one pixel wider on one
 in both directions. And **a drawn label is not a placed one**: the layout pass shows every cell
 the current view names, so visibility proves the cell is there and says nothing about whether
 anything wrote into it.
+
+The override row is 2026-09-12 and is the runtime twin of the row above it. A list whose columns are shared by several views needs one of them wider for the view that draws a sentence, and `Resize` is the only way to get it - but **resizing a cell does not move the cells to its right**: their x is fixed in the `.twui.xml`, so a column two widened from 180 to 1102 at x=568 covers columns three and four whole. That is correct as long as the view writes into column two alone, and it is one line drawn on top of another the moment the same view puts text in a covered column - which is invisible to a static check, because the static widths are all still legal. The check has to run at DRAW time and compare the cells that actually carry text: The Iron Court's harness walks every tab and asserts that no two cells with text overlap in x.
 
 Two lessons about the checks themselves, from the same day:
 
@@ -690,6 +900,10 @@ Two lessons about the checks themselves, from the same day:
   missing.
 - **A harness that stubs a setter away cannot tell "painted" from "left up".** Record what
   `SetImagePath` and `SetStateText` were handed and assert on that, not on `SetVisible`.
+
+`tools/check_rite_panel_ui.py` does the same job for the three commission-panel widgets, with
+the game shut: component names the Lua reaches for, CCO properties, GUID pairing, root-vs-child
+extent, and the visibility gate a list-reading widget needs.
 
 ## Reading CA's names LIVE: the context viewer
 

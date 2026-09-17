@@ -110,6 +110,17 @@ EX.house_set = nil
 EX.adopt_local()
 print("subject_after_adopt " .. tostring(EX.subject))
 
+-- ONE STANDING ORDER PER PLAYER, on four distinct real commodities. "orders" is in
+-- EX.SLICE_TABLES beside shares_held/offer_until/LOG, and this is the only way to prove the
+-- swap actually moves it rather than just naming it: a table left pointing at whoever was
+-- bound last would fill every human's orders out of one player's treasury.
+local ORDER_OF = {
+    alpha_player = { "res_gems",       "b", "le" },
+    mid_player   = { "res_dyes",       "s", "ge" },
+    omega_player = { "res_gold_idols", "b", "ge" },
+    zeta_player  = { "res_rom_timber", "s", "le" },
+}
+
 local n = 0
 for _, f in ipairs(EX.humans()) do
     n = n + 10
@@ -119,17 +130,22 @@ for _, f in ipairs(EX.humans()) do
         EX.demand_res = "res_" .. f
         EX.offer_until["res_gems"] = n
         EX.LOG[#EX.LOG + 1] = { 1, f, "line for " .. f, "" }
+        local o = ORDER_OF[f]
+        EX.place_order(o[1], o[2], o[3], n)
     end)
 end
 
 local got = {}
 for _, f in ipairs(EX.humans()) do
     EX.with_player(f, function()
+        local o = EX.orders[1]
+        local sig = o and (o.res .. ":" .. o.side .. o.cmp .. ":" .. tostring(o.rung)) or "-"
         got[#got + 1] = f .. "=" .. tostring(EX.held("house_a"))
             .. "/" .. tostring(EX.offerings_made)
             .. "/" .. tostring(EX.demand_res)
             .. "/" .. tostring(EX.offer_until["res_gems"])
             .. "/" .. tostring(#EX.LOG)
+            .. "/" .. #EX.orders .. ":" .. sig
     end)
 end
 print("slices " .. table.concat(got, " "))
@@ -262,3 +278,108 @@ print("rounds_one_turn " .. rounds)
 TURN = 11
 for _ = 1, #EX.humans() do fire() end
 print("rounds_two_turns " .. rounds)
+
+-- ------------------------------------------------------------------------------------------
+-- 8. THE DEALS PAGE, AND THE ONE THING THAT MAKES ITS BUTTON SAFE TO SHIP IN MULTIPLAYER.
+--
+-- EX.mp_send carries the deal's LIST INDEX and nothing else - "3", not a faction and a
+-- commodity - so client B's EX.deals[3] must be client A's EX.deals[3] or the two machines
+-- settle different trades out of the same click. Two properties, and they are not the same:
+--
+--   AGREEMENT: every machine computes the same page for the same player. The page is per
+--   PLAYER, not per machine (EX.post_deals builds it against EX.who() and excludes humans),
+--   so what has to match is A's answer for mid_player against B's answer for mid_player.
+--
+--   THE RIGHT RECIPIENT: the engine is asked whether the AI would deal with THE BOUND PLAYER,
+--   not with whoever is sitting at this machine. Agreement alone cannot see that fault - four
+--   machines all asking about their own local player would agree perfectly and be wrong for
+--   three players out of four - so the stub below REFUSES one (faction, player) pair and the
+--   pages have to disagree in exactly that one place. Measured first without it: all four
+--   pages came back identical, which is correct for this feature (the AI world offers the same
+--   deals to every human) and is also a check that would have passed on four copies of one
+--   string.
+-- ------------------------------------------------------------------------------------------
+-- house_b will not deal with mid_player and will with everyone else. The recipient is the
+-- SECOND argument, which is the `them` side of EX.deal_ok - so this reads the proposing side,
+-- `mine`, which is the bound player and the thing under test.
+cm.cai_evaluate_quick_deal_action = function(_, mine, them)
+    if them.name() == "house_b" and mine.name() == "mid_player" then return 0, false end
+    return 42, true
+end
+EX.snap = { ai_deals = true }
+
+-- TWO INSERTION ORDERS, because pairs() follows the hash layout and the layout follows the
+-- order keys were added. This is the only way a single process can stand in for two machines
+-- that built their tables from the same save by different routes.
+local function build_world(order)
+    EX.actors = {}
+    for _, f in ipairs(order) do
+        EX.actors[f] = { culture = CULTURE[f] or "wh3_dlc23_chd_chaos_dwarfs",
+                         war = (f == "house_c"), gold = 50000, regions = 4 }
+    end
+    EX.actors.house_a.regions = 9
+    EX.owners = { res_rom_iron = { house_a = 9 } }
+    for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+    EX.wbook = {}
+    EX.set_world_book("house_a", "res_rom_iron", 6)
+end
+local function page()
+    local r = {}
+    for i = 1, #EX.deals do
+        local d = EX.deals[i]
+        r[#r + 1] = d.fac .. ":" .. d.res .. ":" .. d.side .. ":" .. d.lots .. ":" .. d.px
+    end
+    return table.concat(r, ";")
+end
+local function run_client(order)
+    local out = {}
+    for _, f in ipairs(EX.humans()) do
+        build_world(order)
+        EX.with_player(f, function()
+            EX.post_deals()
+            out[f] = page()
+        end)
+    end
+    return out
+end
+
+local CLIENT_A = run_client({ "house_a", "house_b", "house_c",
+                              "zeta_player", "alpha_player", "mid_player", "omega_player" })
+local CLIENT_B = run_client({ "omega_player", "mid_player", "house_c", "alpha_player",
+                              "house_b", "zeta_player", "house_a" })
+
+local agree, distinct, empty, odd = 0, {}, 0, 0
+for _, f in ipairs(EX.humans()) do
+    if CLIENT_A[f] == CLIENT_B[f] then agree = agree + 1 end
+    if CLIENT_A[f] == "" then empty = empty + 1 end
+    if string.find(CLIENT_A[f], "house_b", 1) then odd = odd + 1 end
+    distinct[CLIENT_A[f]] = true
+end
+-- THREE OF FOUR, and it must be mid_player that is missing house_b. A mod that asked the
+-- engine about the local player would print 4 here on the alpha_player machine and 3 on
+-- mid_player's - the same save, two answers.
+print("deal_house_b_pages " .. odd)
+print("deal_mid_has_house_b " .. tostring(string.find(CLIENT_A.mid_player, "house_b", 1) ~= nil))
+local n = 0
+for _ in pairs(distinct) do n = n + 1 end
+print("deal_pages_agree " .. agree .. "/" .. #EX.humans())
+print("deal_pages_distinct " .. n)
+print("deal_pages_empty " .. empty)
+
+-- AND THE OP SETTLES AS THE SENDER. mid_player clicks Take on their machine; this machine is
+-- playing alpha_player, and the gold that moves here must still be mid_player's. Applying it
+-- as the local player is a desync that looks correct on the clicker's own screen.
+MP = true
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function() EX.post_deals() end)
+end
+local before = {}
+for _, f in ipairs(EX.humans()) do before[f] = GOLD[f] or 0 end
+EX.mp_apply(EX.faction_by_cqi(13), "deal", "1")
+local moved = {}
+for _, f in ipairs(EX.humans()) do
+    if (GOLD[f] or 0) ~= before[f] then moved[#moved + 1] = f end
+end
+print("deal_moved " .. table.concat(moved, ","))
+print("deal_subject_after " .. tostring(EX.who()))
+MP = false

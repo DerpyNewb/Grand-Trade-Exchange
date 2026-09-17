@@ -222,13 +222,13 @@ derpy_chd_ex_def_dem_wrath_ivory_title	The Blood Price: Tusks	false
 derpy_chd_ex_def_dem_wrath_ivory_primary	Tusk for the scrimshaw of the corsair captains, who are vain, wealthy, and in competition with one another. The temple requires 180, and requires them today. The full sum, at once. The knives have been counted out onto the table, which is how the temple asks a second time.	false
 derpy_chd_ex_def_dem_wrath_ivory_secondary	Sacrifice 180 Tusks in the Black Ark Market within 3 turns, or answer for it.	false
 derpy_chd_ex_def_dem_tithe_medicine_title	Khaine's Portion: Medicinal Plants	false
-derpy_chd_ex_def_dem_tithe_medicine_primary	Naggaroth grows physic it has no intention of wasting on its own. It sells very well to people who will. The temple requires 30, and requires them today. A small offering. The temple keeps count, and the temple's count is the only one that matters.	false
+derpy_chd_ex_def_dem_tithe_medicine_primary	Naggaroth grows medicine it has no intention of wasting on its own. It sells very well to people who will. The temple requires 30, and requires them today. A small offering. The temple keeps count, and the temple's count is the only one that matters.	false
 derpy_chd_ex_def_dem_tithe_medicine_secondary	Sacrifice 30 Medicinal Plants in the Black Ark Market within 3 turns, or answer for it.	false
 derpy_chd_ex_def_dem_hunger_medicine_title	The Temple Thirsts: Medicinal Plants	false
-derpy_chd_ex_def_dem_hunger_medicine_primary	Naggaroth grows physic it has no intention of wasting on its own. It sells very well to people who will. The temple requires 90, and requires them today. More than the usual portion. The Hag Queens were consulted and were not in a moderate humour.	false
+derpy_chd_ex_def_dem_hunger_medicine_primary	Naggaroth grows medicine it has no intention of wasting on its own. It sells very well to people who will. The temple requires 90, and requires them today. More than the usual portion. The Hag Queens were consulted and were not in a moderate humour.	false
 derpy_chd_ex_def_dem_hunger_medicine_secondary	Sacrifice 90 Medicinal Plants in the Black Ark Market within 3 turns, or answer for it.	false
 derpy_chd_ex_def_dem_wrath_medicine_title	The Blood Price: Medicinal Plants	false
-derpy_chd_ex_def_dem_wrath_medicine_primary	Naggaroth grows physic it has no intention of wasting on its own. It sells very well to people who will. The temple requires 180, and requires them today. The full sum, at once. The knives have been counted out onto the table, which is how the temple asks a second time.	false
+derpy_chd_ex_def_dem_wrath_medicine_primary	Naggaroth grows medicine it has no intention of wasting on its own. It sells very well to people who will. The temple requires 180, and requires them today. The full sum, at once. The knives have been counted out onto the table, which is how the temple asks a second time.	false
 derpy_chd_ex_def_dem_wrath_medicine_secondary	Sacrifice 180 Medicinal Plants in the Black Ark Market within 3 turns, or answer for it.	false
 derpy_chd_ex_def_dem_tithe_obsidian_title	Khaine's Portion: Carved Obsidian	false
 derpy_chd_ex_def_dem_tithe_obsidian_primary	Black glass for the Convent's work, and the Sorceresses have been unusually direct about wanting it. The temple requires 30, and requires them today. A small offering. The temple keeps count, and the temple's count is the only one that matters.	false
@@ -1362,6 +1362,14 @@ effect_bundles_localised_title_derpy_chd_ex_trade_pos30	Zharr Exchange	false
 effect_bundles_localised_description_derpy_chd_ex_trade_pos30	Commodity prices are high and this faction's trade goods are in demand.	false
 effect_bundles_localised_title_derpy_chd_ex_trade_pos40	Zharr Exchange	false
 effect_bundles_localised_description_derpy_chd_ex_trade_pos40	Commodity prices are high and this faction's trade goods are in demand.	false
+effect_bundles_localised_title_derpy_chd_ex_pos_neg02	War Stocks	false
+effect_bundles_localised_description_derpy_chd_ex_pos_neg02	This faction has sold the iron, timber and obsidian its armies were counting on.	false
+effect_bundles_localised_title_derpy_chd_ex_pos_neg01	War Stocks	false
+effect_bundles_localised_description_derpy_chd_ex_pos_neg01	This faction has sold the iron, timber and obsidian its armies were counting on.	false
+effect_bundles_localised_title_derpy_chd_ex_pos_pos01	War Stocks	false
+effect_bundles_localised_description_derpy_chd_ex_pos_pos01	This faction's stores of iron, timber and obsidian keep its armies in the field.	false
+effect_bundles_localised_title_derpy_chd_ex_pos_pos02	War Stocks	false
+effect_bundles_localised_description_derpy_chd_ex_pos_pos02	This faction's stores of iron, timber and obsidian keep its armies in the field.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_animals_1	Stockpile: Exotic Animals	false
 effect_bundles_localised_description_derpy_chd_ex_stock_animals_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_animals_2	Warehouse: Exotic Animals	false
@@ -1513,7 +1521,7 @@ effect_bundles_localised_description_derpy_chd_ex_def_offering_gold_idols	Melted
 effect_bundles_localised_title_derpy_chd_ex_def_offering_ivory	Given to the Temple: Tusks	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_ivory	Curiosities go to the Convent and come back as a method nobody wants explained.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_medicine	Given to the Temple: Medicinal Plants	false
-effect_bundles_localised_description_derpy_chd_ex_def_offering_medicine	Physic and salt for the host, and the ranks close up again.	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_medicine	Medicine and salt for the host, and the ranks close up again.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_obsidian	Given to the Temple: Carved Obsidian	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_obsidian	The Convent takes the black glass, and the winds answer more readily than is wise.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_rom_furs	Given to the Temple: Furs	false
@@ -1523,7 +1531,7 @@ effect_bundles_localised_description_derpy_chd_ex_def_offering_rom_glass	The tem
 effect_bundles_localised_title_derpy_chd_ex_def_offering_rom_iron	Given to the Temple: Iron	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_rom_iron	The iron goes to Hag Graef and comes back as plate, worked by hands that were not paid for it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_rom_lead	Given to the Temple: Salt	false
-effect_bundles_localised_description_derpy_chd_ex_def_offering_rom_lead	Physic and salt for the host, and the ranks close up again.	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_rom_lead	Medicine and salt for the host, and the ranks close up again.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_rom_marble	Given to the Temple: Marble	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_rom_marble	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_rom_textiles	Given to the Temple: Pottery	false
@@ -1551,7 +1559,7 @@ effect_bundles_localised_description_derpy_chd_ex_hef_offering_gold_idols	Melted
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_ivory	Tribute to Asuryan: Tusks	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_ivory	Curiosities reach the White Tower, and the White Tower returns something more useful than thanks.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_medicine	Tribute to Asuryan: Medicinal Plants	false
-effect_bundles_localised_description_derpy_chd_ex_hef_offering_medicine	Physic reaches the host, and the host is whole again faster than it has any right to be.	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_medicine	Medicine reaches the host, and the host is whole again faster than it has any right to be.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_obsidian	Tribute to Asuryan: Carved Obsidian	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_obsidian	Saphery takes the black glass, and the winds run deeper for whoever gave it.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_rom_furs	Tribute to Asuryan: Furs	false
@@ -1561,7 +1569,7 @@ effect_bundles_localised_description_derpy_chd_ex_hef_offering_rom_glass	The win
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_rom_iron	Tribute to Asuryan: Iron	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_rom_iron	The iron goes to the armourers of Lothern and comes back as something a mortal smith would not attempt.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_rom_lead	Tribute to Asuryan: Salt	false
-effect_bundles_localised_description_derpy_chd_ex_hef_offering_rom_lead	Physic reaches the host, and the host is whole again faster than it has any right to be.	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_rom_lead	Medicine reaches the host, and the host is whole again faster than it has any right to be.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_rom_marble	Tribute to Asuryan: Marble	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_rom_marble	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_rom_textiles	Tribute to Asuryan: Pottery	false
@@ -1703,7 +1711,7 @@ effect_bundles_localised_description_derpy_chd_ex_dwf_offering_gold_idols	Melted
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_ivory	Offered to Grungni: Tusks	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_ivory	The apprentices get the tusk and the engineers get three ideas out of what is left.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_medicine	Offered to Grungni: Medicinal Plants	false
-effect_bundles_localised_description_derpy_chd_ex_dwf_offering_medicine	Salt and physic reach the throng, and the throng comes back up to strength.	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_medicine	Salt and medicine reach the throng, and the throng comes back up to strength.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_obsidian	Offered to Grungni: Carved Obsidian	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_obsidian	The runesmiths take the black glass, and something in the deep workings runs stronger.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_rom_furs	Offered to Grungni: Furs	false
@@ -1713,7 +1721,7 @@ effect_bundles_localised_description_derpy_chd_ex_dwf_offering_rom_glass	The bar
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_rom_iron	Offered to Grungni: Iron	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_rom_iron	The iron goes to the Guild's forges and comes back as plate, correctly, and a little late.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_rom_lead	Offered to Grungni: Salt	false
-effect_bundles_localised_description_derpy_chd_ex_dwf_offering_rom_lead	Salt and physic reach the throng, and the throng comes back up to strength.	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_rom_lead	Salt and medicine reach the throng, and the throng comes back up to strength.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_rom_marble	Offered to Grungni: Marble	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_rom_marble	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_rom_textiles	Offered to Grungni: Pottery	false

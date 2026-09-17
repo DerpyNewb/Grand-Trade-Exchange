@@ -8,6 +8,10 @@ derpy_chd_ex_trade_pos10	Commodity prices are high and this faction's trade good
 derpy_chd_ex_trade_pos20	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
 derpy_chd_ex_trade_pos30	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
 derpy_chd_ex_trade_pos40	Commodity prices are high and this faction's trade goods are in demand.	Zharr Exchange	faction	1	treasury.png	true	false	true
+derpy_chd_ex_pos_neg02	This faction has sold the iron, timber and obsidian its armies were counting on.	War Stocks	faction	1	replenishment.png	true	false	true
+derpy_chd_ex_pos_neg01	This faction has sold the iron, timber and obsidian its armies were counting on.	War Stocks	faction	1	replenishment.png	true	false	true
+derpy_chd_ex_pos_pos01	This faction's stores of iron, timber and obsidian keep its armies in the field.	War Stocks	faction	1	replenishment.png	true	false	true
+derpy_chd_ex_pos_pos02	This faction's stores of iron, timber and obsidian keep its armies in the field.	War Stocks	faction	1	replenishment.png	true	false	true
 derpy_chd_ex_stock_animals_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	Stockpile: Exotic Animals	faction	1	cargo.png	true	false	true
 derpy_chd_ex_stock_animals_2	The sheds are full and guarded, and the overseers have stopped rationing it.	Warehouse: Exotic Animals	faction	1	cargo.png	true	false	true
 derpy_chd_ex_stock_animals_3	More than the Conclave can use and more than it will admit to holding.	Vaults: Exotic Animals	faction	1	cargo.png	true	false	true
@@ -83,12 +87,12 @@ derpy_chd_ex_def_offering_dyes	A house in favour at the temple is a house whose 
 derpy_chd_ex_def_offering_gems	A house in favour at the temple is a house whose cargo is not looked at closely.	Given to the Temple: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_gold_idols	Melted gold buys the kind of servant who is already in the room.	Given to the Temple: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_ivory	Curiosities go to the Convent and come back as a method nobody wants explained.	Given to the Temple: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_def_offering_medicine	Physic and salt for the host, and the ranks close up again.	Given to the Temple: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_medicine	Medicine and salt for the host, and the ranks close up again.	Given to the Temple: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_obsidian	The Convent takes the black glass, and the winds answer more readily than is wise.	Given to the Temple: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_furs	Furs for the long marches, and the columns cross Naggaroth without losing a quarter of themselves.	Given to the Temple: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_glass	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	Given to the Temple: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_iron	The iron goes to Hag Graef and comes back as plate, worked by hands that were not paid for it.	Given to the Temple: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_def_offering_rom_lead	Physic and salt for the host, and the ranks close up again.	Given to the Temple: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_def_offering_rom_lead	Medicine and salt for the host, and the ranks close up again.	Given to the Temple: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_marble	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	Given to the Temple: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_textiles	Tribute paid early buys a levy at the temple's rate, which stays low for exactly as long as you keep paying it.	Given to the Temple: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_def_offering_rom_timber	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	Given to the Temple: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
@@ -102,12 +106,12 @@ derpy_chd_ex_hef_offering_dyes	A house in the Court's regard is a house whose ca
 derpy_chd_ex_hef_offering_gems	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	Tribute to Asuryan: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_gold_idols	Melted gold pays for the sort of Elf who arrives before the message does.	Tribute to Asuryan: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_ivory	Curiosities reach the White Tower, and the White Tower returns something more useful than thanks.	Tribute to Asuryan: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_hef_offering_medicine	Physic reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_medicine	Medicine reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_obsidian	Saphery takes the black glass, and the winds run deeper for whoever gave it.	Tribute to Asuryan: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_furs	Furs for the northern watch, and the columns keep the pace they are famous for.	Tribute to Asuryan: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_glass	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	Tribute to Asuryan: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_iron	The iron goes to the armourers of Lothern and comes back as something a mortal smith would not attempt.	Tribute to Asuryan: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_hef_offering_rom_lead	Physic reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_hef_offering_rom_lead	Medicine reaches the host, and the host is whole again faster than it has any right to be.	Tribute to Asuryan: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_marble	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	Tribute to Asuryan: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_textiles	Tribute rendered early is a levy raised cheaply. The Court remembers which houses were early.	Tribute to Asuryan: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_hef_offering_rom_timber	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	Tribute to Asuryan: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
@@ -178,12 +182,12 @@ derpy_chd_ex_dwf_offering_dyes	A hold in good standing with the Guild is a hold 
 derpy_chd_ex_dwf_offering_gems	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	Offered to Grungni: Gemstones	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_gold_idols	Melted idols pay the sort of Dwarf who travels alone and reports back in person.	Offered to Grungni: Golden Idols	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_ivory	The apprentices get the tusk and the engineers get three ideas out of what is left.	Offered to Grungni: Tusks	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_dwf_offering_medicine	Salt and physic reach the throng, and the throng comes back up to strength.	Offered to Grungni: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_medicine	Salt and medicine reach the throng, and the throng comes back up to strength.	Offered to Grungni: Medicinal Plants	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_obsidian	The runesmiths take the black glass, and something in the deep workings runs stronger.	Offered to Grungni: Carved Obsidian	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_furs	Furs for the high passes, and the throng marches further before it stops to complain.	Offered to Grungni: Furs	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_glass	The barrels go round the galleries and the grumbling drops to its usual level.	Offered to Grungni: Dwarf Beer	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_iron	The iron goes to the Guild's forges and comes back as plate, correctly, and a little late.	Offered to Grungni: Iron	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
-derpy_chd_ex_dwf_offering_rom_lead	Salt and physic reach the throng, and the throng comes back up to strength.	Offered to Grungni: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
+derpy_chd_ex_dwf_offering_rom_lead	Salt and medicine reach the throng, and the throng comes back up to strength.	Offered to Grungni: Salt	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_marble	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	Offered to Grungni: Marble	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_textiles	Goods pledged up front buy a muster at last decade's rate, which the Guild considers generous.	Offered to Grungni: Pottery	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true
 derpy_chd_ex_dwf_offering_rom_timber	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	Offered to Grungni: Timber	faction	1	icon_ritual_currency_favour_bundle.png	true	false	true

@@ -29,10 +29,26 @@ local function comp(name, parent)
     c.Bounds = function() return 900, 700 end
     c.SetVisible = function(_, v) c.vis = v and true or false end
     c.Visible = function() return c.vis end
-    c.SetStateText = function(_, t) c.text = t end
+    -- PER-STATE, not one scalar - c.text ALONE cannot tell "written to every state" from
+    -- "written to whichever one happened to be current", and that gap is the whole of the
+    -- order ticket's blanking bug: SetStateText writes ONE state on the real engine, and a
+    -- blank that skips the dual write set_text() does leaves "hover" holding the last
+    -- commodity's numbers. c.text stays a mirror of the "standard" state so every scene
+    -- written before the ticket existed keeps reading exactly what it always read.
+    c.states = { standard = "" }
+    c.cur = "standard"
+    c.SetStateText = function(_, t)
+        c.states[c.cur] = t
+        c.text = c.states.standard or ""
+    end
     c.SetTooltipText = function() end
     c.SetInteractive = function() end
-    c.SetDisabled = function() end
+    -- RECORDED, not swallowed, and for the fourth time in this file the same lesson: a stub
+    -- that swallows the behaviour under test turns a real check green. A greyed button is the
+    -- only thing that tells a player the market is shut BEFORE they click, and with this as a
+    -- no-op a mutant that never disabled anything survived a full round (2026-09-16).
+    c.disabled = false
+    c.SetDisabled = function(_, v) c.disabled = v and true or false end
     -- RECORDED, not swallowed. "the icon cell is visible" is not "the icon was
     -- painted": EX.layout SHOWS every cell its table names, so a draw_chart that never
     -- touched the icon still leaves a visible - and blank, or worse, still carrying the
@@ -49,8 +65,8 @@ local function comp(name, parent)
     -- column's width is 200px of an 850px paragraph and nothing raises.
     c.w, c.h = nil, nil
     c.Resize = function(_, w, h) c.w, c.h = w, h end
-    c.SetState = function() end
-    c.CurrentState = function() return "standard" end
+    c.SetState = function(_, st) c.cur = st end
+    c.CurrentState = function() return c.cur end
     c.Id = function() return c.name end
     -- CA's own child enumeration, 0-based, which is what EX.layout hides by. The order is
     -- insertion order here; the engine's is its own, and nothing below depends on it.
@@ -159,10 +175,22 @@ local function build_rows()
             HOLDER.kids[name]:CreateComponent(cell)
         end
     end
+    -- THE LEDGER'S OWN POOL, mirroring EX.build_panel's EX.ORDER_MAX loop exactly. Without
+    -- this the orders_p3 scene below would report visible=0 no matter what EX.layout does -
+    -- EX.row("ord1") finds nothing, so the whole placement loop skips every ledger row
+    -- silently, which is a worse failure than a wrong number: a passing "0 == 0" nobody asked
+    -- for.
+    for i = 1, EX.ORDER_MAX do
+        local name = EX.ROW .. "_ord" .. i
+        HOLDER:CreateComponent(name)
+        for _, cell in ipairs(EX.ROW_CELLS) do
+            HOLDER.kids[name]:CreateComponent(cell)
+        end
+    end
 end
 build_rows()
 
-local function report(tag)
+local function report(tag, extra)
     -- What SHOULD be on screen right now, straight off the mode - the check compares the
     -- rows actually visible against this, so a row from another view still showing counts.
     local want = {}
@@ -197,7 +225,8 @@ local function report(tag)
     end
     print(tag .. " visible=" .. shown .. " clashes=" .. #clash .. " stale=" .. stale
         .. " pstale=" .. pstale .. (pfirst and (" pfirst=" .. pfirst) or "")
-        .. (clash[1] and (" first=" .. clash[1]) or ""))
+        .. (clash[1] and (" first=" .. clash[1]) or "")
+        .. (extra or ""))
 end
 
 EX.mode = EX.MODE_HOUSES
@@ -246,6 +275,68 @@ report("chart_p2")
 EX.trade_page = 1
 EX.layout()
 report("trade_p1_back")
+
+-- TRADE PAGE 3, THE STANDING-ORDER LEDGER. A LADDER - two orders on res_gems at different
+-- rungs, plus one on res_dyes - because that IS the feature: the user chose a free list
+-- capped at EX.ORDER_MAX with several orders allowed on one instrument, over one slot per
+-- instrument, and laddering is the stated reason. Rows keyed by RESOURCE (the old
+-- EX.ROW .. "_" .. EX.short(res) naming) would put both gem rungs on the SAME physical
+-- component - three orders, two visible rows, and Cancel on either one removing whichever
+-- rung the collapsed row happened to be showing. Rows are keyed by ORDER INDEX instead
+-- ("ord1".."ordN" - see EX.mode_instruments and EX.order_of_row), so this scene is what
+-- proves three orders draw three rows and each Cancel click hits the rung it was clicked on.
+EX.orders = {
+    { res = "res_gems", side = "b", cmp = "le", rung = 28 },  -- first gem rung
+    { res = "res_gems", side = "b", cmp = "le", rung = 20 },  -- second gem rung
+    { res = "res_dyes", side = "s", cmp = "ge", rung = 30 },  -- the other commodity
+}
+EX.trade_page = 3
+EX.layout()
+-- MISSING, SPECIFIC TO PANEL_LAYOUT_ORDERS - not the same number as the "union missing="
+-- line above, though it is built the same way: a cell this table names that
+-- EX.panel_cells() does not carry can never be taken off screen by EX.layout, and draws at
+-- its last coordinates over whatever the next view puts there.
+local missing_ord = 0
+for _, e in ipairs(EX.PANEL_LAYOUT_ORDERS) do
+    if not EX.panel_cells()[e[1]] then missing_ord = missing_ord + 1 end
+end
+-- EACH ROW'S OWN ORDER, not just how many rows there are. Rungs stand in for the order
+-- sentence EX.order_text would draw (EX.order_text's own wording is pinned separately in
+-- _orders_harness.lua) - 28/20/30 are three different numbers, so a row answering the wrong
+-- one is caught the same way a wrong sentence would be. "nil" if the row resolves to nothing.
+local function row_rung(i)
+    local o = EX.order_of_row(EX.ROW .. "_ord" .. i)
+    return o and tostring(o.rung) or "nil"
+end
+report("orders_p3", " rows=" .. #EX.orders .. " missing=" .. missing_ord
+    .. " r1=" .. row_rung(1) .. " r2=" .. row_rung(2) .. " r3=" .. row_rung(3))
+
+-- CANCEL THE FIRST GEM RUNG - exactly what clicking Cancel on row 1 sends: the row's OWN
+-- resolved order, not its position in the list. EX.cancel_order is the model half of
+-- EX.order_cancel_send; the network round trip is covered in _orders_harness.lua.
+local o1 = EX.order_of_row(EX.ROW .. "_ord1")
+EX.cancel_order(o1.res, o1.side, o1.cmp, o1.rung)
+EX.layout()
+-- BOTH SURVIVORS CHECKED, NOT JUST THE FIRST. table.remove shifted the second gem rung down
+-- to slot 1 and dyes to slot 2 - querying only row 1 here would read right even under the
+-- mutation that always answers EX.orders[1], because row 1 legitimately IS EX.orders[1].
+-- Row 2 is what tells them apart: correct code says dyes (30), the mutation still says 20.
+report("orders_ladder_cancel1", " left=" .. #EX.orders
+    .. " r1=" .. row_rung(1) .. " r2=" .. row_rung(2))
+
+-- ...AND THE REMAINING GEM RUNG, LEAVING ONLY THE OTHER COMMODITY'S ORDER STANDING.
+local o1b = EX.order_of_row(EX.ROW .. "_ord1")
+EX.cancel_order(o1b.res, o1b.side, o1b.cmp, o1b.rung)
+EX.layout()
+report("orders_ladder_cancel2", " left=" .. #EX.orders .. " r1=" .. row_rung(1))
+
+-- ...AND PAGING BACK LEAVES NOTHING OF THE LEDGER STANDING - the same fault the chart page
+-- shipped with: a row or a header this view does not name keeps the coordinates the ledger
+-- left it at and draws over the list.
+EX.trade_page = 1
+EX.layout()
+report("trade_p1_orders_back")
+EX.orders = {}
 
 -- THE INTRODUCTION, and the way out of it. It is the only view a player does not choose -
 -- EX.show puts them in it - so it is also the only one whose exit nothing else exercises.
@@ -399,3 +490,166 @@ report_chart("chart_short")
 EX.selected = nil
 EX.draw_chart()
 report_chart("chart_none")
+
+-- ---------------------------------------------------------------------- THE ORDER TICKET
+-- Same page, same draw_chart(), seven more panel-level cells with the same stale-text fault
+-- class as the axis labels just above. What makes this different is that FIVE of the seven
+-- are BUTTONS with a hover state, and a blank that only reaches "standard" - skipping the
+-- dual write EX.TWO_STATE_CELLS and set_text exist for - leaves "hover" still showing the
+-- last commodity's numbers. c.text alone (a single scalar) cannot see that, which is why
+-- comp() above now tracks c.states per state name.
+local function ticket_all_texted(name)
+    local c = PANEL.kids[name]
+    if not c then return false end
+    if EX.TWO_STATE_CELLS[name] then
+        return (c.states.standard or "") ~= "" and (c.states.hover or "") ~= ""
+    end
+    return (c.text or "") ~= ""
+end
+local function ticket_any_texted(name)
+    local c = PANEL.kids[name]
+    if not c then return false end
+    if EX.TWO_STATE_CELLS[name] then
+        return (c.states.standard or "") ~= "" or (c.states.hover or "") ~= ""
+    end
+    return (c.text or "") ~= ""
+end
+
+-- CHOSEN: all seven must carry text in EVERY state a two-state cell has, not just the one
+-- SetStateText happened to leave current - AND all seven must be VISIBLE. report()'s own
+-- pstale cannot stand in for that second half: these seven are named by
+-- EX.PANEL_LAYOUT_CHART whether or not anything is selected, so pstale (visible AND NOT
+-- WANTED by this page) reads 0 whichever way clear_ticket()'s SetVisible(false) call goes -
+-- it has nothing to say about a component this page legitimately owns.
+EX.selected = CRES
+EX.draw_chart()
+local ticket_full, ticket_shown = 0, 0
+for _, n in ipairs(EX.TICKET_CELLS) do
+    if ticket_all_texted(n) then ticket_full = ticket_full + 1 end
+    local c = PANEL.kids[n]
+    if c and c.vis then ticket_shown = ticket_shown + 1 end
+end
+
+-- NOTHING CHOSEN: ANY state still carrying text counts against the blank pass - a cell
+-- cleared in "standard" alone but still hover-lit from the last commodity is still telling
+-- the player something - and now NONE may still be visible either. A component blanked but
+-- left showing is seven empty buttons sitting under "No commodity chosen" inviting a click
+-- that silently does nothing (the ticket_click guard eats it, but nothing on screen says so).
+EX.selected = nil
+EX.draw_chart()
+local ticket_blank, ticket_shown_none = 0, 0
+for _, n in ipairs(EX.TICKET_CELLS) do
+    if ticket_any_texted(n) then ticket_blank = ticket_blank + 1 end
+    local c = PANEL.kids[n]
+    if c and c.vis then ticket_shown_none = ticket_shown_none + 1 end
+end
+
+-- report(), not report_chart(): the ticket scene is folded into check_layout's own `scenes`
+-- tuple (it needs the clashes/stale/pstale triple every other page-2 scene gets), where
+-- report_chart's shape has none of those fields.
+report("ticket_p2", " text=" .. ticket_full .. " blank=" .. ticket_blank
+    .. " shown=" .. ticket_shown .. " shown_none=" .. ticket_shown_none)
+
+-- THE SAME TICKET ON THE LEDGER PAGE. It was drawn ONLY by EX.draw_chart and named ONLY by
+-- EX.PANEL_LAYOUT_CHART until 2026-09-10, so with deep_history off there was no chart page,
+-- no draw call and no ticket - on a page whose own empty-state line told the player to go
+-- and set one under its chart. EX.draw_ticket is the extracted, top-level draw both pages
+-- call; this drives it the way the ledger page does.
+EX.selected = CRES
+EX.trade_page = 3
+EX.layout()
+EX.draw_ticket(PANEL, CRES)
+local t3_text, t3_shown = 0, 0
+for _, n in ipairs(EX.TICKET_CELLS) do
+    if ticket_all_texted(n) then t3_text = t3_text + 1 end
+    local c = PANEL.kids[n]
+    if c and c.vis then t3_shown = t3_shown + 1 end
+end
+print("ticket_p3 text=" .. t3_text .. " shown=" .. t3_shown)
+
+-- AND WITH THE SWITCH OFF IT IS NOT ON SCREEN AT ALL. The chart page answers to deep_history,
+-- not to the orders switch, so with orders off the ticket used to sit there fully drawn and
+-- fully live while the ledger page holding the only Cancel button no longer existed. The
+-- model refuses the placement (EX.place_order_check), but a Place button that looks live and
+-- silently refuses forever is the complaint, not the fix.
+local real_feature = EX.feature
+EX.feature = function(k) if k == "orders" then return false end return real_feature(k) end
+EX.draw_ticket(PANEL, CRES)
+local t_off_shown, t_off_text = 0, 0
+for _, n in ipairs(EX.TICKET_CELLS) do
+    if ticket_any_texted(n) then t_off_text = t_off_text + 1 end
+    local c = PANEL.kids[n]
+    if c and c.vis then t_off_shown = t_off_shown + 1 end
+end
+print("ticket_off shown=" .. t_off_shown .. " text=" .. t_off_text)
+EX.feature = real_feature
+EX.trade_page = 1
+
+-- EX.IN_LAYOUT HAS TO BE ABLE TO SAY NO ------------------------------------------------------
+-- It is the guard that stops EX.refresh_panel writing - and therefore SHOWING, because
+-- set_text calls SetVisible(true) - a cell the current view does not own. A guard that always
+-- answers true is the same bug with a check in front of it, and the static check that reads
+-- the guard out of the source text cannot tell the two apart. Reported live 2026-09-11: the
+-- amount button drawn across the Ownership view's Cartel premium header.
+EX.mode = EX.MODE_TRADE
+EX.trade_page = 1
+local il_trade = tostring(EX.in_layout("btn_amount"))
+EX.mode = EX.MODE_STATS
+local il_stats = tostring(EX.in_layout("btn_amount"))
+EX.mode = EX.MODE_TRADE
+local il_never = tostring(EX.in_layout("btn_nonesuch"))
+print("inlayout trade=" .. il_trade .. " stats=" .. il_stats .. " never=" .. il_never)
+
+-- ONE ROW OF THE DEALS PAGE, DRAWN FOR REAL --------------------------------------------------
+-- EX.deal_cells decides every string on this row and is asserted commodity by commodity in the
+-- books harness. What NOTHING could see until this section existed is whether the draw writes
+-- what it decided: two mutants - SetDisabled(false), and a button label hardcoded over the one
+-- EX.deal_cells returned - survived a full round on 2026-09-16 with these lines inside
+-- EX.refresh_panel, which no harness can run. EX.draw_deal_row is now a top-level function for
+-- the same reason EX.draw_chart and EX.draw_intro are, and this drives it.
+EX.mode = EX.MODE_DEALS
+EX.snap = { ai_deals = true }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.deals = {
+    -- The counterparty SELLS, so the player BUYS - the one side a refusal may reach.
+    { fac = "house_a", res = "res_rom_iron", side = "sell", lots = 3, px = 940,  turn = 10 },
+    -- The counterparty BUYS, so the player SELLS. Selling stays open with the market shut.
+    { fac = "house_b", res = "res_rom_iron", side = "buy",  lots = 1, px = 1060, turn = 10 },
+}
+local DR1 = comp("deal_row_1", HOLDER)
+local DR2 = comp("deal_row_2", HOLDER)
+local DR3 = comp("deal_row_3", HOLDER)
+for _, r in ipairs({ DR1, DR2, DR3 }) do
+    for _, cell in ipairs({ "icon", "row_name", "row_trend", "row_price", "row_sell",
+                            "row_hold", "btn_buy" }) do
+        comp(cell, r)
+    end
+end
+-- STALE TEXT IN EVERY CELL FIRST. A row the draw never touches is not blank - it is a fixed
+-- pool row still carrying the last page, which is the fault the SetVisible(false) below is for.
+for _, r in ipairs({ DR1, DR2, DR3 }) do
+    for _, cell in ipairs({ "row_name", "row_trend", "btn_buy" }) do
+        find_uicomponent(r, cell):SetStateText("STALE")
+    end
+end
+
+local real_refusal = EX.buy_refusal
+EX.buy_refusal = function() return "the market is shut", "Closed" end
+EX.draw_deal_row(DR1, 1)
+EX.draw_deal_row(DR2, 2)
+EX.buy_refusal = real_refusal
+EX.draw_deal_row(DR3, 3)
+
+local function cell(r, n) return find_uicomponent(r, n).text end
+local function btn(r) return find_uicomponent(r, "btn_buy") end
+print("deal_draw name=" .. cell(DR1, "row_name")
+    .. " buyside=" .. cell(DR1, "btn_buy") .. "/" .. tostring(btn(DR1).disabled)
+    .. " sellside=" .. cell(DR2, "btn_buy") .. "/" .. tostring(btn(DR2).disabled)
+    -- BOTH STATES. btn_buy is in EX.TWO_STATE_CELLS, so a label written to "standard" alone
+    -- leaves hover holding the previous view's word - shown to the one player already pointing
+    -- at it. This is the order ticket's blanking bug, on a button that spends gold.
+    .. " hover=" .. tostring(btn(DR1).states.hover)
+    .. " icon=" .. tostring(find_uicomponent(DR1, "icon").img ~= nil)
+    -- PAST THE END: hidden, and its stale text is irrelevant because nothing draws it.
+    .. " pastend=" .. tostring(DR3.vis) .. "/" .. cell(DR3, "row_name"))
+EX.mode = EX.MODE_TRADE

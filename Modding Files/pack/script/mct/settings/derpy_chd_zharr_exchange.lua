@@ -28,6 +28,7 @@ m:add_new_section("shares", "Shares")
 m:add_new_section("hashut", "Tithes")
 m:add_new_section("shocks", "War shocks")
 m:add_new_section("race", "Race profile")
+m:add_new_section("world", "The world")
 m:add_new_section("features", "Features")
 m:add_new_section("debug", "Debug")
 
@@ -37,8 +38,8 @@ o_preset:set_tooltip_text("The Zharr Exchange's difficulty is fixed for the life
 o_preset:set_assigned_section("preset")
 o_preset:add_dropdown_value("easy", "Easy", "For a first campaign. A thin spread, most of a bad stake returned, cheap storage, a slow and forgiving guild - and shares still paying double. Rent and the patron's tithe are off.", false)
 o_preset:add_dropdown_value("default", "Default", "The Exchange as designed and as every previous build played.", true)
-o_preset:add_dropdown_value("hard", "Hard", "High risk, high reward. Every edge that costs you widens, the guild moves three rungs a turn, war closes the market sooner - and dividends and buyouts rise with it.", false)
-o_preset:add_dropdown_value("ultra", "Ultra Capitalism", "The extreme. A quarter spread against a tenth floor, the guild moving five rungs a turn on books that shift twice as hard, hostility to +60%, the market shutting when under a third of the guild is at war, the altar demanding from turn 5, and shocks reaching twelve rungs and lingering. Shares pay 5% and a buyout pays double.", false)
+o_preset:add_dropdown_value("hard", "Hard", "High risk, high reward. Every edge that costs you widens, the guild moves three steps a turn, war closes the market sooner - and dividends and buyouts rise with it.", false)
+o_preset:add_dropdown_value("ultra", "Ultra Capitalism", "The extreme. A quarter spread against a tenth floor, the guild moving five steps a turn on books that shift twice as hard, hostility to +60%, the market shutting when under a third of the guild is at war, the altar demanding from turn 5, and shocks reaching twelve steps and lingering. Shares pay 5% and a buyout pays double.", false)
 o_preset:add_dropdown_value("custom", "Custom", "Every value below becomes live. Set them before you start a campaign; they are fixed once one is running.", false)
 o_preset:set_default_value("default")
 
@@ -84,9 +85,45 @@ o_trade_income:set_tooltip_text("A commodity you produce trading high raises you
 o_trade_income:set_default_value(true)
 o_trade_income:set_assigned_section("systems")
 
+local o_cross_bloc = m:add_new_option("cross_bloc", "checkbox")
+o_cross_bloc:set_text("Trade shares across your bloc")
+o_cross_bloc:set_tooltip_text("Houses of the cultures your people deal with are listed beside your own. Off, the board lists your own people only, as it did before.")
+o_cross_bloc:set_default_value(true)
+o_cross_bloc:set_assigned_section("systems")
+
+local o_ai_stance = m:add_new_option("ai_stance", "checkbox")
+o_ai_stance:set_text("Houses react to your book")
+o_ai_stance:set_tooltip_text("A large stake in a house warms it toward you; hoarding the goods it sells cools it. This promotes a real AI strategic stance, so it reaches war targeting and deal generation - and it clears any other scripted stance between that house and you every turn. Off, your market position stays inside the Exchange.")
+o_ai_stance:set_default_value(true)
+o_ai_stance:set_assigned_section("systems")
+
+local o_ai_world = m:add_new_option("ai_world", "checkbox")
+o_ai_world:set_text("The world trades")
+o_ai_world:set_tooltip_text("Every landholding faction holds commodities, and buys and sells them each turn. Off: only the fourteen houses trade.")
+o_ai_world:set_default_value(true)
+o_ai_world:set_assigned_section("systems")
+
+local o_world_scarcity = m:add_new_option("world_scarcity", "checkbox")
+o_world_scarcity:set_text("Supply can run out")
+o_world_scarcity:set_tooltip_text("A purchase fails when no faction anywhere is holding that good. Off: you can always buy.")
+o_world_scarcity:set_default_value(true)
+o_world_scarcity:set_assigned_section("systems")
+
+local o_ai_deals = m:add_new_option("ai_deals", "checkbox")
+o_ai_deals:set_text("Factions offer you deals")
+o_ai_deals:set_tooltip_text("Factions with something to buy or sell put a one-turn offer to you each turn, priced off market in your favour. Off: no offers are posted and the Deals page says so.")
+o_ai_deals:set_default_value(true)
+o_ai_deals:set_assigned_section("systems")
+
+local o_world_bundles = m:add_new_option("world_bundles", "checkbox")
+o_world_bundles:set_text("Positions supply armies")
+o_world_bundles:set_tooltip_text("A faction holding iron, timber and obsidian replenishes its armies faster; one that has sold them short replenishes slower, and being at war doubles it either way. Applies to you and to the AI alike. Off: no supply effect is applied to anyone, and any left over from a previous save is removed.")
+o_world_bundles:set_default_value(true)
+o_world_bundles:set_assigned_section("systems")
+
 local o_ladder_step = m:add_new_option("ladder_step", "slider")
-o_ladder_step:set_text("Price step per rung")
-o_ladder_step:set_tooltip_text("How far one rung moves the price. 1.10 is a 10% step; higher means sharper swings both ways.")
+o_ladder_step:set_text("Price move per step")
+o_ladder_step:set_tooltip_text("How far one step moves the price. 1.10 is a 10% move; higher means sharper swings both ways.")
 o_ladder_step:slider_set_precision(2)
 o_ladder_step:slider_set_min_max(1.02, 1.30)
 o_ladder_step:slider_set_step_size(0.01, 2)
@@ -121,8 +158,8 @@ o_sell_floor:set_default_value(0.25)
 o_sell_floor:set_assigned_section("market")
 
 local o_pressure_per_rung = m:add_new_option("pressure_per_rung", "slider")
-o_pressure_per_rung:set_text("Lots to move a rung")
-o_pressure_per_rung:set_tooltip_text("Net lots you must buy before your own trading pushes the price up a rung. Lower means cornering a good is easier.")
+o_pressure_per_rung:set_text("Lots to move one step")
+o_pressure_per_rung:set_tooltip_text("Net lots you must buy before your own trading pushes the price up one step. Lower means cornering a good is easier.")
 o_pressure_per_rung:slider_set_precision(0)
 o_pressure_per_rung:slider_set_min_max(1, 20)
 o_pressure_per_rung:slider_set_step_size(1, 0)
@@ -140,7 +177,7 @@ o_carry_per_unit:set_assigned_section("market")
 
 local o_ai_gain = m:add_new_option("ai_gain", "slider")
 o_ai_gain:set_text("AI price appetite")
-o_ai_gain:set_tooltip_text("Rungs per unit of world appetite before the cap. Higher means the guild moves prices harder on war and culture.")
+o_ai_gain:set_tooltip_text("Price steps per unit of world appetite, before the cap. Higher means the guild moves prices harder on war and culture.")
 o_ai_gain:slider_set_precision(1)
 o_ai_gain:slider_set_min_max(0.0, 20.0)
 o_ai_gain:slider_set_step_size(0.5, 1)
@@ -148,7 +185,7 @@ o_ai_gain:set_default_value(6.0)
 o_ai_gain:set_assigned_section("houses")
 
 local o_ai_max_rungs = m:add_new_option("ai_max_rungs", "slider")
-o_ai_max_rungs:set_text("AI rungs per turn")
+o_ai_max_rungs:set_text("AI steps per turn")
 o_ai_max_rungs:set_tooltip_text("The most the guild can move one price in a single turn.")
 o_ai_max_rungs:slider_set_precision(0)
 o_ai_max_rungs:slider_set_min_max(0, 8)
@@ -157,8 +194,8 @@ o_ai_max_rungs:set_default_value(2)
 o_ai_max_rungs:set_assigned_section("houses")
 
 local o_book_per_rung = m:add_new_option("book_per_rung", "slider")
-o_book_per_rung:set_text("Book size per rung")
-o_book_per_rung:set_tooltip_text("Units a house must hold to shift a price one rung. Lower means the guild's positions move the market more.")
+o_book_per_rung:set_text("Book size per step")
+o_book_per_rung:set_tooltip_text("Units a house must hold to shift a price one step. Lower means the guild's positions move the market more.")
 o_book_per_rung:slider_set_precision(0)
 o_book_per_rung:slider_set_min_max(5, 100)
 o_book_per_rung:slider_set_step_size(1, 0)
@@ -166,8 +203,8 @@ o_book_per_rung:set_default_value(30)
 o_book_per_rung:set_assigned_section("houses")
 
 local o_book_max = m:add_new_option("book_max", "slider")
-o_book_max:set_text("Book rung cap")
-o_book_max:set_tooltip_text("The most rungs the guild's holdings can shift a price, either way.")
+o_book_max:set_text("Book step cap")
+o_book_max:set_tooltip_text("The most steps the guild's holdings can shift a price, either way.")
 o_book_max:slider_set_precision(0)
 o_book_max:slider_set_min_max(0, 8)
 o_book_max:slider_set_step_size(1, 0)
@@ -185,7 +222,7 @@ o_hostile_max:set_assigned_section("houses")
 
 local o_friendly_max = m:add_new_option("friendly_max", "slider")
 o_friendly_max:set_text("Friendly discount cap")
-o_friendly_max:set_tooltip_text("The most a house that likes you can take off a price - it buys cheaper AND sells dearer. Bounded by the buy/sell spread: at the default spread only about 1% gets through, and raising the spread raises this with it.")
+o_friendly_max:set_tooltip_text("The most a house that likes you can take off a price - it buys cheaper AND sells higher. Bounded by the buy/sell spread: at the default spread only about 1% gets through, and raising the spread raises this with it.")
 o_friendly_max:slider_set_precision(2)
 o_friendly_max:slider_set_min_max(0.00, 1.00)
 o_friendly_max:slider_set_step_size(0.05, 2)
@@ -284,7 +321,7 @@ o_demand_chance:set_assigned_section("hashut")
 
 local o_shock_gain = m:add_new_option("shock_gain", "slider")
 o_shock_gain:set_text("Shock strength")
-o_shock_gain:set_tooltip_text("Rungs per unit of world supply disrupted by a sack, a raze or a siege.")
+o_shock_gain:set_tooltip_text("Price steps per unit of world supply disrupted by a sack, a raze or a siege.")
 o_shock_gain:slider_set_precision(0)
 o_shock_gain:slider_set_min_max(0, 40)
 o_shock_gain:slider_set_step_size(1, 0)
@@ -293,7 +330,7 @@ o_shock_gain:set_assigned_section("shocks")
 
 local o_shock_max = m:add_new_option("shock_max", "slider")
 o_shock_max:set_text("Shock cap")
-o_shock_max:set_tooltip_text("The most rungs one shock can move a price, either way.")
+o_shock_max:set_tooltip_text("The most steps one shock can move a price, either way.")
 o_shock_max:slider_set_precision(0)
 o_shock_max:slider_set_min_max(0, 20)
 o_shock_max:slider_set_step_size(1, 0)
@@ -318,16 +355,73 @@ o_race_strength:slider_set_step_size(0.05, 2)
 o_race_strength:set_default_value(1.00)
 o_race_strength:set_assigned_section("race")
 
+local o_world_cash_max = m:add_new_option("world_cash_max", "slider")
+o_world_cash_max:set_text("World trader purse")
+o_world_cash_max:set_tooltip_text("The most gold one faction outside the guild will move in a single turn.")
+o_world_cash_max:slider_set_precision(0)
+o_world_cash_max:slider_set_min_max(0, 50000)
+o_world_cash_max:slider_set_step_size(500, 0)
+o_world_cash_max:set_default_value(3000)
+o_world_cash_max:set_assigned_section("world")
+
+local o_world_trade_max = m:add_new_option("world_trade_max", "slider")
+o_world_trade_max:set_text("World trade size")
+o_world_trade_max:set_tooltip_text("The most lots one faction outside the guild will buy or sell in a single turn.")
+o_world_trade_max:slider_set_precision(0)
+o_world_trade_max:slider_set_min_max(1, 10)
+o_world_trade_max:slider_set_step_size(1, 0)
+o_world_trade_max:set_default_value(3)
+o_world_trade_max:set_assigned_section("world")
+
+local o_world_gain = m:add_new_option("world_gain", "slider")
+o_world_gain:set_text("World book weight")
+o_world_gain:set_tooltip_text("How hard the wider world's holdings push a price. 0 means the world trades but its positions never move the board.")
+o_world_gain:slider_set_precision(1)
+o_world_gain:slider_set_min_max(0.0, 20.0)
+o_world_gain:slider_set_step_size(0.5, 1)
+o_world_gain:set_default_value(4.0)
+o_world_gain:set_assigned_section("world")
+
+local o_deal_max = m:add_new_option("deal_max", "slider")
+o_deal_max:set_text("Deals offered per turn")
+o_deal_max:set_tooltip_text("How many one-turn offers the world puts to you each turn. Every one is a decision to read, so this is small on purpose. Needs the offers switch on.")
+o_deal_max:slider_set_precision(0)
+o_deal_max:slider_set_min_max(1, 6)
+o_deal_max:slider_set_step_size(1, 0)
+o_deal_max:set_default_value(3)
+o_deal_max:set_assigned_section("world")
+
+local o_deal_edge = m:add_new_option("deal_edge", "slider")
+o_deal_edge:set_text("Deal edge, per cent")
+o_deal_edge:set_tooltip_text("How far off market an offer is priced, always in your favour: a buyer pays over, a seller takes under. Keep it under one step of the price ladder or a deal becomes a free round trip against the market.")
+o_deal_edge:slider_set_precision(0)
+o_deal_edge:slider_set_min_max(1, 25)
+o_deal_edge:slider_set_step_size(1, 0)
+o_deal_edge:set_default_value(6)
+o_deal_edge:set_assigned_section("world")
+
+local o_pos_step = m:add_new_option("pos_step", "slider")
+o_pos_step:set_text("War-goods position step")
+o_pos_step:set_tooltip_text("How many lots of net iron, timber and obsidian one supply tier is worth. Lower means more factions carry a war-supply bonus or penalty; higher means only the biggest positions register.")
+o_pos_step:slider_set_precision(0)
+o_pos_step:slider_set_min_max(1, 12)
+o_pos_step:slider_set_step_size(1, 0)
+o_pos_step:set_default_value(4)
+o_pos_step:set_assigned_section("world")
+
 local ECONOMIC = {
     "ai_traders", "ai_gold", "refusal", "war_lock",
-    "warehouse_rent", "hashut_demands", "trade_income", "ladder_step",
-    "spread", "l2_sell", "sell_floor", "pressure_per_rung",
-    "carry_per_unit", "ai_gain", "ai_max_rungs", "book_per_rung",
-    "book_max", "hostile_max", "friendly_max", "guild_close",
-    "refuse_share", "house_cash_max", "div_yield", "buyout_premium",
-    "windup", "seat_lost", "demand_first_turn", "demand_cooldown",
-    "demand_chance", "shock_gain", "shock_max", "shock_decay",
-    "race_strength",
+    "warehouse_rent", "hashut_demands", "trade_income", "cross_bloc",
+    "ai_stance", "ai_world", "world_scarcity", "ai_deals",
+    "world_bundles", "ladder_step", "spread", "l2_sell",
+    "sell_floor", "pressure_per_rung", "carry_per_unit", "ai_gain",
+    "ai_max_rungs", "book_per_rung", "book_max", "hostile_max",
+    "friendly_max", "guild_close", "refuse_share", "house_cash_max",
+    "div_yield", "buyout_premium", "windup", "seat_lost",
+    "demand_first_turn", "demand_cooldown", "demand_chance", "shock_gain",
+    "shock_max", "shock_decay", "race_strength", "world_cash_max",
+    "world_trade_max", "world_gain", "deal_max", "deal_edge",
+    "pos_step",
 }
 
 local function relock()
@@ -377,9 +471,27 @@ o_feat_demand_shocks:set_assigned_section("features")
 
 local o_feat_appetite_drift = m:add_new_option("feat_appetite_drift", "checkbox")
 o_feat_appetite_drift:set_text("World appetite")
-o_feat_appetite_drift:set_tooltip_text("Cultures wanting more of some goods than they make, drifting over the campaign - the Wanted and Going begging lines. Off and every good is priced on supply alone.")
+o_feat_appetite_drift:set_tooltip_text("Cultures wanting more of some goods than they make, drifting over the campaign - the Wanted and Unwanted lines. Off and every good is priced on supply alone.")
 o_feat_appetite_drift:set_default_value(true)
 o_feat_appetite_drift:set_assigned_section("features")
+
+local o_feat_orders = m:add_new_option("feat_orders", "checkbox")
+o_feat_orders:set_text("Standing orders")
+o_feat_orders:set_tooltip_text("Limit and stop orders on the Trade view's third page, filled at your turn start. Off and the page is gone and nothing fills - orders you have already placed are kept, not cancelled, and start filling again when you turn this back on.")
+o_feat_orders:set_default_value(true)
+o_feat_orders:set_assigned_section("features")
+
+local o_allow_uncommercial = m:add_new_option("allow_uncommercial", "checkbox")
+o_allow_uncommercial:set_text("Let raider cultures trade")
+o_allow_uncommercial:set_tooltip_text("Tomb Kings, both vampire cultures, the four Chaos gods, Daemons of Chaos, Beastmen and Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at all: no button, no panel, no prices. Others can still buy shares in them either way. Takes effect on a restart.")
+o_allow_uncommercial:set_default_value(false)
+o_allow_uncommercial:set_assigned_section("features")
+
+local o_allow_raiders = m:add_new_option("allow_raiders", "checkbox")
+o_allow_raiders:set_text("Let raider cultures trade")
+o_allow_raiders:set_tooltip_text("Greenskins, Norsca and the Warriors of Chaos. They take rather than trade, so off - the default - they have no Exchange at all. This does NOT remove them as investments: other cultures can still buy shares in them. Takes effect on a restart.")
+o_allow_raiders:set_default_value(false)
+o_allow_raiders:set_assigned_section("features")
 
 local o_log_level = m:add_new_option("log_level", "dropdown")
 o_log_level:set_text("Log detail")

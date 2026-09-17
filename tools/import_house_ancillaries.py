@@ -206,19 +206,16 @@ def check_lua():
     interpolated into the Lua template. An undeclared Lua global is nil, not an error,
     so every branch comparing against them was unreachable - and luac -p, check_lua_api.py
     and the game all reported nothing at all. Only a live campaign found it.
+
+    Use the checker's own main(), not undeclared() per file: a pack global legitimately
+    crosses files (the Exchange's generated EX_PRODUCTION, the Guilds' GUILDS) and the
+    isolated call reports every one of them, which is the bypass its docstring warns about.
     """
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import check_lua_undeclared
-    bad = []
     pat = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod", "*.lua")
-    for path in sorted(glob.glob(pat)):
-        with open(path, encoding="utf-8") as fh:
-            found = check_lua_undeclared.undeclared(fh.read())
-        if found:
-            bad.append(f"  {os.path.basename(path)}: {', '.join(found)}")
-    if bad:
-        raise SystemExit("Lua reads names nothing declares - nothing written:"
-                         + chr(10) + chr(10).join(bad))
+    if check_lua_undeclared.main(sorted(glob.glob(pat))):
+        raise SystemExit("Lua reads names nothing declares - nothing written.")
 
 
 def main():

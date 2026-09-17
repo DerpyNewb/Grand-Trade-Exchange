@@ -35,6 +35,26 @@ def load(name):
     return rows, fields
 
 
+def version(name):
+    """The table version CA's OWN file declares, out of the cached dump.
+
+    This is the number a mod's TSV metadata line must carry. It is not RPFM's newest
+    definition and not the highest version in the schema: the game parses the file
+    against the version written in it, so a table declaring a version CA does not use is
+    read against the wrong field shape. That is a hard crash during loading, with no
+    bad_mods_report.txt line and no minidump - see MEMORY/wh3-table-version-must-match-
+    field-shape.
+
+    Counting the field names in RPFM's schema is NOT a substitute: the JSON repeats the
+    localised field names after the field array, so the counts read high and can rank two
+    definitions in the wrong order.
+    """
+    path = os.path.join(CACHE, name + ".json")
+    blob = json.load(io.open(path, encoding="utf-8"))
+    tbl = blob["VecRFile"][0]["data"]["Decoded"]["DB"]["table"]
+    return tbl["definition"]["version"]
+
+
 def have(name):
     return os.path.exists(os.path.join(CACHE, name + ".json"))
 

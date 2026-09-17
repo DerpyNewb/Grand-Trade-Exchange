@@ -24,6 +24,22 @@ SINGLETONS = {
 SIG = re.compile(r'class="function_name"><strong><code>(.*?)</code>')
 CALL = re.compile(r"\b(%s)\s*([:.])\s*(\w+)\s*\(" % "|".join(SINGLETONS))
 
+# cm:<accessor>() returns an OBJECT whose members live on another doc page, and the
+# receiver of the chained call is a CALL EXPRESSION - so CALL above cannot see it, which
+# is the "cannot resolve non-singleton receivers" limit this tool has always carried.
+# The Great Guilds panel shipped cm:get_campaign_ui_manager():get_char_selected(), which
+# campaign_ui_manager does not have - CA's lib_campaign_ui.lua declares get_char_selected_cqi
+# and nothing else beginning get_char - inside a pcall, so it answered nil forever and three
+# things were dead from the day they shipped: Appoint Patron, Hire the Immortals and The
+# Khan's Price. Found 2026-09-16 by reading CA's own lib, not by any check.
+#
+# Each entry is accessor -> the doc receiver named on that accessor's own "Returns:" line.
+CHAINED = {
+    "get_campaign_ui_manager": "campaign_ui_manager",
+}
+CHAINED_CALL = re.compile(
+    r"\bcm\s*:\s*(%s)\s*\(\s*\)\s*([:.])\s*(\w+)\s*\(" % "|".join(CHAINED))
+
 
 def index_docs():
     """doc receiver -> {member: separator}"""
@@ -76,6 +92,54 @@ def _plain_flag(call_args, dotted):
     return flag not in ("", "nil", "false")
 
 
+def _has_init(call_args, dotted):
+    """True when an init (start offset) argument is present at all.
+
+    WH3's string.find is not stock Lua's. Its FOURTH argument corrupts the string
+    subsystem process-wide (above), and its THIRD silently finds nothing: the Iron
+    Court walked its save string with string.find(packed, "%|", from) and every
+    load in game came back with the whole string as the first field, so offices,
+    governors, terms, standing, the record and the provinces were empty from turn
+    one. Nothing threw, and the houses parsed, so it read as "the court forgets
+    everything except who is in it". Shipped 2026-09-14.
+
+    Walk the string with string.gmatch instead - `([^|]*)|` over `s .. "|"` yields
+    every field, empty ones included.
+    """
+    depth, parts, cur = 0, [], []
+    for ch in call_args:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    want = 3 if dotted else 2
+    if len(parts) < want:
+        return False
+    return parts[want - 1].strip() not in ("", "nil")
+
+
+# CALLS THAT DO NOT EXIST, but read as if they should. CA's own docs are the trap
+# here: each of these appears ONLY inside a code EXAMPLE for a differently-named
+# function, so grepping the docs "finds" it. Nothing in data_script.pack defines
+# them, and there is no module page for the receiver, so the index below cannot
+# reason about them at all - hence an explicit list.
+#
+# effect.get_localised_string: shown in the example on common.html, where the
+# function actually being documented is common.get_localised_string. Called through
+# a pcall - as any loc lookup must be - it fails silently and the caller falls back,
+# so the symptom is raw loc keys drawn on screen rather than an error. Cost a live
+# round trip on The Great Guilds panel, 2026-09-10.
+NONEXISTENT = {
+    "effect.get_localised_string": "does not exist; use common.get_localised_string",
+}
+
+
 def check(path, docs):
     hits = []
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -89,6 +153,18 @@ def check(path, docs):
                 elif sep not in seps:
                     hits.append((n, "separator", "%s%s%s() -> use '%s'"
                                  % (recv, sep, member, seps.pop())))
+            for acc, sep, member in CHAINED_CALL.findall(line):
+                recv = CHAINED[acc]
+                want = docs.get(recv, {}).get(member)
+                if want is None:
+                    hits.append((n, "unknown", "cm:%s()%s%s() - %s has no such member"
+                                 % (acc, sep, member, recv)))
+                elif sep != want:
+                    hits.append((n, "separator", "cm:%s()%s%s() -> use '%s'"
+                                 % (acc, sep, member, want)))
+            for bad, fix in NONEXISTENT.items():
+                if bad + "(" in line:
+                    hits.append((n, "nonexistent", "%s() %s" % (bad, fix)))
             for dotted_args, method_args in PLAIN_FIND.findall(line):
                 args, dotted = (dotted_args, True) if dotted_args else (method_args, False)
                 if _plain_flag(args, dotted):
@@ -96,7 +172,44 @@ def check(path, docs):
                                  "string.find plain flag - corrupts the string subsystem "
                                  "process-wide for the whole game; drop it and escape the "
                                  "pattern instead"))
+                elif _has_init(args, dotted):
+                    hits.append((n, "find-init",
+                                 "string.find init argument - WH3's find silently returns "
+                                 "nil from an offset; walk the string with string.gmatch "
+                                 "(\"([^|]*)|\" over s .. \"|\") instead"))
     return hits
+
+
+def _detag(html):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html)).strip()
+
+
+def explain(member):
+    """Every doc entry for a member name, as CA wrote it. [(file, text), ...]"""
+    out = []
+    for f in sorted(glob.glob(os.path.join(DOCS, "**", "*.html"), recursive=True)):
+        with open(f, encoding="utf-8", errors="replace") as fh:
+            html = fh.read()
+        rel = os.path.relpath(f, DOCS)
+
+        # Shape 1: a method page. The entry runs from its signature to the next
+        # function_name, so the parameter text CANNOT be cut off the bottom -
+        # which is the half that was being missed.
+        for m in re.finditer(r'class="function_name"><strong><code>([^<]*?\b'
+                             + re.escape(member) + r'\s*\()', html):
+            start = m.start()
+            nxt = html.find('class="function_name"', m.end())
+            body = _detag(html[start:nxt if nxt > 0 else start + 3000])
+            # the anchor attribute we matched on, and the next heading
+            body = body.split(">", 1)[-1].split("<h3", 1)[0].strip()
+            out.append((rel, body))
+
+        # Shape 2: scripting_doc.html's flat table.
+        flat = _detag(html)
+        for m in re.finditer(r"Function: " + re.escape(member) + r" Description:", flat):
+            nxt = flat.find("Function: ", m.end())
+            out.append((rel, flat[m.start():nxt if nxt > 0 else m.start() + 1200]))
+    return out
 
 
 def selftest():
@@ -113,6 +226,21 @@ def selftest():
         os.remove(tmp)
     assert got == [(2, "unknown"), (3, "separator")], got
 
+    # THE CHAINED RECEIVER. Both halves watched - the real member must pass and the
+    # shipped typo must fail, or the rule is decoration.
+    tmp3 = os.path.join(ROOT, "_selftest_chain.lua")
+    open(tmp3, "w").write(
+        "local a = cm:get_campaign_ui_manager():get_char_selected_cqi()\n"           # 1 clean
+        "local b = cm:get_campaign_ui_manager():get_char_selected()\n"               # 2 caught
+        "local c = cm:get_campaign_ui_manager().get_char_selected_cqi()\n"           # 3 separator
+        "local d = cm:get_campaign_ui_manager():get_selected_settlement_region()\n"  # 4 clean
+    )
+    try:
+        chain = [(n, k) for n, k, _ in check(tmp3, docs)]
+    finally:
+        os.remove(tmp3)
+    assert chain == [(2, "unknown"), (3, "separator")], chain
+
     # The plain flag, in both spellings, and the shapes that must NOT trip it.
     tmp2 = os.path.join(ROOT, "_selftest_find.lua")
     open(tmp2, "w").write(
@@ -120,22 +248,57 @@ def selftest():
         'local b = s:find(p, 1, true)\n'                  # 2 caught, method
         'local c = string.find(s, p)\n'                   # 3 clean
         'local d = s:find(p)\n'                           # 4 clean
-        'local e = string.find(s, p, 1)\n'                # 5 clean, no flag
-        'local f = string.find(s, p, 1, false)\n'         # 6 clean, explicit false
-        'local g = string.find(s, "%%(%%d+,%%d+%%)", 1)\n'  # 7 clean, commas in the pattern
+        'local e = string.find(s, p, 1)\n'                # 5 caught, init
+        'local f = string.find(s, p, 1, false)\n'         # 6 caught, init
+        'local g = string.find(s, "%%(%%d+,%%d+%%)", 1)\n'  # 7 caught, commas in the pattern
+        'local h = string.find(s, "%%|")\n'               # 8 clean, no init
     )
     try:
         found = [(n, k) for n, k, _ in check(tmp2, docs)]
     finally:
         os.remove(tmp2)
-    assert found == [(1, "string-corruption"), (2, "string-corruption")], found
-    print("selftest ok (%d doc receivers indexed, plain-find detector live)" % len(docs))
+    # 5, 6 and 7 WERE the clean cases and are findings now: the Iron Court's save
+    # walk was case 7 exactly - a pattern and an offset - and it found nothing in
+    # game for every load the mod ever did.
+    assert found == [(1, "string-corruption"), (2, "string-corruption"),
+                     (5, "find-init"), (6, "find-init"), (7, "find-init")], found
+
+    # explain() must reach BOTH doc shapes, and must carry the parameter text -
+    # the half a signature-only read drops.
+    img = explain("SetImagePath")
+    assert img, "explain() found no entry for SetImagePath"
+    assert any("take the size of the old" in t for _, t in img), \
+        "explain() cut off the parameter text, which is the whole reason it exists"
+    prov = explain("province_name")
+    assert any("Key of the province" in t for _, t in prov), \
+        "explain() missed scripting_doc.html's flat-table shape"
+    assert not explain("no_such_member_anywhere"), "explain() invented an entry"
+    print("selftest ok (%d doc receivers indexed, plain-find and init detectors live, "
+          "explain reaches both doc shapes)" % len(docs))
 
 
 def main(argv):
     if "--selftest" in argv:
         selftest()
         return 0
+    if "--explain" in argv:
+        names = argv[argv.index("--explain") + 1:]
+        if not names:
+            print("usage: check_lua_api.py --explain <member> [<member> ...]")
+            return 2
+        missing = 0
+        for name in names:
+            found = explain(name)
+            if not found:
+                print("%s: NOT DOCUMENTED - if a CA doc does not define it, "
+                      "nothing does" % name)
+                missing += 1
+                continue
+            for rel, text in found:
+                print("== %s  [%s]" % (name, rel))
+                print("   " + text.replace(". ", ".\n   "))
+                print()
+        return 1 if missing else 0
     docs = index_docs()
     files = [a for a in argv if not a.startswith("--")] or glob.glob(os.path.join(DEFAULT_SCAN, "**", "*.lua"), recursive=True)
     bad = 0

@@ -55,6 +55,102 @@ EX.CHART_FLOOR = 6
 -- at four sessions ago, or on a house that has since been delisted.
 EX.selected    = nil
 EX.trade_page  = 1
+-- THE TICKET'S STATE. SESSION ONLY, never saved, same as EX.selected above: a half-composed
+-- order need not survive a reload. EX.ord_rung is re-seeded from the instrument's own current
+-- rung every time a row is selected - see the row_name click in EX.row_click.
+EX.ord_side = "b"
+EX.ord_cmp  = "le"
+EX.ord_rung = nil
+-- WHY THE LAST PLACE WAS REFUSED, or nil. Session state like the three above: it describes
+-- the order that was on screen when the button was pressed, so any edit to the ticket and any
+-- change of instrument clears it. It exists because EX.say goes to the script log behind two
+-- debug gates and a refused Place was otherwise completely silent in a real game.
+EX.ord_refusal = nil
+-- HOW MANY LOTS A CLICK MOVES. ONE NUMBER FOR BOTH SURFACES, deliberately: the Buy and Sell
+-- buttons on the Trade list read it, and Place bakes the same value into the standing order
+-- it creates, so "amount" means the same thing wherever the player sets it. Measured need -
+-- 2026-09-11, one campaign turn: 25 separate Buy clicks on Salt at 3797 gold, plus four at
+-- 3452 and four at 3138. A market whose only size control is the mouse is not a market.
+--
+-- A LADDER, NOT A STEPPER. The stepper idiom already on the ticket takes two components and
+-- a click per step; twenty-five lots would be twenty-four clicks to set up, which is the
+-- problem rather than the fix. Four rungs cycle on a single button.
+--
+-- SESSION ONLY, like every other value in this block. An amount is a thing you set for the
+-- trade you are about to make, and a reload should not have opinions about it. The number a
+-- standing ORDER carries is different - that one is saved, on the order itself.
+EX.AMOUNTS = { 1, 5, 10, 25 }
+EX.amount   = 1
+
+function EX.amount_label()
+    return "Amount x" .. tostring(EX.amount)
+end
+
+-- THE TICKET'S OWN LABEL, IN GOODS. It has a selected instrument, so it can say 50 where the
+-- list button can only say x5 - Trade page 1 carries 17 commodities at a lot of 10 beside two
+-- Layer 2 pools at 100, and a single unit count there would be wrong on two of its rows. The
+-- list's own row buttons carry the units instead, which is where they are unambiguous.
+function EX.amount_units(res)
+    if not res then return EX.amount_label() end
+    return "Amount " .. tostring(EX.lot(res) * EX.clamp_lots(EX.amount))
+end
+
+-- Next rung, wrapping. Reads the CURRENT value out of the ladder rather than tracking an
+-- index, so a saved-off or hand-set amount that is not on the ladder still advances instead
+-- of sticking - it lands on the first rung and carries on from there.
+function EX.cycle_amount()
+    for i = 1, #EX.AMOUNTS do
+        if EX.AMOUNTS[i] == EX.amount then
+            EX.amount = EX.AMOUNTS[(i % #EX.AMOUNTS) + 1]
+            return
+        end
+    end
+    EX.amount = EX.AMOUNTS[1]
+end
+
+-- ONE LOT AT A TIME, so a size the ladder does not carry is still reachable. The cycling
+-- button between these two is the fast way to a round number; these are the only way to 7,
+-- and 20 - which is the size the player actually asked for - is not on the ladder at all.
+function EX.step_amount(d)
+    EX.amount = EX.clamp_lots(EX.amount + d)
+end
+
+-- WHAT IT WILL ACTUALLY MOVE, AND WHAT THAT COSTS, in goods and in gold.
+--
+-- "x5" IS FIVE LOTS AND A LOT IS NOT ONE UNIT. EX.LOT_SIZE is 10 for a commodity, 100 for a
+-- Layer 2 pool and 5 for a house share, so the multiplier alone never says how much of
+-- anything is being bought - reported from a screenshot 2026-09-11, an "Amount x5" on Marble
+-- that meant 50 Marble for 2565 gold with neither number anywhere on the panel.
+--
+-- PRICED AT THE RUNG THE TICKET IS SET TO, not at today's price: this is a projection of what
+-- the order will pay when it fills, and EX.order_price is the side's own price rather than
+-- the mid. Multiplied rather than walked, because walking it would need the counterparty book
+-- turn by turn - so it is a floor on a buy and a ceiling on a sell, which is the honest
+-- direction for a number shown before the money moves.
+function EX.amount_line(res, rung)
+    if not res then return "" end
+    local n = EX.clamp_lots(EX.amount)
+    local units = EX.lot(res) * n
+    local each = EX.order_price(res, EX.ord_side, rung or EX.ord_rung or EX.neutral_rung())
+    return units .. " " .. EX.instrument_name(res) .. " - " .. tostring(each * n) .. "g"
+end
+
+-- CLAMPED AND WHOLE. Reached from a network op and from a save, so neither a fraction nor a
+-- hostile number can turn into that many real trades.
+function EX.clamp_lots(n)
+    n = tonumber(n)
+    if not n then return 1 end
+    n = math.floor(n)
+    if n < 1 then return 1 end
+    local top = EX.AMOUNTS[#EX.AMOUNTS]
+    if n > top then return top end
+    return n
+end
+-- THE EIGHT TICKET COMPONENTS, named once so EX.draw_chart's blank pass and the layout
+-- harness read the same list rather than two copies that can drift apart.
+EX.TICKET_CELLS = { "ord_side", "ord_cmp", "ord_down", "ord_price", "ord_up",
+                    "ord_place", "ord_qty_down", "ord_qty", "ord_qty_up", "ord_cost",
+                    "ord_standing" }
 EX.SPARK_H     = 24     -- must match tools/gen_exchange_ui.py
 
 -- CA's inline colour markup, and it works on a component of ours set with SetStateText -
@@ -109,6 +205,17 @@ EX.SAVE_CSHARE = "zharr_cshare"
 -- EX.PLAYER_KEYS and the note beside EX.setp.
 EX.SAVE_INTRO  = "zharr_intro"
 EX.SAVE_STRIPPED = "zharr_bundles_stripped"
+-- STANDING ORDERS, PER PLAYER. One string, orders separated by EX.ORD_RS and fields by
+-- EX.ORD_FS. Per-player because an order spends one player's gold; check_lua_mp refuses to
+-- pass on any EX.SAVE_* key that is not classified, and this one is in its PER_PLAYER set.
+EX.SAVE_ORDERS = "zharr_ord"
+
+-- STAGE 2. One packed string, the shape EX.SAVE_ORDERS and EX.SAVE_HOUSES already use. Deals
+-- are rebuilt every turn, so this exists only so a save reloaded mid-turn shows the same page
+-- it showed before the reload - not to carry a deal across a turn boundary, which EX.post_deals
+-- would overwrite anyway.
+EX.SAVE_DEALS = "zharr_deals"
+EX.deals = {}
 
 -- Own-trade impact, moved here from the DB. rituals.percentage_cost_increase_per_use is
 -- invisible to script, so it would make the panel show a price the game does not charge.
@@ -659,7 +766,7 @@ end
 -- Upgrade path if the fence ever breaks: two-level tables keyed by faction.
 -- ------------------------------------------------------------------------------------------
 
-EX.SLICE_TABLES  = { "shares_held", "offer_until", "LOG" }
+EX.SLICE_TABLES  = { "shares_held", "offer_until", "LOG", "orders", "deals" }
 EX.SLICE_SCALARS = { "offerings_made", "demand_turn", "demand_res", "demand_tier", "demand_due" }
 -- demand_res and demand_tier are absent on purpose: nil IS their cleared state, and a table
 -- literal cannot carry a nil value anyway.
@@ -890,6 +997,23 @@ function EX.bind_race()
         end
     end
     if culture ~= "" then EX.HOUSE_CULTURES[culture] = true end
+
+    -- THE TRADING BLOCS ANY HUMAN BELONGS TO, and a UNION for the same reason the line above
+    -- is one. EX.is_house_culture decides which factions become instruments, so it feeds
+    -- EX.instruments() - the list EX.restore, EX.apply_prices and EX.remember_all all walk to
+    -- keep the WORLD price tables. Reading the LOCAL player's bloc there would fork the row
+    -- list per machine, which forks the price ladder, which is the one thing the comment above
+    -- EX.HOUSE_CULTURES exists to prevent. Built here, once, from the same EX.humans() walk.
+    --
+    -- In singleplayer this is one bloc, so the gate collapses to "my bloc or the wildcard".
+    EX.BLOCS = {}
+    for _, f in ipairs(EX.humans()) do
+        local b = EX.BLOC[EX.culture_of(f) or ""]
+        if b then EX.BLOCS[b] = true end
+    end
+    local mine = EX.BLOC[culture]
+    if mine then EX.BLOCS[mine] = true end
+
     -- Sorted so two machines that discovered their humans in a different order still hand
     -- EX.instruments() the same row order, and therefore the same panel slot per instrument.
     table.sort(l2)
@@ -907,12 +1031,16 @@ function EX.bind_race()
     local who = EX.patron()
     EX.HEADERS.offer.hdr_trend = who .. " grants"
     EX.TIPS.offer.hdr_trend    = "What " .. who .. " grants while the offering lasts."
-    EX.TIPS.houses.hdr_name    = EX.house_word() .. ". Its capital backs its share price."
+    -- THE HOUSE COLUMN TOOLTIP IS NO LONGER PER-RACE. Before trade blocs the column held one
+    -- culture, so EX.house_word() described every row in it; since 2026-09-11 it holds your
+    -- own people AND your bloc's, and "A Chaos Dwarf house" was a flat lie on two thirds of
+    -- the board. The literal in EX.TIPS is race-neutral now and nothing overwrites it here.
+    -- EX.house_word() moved to the guild line below, which is the one place it is still true.
     EX.HELP_PAGES[1][EX.HELP_OFFER_LINE][2] =
         "Burn " .. EX.OFFER_COST .. " units for " .. who .. "'s favour, "
         .. EX.OFFER_TURNS .. " turns - the quick way. Holding is the slow one."
     EX.HELP_PAGES[2][EX.HELP_GUILD_LINE][2] =
-        "The other houses of your own people trade here too. One is across every deal."
+        EX.house_word() .. " trades here - so do your bloc's. One is across every deal."
 end
 
 -- THE SHIPPED DEFAULT, and it is Chaos Dwarf on purpose. EX.bind_race overwrites it at
@@ -927,8 +1055,168 @@ EX.HOUSE_CULTURE = "wh3_dlc23_chd_chaos_dwarfs"
 -- human's culture, not of this client's.
 EX.HOUSE_CULTURES = { [EX.HOUSE_CULTURE] = true }
 
+-- THE BLOCS ANY HUMAN BELONGS TO. Empty until EX.bind_race builds it, and empty is the SAFE
+-- default rather than a placeholder: with no bloc known the gate below falls through to
+-- own-culture-only, which is byte-for-byte the behaviour this file shipped before blocs
+-- existed. That is what keeps the twenty-odd checks that load this file without calling
+-- bind_race measuring the same thing they always did.
+EX.BLOCS = {}
+
+-- ===========================================================================================
+-- TRADING BLOCS - who may hold paper in whom.
+-- ===========================================================================================
+--
+-- WH3 HAS NO ORDER/DESTRUCTION ANYWHERE IN ITS DATA. cultures_tables carries eight columns and
+-- none is an alliance; factions_tables carries sixty and none is either; and CA's own script
+-- docs have no grand_alliance, alliance_group or faction_group. Checked 2026-09-11. The split
+-- below is authored, and it is authored on TRADE rather than on morality - who would actually
+-- do business with whom.
+--
+-- EVERY KEY HERE IS ALSO A KEY OF EX.CULTURE_WANTS, which check_lua_appetite already holds
+-- against the vanilla cultures table. check_bloc() in tools/gen_zharr_exchange.py asserts the
+-- subset, so a typo fails the build instead of failing silently forever.
+--
+-- "any" IS A WILDCARD, NOT A THIRD BLOC. It joins every board and sees every board, because
+-- these five are the setting's merchant and mercenary cultures: Clan Eshin and Skryre sell to
+-- Empire nobles, Cathay pays the Ogres in gold, Sartosa and Tilea deal with whoever pays. It
+-- is also what gives the Chaos Dwarfs their arms-dealer reach WITHOUT a special case - a CHD
+-- player reaches Skaven, Ogres, the Coast and Tilea through this row and not through an
+-- exemption in the gate.
+--
+-- A CULTURE ABSENT FROM THIS TABLE IS NOT AN INVESTMENT FOR OUTSIDERS, and that is the whole
+-- of it - it is NOT locked out. Branch 1 of EX.is_house_culture tests the player's own culture
+-- first, so a Beastmen or Lizardmen player keeps their own houses, their own guild and the
+-- entire commodity market, exactly as today. Beastmen have herdstones rather than an economy,
+-- daemons have no economy at all, and the Slann have no concept of commerce.
+--
+-- WOOD ELVES ARE IN, and the argument is internal rather than lore. Athel Loren proper is
+-- isolationist, but EX.CULTURE_WANTS already has them bidding dyes at 0.8 and medicine at 0.5
+-- and selling iron, marble and timber - they are already a counterparty on Layer 1. Excluding
+-- them from Layer 3 while they bid on Layer 1 is this mod arguing with itself, which is the
+-- exact failure the Southern Realms note in EX.CULTURE_WANTS warns about. CA also ships two
+-- Laurelorn factions, and the Eonir trade with the Empire and Marienburg in canon.
+--
+-- mixer_teb_southern_realms IS A MODDED CULTURE. Vanilla TEB maps to wh_main_emp_empire
+-- through wh_main_sc_teb_teb, so this row is inert unless Mixu's TEB is loaded. Harmless.
+EX.BLOC = {
+    -- ORDER - the treaty web.
+    ["wh_main_emp_empire"]        = "order",
+    ["wh_main_brt_bretonnia"]     = "order",
+    ["wh_main_dwf_dwarfs"]        = "order",
+    ["wh2_main_hef_high_elves"]   = "order",
+    ["wh_dlc05_wef_wood_elves"]   = "order",
+    ["wh3_main_cth_cathay"]       = "order",
+    ["wh3_main_ksl_kislev"]       = "order",
+    ["wh3_main_pro_ksl_kislev"]   = "order",
+    -- DESTRUCTION - the slaver and arms web. Naggaroth to Zharr-Naggrund is a real canon
+    -- trade route in slaves, iron and weapons, which is the strongest single link the Chaos
+    -- Dwarf player has and it lands inside their own bloc.
+    ["wh_main_grn_greenskins"]    = "destr",
+    ["wh_dlc08_nor_norsca"]       = "destr",
+    ["wh_main_chs_chaos"]         = "destr",
+    ["wh2_main_def_dark_elves"]   = "destr",
+    ["wh3_dlc23_chd_chaos_dwarfs"] = "destr",
+    -- ANY - the merchant races, in both blocs.
+    ["wh2_main_skv_skaven"]       = "any",
+    ["wh3_main_ogr_ogre_kingdoms"] = "any",
+    ["mixer_teb_southern_realms"] = "any",
+    -- ABSENT, deliberately: wh2_main_lzd_lizardmen, wh_dlc03_bst_beastmen,
+    -- wh3_main_kho_khorne, wh3_main_tze_tzeentch, wh3_main_sla_slaanesh,
+    -- wh3_main_nur_nurgle, wh3_main_dae_daemons, and THE THREE UNDEAD CULTURES -
+    -- wh2_dlc09_tmb_tomb_kings, wh_main_vmp_vampire_counts, wh2_dlc11_cst_vampire_coast.
+    --
+    -- THE UNDEAD CAME OUT ON 2026-09-11, after the first build put the Tomb Kings and the
+    -- Coast in the wildcard and the Counts in Destruction. The dead are not a going concern:
+    -- Settra hoards rather than trades, Sylvania's wealth is in its crypts, and a share is a
+    -- claim on a capital that has to still be accumulating something. It also takes the board
+    -- down by roughly a fifth, which the cap was carrying instead.
+}
+
+-- THE ONE GATE. EX.discover_houses and the region-power tally in EX.scan_supply are its only
+-- callers, and EX.guild() is EX.houses minus delisted - so widening this widens discovery, the
+-- share board AND the commodity counterparty pool together, which is intended: a bloc-sized
+-- guild is what makes guild_close and refuse_share mean something again. Across the whole map
+-- those ratios never trip.
+--
+-- READS EX.BLOCS, NEVER EX.HOUSE_CULTURE. EX.HOUSE_CULTURE is this client's culture, and this
+-- function feeds EX.instruments() - the row list every machine must build identically or the
+-- price ladder forks. See the union note in EX.bind_race.
 function EX.is_house_culture(c)
-    return c ~= nil and EX.HOUSE_CULTURES[c] == true
+    if c == nil then return false end
+    -- Own culture always, on every machine, even for a culture absent from EX.BLOC. You can
+    -- always invest in your own people.
+    if EX.HOUSE_CULTURES[c] == true then return true end
+    if not EX.setting("cross_bloc") then return false end
+    local theirs = EX.BLOC[c]
+    if not theirs then return false end
+    -- THE PLAYER HAS TO BE IN A BLOC TOO, and this line is not a formality. Without it
+    -- `theirs == "any"` below opens the five merchant cultures to EVERYONE - including a
+    -- player whose own culture is in no bloc at all, and including the PRE-BIND state where
+    -- no bloc is known yet, which would have moved the own-culture-only default that twenty
+    -- other harnesses in tools/gen_zharr_exchange.py measure against. Caught by check_bloc's
+    -- "prebind" probe, never by reading.
+    if next(EX.BLOCS) == nil then return false end
+    return theirs == "any" or EX.BLOCS["any"] == true or EX.BLOCS[theirs] == true
+end
+
+-- IS THIS HOUSE ONE OF OUR OWN PEOPLE? Drives the listing order only - own-culture houses sort
+-- above foreign ones under every column - so it reads EX.HOUSE_CULTURE, the LOCAL player's
+-- culture, on purpose. Row ORDER is a per-client display concern; the row LIST is not.
+function EX.is_own_house(key)
+    local ok, c = pcall(function() return EX.culture_of(key) end)
+    return ok and c ~= nil and c == EX.HOUSE_CULTURE
+end
+
+-- ===========================================================================================
+-- THE CULTURE LOCK - who gets no Exchange at all.
+-- ===========================================================================================
+--
+-- SEPARATE FROM EX.BLOC, AND THE TWO ARE NOT THE SAME QUESTION. EX.BLOC answers "may others
+-- buy shares in this culture"; this answers "may a player OF this culture open the Exchange".
+-- Greenskins, Norsca and the Warriors of Chaos stay in EX.BLOC and are locked here: a Chaos
+-- Dwarf is betting on their territory, not on their bookkeeping.
+--
+-- BOTH SWITCHES DEFAULT OFF, which is the opposite of every other switch in this file and is
+-- why they cannot use EX.setting or EX.feature. Both of those return TRUE for a key MCT has
+-- not written - the right default for a feature you are turning off, and exactly wrong for a
+-- permission you are turning on. EX.lock_allowed below defaults to FALSE on purpose.
+EX.LOCK_GROUPS = {
+    -- No commercial existence at all. The dead do not accumulate, daemons have no economy,
+    -- Beastmen have herdstones rather than markets and the Slann have no concept of commerce.
+    uncommercial = { "wh2_dlc09_tmb_tomb_kings", "wh_main_vmp_vampire_counts",
+                     "wh2_dlc11_cst_vampire_coast", "wh3_main_kho_khorne",
+                     "wh3_main_tze_tzeentch", "wh3_main_sla_slaanesh",
+                     "wh3_main_nur_nurgle", "wh3_main_dae_daemons",
+                     "wh_dlc03_bst_beastmen", "wh2_main_lzd_lizardmen" },
+    -- They take rather than trade. Still investable by others - see the note above.
+    raiders      = { "wh_main_grn_greenskins", "wh_dlc08_nor_norsca", "wh_main_chs_chaos" },
+}
+
+EX.LOCK_OF = {}
+for group, list in pairs(EX.LOCK_GROUPS) do
+    for _, c in ipairs(list) do EX.LOCK_OF[c] = group end
+end
+
+-- DEFAULT FALSE, and MULTIPLAYER IS LOCKED. EX.feature answers true under mp_ignores_mct
+-- because a feature nobody can configure should still run; a PERMISSION nobody can configure
+-- must stay at its default instead, and the default is locked. It also has to answer the same
+-- on every machine, which "the default" does and "whatever this client's MCT says" does not.
+function EX.lock_allowed(group)
+    if EX.LOCK_GROUPS[group] == nil then return false end
+    if EX.mp_ignores_mct() then return false end
+    return EX.mct_raw("allow_" .. group) == true
+end
+
+-- The group name that locks this culture, or nil if it may trade.
+function EX.culture_locked(c)
+    local group = EX.LOCK_OF[c or ""]
+    if not group then return nil end
+    if EX.lock_allowed(group) then return nil end
+    return group
+end
+
+function EX.exchange_locked()
+    return EX.culture_locked(EX.HOUSE_CULTURE)
 end
 EX.HOUSE_LOT_SIZE = 5
 EX.SAVE_HOUSES  = "zharr_houses"     -- semicolon-joined, the shape EX.shocked uses
@@ -942,6 +1230,7 @@ EX.SAVE_HOME    = "zharr_home_"      -- per house; its capital REGION KEY, cache
 -- ONE PACKED STRING PER HOUSE, not one saved value per (house, commodity) pair: 14 values
 -- rather than 238. Same shape EX.SAVE_HOUSES already uses for its house list.
 EX.SAVE_BOOK = "zharr_bk_"
+EX.SAVE_WBOOK = "zharr_wb_"
 
 -- Net guild lots per rung of price effect, and the ceiling in rungs. BOOK_MAX ships small for
 -- the reason EX.AI_MAX_RUNGS = 2 ships small: the constant is uncalibrated and must not be
@@ -982,6 +1271,39 @@ EX.GUILD_CLOSE = 0.60
 -- is not playing. Without the cap, one large position hands a house a campaign's worth of
 -- gold in a turn.
 EX.HOUSE_CASH_MAX = 20000
+
+-- THE WORLD TIER. Deliberately small, like the four appetite constants and the 25/150 stance
+-- thresholds before them: every one of these is a guess until a campaign is played.
+-- WORLD_CASH_MAX is an order of magnitude under HOUSE_CASH_MAX because there are ~80 actors
+-- rather than 14, and one actor's ceiling is not the map's.
+EX.WORLD_CASH_MAX  = 3000
+EX.WORLD_TRADE_MAX = 3
+
+-- THE WORLD TIER'S PRICING GAIN. See EX.world_book_shift, directly below EX.book_shift: a
+-- SECOND term with its own gain and its own clamp, so the fourteen-house calibration EX.book_shift
+-- rests on is never touched by this tier's numbers.
+EX.WORLD_GAIN = 4.0
+
+-- THE DEALS PAGE. Each turn a few world actors with the strongest conviction post one deal
+-- the player can take or leave.
+--
+-- HOW MANY THE PAGE CAN CARRY AT ONCE. Small on purpose, like WORLD_TRADE_MAX and the four
+-- appetite constants above it: the whole map posts these and every one is a decision the
+-- player has to read. START LOW AND MEASURE - no campaign has been played on any of them.
+-- IT IS ALSO THE ROW POOL. EX.build_panel creates exactly this many row components once,
+-- so the cap in EX.post_deals and the loop in EX.build_panel must read the SAME knob or the
+-- page posts a deal with nothing to draw it in. Both read EX.opt("deal_max") and a static
+-- check asserts they still agree.
+EX.DEAL_MAX = 3
+-- HOW FAR OFF MARKET A DEAL IS PRICED, in percent.
+--
+-- THE EDGE IS FOR THE PLAYER, BOTH WAYS, and the plan's own comment had this backwards: a
+-- deal buyer pays OVER market for what the player sells it, and a deal seller takes UNDER
+-- market for what the player buys. That is the entire incentive to use this page rather than
+-- the Trade view, and it is also a direct gold transfer out of the map and into the player -
+-- so it is deliberately smaller than one step of the price ladder.
+EX.DEAL_EDGE = 6
+
 
 -- ===========================================================================================
 -- MCT. Spec sections 13, 15.
@@ -1032,12 +1354,17 @@ EX.TUNE_NUM = {
     demand_chance = "DEMAND_CHANCE",
     shock_gain = "SHOCK_GAIN", shock_max = "SHOCK_MAX", shock_decay = "SHOCK_DECAY",
     race_strength = "RACE_STRENGTH",
+    world_cash_max = "WORLD_CASH_MAX", world_trade_max = "WORLD_TRADE_MAX",
+    deal_max = "DEAL_MAX", deal_edge = "DEAL_EDGE",
+    pos_step = "POS_STEP_LOTS",
+    world_gain = "WORLD_GAIN",
 }
 
--- The seven system switches. All default TRUE: a settings panel that is not installed must
+-- The twelve system switches. All default TRUE: a settings panel that is not installed must
 -- never silently disable a feature.
 EX.TUNE_BOOL = { "ai_traders", "ai_gold", "refusal", "war_lock", "warehouse_rent",
-                 "hashut_demands", "trade_income" }
+                 "hashut_demands", "trade_income", "cross_bloc", "ai_stance", "ai_world",
+                 "world_scarcity", "ai_deals", "world_bundles" }
 EX.TUNE_BOOL_SET = {}
 for _, k in ipairs(EX.TUNE_BOOL) do EX.TUNE_BOOL_SET[k] = true end
 
@@ -1076,8 +1403,23 @@ EX.PRESETS = {
         -- HALF FLAVOUR ON EASY. A first campaign should not meet the Under-Market at full
         -- strength; the races still read differently, at half the departure from baseline.
         race_strength = 0.5,
+        world_cash_max = 1500, world_trade_max = 2, world_gain = 2.0,
+        -- THE PAGE IS THE FRIENDLIEST THING IN THE MOD and easy leans on it: four offers a
+        -- turn at a tenth off market, against three at six per cent. Still under one step of
+        -- the price ladder, which at easy's 1.08 is eight per cent - a deal must never be a
+        -- free round trip against the Trade view.
+        deal_max = 4, deal_edge = 7,
+        -- THE WIDEST STEP OF THE FOUR, so the fewest factions on the map carry a position
+        -- bundle at all. A first campaign should meet this as flavour rather than as a
+        -- second economy running underneath the one it is learning.
+        pos_step = 6,
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = false, hashut_demands = false, trade_income = true,
+        cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
+        world_bundles = true,
+        -- THE ONE DELIBERATE ASYMMETRY. A first campaign should never have a purchase
+        -- refused for want of a seller.
+        world_scarcity = false,
     },
     -- HIGH RISK, HIGH REWARD. Every edge that costs you widens and every payout rises with it.
     hard = {
@@ -1091,8 +1433,14 @@ EX.PRESETS = {
         demand_first_turn = 10, demand_cooldown = 10, demand_chance = 45,
         shock_gain = 15, shock_max = 8, shock_decay = 0.60,
         race_strength = 1.0,
+        world_cash_max = 4000, world_trade_max = 3, world_gain = 6.0,
+        deal_max = 3, deal_edge = 4,
+        pos_step = 3,
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
+        cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
+        world_bundles = true,
+        world_scarcity = true,
     },
     -- ULTRA CAPITALISM. A quarter spread against a tenth floor, the guild moving five rungs a
     -- turn on books that shift twice as hard, hostility to +60%, the market shutting when under
@@ -1111,8 +1459,19 @@ EX.PRESETS = {
         -- Ultra sharpens the profiles as it sharpens everything else. Several Skaven knobs
         -- already clamp here, so the practical effect is on the Empire and Cathay boards.
         race_strength = 1.25,
+        world_cash_max = 8000, world_trade_max = 4, world_gain = 9.0,
+        -- TWO OFFERS AT TWO PER CENT. Ultra keeps the page - it is information about what
+        -- the world wants, which is worth more here than anywhere - and takes the gift out
+        -- of it. Two per cent against a 1.18 ladder is a rounding error on a single lot.
+        deal_max = 2, deal_edge = 2,
+        -- THE NARROWEST. Two lots of net war goods is a tier, so most of the map wears one
+        -- and the war-materiel trade is a live strategic lever rather than a side effect.
+        pos_step = 2,
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
+        cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
+        world_bundles = true,
+        world_scarcity = true,
     },
 }
 
@@ -1327,17 +1686,18 @@ end
 -- already refuses to run. In multiplayer all four are forced ON, which is the shipped
 -- configuration, so no machine can be running a different model from another.
 --
--- ORDERS IS GONE FROM THIS TABLE, and deleting it is the fix rather than registering it.
--- Limit and stop orders were designed 2026-09-08 and never built, so EX.feature("orders") was
--- called from nowhere at all: the switch gated no code, and a player turning it off would have
--- changed nothing while being told they had turned a system off. That is worse than no switch.
--- It comes back with the feature, in the same commit as its first call site.
+-- ORDERS CAME BACK 2026-09-10, with the feature and in the same commit as its first call
+-- site, which is the condition its deletion set. It has two readers, the same shape
+-- deep_history has and for the same reason: EX.trade_pages stops the page being REACHED and
+-- EX.fill_orders stops the model RUNNING. A kill-switch is thrown while the thing is
+-- misbehaving, and the half that moves gold is the fill.
 --
--- EX.FEATURES WENT WITH IT. It listed the same four keys, was read by nothing in this file or
--- any tool, and was a second place for the set to drift out of agreement with the table below
--- that EX.feature actually reads. check_features now derives the set from THIS table.
+-- EX.FEATURES WENT WITH IT (deleted 2026-09-08). It listed the same four keys, was read by
+-- nothing in this file or any tool, and was a second place for the set to drift out of
+-- agreement with the table below that EX.feature actually reads. check_features now derives
+-- the set from THIS table.
 EX.FEATURE_DEFAULT = {
-    deep_history = true, demand_shocks = true, appetite_drift = true,
+    deep_history = true, demand_shocks = true, appetite_drift = true, orders = true,
 }
 
 function EX.feature(key)
@@ -1415,7 +1775,7 @@ function EX.dump_state()
         end
         if not cm then EX.emit("---- no campaign, settings only ----") return end
         for _, res in ipairs(EX.instruments()) do
-            EX.emit(string.format("  %-32s rung %-4s price %-8s held %s",
+            EX.emit(string.format("  %-32s step %-4s price %-8s held %s",
                                   res, tostring(EX.current[res]), tostring(EX.price(res)),
                                   tostring(EX.held(res))))
         end
@@ -1645,6 +2005,39 @@ EX.CARRY_PER_UNIT = 0.5
 -- up 300 for as long as you keep paying the carry.
 EX.STOCK_TIERS = { 100, 300, 600 }
 
+-- WHAT COUNTS AS WAR MATERIEL. Iron for weapons, timber for hafts and siege engines,
+-- obsidian for the shot the Forge actually fires. Chosen by DISPLAY name and then written
+-- as keys, because five of the seventeen filenames name a different good than they draw -
+-- res_rom_lead is Salt and res_rom_glass is Dwarf Beer, so a set picked by reading the key
+-- names would be a set of the wrong three commodities with every gate green.
+--
+-- check_lua_books asserts every key here is in EX.COMMODITIES: an unlisted key is not an
+-- error in Lua, it is a set that silently never matches, and the whole asymmetry would be
+-- dead with nothing to show for it.
+EX.WAR_GOODS = {
+    res_rom_iron = true, res_rom_timber = true, res_obsidian = true,
+}
+
+-- SYMMETRIC, AND DELIBERATELY SHORT. Two steps either side of neutral. Spec section 15
+-- item 5 says the bundle set is unsized and no offline check can answer it, so this starts
+-- at the smallest ladder that can express "better" and "worse" at two intensities and is
+-- measured in a played campaign. Too weak to notice is recoverable; too strong re-tunes the
+-- whole map's economy and is not.
+EX.POS_TIERS = { -2, -1, 1, 2 }
+
+-- HOW MANY LOTS OF NET WAR-GOODS POSITION EACH STEP IS WORTH.
+EX.POS_STEP_LOTS = 4
+
+-- pos_, not stock_ or trade_: derpy_chd_ex_trade_* and derpy_chd_ex_stock_* are both live
+-- families, each applied by a sweep that removes the whole family before applying one of
+-- it, so a collision in either direction would have one family deleting the other's
+-- bundles - silently, and only on the factions that hold both. Mirrors pos_bundle() in the
+-- generator; the DB rows are built from the same formula so the two cannot disagree.
+function EX.pos_bundle_key(tier)
+    return string.format("%spos_%s%02d", EX.PREFIX, tier < 0 and "neg" or "pos",
+                         math.abs(tier))
+end
+
 EX.BUTTON_SIZE = 48     -- must match build_button() in tools/gen_exchange_ui.py
 EX.BUTTON_GAP  = 4      -- clear space between the button and its anchor's visible left
 -- HOW LONG THE OPENER BUTTON KEEPS TRYING. It used to be a flat 8 attempts - a 14-second
@@ -1682,9 +2075,14 @@ function EX.tab_name(mode) return EX.TAB_PREFIX .. mode end
 -- SHORTER THAN THE TITLES, because these sit five across a strip rather than alone on a title
 -- plate. "Ownership" is the stats view's own word - its title reads "Zharr Exchange:
 -- Ownership" - so the tab and the title cannot disagree about what the player just opened.
+--
+-- SIX ACROSS SINCE STAGE 2, AT 108 WIDE ON A 116 PITCH. Five sat at 132 on 140 and ended at
+-- 712, against the back arrow at 774; a sixth on that pitch would have started at 720 and
+-- run to 852, straight through both nav buttons. The 8px gap between tabs is preserved and
+-- the strip now ends at 708, so the two clusters still cannot touch.
 EX.TAB_LABEL = {
     trade = "Trade", stats = "Ownership", offer = "Offerings",
-    houses = "Houses", log = "Log",
+    houses = "Houses", deals = "Deals", log = "Log",
 }
 EX.NAV_PAGE  = "nav_page"
 
@@ -1700,10 +2098,12 @@ EX.MODE_TRADE = "trade"
 EX.MODE_STATS = "stats"
 EX.MODE_OFFER = "offer"
 EX.MODE_HOUSES = "houses"
+-- THE SIXTH VIEW (Stage 2). Deals the world posts TO the player, one turn at a time.
+EX.MODE_DEALS = "deals"
 -- The cycle button walks this list, so a mode is added by adding it here and giving it a
 -- PANEL_LAYOUT_* / ROW_LAYOUT_* pair. EX.layout hides any component the current mode's table
 -- does not name, which is what keeps an unplaced cell from sitting on top of another column.
-EX.MODES = { "trade", "stats", "offer", "houses", "log" }
+EX.MODES = { "trade", "stats", "offer", "houses", "deals", "log" }
 -- THE GUIDE IS A MODE BUT NOT A STOP ON THE CYCLE. It is deliberately absent from EX.MODES:
 -- the cycle button walks the three TRADING views, and a player paging between them should not
 -- have to step over the manual every third click. Its own button reaches it from any view.
@@ -1736,6 +2136,14 @@ EX.COMMODITIES = {
 EX.LAYER2 = { "wh3_dlc23_chd_armaments", "wh3_dlc23_chd_raw_materials" }
 
 function EX.short(res)
+    -- THE LEDGER'S SYNTHETIC KEYS, PASSED THROUGH UNCHANGED. "ord1".."ordN" are not
+    -- instruments - see EX.mode_instruments's EX.on_orders() branch - and the guard is
+    -- narrow (a full-string match, not a prefix) so no real key can ever take this path by
+    -- coincidence; no vanilla resources_tables key or house faction key is shaped like this.
+    if string.match(res, "^ord%d+$") then return res end
+    -- AND THE DEALS PAGE'S, for the same reason: two deals can name one commodity (measured
+    -- - the shipped fixture posts glass twice), which would collide on a single component.
+    if string.match(res, "^dl%d+$") then return res end
     if res == "wh3_dlc23_chd_armaments" then return "armaments" end
     if res == "wh3_dlc23_chd_raw_materials" then return "raw_materials" end
     return string.gsub(res, "^res_", "")
@@ -1986,8 +2394,74 @@ end
 -- player clicked "Houses" to look at.
 EX.house_page = 1
 
+-- HOW MANY FOREIGN HOUSES THE BOARD LISTS. Own-culture houses, and anything the player holds,
+-- are ALWAYS listed and do not count against this - see EX.listed_houses.
+--
+-- 60 IS THREE PAGES OF EX.MAX_ROWS. Bloc-scoped discovery puts 70-130 factions in reach of an
+-- Order or Destruction player against the ten this board shipped with, and six or seven pages
+-- with no way to narrow is not a board anybody reads. The cap is the cheap half of that
+-- answer; a filter is the expensive half and is deliberately not built.
+EX.HOUSE_LIST_MAX = 60
+
+-- THE HOUSES THE BOARD ACTUALLY LISTS, in the order it lists them. EX.house_pages and
+-- EX.house_slice must BOTH read this, or the page counter names pages the slice cannot reach.
+--
+-- THREE STEPS, IN THIS ORDER:
+--   1. Sort, by whatever column the player picked. EX.sorted returns EX.houses itself when
+--      nothing is picked, so the default path allocates nothing extra here.
+--   2. Split own-culture from foreign, each group keeping its sorted order. Own people first,
+--      under EVERY column - the home board is the one you came for, and a sort inside it is
+--      still a sort. This is a per-client DISPLAY order and so may read EX.HOUSE_CULTURE; the
+--      row LIST may not, which is why EX.is_house_culture reads EX.BLOCS instead.
+--   3. Cap the foreign tail by power, keeping anything held whatever its rank. Dropping a
+--      house the player holds would hide a live position, which is strictly worse than a
+--      long list.
+--
+-- POWER IS READ STRAIGHT OUT OF EX.house_regions, not through EX.house_power_of. That accessor
+-- falls back to cm:get_faction for a house the scan has not seen, which is right when pricing
+-- one house and wrong when ranking a hundred of them about once a second. Before the first
+-- turn-start scan every power reads 0, so the cap keeps a stable alphabetical subset for one
+-- turn and the right one from then on.
+function EX.listed_houses()
+    local all = EX.sorted(EX.houses)
+    local mine, theirs = {}, {}
+    for i = 1, #all do
+        local h = all[i]
+        if EX.is_own_house(h) then mine[#mine + 1] = h else theirs[#theirs + 1] = h end
+    end
+    if #theirs > EX.HOUSE_LIST_MAX then
+        local reg = EX.house_regions or {}
+        local keyed = {}
+        for i = 1, #theirs do
+            keyed[i] = { h = theirs[i], i = i, p = reg[theirs[i]] or 0 }
+        end
+        -- Tiebroken on the pre-cap index, for the reason EX.sorted is: table.sort is not
+        -- stable in Lua 5.1, and a board that reshuffles once a second reads as broken.
+        table.sort(keyed, function(a, b)
+            if a.p ~= b.p then return a.p > b.p end
+            return a.i < b.i
+        end)
+        local keep = {}
+        for i = 1, EX.HOUSE_LIST_MAX do
+            local e = keyed[i]
+            if not e then break end
+            keep[e.h] = true
+        end
+        local out = {}
+        for i = 1, #theirs do
+            local h = theirs[i]
+            -- EX.held reads the SAVE STATE for a house, not a pooled resource - see the note
+            -- on the is_house fallback in EX.instruments - so this costs a table lookup.
+            if keep[h] or (EX.held(h) or 0) > 0 then out[#out + 1] = h end
+        end
+        theirs = out
+    end
+    for i = 1, #theirs do mine[#mine + 1] = theirs[i] end
+    return mine
+end
+
 function EX.house_pages()
-    local n = math.ceil(#EX.houses / EX.MAX_ROWS)
+    local n = math.ceil(#EX.listed_houses() / EX.MAX_ROWS)
     if n < 1 then n = 1 end
     return n
 end
@@ -2003,9 +2477,10 @@ function EX.house_slice()
     if EX.house_page < 1 then EX.house_page = 1 end
     -- SORTED FIRST, PAGED SECOND. The other way round orders the twenty rows on whichever
     -- page the player happens to be on and leaves the rest untouched, which looks like sorting
-    -- and is not. EX.sorted returns EX.houses ITSELF when nothing is sorted, so the default
-    -- path allocates nothing.
-    local all = EX.sorted(EX.houses)
+    -- and is not. The sort, the own-people-first split and the power cap all live in
+    -- EX.listed_houses, which EX.house_pages above reads too - the page counter and this slice
+    -- MUST walk one list or the counter names a page the slice returns empty.
+    local all = EX.listed_houses()
     local out = {}
     local from = (EX.house_page - 1) * EX.MAX_ROWS
     for j = 1, EX.MAX_ROWS do
@@ -2018,9 +2493,29 @@ end
 
 function EX.mode_instruments()
     local t = {}
+    -- ONE ROW PER STANDING ORDER, in placement order - the same order EX.fill_orders walks,
+    -- so the ledger reads top to bottom in the order things will happen.
+    --
+    -- ROWS ARE KEYED BY ORDER INDEX HERE, NOT BY INSTRUMENT, and that is forced rather than
+    -- stylistic: rows are created one per key as EX.ROW .. "_" .. EX.short(key), so two
+    -- orders on one commodity - a ladder, which is the whole reason the list is a list and
+    -- not one slot per instrument - would collide on a single component. The order carries
+    -- its own resource (o.res), so nothing downstream loses it - see EX.refresh_panel's
+    -- EX.on_orders() branch and EX.order_of_row.
+    if EX.on_orders() then
+        for i = 1, #EX.orders do t[#t + 1] = string.format("ord%d", i) end
+        return t
+    end
     -- THE CHART PAGE DRAWS NO ROWS. Returning empty here is what makes EX.layout's hide
     -- pass take every row off screen: that pass builds its keep-set from this list.
     if EX.on_chart() then return t end
+    -- ONE ROW PER POSTED DEAL, keyed by position for the reason the ledger is: two deals can
+    -- name one commodity and would collide on a single component. An empty list hands back
+    -- nothing, which is what hides every row and leaves the footer to say why.
+    if EX.mode == EX.MODE_DEALS then
+        for i = 1, #EX.deals do t[#t + 1] = string.format("dl%d", i) end
+        return t
+    end
     if EX.mode == EX.MODE_HOUSES then
         -- PAGED, NOT TRUNCATED. The old `while #t > EX.MAX_ROWS do t[#t] = nil end` ran
         -- against an ALPHABETICALLY SORTED list, so everything past slot 20 was dropped for
@@ -2047,8 +2542,8 @@ function EX.median(t)
     return (s[mid] + s[mid + 1]) / 2
 end
 
--- Herfindahl-Hirschman index of an ownership table {faction_name -> producing regions}.
--- 1.0 = one faction owns every producing region; ~1/n = spread evenly over n factions.
+-- Herfindahl-Hirschman index of an ownership table {faction_name -> output amount}.
+-- 1.0 = one faction produces every unit of supply; ~1/n = spread evenly over n factions.
 -- Pure, so tools/gen_zharr_exchange.py can run it under lua.exe against the Python side.
 function EX.hhi(counts)
     local total = 0
@@ -2228,6 +2723,26 @@ function EX.book_shift(res)
     return q
 end
 
+-- THE WORLD TIER'S PRICING TERM. A SECOND term, never folded into EX.book_shift: that
+-- function's constants are calibrated against a fourteen-house book, and the spread floor
+-- resting on them is what stands between the player and the measured +906 gold from 55 free
+-- round trips. Its own gain, its own clamp, its own switch.
+-- Truncated TOWARD ZERO, the same trap as EX.appetite_shift and EX.pressure_shift:
+-- math.floor(-0.5) is -1, so flooring a signed shift moves a price DOWN on a position too
+-- small to move it up.
+function EX.world_book_shift(res)
+    if not EX.setting("ai_world") then return 0 end
+    if EX.is_house(res) or EX.is_layer2(res) then return 0 end
+    local net = EX.world_book(res)
+    if net == 0 then return 0 end
+    local v = EX.opt("world_gain") * net / 100
+    local q = math.floor(math.abs(v))
+    if q > EX.opt("ai_max_rungs") then q = EX.opt("ai_max_rungs") end
+    if q == 0 then return 0 end
+    if v < 0 then return -q end
+    return q
+end
+
 -- What a sell actually pays. It has its OWN column since 2026-09-06 - see the SELL COLUMN note
 -- on EX.PANEL_LAYOUT. Before that the panel drew the buy price alone and named the cut only in
 -- the Sell button's tooltip, which hid the one number a player needs to close a position.
@@ -2246,17 +2761,23 @@ end
 --
 -- The hostile and neutral paths are untouched: floor(x + 0.5) is what shipped and what
 -- check_spread has always measured.
-function EX.buy_price(res)
+function EX.buy_price(res, base)
+    -- BASE IS OPTIONAL and defaults to today's price. The standing-order surfaces pass the mid
+    -- AT THE ORDER'S TARGET RUNG instead, so the spread is applied here once rather than being
+    -- re-derived against EX.price_at by the ticket. See EX.order_price.
+    local p = base or EX.price(res)
     local h = EX.hostility(res)
-    if h < 0 then return math.ceil(EX.price(res) * (1 + h)) end
-    return math.floor(EX.price(res) * (1 + h) + 0.5)
+    if h < 0 then return math.ceil(p * (1 + h)) end
+    return math.floor(p * (1 + h) + 0.5)
 end
 
 -- What a sell actually pays. It has its OWN column since 2026-09-06 - see the SELL COLUMN
 -- note on EX.PANEL_LAYOUT. Hostility widens the spread against you here as well: a house
 -- that dislikes you charges more AND pays less - and a house that likes you does the reverse,
 -- since EX.hostility is negative there and the same subtraction becomes an addition.
-function EX.sell_price(res)
+function EX.sell_price(res, base)
+    -- BASE IS OPTIONAL, exactly as in EX.buy_price - see EX.order_price.
+    local p = base or EX.price(res)
     -- BEFORE the hostility read, not after. EX.hostility already returns 0 for layer 2, so
     -- the order does not change the number today - it is here so that a future task giving
     -- the guild a stance on the Forge's output cannot silently stack a markup on top of a
@@ -2272,15 +2793,15 @@ function EX.sell_price(res)
         local f = EX.opt("l2_sell")
         local cap = 1 / EX.opt("ladder_step")
         if f > cap then f = cap end
-        return math.floor(EX.price(res) * f)
+        return math.floor(p * f)
     end
     local h = EX.hostility(res)
     local f = 1 - EX.opt("spread") - h
     if f < EX.opt("sell_floor") then f = EX.opt("sell_floor") end
     -- See the note on EX.buy_price: the discounted side rounds against the player so whole
     -- gold cannot reopen the round trip the cap closes.
-    if h < 0 then return math.floor(EX.price(res) * f) end
-    return math.floor(EX.price(res) * f + 0.5)
+    if h < 0 then return math.floor(p * f) end
+    return math.floor(p * f + 0.5)
 end
 
 -- HOW MUCH THE MARKUP ACTUALLY MOVED THIS PRICE, as a whole percent.
@@ -2513,8 +3034,18 @@ end
 -- that spread only just clears check_spread's floor of 1 - 1/STEP = 0.0909. The discount
 -- therefore scales with the spread the player has set, and the slider is a ceiling on it,
 -- never an override.
+--
+-- BOTH INPUTS THROUGH EX.opt, and this line shipped with only one of them that way. The step
+-- was read off EX.LADDER_STEP - the DEFAULT 1.10 - while the spread came from the player's own
+-- setting, so the algebra above was solved for a ladder the game was not running. On ultra
+-- (step 1.18, spread 0.25) the safe headroom is 5.3% and this granted 8.3%: buy from a friendly
+-- house, sell one rung up, net gold with no price movement at all. Exactly the exploit the
+-- derivation was written to rule out, defeated by one of its two terms coming from the wrong
+-- place. Found by check_knob_reads() on 2026-09-16, not by a harness - every preset check was
+-- green, because presets and constants agree at the default and only there.
 function EX.friendly_cap()
-    local d = (1 - EX.LADDER_STEP * (1 - EX.opt("spread"))) / (1 + EX.LADDER_STEP)
+    local step = EX.opt("ladder_step")
+    local d = (1 - step * (1 - EX.opt("spread"))) / (1 + step)
     if d < 0 then d = 0 end
     return d
 end
@@ -3123,6 +3654,39 @@ EX.pressure = {}   -- res -> net lots bought, our own-trade impact
 -- supply, which is rescanned from the map every turn, a position is a thing somebody did.
 EX.book = {}
 
+-- THE WORLD TIER'S BOOK. F1, final review 2026-09-13: EX.set_world_book has always written
+-- EX.SAVE_WBOOK .. faction, and nothing ever read it back - EX.wbook = EX.wbook or {} at its
+-- own declaration is a fresh empty table on every load, since the script re-executes. With
+-- world_scarcity on (default, hard and ultra) that reads as EVERY commodity the guild is not
+-- long being sold out, from the instant a save loads until the player's turn ends.
+--
+-- NO KNOWN ROSTER TO ITERATE, unlike the guild's EX.houses. EX.actors is a per-turn scan
+-- result, not a saved list, so this walks EX.store itself for every key beginning with
+-- EX.SAVE_WBOOK instead of building one from a faction list that does not exist yet. EX.store
+-- is guaranteed populated before EX.restore runs - see the comment above EX.getv - so this
+-- needs no new save key and maintains no roster of its own.
+--
+-- MIRRORS EX.pack_world_book's FORMAT EXACTLY: "res=n;res2=n2", sorted - the same gmatch shape
+-- the guild's book uses on its own packed string. tonumber handles a leading "-" for free, so
+-- a short position restores as read, no separate branch needed.
+--
+-- SPLIT OUT OF EX.restore, TASK 9, so the selftest harness can exercise a load in isolation
+-- without a full campaign restore.
+function EX.restore_world_books()
+    EX.wbook = {}
+    for key, packed in pairs(EX.store) do
+        if type(key) == "string" and string.sub(key, 1, #EX.SAVE_WBOOK) == EX.SAVE_WBOOK then
+            local faction = string.sub(key, #EX.SAVE_WBOOK + 1)
+            EX.wbook[faction] = EX.wbook[faction] or {}
+            if packed and packed ~= "" then
+                for res, n in string.gmatch(packed, "([^;=]+)=([^;]+)") do
+                    EX.wbook[faction][res] = tonumber(n) or 0
+                end
+            end
+        end
+    end
+end
+
 function EX.restore()
     -- HOUSES FIRST. EX.instruments() reads EX.houses, so restoring per-instrument state
     -- before this would silently skip every house's rung, pressure and history.
@@ -3148,6 +3712,11 @@ function EX.restore()
             end
         end
     end
+
+    -- THE WORLD TIER'S BOOK, restored by EX.restore_world_books() below - split out so the
+    -- selftest harness can exercise a load in isolation, without a full campaign restore.
+    EX.restore_world_books()
+
     -- WHICH HOUSES HAVE ALREADY PAID OUT, same semicolon shape as EX.shocked below. A reload
     -- re-runs the turn handler, so losing this is a second settlement for every dead house on
     -- the board - the F9 gold printer EX.check_delistings guards against.
@@ -3224,6 +3793,8 @@ function EX.restore_player()
         local until_turn = EX.getp(EX.SAVE_OFFER .. res)
         if until_turn then EX.offer_until[res] = until_turn end
     end
+    pcall(function() EX.unpack_orders(EX.getp(EX.SAVE_ORDERS)) end)
+    pcall(function() EX.unpack_deals(EX.getp(EX.SAVE_DEALS)) end)
     EX.demand_turn = EX.getp(EX.SAVE_DEMAND) or 0
     -- A DEMAND IN FLIGHT SURVIVES A SAVE. It is three plain values rather than a table:
     -- the deadline has to outlive a reload or an unpaid tithe would quietly forgive itself.
@@ -3399,7 +3970,7 @@ end
 -- Walk every region once and count who produces what. Region-to-resource lives in the
 -- startpos, not the DB - no table maps a region to its resource - so this is the only way to
 -- learn the map's supply.
--- Returns supply[res] = producing regions, and owners[res] = {faction_name -> count}.
+-- Returns supply[res] = total output, and owners[res] = {faction_name -> output amount}.
 -- Returns nil on failure, which means "hold last turn's picture" - see EX.apply_prices. Half a
 -- map is worse than a stale one: it would price every commodity as scarce for one turn.
 -- What a region puts on the market: the latent deposit plus whatever is actually built.
@@ -3520,9 +4091,21 @@ function EX.scan_supply()
                         local okf, c, w = pcall(function()
                             return owner:culture(), owner:at_war()
                         end)
-                        info = { culture = okf and c or nil, war = (okf and w) == true }
+                        -- ITS OWN pcall, not the culture/war one above. Treasury is an
+                        -- enhancement over land the walk already counts, and it must never be
+                        -- able to cost a faction its culture along with it - a faction whose
+                        -- treasury cannot be read is simply an actor with 0 gold, the correct
+                        -- "cannot buy" degradation a later consumer will apply; it must not
+                        -- also go silently missing from culture_regions and every appetite
+                        -- that feeds.
+                        local okt, t = pcall(function() return owner:treasury() end)
+                        info = { culture = okf and c or nil,
+                                 war = (okf and w) == true,
+                                 gold = (okt and t) or 0,
+                                 regions = 0 }
                         fcache[oname] = info
                     end
+                    info.regions = info.regions + 1
                     total_regions = total_regions + 1
                     if info.culture then
                         culture_regions[info.culture] =
@@ -3571,7 +4154,7 @@ function EX.scan_supply()
         end
     end)
     if not ok then
-        EX.say("error", "supply scan failed, prices hold at their last rung: "
+        EX.say("error", "supply scan failed, prices hold at their last step: "
             .. tostring(err))
         return nil, nil
     end
@@ -3599,6 +4182,17 @@ function EX.scan_supply()
     for c, n in pairs(culture_regions) do
         if n > 0 then cwar[c] = (culture_war[c] or 0) / n end
     end
+    -- THE WORLD TIER'S ROSTER. Houses are excluded because they have the guild, which is
+    -- deeper in every way: shares, dividends, delisting, stance. A faction in both would
+    -- be priced twice and paid twice. Set directly here, not threaded through the return
+    -- tuple, so a bare EX.scan_supply() call refreshes it exactly like every other export
+    -- below - and a failed scan (the early return above) leaves last turn's roster alone,
+    -- same as it leaves EX.supply and EX.owners alone.
+    local actors = {}
+    for name, info in pairs(fcache) do
+        if not EX.is_house_culture(info.culture) then actors[name] = info end
+    end
+    EX.actors = actors
     return supply, owners, share, war, house_regions, cwar
 end
 
@@ -3670,11 +4264,18 @@ function EX.rescan()
     end
 end
 
--- The largest holder of a commodity, and how many of its regions they own.
-function EX.top_holder(res)
+-- The largest holder of a commodity, and how much it produces - an output AMOUNT, not a region
+-- count. This comment used to say "regions"; that wrong reading of EX.owners is what caused the
+-- accrual approach withdrawn earlier in this effort, so get it from EX.owners directly rather
+-- than trusting a comment that has been wrong before.
+-- SKIP IS OPTIONAL, a faction key to exclude from the search - added for F2, REVIEW
+-- 2026-09-13, so EX.settle_counterparty's rung 3 can fall through to the SECOND-largest holder
+-- instead of refusing outright when the largest is the player. Every pre-existing caller passes
+-- nothing and sees no change.
+function EX.top_holder(res, skip)
     local best, bestn = nil, 0
     for name, n in pairs((EX.owners or {})[res] or {}) do
-        if n > bestn then best, bestn = name, n end
+        if n > bestn and name ~= skip then best, bestn = name, n end
     end
     return best, bestn
 end
@@ -3732,6 +4333,134 @@ function EX.guild_book(res)
     return total
 end
 
+-- THE WORLD TIER'S BOOK. Mirrors EX.book_of / EX.set_book / EX.guild_book exactly; see those
+-- for the reasoning that is identical. The one difference is the clear below.
+EX.wbook = EX.wbook or {}
+
+function EX.world_book_of(faction, res)
+    local b = EX.wbook[faction]
+    if not b then return 0 end
+    return b[res] or 0
+end
+
+-- WHAT AN ACTOR'S LAND CAN MAKE, in LOTS. EX.owners[res][faction] is a production AMOUNT and
+-- not a region count - the add() helper in EX.scan_supply is explicit about it, and the
+-- comments on EX.top_holder and above EX.scan_supply both say "regions" and are both wrong.
+-- Divide by EX.lot(res) or every number downstream is an order of magnitude out.
+function EX.world_capacity(faction, res)
+    local mine = ((EX.owners or {})[res] or {})[faction] or 0
+    if mine <= 0 then return 0 end
+    -- FLOOR THE PRODUCT, NOT THE FACTOR. floor(mine / lot) * TURNS discards everything under a
+    -- lot BEFORE accumulating, so a faction making 6 units a turn of a 10-unit lot had capacity
+    -- 0 forever rather than 1 lot every other turn. The world makes 6 units of glass a turn in
+    -- total (measured, see the producible note in EX.validate_keys), so glass was refused from
+    -- turn 1 for the life of the campaign.
+    return math.floor(mine * EX.WORLD_STOCK_TURNS / EX.lot(res))
+end
+
+-- COULD THE WORLD TIER EVER SELL THIS? Capacity ignoring positions. This is the difference
+-- between "drained" and "never a participant", and only the first is scarcity.
+--
+-- A commodity whose every producer is smaller than one lot is not the world tier's to refuse:
+-- it cannot supply it, so it must not be able to veto the guild and top_holder supplying it.
+-- Without this, a thin commodity is refused from turn 1 forever - which is not scarcity, it is
+-- the market being taken away, and it shipped that way at default settings.
+function EX.world_potential(res)
+    local total = 0
+    for faction in pairs(EX.actors or {}) do
+        if not EX.is_human(faction) then
+            total = total + EX.world_capacity(faction, res)
+        end
+    end
+    return total
+end
+
+-- WHAT IT CAN SELL RIGHT NOW: what its land makes, plus whatever position it already holds. A
+-- negative book is stock already sold forward, so it reduces this one for one; a positive book
+-- is stock bought and held, and adds.
+function EX.world_sellable(faction, res)
+    local n = EX.world_capacity(faction, res) + EX.world_book_of(faction, res)
+    if n < 0 then n = 0 end
+    return n
+end
+
+function EX.set_world_book(faction, res, n)
+    -- SHORT TO WHAT THE LAND MAKES, AND NO FURTHER - BUT NEVER SHALLOWER, EITHER. This
+    -- replaces a floor at 0 that read "actors do not short, same rule as the houses". That
+    -- rule is right for the guild, whose book is a warehouse it buys into, and wrong for a
+    -- tier whose stock comes out of the ground every turn: a producer selling this turn's
+    -- output IS short until it digs it up.
+    --
+    -- FIX ROUND 2, REVIEW 2026-09-13: THE FLOOR MUST NOT MINT GOODS WHEN CAPACITY SHRINKS.
+    -- `EX.world_capacity` is re-derived from LIVE `EX.owners` on every single call, and
+    -- `EX.owners` is rebuilt by every scan - so a faction that is already short and then loses
+    -- the land that earned it that short has its floor rise (move toward zero) on its very
+    -- next write. A plain `if n < floor then n = floor end` clamps ANY write below the new,
+    -- shallower floor - including a write that was moving the position TOWARD zero, which is
+    -- exactly what a buyer leg crediting an existing short does. That silently forgives part
+    -- of the debt: measured through EX.step_world, a seller debited 3 while the buyer - short
+    -- and just stripped of its land - was credited 6, net iron -6 to -3, 3 lots minted from
+    -- nothing. The rule can only be one-sided: a write may not DEEPEN a short beyond capacity,
+    -- and may always move a position toward zero, however far, however the capacity that
+    -- produced the floor has since moved. `cur` is read before the new floor is applied, so
+    -- "toward zero" is judged against what the position WAS, not against the new floor itself.
+    local cur = EX.world_book_of(faction, res)
+    local cap = EX.world_capacity(faction, res)
+    -- (cap > 0) and -cap or 0, NOT -cap: Lua 5.1 has -0 and it stringifies as "-0" - the same
+    -- trap EX.book_shift already guards against - and a zero-capacity floor must print as a
+    -- clean 0, not a book that shows a player "-0".
+    local floor = (cap > 0) and -cap or 0
+    if n < cur and n < floor then n = math.min(cur, floor) end
+    EX.wbook[faction] = EX.wbook[faction] or {}
+    EX.wbook[faction][res] = n
+    -- A FACTION WHOSE BOOK EMPTIES GIVES UP ITS SAVE KEY. The guild is fourteen names that
+    -- exist for the whole campaign; this tier is ~80 that come and go, and a key per dead rump
+    -- state is a save that only ever grows.
+    local any = false
+    for _, v in pairs(EX.wbook[faction]) do
+        -- ~= 0, NOT > 0. A faction short in everything has a very real book, and testing for
+        -- positives deleted its row and minted back every lot it owed.
+        if v ~= 0 then any = true break end
+    end
+    if any then
+        EX.setv(EX.SAVE_WBOOK .. faction, EX.pack_world_book(faction))
+    else
+        EX.wbook[faction] = nil
+        EX.setv(EX.SAVE_WBOOK .. faction, nil)
+    end
+end
+
+-- ITERATES THE BOOK, NOT THE ROSTER. Ruled 2026-09-13 in the pre-flight scan. `EX.wbook` is the
+-- position record; `EX.actors` is a per-turn observation of the map. A faction missing from one
+-- scan - conquered, a null interface, a scan that returned early - would otherwise drop its lots
+-- out of the pricing term silently and jolt every price it was holding.
+function EX.world_book(res)
+    local total = 0
+    for faction in pairs(EX.wbook or {}) do
+        total = total + EX.world_book_of(faction, res)
+    end
+    return total
+end
+
+-- WHAT THE WORLD COULD SELL, as opposed to what it is net holding. EX.world_book is a NET
+-- position and sums to roughly zero by construction - one actor's short is another's long - so
+-- it answers "is the world long or short", which is the right question for pricing and the
+-- wrong one for "can anybody sell me a lot".
+--
+-- ITERATES EX.actors, NOT EX.wbook, and that is the opposite of EX.world_book's rule. Capacity
+-- comes from land the scan observed this turn, so an actor with no book at all still has supply
+-- if it owns the ground; a faction in the book but off the map has a stale position, which
+-- prices, but cannot sell anybody anything.
+function EX.world_supply(res)
+    local total = 0
+    for faction in pairs(EX.actors or {}) do
+        if not EX.is_human(faction) then
+            total = total + EX.world_sellable(faction, res)
+        end
+    end
+    return total
+end
+
 -- SORTED, so the same book always packs to the same string. Unsorted, pairs() order varies
 -- and two identical positions produce two different saved values, which makes a diff of two
 -- saves unreadable and a round-trip assertion flaky.
@@ -3745,6 +4474,20 @@ function EX.pack_book(house)
     for _, res in ipairs(keys) do
         parts[#parts + 1] = res .. "=" .. EX.book[house][res]
     end
+    return table.concat(parts, ";")
+end
+
+-- WORLD BOOK'S PACKER, same sorted-key rule as EX.pack_book: unsorted, the same book packs
+-- two different ways and a diff of two saves is unreadable.
+function EX.pack_world_book(faction)
+    local b = EX.wbook[faction] or {}
+    local keys = {}
+    -- ~= 0, NOT > 0. A short-only faction's book is a real position and must not be filtered
+    -- out of the save - see EX.set_world_book's emptiness test for the same fix.
+    for k, v in pairs(b) do if v ~= 0 then keys[#keys + 1] = k end end
+    table.sort(keys)
+    local parts = {}
+    for _, k in ipairs(keys) do parts[#parts + 1] = k .. "=" .. b[k] end
     return table.concat(parts, ";")
 end
 
@@ -3813,6 +4556,49 @@ function EX.house_desire(house, res)
     return d + EX.house_bias(house, res)
 end
 
+-- FIVE TERMS, and every input is already in memory - see the des_calls assertion. Mirrors
+-- EX.house_desire's shape, minus the two house-only terms: there is no front-run term and no
+-- house_bias, because a world faction does not watch the player's book. Watching it is a house
+-- behaviour and stays one.
+function EX.world_desire(faction, res)
+    if EX.is_house(res) or EX.is_layer2(res) then return 0 end
+    local info = (EX.actors or {})[faction]
+    if not info then return 0 end
+
+    -- PRODUCTION. Owning regions that make it means selling it; owning none means importing.
+    -- Same shape and same constants as the house term.
+    local mine = ((EX.owners or {})[res] or {})[faction] or 0
+    local d = (mine > 0) and -(0.4 * mine) or 0.5
+
+    -- TASTE. The culture appetite table, doing a better job than shifting an aggregate price:
+    -- here it is this faction's personality. A culture with no entry contributes exactly zero
+    -- and the faction is still an actor - it trades on the other four terms.
+    -- EX.drift is deliberately NOT applied: drift shades a culture-level aggregate, and this
+    -- faction's own war state is already the war term below. Both would count it twice.
+    local wants = EX.CULTURE_WANTS[info.culture]
+    if wants and wants[res] then d = d + wants[res] end
+
+    -- WAR. The actor's OWN war state, not the world index - the world index applies the same
+    -- pressure to a faction at peace as to one that is losing.
+    if info.war then
+        local wa = EX.WAR_APPETITE[res]
+        if wa then d = d + wa end
+    end
+
+    -- VALUE, in rungs from neutral. Same term and same constant as the house version.
+    local rung = EX.current[res] or EX.neutral_rung()
+    d = d + 0.15 * (EX.neutral_rung() - rung)
+
+    -- POSITION. Already long reduces the appetite to add. ONE-SIDED ON PURPOSE: a negative book
+    -- is an actor that sold what its land made, which is its normal state and not an appetite
+    -- to buy back. Left two-sided, a fully short producer scored up to +1.35 here and turned
+    -- into the keenest buyer on the map for the very thing it produces.
+    local pos = EX.world_book_of(faction, res)
+    if pos > 0 then d = d - 0.05 * pos end
+
+    return d
+end
+
 -- ONE BUY AND ONE SELL PER HOUSE PER TURN. Deliberately: at most ~14 book changes a turn is
 -- a number a player can read in a footer, and a house that can only move once each way has a
 -- legible character rather than a portfolio.
@@ -3869,6 +4655,245 @@ function EX.step_books()
     end
     EX.book_flow = flow
     EX.free_guild()
+end
+
+-- ===========================================================================================
+-- THE WORLD TIER. Every OTHER landholding faction, matched against each other.
+-- ===========================================================================================
+--
+-- ONE BUY AND ONE SELL PER ACTOR PER TURN, matched against each other. The guild's step_books
+-- pays a house and the gold leaves the world; that is affordable for fourteen and is a
+-- map-wide drain for eighty. So this pass MATCHES: the buyer pays exactly what the seller
+-- receives, world gold is unchanged, and an order with no counterparty does not execute.
+--
+-- Finite supply falls out of that for free. You can only buy what somebody is selling, so
+-- supply is finite because it is somebody's, not because a counter was decremented.
+EX.world_flow = nil
+
+-- STOCK NO LONGER ACCRUES. EX.world_capacity and EX.world_sellable, beside EX.world_book_of
+-- below, read what an actor's land can put on the board straight off EX.owners on every call,
+-- rather than banking a running stock that nothing ever draws down - see those two functions
+-- for the reasoning and the shape. EX.accrue_world_stock is WITHDRAWN, not deprecated: it read
+-- EX.owners as a region count when the add() helper in EX.scan_supply is explicit that it is a
+-- production amount, it saturated EX.world_book_shift's position term permanently within a few
+-- turns, and it only ever added, so the book ratcheted upward forever with nothing to match it.
+--
+-- EX.WORLD_STOCK_TURNS IS NOW HOW MANY TURNS OF PRODUCTION AN ACTOR MAY SELL FORWARD, not an
+-- accrual cap. A negative book is stock already sold that has not been dug up yet, and this is
+-- how far short of zero EX.set_world_book's floor lets that go: a faction may be short by up to
+-- this many turns of what its land currently makes, and no further.
+EX.WORLD_STOCK_TURNS = 3
+
+function EX.step_world()
+    if not EX.setting("ai_world") then
+        -- CLEARED, NOT LEFT STALE. Without this, a player who switches the world tier off
+        -- mid-campaign keeps seeing LAST turn's flow numbers forever, since the early return
+        -- used to skip building a fresh (empty) one. Found 2026-09-13 in fix round 2.
+        EX.world_flow = { bought = 0, sold = 0, actors = 0 }
+        return
+    end
+    local buyers, sellers = {}, {}
+    for faction in pairs(EX.actors or {}) do
+        -- EVERY HUMAN IS EXCLUDED, same rule and same reason as EX.discover_houses: EX.actors
+        -- is built in EX.scan_supply from every landholding faction whose culture is not
+        -- Chaos Dwarf, with no human filter on that path - a player faction scores a real
+        -- EX.world_desire, enters buyers/sellers, and would be traded on (and paid, or
+        -- charged) without ever asking to be. EX.is_human is memoised (EX.humans() caches
+        -- EX.human_list), so this costs nothing extra across ~80 actors. Found 2026-09-13 in
+        -- fix round 2.
+        if not EX.is_human(faction) then
+            local best, best_d, worst, worst_d
+            for _, res in ipairs(EX.COMMODITIES) do
+                local d = EX.world_desire(faction, res)
+                if not best_d or d > best_d then best, best_d = res, d end
+                if EX.world_sellable(faction, res) > 0 and (not worst_d or d < worst_d) then
+                    worst, worst_d = res, d
+                end
+            end
+            if best and best_d > 0 then
+                buyers[best] = buyers[best] or {}
+                buyers[best][#buyers[best] + 1] = faction
+            end
+            if worst and worst_d < 0 then
+                sellers[worst] = sellers[worst] or {}
+                sellers[worst][#sellers[worst] + 1] = faction
+            end
+        end
+    end
+
+    -- A DEAD FACTION'S POSITION IS NOT A POSITION. Confirmed dead only: absence from EX.actors
+    -- means the scan did not see it this turn, which EX.world_book deliberately tolerates.
+    for faction in pairs(EX.wbook or {}) do
+        local f = cm:get_faction(faction)
+        -- cm:get_faction returns FALSE, not nil, for a key it does not know.
+        if f and not f:is_null_interface() then
+            local ok, dead = pcall(function() return f:is_dead() end)
+            if ok and dead then
+                EX.wbook[faction] = nil
+                EX.setv(EX.SAVE_WBOOK .. faction, nil)
+            end
+        end
+    end
+
+    local flow = { bought = 0, sold = 0, actors = 0 }
+    local moved = {}
+    for _, res in ipairs(EX.COMMODITIES) do
+        local bs, ss = buyers[res] or {}, sellers[res] or {}
+        -- SMALLEST SIDE FIRST. The unmatched remainder of the longer side simply does not
+        -- trade this turn - see the wld_unmatched assertion.
+        local pairs_n = math.min(#bs, #ss)
+        local px = EX.price(res)
+        for i = 1, pairs_n do
+            local buyer, seller = bs[i], ss[i]
+            local n = EX.world_sellable(seller, res)
+            if n > EX.opt("world_trade_max") then n = EX.opt("world_trade_max") end
+            -- BOUNDED BY WHAT THE BUYER CAN ACTUALLY PAY, read off the scan.
+            local gold = ((EX.actors or {})[buyer] or {}).gold or 0
+            if px > 0 then
+                local afford = math.floor(gold / px)
+                if n > afford then n = afford end
+                -- BOUNDED BY world_cash_max TOO, not just by gold. Without this, a trade
+                -- priced over the cap has EX.pay_actor clamp the GOLD leg while the books
+                -- below still move the full n lots - goods created from nothing, the same
+                -- class of defect wld_net exists to catch, just invisible to it because
+                -- gold still nets to zero. Found 2026-09-13 in fix round 1: reachable on
+                -- shipped values (easy preset is 1500/2, and any price above 750 puts a
+                -- 2-lot trade over that cap).
+                local cap_lots = math.floor(EX.opt("world_cash_max") / px)
+                if n > cap_lots then n = cap_lots end
+            end
+            if n > 0 then
+                local cost = n * px
+                -- THE TWO LEGS ARE THE SAME NUMBER. Not two independent pay calls sized
+                -- separately: pay_actor clamps, and two clamps that disagree is a leak.
+                -- WITH THE cap_lots CLAMP ABOVE, cost <= world_cash_max ALWAYS, so
+                -- EX.pay_actor's own cap clamp can never actually bind here and paid == -cost
+                -- exactly - this call is provably unreachable-as-a-clamp from this call site
+                -- (same shape as the affordability floor discussed in the Task 5 report). A
+                -- future edit that removes the cap_lots or afford pre-clamps above puts that
+                -- guarantee back in EX.pay_actor's hands, so keep using the returned value.
+                local paid = EX.pay_actor(buyer, -cost)
+                EX.pay_actor(seller, -paid)
+                -- SPEND THE SCANNED TREASURY AS A PER-TURN BUDGET, not a per-commodity
+                -- allowance. Ruled 2026-09-13 in the pre-flight scan: `info.gold` is read
+                -- fresh from the scan each turn, so without this an actor can afford the
+                -- same treasury once for every one of the 17 commodities. The seller is
+                -- credited for the same reason - it can turn round and buy with it.
+                local bi = (EX.actors or {})[buyer]
+                local si = (EX.actors or {})[seller]
+                if bi then bi.gold = bi.gold + paid end        -- paid is negative
+                if si then si.gold = si.gold - paid end
+                EX.set_world_book(seller, res, EX.world_book_of(seller, res) - n)
+                EX.set_world_book(buyer, res, EX.world_book_of(buyer, res) + n)
+                flow.bought = flow.bought + n
+                flow.sold = flow.sold + n
+                moved[buyer], moved[seller] = true, true
+            end
+        end
+    end
+    for _ in pairs(moved) do flow.actors = flow.actors + 1 end
+    EX.world_flow = flow
+end
+
+-- ===========================================================================================
+-- THE AI NOTICES. Market position promotes a CAI strategic stance.
+-- ===========================================================================================
+--
+-- CA's campaign AI has no hook that says "consider a trade", and nothing here pretends
+-- otherwise - EX.step_books remains the only thing that ever moves a book. What the AI CAN be
+-- told is how to FEEL about somebody:
+-- cm:cai_strategic_stance_manager_promote_specified_stance_towards_target_faction makes a
+-- stance "much more likely" to be chosen, and that reaches war targeting and deal generation -
+-- the parts of the AI no DB row and no other script call can touch.
+--
+-- THE INPUT IS MARKET STATE AND NOTHING ELSE. Not EX.stance_of, and emphatically not
+-- EX.standing_of: standing_of reads f:diplomatic_standing_with(player), which is the very
+-- number a promoted stance goes on to move. Feeding it back in is a loop that walks every
+-- house to VERY_UNFRIENDLY within a few turns under its own power, with the market
+-- contributing nothing after the first one. The two terms below are the player's SHARES and
+-- the player's WAREHOUSE, and the AI can move neither.
+--
+-- CLEAR THEN PROMOTE, EVERY TURN, NO MEMO. The same shape as EX.apply_trade_income removing
+-- all eight bundles before applying one, for the same reason: the alternative is remembering
+-- across a save what the engine currently holds, which is the exact bug EX.trade_swept had to
+-- be added to fix. 14 houses x 2 calls is 28 engine calls a turn - against the 58,786
+-- cm:get_faction calls EX.hold_guild was written to kill, this is free, and it cannot go stale.
+--
+-- IT STOMPS OTHER PROMOTIONS BETWEEN THE SAME PAIR. clear_all_promotions_between_factions is
+-- not scoped to this mod, so a CA narrative script or another mod promoting a stance from a
+-- Chaos Dwarf house toward the player loses it every turn this runs. That is what the MCT
+-- switch is for - it is not a knob nobody needs.
+--
+-- BEST_FRIENDS AND BITTER_ENEMIES ARE DELIBERATELY UNUSED. A commodity position should colour
+-- a relationship, not force an alliance or a blood feud.
+EX.STANCE_STEPS = {
+    [-2] = "CAI_STRATEGIC_STANCE_VERY_UNFRIENDLY",
+    [-1] = "CAI_STRATEGIC_STANCE_UNFRIENDLY",
+    [1]  = "CAI_STRATEGIC_STANCE_FRIENDLY",
+    [2]  = "CAI_STRATEGIC_STANCE_VERY_FRIENDLY",
+}
+-- Shares in one house that read as one step friendlier. HOUSE_LOT_SIZE is 5, so this is five
+-- deliberate buys rather than a position somebody backed into.
+EX.STANCE_SHARES = 25
+-- Units of a house's OWN goods in your warehouse that read as one step colder. STOCK_TIERS
+-- starts at 100, so this sits above the first stockpile tier: hoarding enough to be noticed.
+EX.STANCE_CORNER = 150
+
+-- Steps, truncated TOWARD ZERO and clamped to the table above. Same trap as
+-- EX.appetite_shift: math.floor(-0.5) is -1, so flooring a signed score would shove the AI a
+-- whole step on a position far too small to mean anything.
+--
+-- `mine` is the player's holdings, hoisted by the caller - see EX.promote_stances.
+function EX.stance_score(house, mine)
+    local n = EX.held(house) / EX.STANCE_SHARES
+    for _, res in ipairs(EX.COMMODITIES) do
+        -- ONLY WHAT THIS HOUSE ACTUALLY PRODUCES. Hoarding gems is nothing to a house that
+        -- owns no gem regions; EX.owners is rebuilt by EX.scan_supply every turn and is the
+        -- same table the prices are taken from, so the two can never disagree about who
+        -- sells what.
+        if (((EX.owners or {})[res] or {})[house] or 0) > 0 then
+            n = n - (mine[res] or 0) / EX.STANCE_CORNER
+        end
+    end
+    local q = math.floor(math.abs(n))
+    if q > 2 then q = 2 end
+    if q == 0 then return 0 end
+    if n < 0 then return -q end
+    return q
+end
+
+function EX.promote_stances()
+    if not EX.setting("ai_stance") then return end
+    local up, down = 0, 0
+    for _, f in ipairs(EX.humans()) do
+        EX.with_player(f, function()
+            -- HOISTED OUT OF THE HOUSE LOOP. EX.held goes through cm:get_faction and the
+            -- pooled resource manager on every single call; asking it per house is 17 x 14
+            -- interface reads a turn for seventeen numbers that cannot change while this runs.
+            local mine = {}
+            for _, res in ipairs(EX.COMMODITIES) do mine[res] = EX.held(res) end
+            for _, house in ipairs(EX.guild()) do
+                local step = EX.stance_score(house, mine)
+                -- ITS OWN pcall, PER HOUSE. A key the stance manager will not take must cost
+                -- that one house its stance, never the rest of the round - the same rule the
+                -- siege probe inside EX.scan_supply follows. Nothing downstream reads a
+                -- result, so there is nothing to fall back to.
+                pcall(function()
+                    cm:cai_strategic_stance_manager_clear_all_promotions_between_factions(
+                        house, f)
+                    local stance = EX.STANCE_STEPS[step]
+                    if stance then
+                        cm:cai_strategic_stance_manager_promote_specified_stance_towards_target_faction(
+                            house, f, stance)
+                    end
+                end)
+                if step > 0 then up = up + 1 elseif step < 0 then down = down + 1 end
+            end
+        end)
+    end
+    if up + down > 0 then
+        EX.say("house", up .. " house(s) warmer, " .. down .. " colder on your book")
+    end
 end
 
 -- The gold the concentration term is adding to this commodity's price, against the same map
@@ -3945,11 +4970,15 @@ function EX.house_at_war(res)
     return res
 end
 
--- The one question the trade path and the row display both ask. THREE causes now, and
--- EX.buy_refusal must test the same three in the same order or the button and the trade
+-- The one question the trade path and the row display both ask. FOUR causes now, and
+-- EX.buy_refusal must test the same four in the same order or the button and the trade
 -- disagree about whether a row is live.
+--
+-- Scarcity is LAST because it is the weakest claim: the guild's own refusals are about a
+-- relationship and should be named first, and a player who is both refused by a house and out
+-- of stock is better told about the house.
 function EX.blocked(res)
-    return EX.market_closed() or EX.house_at_war(res) or EX.refused_by(res)
+    return EX.market_closed() or EX.house_at_war(res) or EX.refused_by(res) or EX.sold_out(res)
 end
 
 -- WHY THE BUY BUTTON IS DEAD, or nil if it is not. One answer for the row's price cell, its
@@ -4020,12 +5049,24 @@ function EX.buy_refusal(res)
         return EX.faction_display(by) .. " holds " .. n .. " of the guild's " .. tot
             .. " lots and will not sell to you. Selling stays open.", "Refused"
     end
+    -- SAME ORDER AS EX.blocked, fourth cause. EX.unavailable above has already answered the
+    -- "nothing on this map produces this" case, so reaching here means the good IS produced and
+    -- simply nobody is holding a lot of it - which is also why sold_out's "unknown" fallback
+    -- cannot reach this sentence.
+    local out = EX.sold_out(res)
+    if out then
+        return "Nobody is holding any. " .. EX.faction_display(out) .. " owns the largest "
+            .. "deposit and has none to sell. Selling stays open.", "Sold out"
+    end
     return nil, nil
 end
 
 -- The Buy button's tooltip when nothing is wrong with it. Written on every refresh beside the
 -- refusal reason above, so a row that STOPS being refused stops saying that it is.
 EX.TIP_BUY = "Buy one lot at the price shown."
+-- ITS OWN TOOLTIP AND NOT EX.TIP_BUY: this button settles the whole deal at the agreed price,
+-- every lot of it, and it is gone at the next turn whether it was taken or not.
+EX.TIP_DEAL = "Settle this deal in full, at the price agreed. It expires at the end of the turn."
 
 -- THE CLOSURE BANNER, in one place because two footers draw it. It used to live only inside
 -- EX.guild_summary - which is the HOUSES footer - so the Trade view, the one view the player
@@ -4310,7 +5351,20 @@ EX.BUILD_APPETITE = {
 -- ALL FOUR ARE UNCALIBRATED and ship deliberately small. CONCENTRATION_K was chosen the same
 -- way and was completely inert in play for a day before measurement found it, so the ceiling
 -- here is set low enough that a wrong constant cannot dominate the supply model it sits on top
--- of: AI_MAX_RUNGS = 2 is at most +21% / -17% on a price.
+-- of.
+--
+-- AI_MAX_RUNGS CLAMPS TWO TERMS INDEPENDENTLY, not one. EX.appetite_shift clamps here, and
+-- since Task 6 so does EX.world_book_shift - each on its own, with no shared budget between
+-- them - so the AI half's combined reach on a single price is DOUBLE what one clamped term
+-- gives alone: at most +46% / -32% at the shipped default (ladder_step 1.10, AI_MAX_RUNGS 2),
+-- not the +21% / -17% a single term produces in isolation. Per preset, both terms pinned at
+-- their own ceiling in the same direction: easy (ladder_step 1.08, AI_MAX_RUNGS 1) +17% / -14%;
+-- hard (1.13 / 3) +108% / -52%; ultra (1.18 / 5) +423% / -81%.
+--
+-- A SEPARATE WORLD-TIER CLAMP WAS CONSIDERED AND REJECTED. Every constant in this tier is an
+-- uncalibrated guess until a campaign is played, the whole tier has its own off switch
+-- (ai_world), and a seventh settings place for a number nobody has measured yet is surface
+-- without benefit - so EX.world_book_shift shares this ceiling rather than minting its own.
 EX.AI_GAIN      = 6.0    -- rungs per unit of net appetite, before the clamp
 EX.WAR_WEIGHT   = 0.5    -- war modulates culture rather than drowning it
 EX.WAR_BASELINE = 0.80   -- MEASURED, not guessed. war_index read 0.6235 / 0.6291 /
@@ -4504,7 +5558,7 @@ function EX.appetite_summary()
     local s = string.format("World at war: %d%%.",
                             math.floor((EX.war_index or 0) * 100 + 0.5))
     if #up > 0 then s = s .. "  Wanted: " .. table.concat(up, ", ") .. "." end
-    if #down > 0 then s = s .. "  Going begging: " .. table.concat(down, ", ") .. "." end
+    if #down > 0 then s = s .. "  Unwanted: " .. table.concat(down, ", ") .. "." end
     return s
 end
 
@@ -4878,9 +5932,9 @@ function EX.announce_shocks()
     -- turn-time entry uses and one exception is how the next one gets written unsafely.
     local shift = EX.shock_shift(best)
     EX.log_add("", "Demand shock: prices " .. (shift > 0 and "+" or "") .. shift
-        .. " rung(s) (" .. (EX.shock_why[best] or "disrupted") .. ").", best)
+        .. " step(s) (" .. (EX.shock_why[best] or "disrupted") .. ").", best)
     EX.say("shock", "news - " .. best .. " shaken "
-        .. string.format("%.2f", size) .. " rungs (" .. (EX.shock_why[best] or "disrupted")
+        .. string.format("%.2f", size) .. " steps (" .. (EX.shock_why[best] or "disrupted")
         .. ")")
 end
 
@@ -4947,7 +6001,7 @@ function EX.target_rung(res, supply, owners, med)
     end
     local shift = EX.pressure_shift(EX.pressure[res] or 0)
     local rung = base + shift + EX.appetite_shift(res) + EX.shock_shift(res)
-                      + EX.book_shift(res)
+                      + EX.book_shift(res) + EX.world_book_shift(res)
     if rung < 1 then return 1 end
     if rung > EX.RUNGS then return EX.RUNGS end
     return rung
@@ -5113,6 +6167,141 @@ function EX.apply_trade_income()
     EX.trade_swept = true
     if changed > 0 then
         EX.say("price", "trade income updated for " .. changed .. " factions")
+    end
+end
+
+-- ===========================================================================================
+-- POSITION BUNDLES (Stage 3). The third bundle family, and a sibling of the one above.
+--
+-- EX.apply_trade_income is keyed on the price deviation of a faction's LAND and
+-- EX.apply_stockpiles on the PLAYER's holdings. This one is keyed on an actor's POSITION on
+-- the exchange, crossed with whether it is at war: a faction holding war materiel while
+-- fighting replenishes better, one that sold its war goods into a shortage pays for it.
+-- Widening either of the other two would have re-tuned a calibrated, shipped, player-visible
+-- number; a third family adds one.
+-- ===========================================================================================
+
+-- NET, NOT GROSS, AND WAR GOODS ONLY.
+--
+-- The world book is a POSITION and it may be negative - EX.set_world_book replaced its floor
+-- at 0 on 2026-09-13 because a producer selling this turn's output IS short until it digs it
+-- up - so a negative here is a real obligation and not a missing entry. Summing absolute
+-- values would read a faction that is long iron and short timber as heavily armed when it is
+-- neither, and it is the one mistake that leaves every one-sided fixture green.
+--
+-- No `or 0` on the accessor: EX.world_book_of already returns 0 for a faction with no book
+-- and cannot return nil, so a fallback here would be a guard that no mutant can break - and
+-- a check nobody can make fail is worse than one that is missing.
+function EX.war_position(faction)
+    local n = 0
+    for res, _ in pairs(EX.WAR_GOODS) do
+        n = n + EX.world_book_of(faction, res)
+    end
+    return n
+end
+
+-- WAR IS THE MULTIPLIER, NOT THE CONDITION.
+--
+-- A faction long on war goods is better supplied whether or not it is fighting; being at war
+-- is what makes the difference matter. So peace HALVES the tier rather than zeroing it. A
+-- bundle that appeared and vanished on a declaration of war would flicker for every faction
+-- on the map every time anyone declared anything - and the sweep writes a bundle change to
+-- the engine, not to a table, so that flicker is real work on every client every turn.
+--
+-- A FACTION WITH NO ACTOR RECORD READS AS AT PEACE. EX.actors is rebuilt by every scan and
+-- EX.wbook is restored from the save, so a faction can be in the book and out of the scan on
+-- the same tick; at peace is the conservative answer (half a tier, never a bigger one).
+function EX.pos_tier(faction)
+    local steps = EX.war_position(faction) / EX.opt("pos_step")
+    local info = (EX.actors or {})[faction]
+    if not (info and info.war) then steps = steps / 2 end
+    -- SNAP TO THE LARGEST STEP REACHED, in whichever direction - the same rule and the same
+    -- reason as EX.trade_bundle_for. Taking the first match returns the SMALLEST tier for a
+    -- faction that has earned the largest, because every step below the one it reached also
+    -- matches.
+    local want = 0
+    for _, tier in ipairs(EX.POS_TIERS) do
+        if tier > 0 and steps >= tier and tier > want then want = tier end
+        if tier < 0 and steps <= tier and tier < want then want = tier end
+    end
+    return want
+end
+
+-- In memory only, and deliberately NOT saved. The effect bundle survives the save on its
+-- own - the engine holds it - while this table does not, so after a load the game already
+-- carries whatever the last session applied and this script knows nothing about it. That
+-- asymmetry is the whole reason EX.pos_swept exists below.
+EX.pos_level = {}
+EX.pos_swept = false
+
+-- EXACTLY ONE POSITION BUNDLE PER FACTION, EVER.
+--
+-- REMOVE ALL FOUR FIRST, not just the one this script believes is applied - the same shape
+-- and the same reason as EX.apply_trade_income and EX.apply_stockpiles. Same-effect bundles
+-- stack ADDITIVELY, so one stale row from a previous load silently doubles the modifier.
+--
+-- The duration is 0, matching the shipped trade-income family. CA's two docs disagree about
+-- which value means "indefinitely" - campaign_manager.html says 0 and episodic_scripting.html
+-- says -1 - and 0 is what the bundle family that has already shipped uses.
+function EX.apply_positions()
+    -- EX.setting, NOT EX.opt. EX.opt returns nil for a key that is in neither TUNE_NUM nor
+    -- TUNE_BOOL, and nil is falsy: a gate written with it deletes the feature the day the
+    -- key is renamed or dropped from a preset, silently, with the switch still on screen.
+    -- EX.setting fails open. This is the Stage 2 Task 7 finding applied.
+    --
+    -- AND OFF DOES NOT RETURN EARLY. Off means every faction's answer is 0, which the sweep
+    -- below expresses by removing all four keys and applying none - so switching the feature
+    -- off CLEANS UP after itself instead of stranding whatever was applied when it was last
+    -- on. That is reachable rather than theoretical: a campaign started before this feature
+    -- existed has no world_bundles entry in its frozen snapshot, so EX.opt falls through to
+    -- the live MCT value and the switch is a real mid-campaign toggle for exactly those
+    -- saves. Effect bundles survive every save; a stranded one would outlive the campaign.
+    --
+    -- The cost of off is therefore one pass of removes per load rather than nothing: after
+    -- it, every memo entry reads 0 and the sweep goes quiet for the rest of the session.
+    local on = EX.setting("world_bundles")
+    if not EX.actors then return end
+
+    local function set(fname, want)
+        for _, tier in ipairs(EX.POS_TIERS) do
+            pcall(function() cm:remove_effect_bundle(EX.pos_bundle_key(tier), fname) end)
+        end
+        if want ~= 0 then
+            cm:apply_effect_bundle(EX.pos_bundle_key(want), fname, 0)
+        end
+        EX.pos_level[fname] = want
+    end
+
+    local changed = 0
+    for fname, _ in pairs(EX.actors) do
+        local want = on and EX.pos_tier(fname) or 0
+        -- THE SWEEP IS FORCED ONCE PER LOAD. Comparing against an empty EX.pos_level would
+        -- skip every faction whose new answer is "no bundle", leaving whatever the save
+        -- carries applied forever - nil == nil reads as "already correct". This is the bug
+        -- EX.trade_swept was added to fix, verbatim.
+        if not EX.pos_swept or EX.pos_level[fname] ~= want then
+            set(fname, want)
+            changed = changed + 1
+        end
+    end
+
+    -- A FACTION THAT DROPPED OUT OF THE SCAN KEEPS ITS BUNDLE OTHERWISE. EX.actors is rebuilt
+    -- every scan and a faction leaves it by dying or by losing its last region - neither of
+    -- which is a reason to stay armed. EX.apply_trade_income carries the same loop for the
+    -- same reason; the plan for this task did not, which would have left a dead faction
+    -- wearing a war-supply bundle for the rest of the campaign, across every save.
+    -- Assigning to a key that already exists is defined during pairs; adding one is not, and
+    -- every fname here is already a key of EX.pos_level.
+    for fname, cur in pairs(EX.pos_level) do
+        if cur ~= 0 and not EX.actors[fname] then
+            set(fname, 0)
+            changed = changed + 1
+        end
+    end
+
+    EX.pos_swept = true
+    if changed > 0 then
+        EX.say("price", "positions updated for " .. changed .. " factions")
     end
 end
 
@@ -5469,6 +6658,23 @@ function EX.build_panel()
             if is_uicomponent(ic) and path then ic:SetImagePath(path, 0) end
         end
     end
+    -- THE LEDGER'S OWN ROW POOL, EX.ORDER_MAX OF THEM, NAMED BY POSITION NOT INSTRUMENT.
+    -- EX.instruments() is the row list everywhere else in this file - one component per
+    -- TRADEABLE THING - but EX.orders can hold two orders on one commodity (a ladder), and
+    -- that would collide on the single component EX.instruments() would give it. Created
+    -- here, once, exactly like every row above; EX.mode_instruments's EX.on_orders() branch
+    -- hands out the matching "ord1".."ordN" keys and EX.refresh_panel paints each one from
+    -- its OWN order's resource on every call, so no icon is set at build time - there is no
+    -- order yet to paint one from.
+    for i = 1, EX.ORDER_MAX do
+        holder:CreateComponent(EX.ROW .. "_ord" .. i, EX.ROW_FILE)
+    end
+    -- THE DEALS PAGE'S POOL, the same shape and for the same reason: EX.deals is a list, two
+    -- of its entries can name one commodity, and the icon is painted per refresh from each
+    -- deal's own resource rather than baked in here.
+    for i = 1, EX.opt("deal_max") do
+        holder:CreateComponent(EX.ROW .. "_dl" .. i, EX.ROW_FILE)
+    end
     EX.built = true
     EX.layout()
     EX.say("ui", "panel built with " .. #EX.instruments() .. " rows")
@@ -5519,6 +6725,12 @@ EX.PANEL_LAYOUT = {
     -- the newest bar. The generator selftest pins the two together.
     { "hdr_spark",    470,  50, 108 },
     { "hdr_hold",     580,  50,  88 },
+    -- THE AMOUNT CLUSTER, in the 232px the header row leaves right of hdr_hold (which ends at
+    -- 668) - directly above the rows' own Buy and Sell columns at 654 and 762, because that is
+    -- what it governs.
+    { "btn_amt_down", 676,  46,  26 },
+    { "btn_amount",   706,  46, 130 },
+    { "btn_amt_up",   840,  46,  26 },
     { "rows_holder",   20,  78 },
     -- BOTH FOOTERS KEEP THE FULL 880. They reach 114 and 118 characters at worst case in a
     -- box that holds ~131, and this text has clipped mid-word in play twice; the nav cluster
@@ -5530,11 +6742,30 @@ EX.PANEL_LAYOUT = {
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    -- THESE NINE ROWS ARE REPEATED, BYTE FOR BYTE, IN ALL TEN PANEL LAYOUT TABLES.
+    -- (Written without the EX-dot-PANEL-LAYOUT spelling on purpose: gen_exchange_ui.py
+    -- finds the layout tables by regex over this file, and a mention of that name inside a
+    -- COMMENT is enough to invent a table it then cannot find. This comment did exactly
+    -- that when it was first written - which is the eight-parser fragility it describes,
+    -- demonstrating itself.)
+    -- Measured, not estimated: every panel layout carries the identical block, and there is
+    -- no exception anywhere - so adding the Deals tab in Stage 2 was a ten-place edit and
+    -- re-pitching the strip from 132-on-140 to 108-on-116 to fit it was a second one.
+    --
+    -- KEPT DELIBERATELY (ruled 2026-09-16). Extracting it to one EX.TAB_STRIP means editing
+    -- the eight regexes across gen_zharr_exchange.py and gen_exchange_ui.py that read these
+    -- tables AS TEXT, and the failure mode of getting one wrong is a geometry check that
+    -- silently sees no tabs and passes, rather than one that breaks. The duplication costs a
+    -- ten-place edit per new tab; the extraction risks disarming the check that catches a bad
+    -- one. gen_exchange_ui.py's tab-strip check measures each tab's right edge against its
+    -- neighbour and against derpy_chd_ex_prev, per table, so the ten-place edit is at least
+    -- a LOUD mistake today.
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -5574,15 +6805,32 @@ EX.PANEL_LAYOUT_CHART = {
     { "chart_axis",    20, 436, 880 },
     { "chart_stats",   20, 458, 880 },
     { "chart_note",    20, 480, 880 },
+    -- THE TICKET, in the dead space between the chart's note and the footers. Named here and
+    -- nowhere else, so EX.layout hides all seven on every other view.
+    { "ord_side",     20, 508, 100 },
+    { "ord_cmp",     128, 508, 140 },
+    { "ord_down",    276, 508,  40 },
+    { "ord_price",   324, 508, 100 },
+    { "ord_up",      432, 508,  40 },
+    { "ord_place",   480, 508, 100 },
+    -- THE AMOUNT, STEPPED. Same idiom as the rung stepper three cells left, and for the same
+    -- reason: the ladder button jumps to a round size, these reach the one in between.
+    { "ord_qty_down", 596, 508, 26 },
+    { "ord_qty",      626, 508, 130 },
+    { "ord_qty_up",   760, 508,  26 },
+    { "ord_standing", 20, 540, 880 },
+    -- WHAT IT MOVES AND WHAT IT COSTS, in goods and gold - see EX.amount_line.
+    { "ord_cost",     20, 566, 880 },
     { "footer_text",   20, 636 },
     { "footer_text2",  20, 662 },
     { "close_button", 876,  14 },
     { "btn_help",     838,  14 },
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -5591,6 +6839,94 @@ EX.PANEL_LAYOUT_CHART = {
 -- EMPTY ON PURPOSE. Every row cell is hidden by EX.layout because nothing names it, and
 -- EX.mode_instruments returns an empty list on this page so no row is drawn at all.
 EX.ROW_LAYOUT_CHART = {}
+
+-- TRADE PAGE 3. The standing-order ledger, one row per order, reusing the trade row shape.
+-- Names no price/sell/supply/spark header, so EX.layout hides all of them.
+EX.PANEL_LAYOUT_ORDERS = {
+    { "title_text",    20,  14 },
+    { "hdr_name",      54,  50, 170 },
+    -- The order sentence gets the width the sparkline and the two price columns had.
+    { "hdr_trend",    240,  50, 320 },
+    { "hdr_price",    574,  50,  74 },
+    { "rows_holder",   20,  78 },
+    -- THE TICKET, at the same coordinates the chart page gives it. Named by BOTH tables on
+    -- purpose: the chart page answers to deep_history and the ledger to orders, and with the
+    -- ticket named only by the chart there was no way to place an order with deep_history off
+    -- - on a page whose own empty-state text told the player to go and set one. Twelve rows
+    -- of ledger end at y 414, so this sits in the same dead space here as it does there.
+    { "ord_side",     20, 508, 100 },
+    { "ord_cmp",     128, 508, 140 },
+    { "ord_down",    276, 508,  40 },
+    { "ord_price",   324, 508, 100 },
+    { "ord_up",      432, 508,  40 },
+    { "ord_place",   480, 508, 100 },
+    -- THE AMOUNT, STEPPED. Same idiom as the rung stepper three cells left, and for the same
+    -- reason: the ladder button jumps to a round size, these reach the one in between.
+    { "ord_qty_down", 596, 508, 26 },
+    { "ord_qty",      626, 508, 130 },
+    { "ord_qty_up",   760, 508,  26 },
+    { "ord_standing", 20, 540, 880 },
+    -- WHAT IT MOVES AND WHAT IT COSTS, in goods and gold - see EX.amount_line.
+    { "ord_cost",     20, 566, 880 },
+    { "footer_text",   20, 636 },
+    { "footer_text2",  20, 662 },
+    { "close_button", 876,  14 },
+    { "btn_help",     838,  14 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
+    { "derpy_chd_ex_prev", 774, 696 },
+    { "nav_page",     816, 701,  44 },
+    { "derpy_chd_ex_mode", 876, 696 },
+}
+
+-- btn_buy IS THE CANCEL BUTTON, and btn_sell is deliberately not placed. Same idiom as the
+-- offerings view, where btn_buy is "Sacrifice": the click handler branches on which view it
+-- is in, so a placed btn_sell here would be a live Sell button sitting over a Cancel column.
+-- gen_exchange_ui.py asserts that for the offerings view already; extend it to this one.
+EX.ROW_LAYOUT_ORDERS = {
+    { "divider",      6, 26 },
+    { "icon",         6,  2 },
+    { "row_name",    34,  5, 170 },
+    { "row_trend",  220,  5, 320 },
+    { "row_price",  554,  5,  74 },
+    { "btn_buy",    654,  1 },
+}
+
+-- WHICH ORDER A ROW IS. NOT resolved through EX.res_of_row: rows are pooled ONE PER
+-- INSTRUMENT everywhere else in this file (EX.row keys strictly on EX.short(res)), and a
+-- ladder - two orders on one commodity, which is the entire reason standing orders are a
+-- LIST and not one slot per instrument - would collide on that single component. The ledger
+-- gets its own fixed pool instead: EX.mode_instruments()'s EX.on_orders() branch hands out
+-- synthetic "ord1".."ordN" keys, one per LIST POSITION rather than per instrument, and
+-- EX.build_panel creates a matching EX.ORDER_MAX row components for them. The id this
+-- receives is always EX.ROW .. "_ord" .. n; anything else - a real instrument's row, a
+-- foreign component - answers nil, which is what keeps the trade/offerings/houses click
+-- paths from ever claiming a ledger row by accident.
+function EX.order_of_row(id)
+    local n = tonumber(string.match(tostring(id), "^" .. EX.ROW .. "_ord(%d+)$"))
+    if not n then return nil end
+    return EX.orders[n]
+end
+
+-- THE DEALS PAGE'S OWN, and it exists for exactly the reason EX.order_of_row does: the page
+-- hands out "dl1".."dlN" by LIST POSITION, because two deals can name one commodity (the
+-- shipped fixture posts glass twice) and a per-instrument key would collide. Anything that is
+-- not EX.ROW .. "_dl" .. n answers nil, which is what stops a trade or offerings row ever being
+-- claimed as a deal.
+--
+-- IT RETURNS THE INDEX AND NOT THE DEAL. EX.accept_deal takes an index, and the index is also
+-- what crosses the wire in multiplayer - see EX.MP_OPS.deal. Handing back the table here would
+-- mean finding the index again at the send site, off a list the other client resolved
+-- separately.
+function EX.deal_of_row(id)
+    local n = tonumber(string.match(tostring(id), "^" .. EX.ROW .. "_dl(%d+)$"))
+    if not n or not EX.deals[n] then return nil end
+    return n
+end
 
 -- Rows are 28px apart, so every child has to fit inside 28 or it bleeds into the next row.
 EX.ROW_LAYOUT = {
@@ -5611,7 +6947,7 @@ EX.ROW_LAYOUT = {
 -- THE STATS VIEW. Same components, different places, different widths, different text. The two
 -- trade buttons are hidden, which is what frees 200px for a faction name.
 --   row_name   Commodity          row_price  the top holder's share
---   row_supply producing regions  row_hold   the cartel premium in gold
+--   row_supply total output       row_hold   the cartel premium in gold
 --   row_trend  the top holder     spark      unchanged, price history reads in both views
 EX.PANEL_LAYOUT_STATS = {
     { "title_text",    20,  14 },
@@ -5632,11 +6968,12 @@ EX.PANEL_LAYOUT_STATS = {
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -5676,23 +7013,23 @@ EX.HELP_PAGES = {
         { EX.TREND_UP .. " / " .. EX.TREND_DOWN,
                           "The price rose or fell since last turn. A dash means it held still." },
         { EX.TREND_CAP .. " / " .. EX.TREND_FLOOR,
-                          "Dearest or cheapest the ladder goes. It cannot move further that way." },
-        { "Last 12 turns", "One bar per turn of this good's price. Taller is dearer." },
+                          "The highest or lowest the ladder goes. It cannot move further that way." },
+        { "Last 12 turns", "One bar per turn of this good's price. Taller costs more." },
         { "Held",         "Units you own. They are yours until you sell them." },
         -- FOLDED FROM TWO LINES, to make room for the Houses view below without breaking the
         -- 19-row ceiling - see the note above EX.HELP_PAGES. Same two facts, one line. ONE
         -- quoted string, not a concatenation: check_help_lines() takes the LAST quoted literal
         -- in an entry as the whole sentence, so a "..".join sentence here would be measured short.
-        { "Rent",         "0.5g per unit per turn, whatever it's worth - cheap bulk ruinous, dense goods almost free." },
+        { "Rent",         "0.5g per unit per turn, whatever it's worth - cheap bulk hurts, dense goods almost free." },
         { "Stockpile 100", "Hold 100 of one good and it grants a standing bonus while you hold." },
         { "Warehouse 300", "Hold 300 and the bonus doubles. Same as burning them on the altar." },
         { "Vaults 600",   "Hold 600 and it triples. A deep position is a strategy, not a tax." },
         -- ALSO FOLDED FROM TWO LINES, same reason and same one-string rule.
         { "Offerings",    "Burn 30 units for Hashut's favour, 5 turns - the quick way. Holding is the slow one." },  -- patron-literal: rewritten by EX.bind_race
         { "Ownership",    "The third view: who makes each good and what their grip adds to it." },
-        { "Cartel premium", "One faction holding most of a good makes it dearer than scattered." },
+        { "Cartel premium", "One faction holding most of a good makes it cost more than scattered." },
         { "Wanted",       "The world wants more of these than it makes, so prices are climbing." },
-        { "Going begging", "Nobody wants these. Prices are falling." },
+        { "Unwanted",     "Nobody wants these. Prices are falling." },
         { "Shaken",       "A settlement making this was just hit. The spike fades in ~3 turns." },
         -- THE HOUSES VIEW, the three lines Task 7 adds. The fold above is what buys their room.
         { "Div",          "Houses pay 2% of their price per share, every turn - it just arrives, no altar needed." },
@@ -5700,7 +7037,7 @@ EX.HELP_PAGES = {
         { "House Sell",   "Sell still pays 10% under Buy here too - Div shows the dividend, not the sell price." },
     },
     { -- PAGE 2: the guild
-        { "Guild",        "The other Chaos Dwarf houses trade here too. One is across every deal." },
+        { "Guild",        "A Chaos Dwarf house trades here - so do your bloc's. One is across every deal." },
         { "Their book",   "What the guild holds moves the price, the same way your own buying does." },
         { "Markup",       "A house that dislikes you charges more and pays less. Sign anything and it stops." },
         { "Refused",      "A house that despises you and holds most of a good will not sell it." },
@@ -5755,11 +7092,12 @@ EX.PANEL_LAYOUT_HELP = {
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -5795,11 +7133,12 @@ EX.PANEL_LAYOUT_INTRO = {
     -- five buttons the player is about to use are already on screen and the last line points
     -- at them; a sixth button whose whole job is "stop showing this" would be a control the
     -- panel never needs again.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -5852,7 +7191,7 @@ function EX.intro_lines()
         { "BUY AND SELL. Every good shows two prices. You buy at the higher and sell at the "
           .. "lower; the gap is the house's cut.", EX.art("treasury") },
         { "" },
-        { "PRICES MOVE IN RUNGS. Each rung is a fixed step up or down, so a price is a rung "
+        { "PRICES MOVE IN STEPS. Each step is a fixed move up or down, so a price is a step "
           .. "count rather than a number someone picked.", EX.art("dlc12_discover_up") },
         { "" },
         { "OUTPUT is what the whole world produces each turn. Buying never consumes it. What "
@@ -5861,7 +7200,7 @@ function EX.intro_lines()
         { "PRESSURE. Your own trades push the price. Buy the board out and every lot after "
           .. "the first one costs you more.", EX.art("siege_attack") },
         { "" },
-        { "WANTED and GOING BEGGING at the foot of the page are the world's appetites: who "
+        { "WANTED and UNWANTED at the foot of the page are the world's appetites: who "
           .. "wants what this turn, and who does not.", EX.art("edict_stimulate_trade") },
         { "" },
         { "THE WAREHOUSE. All you hold costs rent every turn, whichever way the price went. A "
@@ -5870,7 +7209,7 @@ function EX.intro_lines()
         { "OFFERINGS AND TITHES. " .. EX.patron() .. " takes goods rather than gold, and "
           .. "remembers whether you paid.", EX.art("effect_rite") },
         { "" },
-        { "HOUSES. You can buy shares in your own people's factions. They pay a dividend each "
+        { "HOUSES. Buy shares in factions - yours and your bloc's. They pay a dividend each "
           .. "turn, and they can die owing you.", EX.art("office") },
     }
 end
@@ -6146,6 +7485,51 @@ function EX.log_scan()
     end
 end
 
+-- THE DEALS PAGE. Five columns and no sparkline: a deal is a thing somebody is offering now,
+-- not a price history. Column x offsets are the row's plus the 20px rows_holder inset, the
+-- same rule every other table here follows.
+EX.PANEL_LAYOUT_DEALS = {
+    { "title_text",    20,  14 },
+    -- NO HEADER OVER THE BUTTON, which is the offerings view's arrangement and not an
+    -- oversight: hdr_hold is the last column and btn_buy sits to the right of it, labelled.
+    { "hdr_name",      54,  50, 170 },
+    { "hdr_trend",    234,  50, 250 },
+    { "hdr_price",    496,  50,  84 },
+    { "hdr_sell",     592,  50,  84 },
+    { "hdr_hold",     688,  50,  80 },
+    { "rows_holder",   20,  78 },
+    { "footer_text",   20, 636 },
+    { "footer_text2",  20, 662 },
+    { "close_button", 876,  14 },
+    { "btn_help",     838,  14 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
+    { "derpy_chd_ex_prev", 774, 696 },
+    { "nav_page",     816, 701,  44 },
+    { "derpy_chd_ex_mode", 876, 696 },
+}
+-- THE ACCEPT BUTTON SITS WHERE THE OFFERINGS VIEW PUTS ITS OWN, at 762 in an 880 row, and
+-- every column left of it moved to make the 100px. Widening the row was not an option - the
+-- panel clears it by exactly 20px a side and gen_exchange_ui.py asserts that - and dropping the
+-- Total column to free the space would have taken the one number the player most needs BEFORE
+-- clicking off the screen. btn_buy is reused rather than a new component for the reason the
+-- ledger reuses it as Cancel and the offerings view as Sacrifice: a row has two buttons in its
+-- .twui.xml and no view has ever needed a third.
+EX.ROW_LAYOUT_DEALS = {
+    { "divider",      6, 26 },
+    { "icon",         6,  2 },
+    { "row_name",    34,  5, 170 },
+    { "row_trend",  214,  5, 250 },
+    { "row_price",  476,  5,  84 },
+    { "row_sell",   572,  5,  84 },
+    { "row_hold",   668,  5,  80 },
+    { "btn_buy",    762,  1 },
+}
+
 EX.PANEL_LAYOUT_LOG = {
     { "title_text",    20,  14 },
     { "hdr_name",      54,  50, 200 },
@@ -6155,11 +7539,12 @@ EX.PANEL_LAYOUT_LOG = {
     { "footer_text2",  20, 662 },
     { "close_button", 876,  14 },
     { "btn_help",     838,  14 },
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -6172,19 +7557,82 @@ EX.ROW_LAYOUT_LOG = {
     { "row_trend",  240,  5, 620 },
 }
 
--- TRUE ON TRADE PAGE 2 ONLY. One function, so the four places that branch on it cannot
--- drift apart - the layout, the row layout, the instrument list and the refresh.
--- THE FEATURE GATE IS HERE AS WELL AS IN EX.page_count, and it has to be in both. page_count
--- is what greys the arrows, so it stops the player REACHING page 2; this is what stops the
--- panel DRAWING it if trade_page is already 2 when the switch goes off - which is the normal
--- case, because the switch exists to be moved while the chart is on screen misbehaving.
+-- WHICH PAGES THE TRADE VIEW HAS, IN ORDER. A LIST AND NOT AN INDEX, and that is the whole
+-- point of this function.
 --
--- THE BUFFER KEEPS RECORDING. EX.remember is not gated: turning the chart back on after ten
--- turns must not show a flat line for those ten, which is a false reading of the market rather
--- than a missing one. The switch takes the chart off the panel, not the history out of the save.
+-- Until 2026-09-10 EX.on_chart tested `trade_page == 2` and EX.page_count returned
+-- `deep_history and 2 or 1`. That held while there was one optional page. With two there are
+-- four switch combinations and fixed indices get two of them wrong: with the chart off, the
+-- orders page either sits unreachable at index 3 behind a counter reading 1/2, or index 2
+-- means two different pages depending on a switch nothing at the call site can see.
+--
+-- THE BUFFER KEEPS RECORDING regardless of this list. EX.remember is not gated: turning the
+-- chart back on after ten turns must not show a flat line for those ten, which is a false
+-- reading of the market rather than a missing one. The switch takes the chart off the panel,
+-- not the history out of the save.
+--
+-- The list is built fresh rather than memoised: both switches are live-read and unsnapshotted
+-- by design, so they can move inside a campaign at any moment.
+function EX.trade_pages()
+    local t = { "list" }
+    if EX.feature("deep_history") then t[#t + 1] = "chart" end
+    if EX.feature("orders") then t[#t + 1] = "orders" end
+    return t
+end
+
+-- CLAMPS RATHER THAN RETURNING NIL. A switch can be turned off while the player is standing
+-- on the page it removes, and every caller here would index a nil.
+function EX.trade_kind()
+    local pages = EX.trade_pages()
+    local at = EX.trade_page or 1
+    if at < 1 then at = 1 end
+    if at > #pages then at = #pages end
+    return pages[at]
+end
+
 function EX.on_chart()
-    return EX.mode == EX.MODE_TRADE and EX.trade_page == 2
-           and EX.feature("deep_history")
+    return EX.mode == EX.MODE_TRADE and EX.trade_kind() == "chart"
+end
+
+function EX.on_orders()
+    return EX.mode == EX.MODE_TRADE and EX.trade_kind() == "orders"
+end
+
+-- WHICH SET OF PER-VIEW TABLES APPLIES. The ledger is a PAGE of MODE_TRADE and not a mode of
+-- its own, so every table keyed by EX.mode - EX.HEADERS, EX.TIPS, EX.TIP_CELL_TEXT,
+-- EX.SORT_VALUE - silently handed it the Trade view's entries. That drew "Buy" over a mid
+-- price on rows that are half sells and "Trend" over an order sentence, and it made a header
+-- click on the ledger resolve through the trade sorter: the header coloured, the ledger's own
+-- rows never moved, and page 1 was re-sorted underneath the player. ONE accessor rather than
+-- four separate branches, so a fifth table keyed this way cannot miss the ledger.
+function EX.view()
+    if EX.on_orders() then return "orders" end
+    return EX.mode
+end
+
+-- WHERE A NAME CLICK SHOULD LAND: the chart if the player has one, else the page the order
+-- ticket is on, else nowhere. EX.chart_page_index alone was right only while the ticket lived
+-- on the chart page and nowhere else - with deep_history off that returns nil, the click left
+-- the player on the list, and the ticket they were being sent to was never reachable at all.
+function EX.selection_page_index()
+    local chart, orders
+    for i, kind in ipairs(EX.trade_pages()) do
+        if kind == "chart" then chart = i
+        elseif kind == "orders" then orders = i end
+    end
+    return chart or orders
+end
+
+-- WHERE THE CHART SITS IN THE TRADE PAGE LIST, OR NIL. Pulled out of the row_name click so
+-- the nav harness can call it directly: with the chart absent (deep_history off) a click on a
+-- commodity's name must leave EX.trade_page alone rather than land on whatever page 2 happens
+-- to be under that combination - a literal EX.trade_page = 2 restored at the call site passed
+-- the whole suite until this existed to test it on its own.
+function EX.chart_page_index()
+    for i, kind in ipairs(EX.trade_pages()) do
+        if kind == "chart" then return i end
+    end
+    return nil
 end
 
 -- EVERY PANEL-LEVEL COMPONENT ANY VIEW PLACES. Derived from the layout tables themselves,
@@ -6200,17 +7648,37 @@ EX.PANEL_CELLS = nil
 function EX.panel_cells()
     if EX.PANEL_CELLS then return EX.PANEL_CELLS end
     local t = {}
+    -- EX.PANEL_LAYOUT_INTRO IS HERE TOO, for the same reason EX.PANEL_LAYOUT_ORDERS is: every
+    -- cell name it carries (title_text, rows_holder, both footers, close_button, btn_help, the
+    -- five tabs, the nav strip) is already a subset of EX.PANEL_LAYOUT's own names, so leaving
+    -- it out of this list was invisible to every behavioural check in the suite - found
+    -- 2026-09-10 by the static check that generalised past naming EX.PANEL_LAYOUT_ORDERS alone.
     for _, tbl in ipairs({ EX.PANEL_LAYOUT, EX.PANEL_LAYOUT_STATS, EX.PANEL_LAYOUT_OFFER,
                            EX.PANEL_LAYOUT_HOUSES, EX.PANEL_LAYOUT_LOG,
-                           EX.PANEL_LAYOUT_HELP, EX.PANEL_LAYOUT_CHART }) do
+                           EX.PANEL_LAYOUT_HELP, EX.PANEL_LAYOUT_CHART,
+                           EX.PANEL_LAYOUT_ORDERS, EX.PANEL_LAYOUT_INTRO,
+                           EX.PANEL_LAYOUT_DEALS }) do
         for _, e in ipairs(tbl or {}) do t[e[1]] = true end
     end
     EX.PANEL_CELLS = t
     return t
 end
 
+-- DOES THE CURRENT VIEW OWN THIS CELL? EX.layout hides every cell the current table does
+-- not name, and set_text calls SetVisible(true) - so an unconditional write to a cell only
+-- some views carry silently un-hides it on all the others. Seen live on the Ownership view,
+-- 2026-09-11: the amount button sitting on top of the Cartel premium header.
+function EX.in_layout(name)
+    for _, e in ipairs(EX.panel_layout() or {}) do
+        if e[1] == name then return true end
+    end
+    return false
+end
+
 function EX.panel_layout()
+    if EX.on_orders() then return EX.PANEL_LAYOUT_ORDERS end
     if EX.on_chart() then return EX.PANEL_LAYOUT_CHART end
+    if EX.mode == EX.MODE_DEALS  then return EX.PANEL_LAYOUT_DEALS  end
     if EX.mode == EX.MODE_LOG    then return EX.PANEL_LAYOUT_LOG    end
     if EX.mode == EX.MODE_STATS  then return EX.PANEL_LAYOUT_STATS  end
     if EX.mode == EX.MODE_OFFER  then return EX.PANEL_LAYOUT_OFFER  end
@@ -6221,7 +7689,9 @@ function EX.panel_layout()
 end
 
 function EX.row_layout()
+    if EX.on_orders() then return EX.ROW_LAYOUT_ORDERS end
     if EX.on_chart() then return EX.ROW_LAYOUT_CHART end
+    if EX.mode == EX.MODE_DEALS  then return EX.ROW_LAYOUT_DEALS  end
     if EX.mode == EX.MODE_LOG    then return EX.ROW_LAYOUT_LOG    end
     if EX.mode == EX.MODE_STATS  then return EX.ROW_LAYOUT_STATS  end
     if EX.mode == EX.MODE_OFFER  then return EX.ROW_LAYOUT_OFFER  end
@@ -6300,6 +7770,16 @@ EX.SORT_VALUE = {
         hdr_supply = function(r) return EX.held(r) end,
     },
     houses = {
+        -- THE ONLY NON-NUMERIC SORTER IN THIS TABLE. EX.sorted grew a string branch for it;
+        -- see the note there. Wrapped rather than referenced, so it resolves at CALL time -
+        -- EX.faction_display is defined twice in this file and a captured reference would
+        -- bind whichever came first.
+        --
+        -- EX.faction_display memoises into EX.fac_names and cannot throw (it pcalls
+        -- common.get_localised_string and falls back to EX.humanise_key), so sorting a hundred
+        -- rows about once a second costs one table lookup each after the first refresh. It is
+        -- also draw-time, which is the only time a loc call is safe - see the turn-1 CTD note.
+        hdr_name   = function(r) return EX.faction_display(r) end,
         hdr_price  = function(r) return EX.buy_price(r) end,
         hdr_sell   = function(r) return EX.dividend(r) end,
         hdr_hold   = function(r) return EX.held(r) end,
@@ -6308,7 +7788,10 @@ EX.SORT_VALUE = {
 }
 
 function EX.sort_fn(hid)
-    local m = EX.SORT_VALUE[EX.mode]
+    -- EX.view(), NOT EX.mode. The ledger has no entry in EX.SORT_VALUE and that is the point:
+    -- its rows are the order list in placement order, and a header click resolving through the
+    -- trade sorter coloured the header, left the ledger unchanged and re-sorted page 1.
+    local m = EX.SORT_VALUE[EX.view()]
     return (m and hid) and m[hid] or nil
 end
 
@@ -6325,11 +7808,23 @@ function EX.sorted(list)
     local keyed = {}
     for i, r in ipairs(list) do
         local ok, v = pcall(f, r)
+        local t = type(v)
+        -- STRINGS ARE ACCEPTED SINCE 2026-09-11, for the Houses view's name column. Everything
+        -- else here still hands back a number and is untouched.
         keyed[i] = { r = r, i = i,
-                     v = (ok and type(v) == "number") and v or -math.huge }
+                     v = (ok and (t == "number" or t == "string")) and v or -math.huge }
     end
     table.sort(keyed, function(a, b)
-        if a.v ~= b.v then return (a.v < b.v) == (EX.sort_dir > 0) end
+        if a.v ~= b.v then
+            -- MIXED TYPES ONLY ARISE WHEN AN ACCESSOR ERRORED. One column has one accessor, so
+            -- every good value in it is the same type and the -math.huge fallback above is the
+            -- only other thing in the table. Lua 5.1 THROWS on `number < string`, and a throw
+            -- inside table.sort takes the whole refresh down - so this branch is load-bearing
+            -- rather than defensive. The errored row sinks in BOTH directions instead of
+            -- floating to the top of a descending sort.
+            if type(a.v) ~= type(b.v) then return type(a.v) == "string" end
+            return (a.v < b.v) == (EX.sort_dir > 0)
+        end
         return a.i < b.i
     end)
     local out = {}
@@ -6446,10 +7941,19 @@ EX.HEADERS = {
     -- walks pairs(EX.HEADERS[EX.mode]) BEFORE it branches on the mode, so a view in EX.MODES
     -- with no entry here indexes nil and takes the whole refresh down the first time the
     -- player's arrow reaches it. Caught by gen_exchange_ui.py --selftest, never in play.
+    -- THE DEALS PAGE. Five columns, no sparkline. hdr_trend carries the offer as a SENTENCE
+    -- ("Buys 3 lots of Iron") rather than three narrow columns for side, size and commodity -
+    -- the same trick the ledger uses for a standing order, and it reads at a glance.
+    deals = { hdr_name = "Faction", hdr_trend = "Offer", hdr_price = "Per lot",
+              hdr_sell = "vs market", hdr_hold = "Total" },
     log = { hdr_name = "Turn", hdr_trend = "What happened" },
     -- EMPTY, NOT ABSENT, and the comment above the log entry says why: refresh_panel
     -- walks pairs(EX.HEADERS[EX.mode]) before it branches on the mode. The introduction
     -- draws prose across one column and heads nothing.
+    -- THE LEDGER, reached through EX.view() rather than EX.mode - it is a PAGE of the Trade
+    -- view, so every table keyed by the mode handed it Trade's labels: "Trend" over an order
+    -- sentence and "Buy" over a price on rows that are half sells.
+    orders = { hdr_name = "Commodity", hdr_trend = "Standing order", hdr_price = "Now" },
     intro = {},
 }
 
@@ -6501,13 +8005,28 @@ EX.TIP_CELL_TEXT = {
 -- other, so a column that gains a label without a tooltip is a build error. The guide view is
 -- deliberately absent: it is already prose, and a tooltip explaining an explanation is noise.
 EX.TIPS = {
+    -- THE LEDGER. Its three columns mean something different from the Trade view's, which is
+    -- why it needs its own entry and not Trade's - and "Now" in particular is the price on
+    -- THIS order's side, so the tooltip has to say which side that is.
+    orders = {
+        hdr_name  = "The instrument this order stands on.",
+        hdr_trend = "What the order does, and the price it fills at.",
+        hdr_price = "What one lot is worth now, on this order's own side.",
+    },
+    deals = {
+        hdr_name   = "Who is offering. The deal settles with them.",
+        hdr_trend  = "What they offer, and how many lots of it.",
+        hdr_price  = "Gold per lot. This is the price you pay or get.",
+        hdr_sell   = "How far off today's market that price is.",
+        hdr_hold   = "Every lot of the deal, at that price.",
+    },
     trade = {
         hdr_name   = "The commodity. Its icon matches the map resource.",
         hdr_price  = "Gold to buy one lot at today's price.",
         hdr_sell   = "What one lot pays back, always under Buy.",
         hdr_supply = "Units the whole map produces per turn.",
         hdr_trend  = "^ up, v down, - held. Hi/Lo: at the ladder's limit.",
-        hdr_spark  = "This good's price, one bar per turn. Taller is dearer.",
+        hdr_spark  = "This good's price, one bar per turn. Taller costs more.",
         hdr_hold   = "Units you hold, and the rent they cost per turn.",
     },
     stats = {
@@ -6516,7 +8035,7 @@ EX.TIPS = {
         hdr_trend  = "The faction producing most of the world's supply.",
         hdr_price  = "How much of world output that faction holds.",
         hdr_hold   = "Gold on the price because output is concentrated.",
-        hdr_spark  = "This good's price, one bar per turn. Taller is dearer.",
+        hdr_spark  = "This good's price, one bar per turn. Taller costs more.",
     },
     offer = {
         hdr_name   = "The commodity. Its icon matches the map resource.",
@@ -6536,12 +8055,12 @@ EX.TIPS = {
     -- EX.HOUSE_LOT_SIZE and check_tooltips() pins the two together - these strings are read
     -- straight by SetTooltipText and cannot be a concatenation.
     houses = {
-        hdr_name  = "A Chaos Dwarf house. Its capital backs its share price.",
+        hdr_name  = "A trading house. Its capital backs its share price.",
         hdr_price = "Gold for one lot: 5 shares at today's price.",
         hdr_sell  = "Gold per share each turn. Price above is for 5 shares.",
         hdr_supply = "Held: safe. LOST: taken. Horde: no capital to lose.",
         hdr_trend = "^ up, v down, - held. Hi/Lo: at the ladder's limit.",
-        hdr_spark = "This house's price, one bar per turn. Taller is dearer.",
+        hdr_spark = "This house's price, one bar per turn. Taller costs more.",
         hdr_hold  = "Shares you hold, and the dividend they pay this turn.",
     },
 }
@@ -6627,7 +8146,7 @@ end
 -- so this clear is the only thing keeping either of them silent. Walk EX.TIP_CELL, not the
 -- mode's own tips, or a column this view happens not to explain is never written at all.
 function EX.apply_tips(panel, holder)
-    local tips = EX.TIPS[EX.mode] or {}
+    local tips = EX.TIPS[EX.view()] or {}
     for hid in pairs(EX.TIP_CELL) do
         local t = tips[hid] or ""
         -- ONLY ON A COLUMN THAT HAS ONE. An empty base tip would leave the sort line leading
@@ -6646,7 +8165,7 @@ function EX.apply_tips(panel, holder)
     for _, res in ipairs(EX.instruments()) do
         local row = EX.row(holder, res)
         if is_uicomponent(row) then
-            local over = EX.TIP_CELL_TEXT[EX.mode] or {}
+            local over = EX.TIP_CELL_TEXT[EX.view()] or {}
             for hid, cell in pairs(EX.TIP_CELL) do
                 set_tip(find_uicomponent(row, cell),
                         drawn[res] and (over[hid] or tips[hid]) or "")
@@ -6680,7 +8199,6 @@ local function place(parent, tbl, ox, oy)
 end
 
 function EX.layout()
-    local root = core:get_ui_root()
     local sw, sh = EX.screen()
     -- Last attempt by construction: retry() refuses at >= EX.PLACE_TRIES, so a bad read
     -- here is ignored rather than starting a second chain alongside the first tick's.
@@ -6813,7 +8331,15 @@ end
 -- tools/gen_exchange_ui.py; its selftest asserts every interactive component has one, and this
 -- generator's check_lua_hover() asserts the two lists agree. They are the only cells that both
 -- light on mouseover AND carry a label the script rewrites.
-EX.TWO_STATE_CELLS = { btn_buy = true, btn_sell = true }
+EX.TWO_STATE_CELLS = { btn_buy = true, btn_sell = true,
+                      ord_side = true, ord_cmp = true, ord_down = true, ord_up = true,
+                      ord_place = true,
+                      -- The two amount buttons carry a live number as their label, so the
+                      -- hover state going stale would show the wrong size to the one player
+                      -- most likely to be looking - the one with the pointer on it.
+                      btn_amount = true, ord_qty = true,
+                      btn_amt_down = true, btn_amt_up = true,
+                      ord_qty_down = true, ord_qty_up = true }
 -- THE TABS ARE BUTTONS TOO, so they belong here - a label written to one state only vanishes
 -- the instant the mouse is over it. FILLED FROM EX.MODES rather than listed: a sixth view
 -- would otherwise add a tab whose label disappears on hover and nothing but a screenshot
@@ -6977,6 +8503,87 @@ end
 --
 -- SCALED TO THE RANGE ACTUALLY VISITED, not to the full 42 rungs, for the reason the
 -- sparkline is: against the whole ladder every real price history is a flat line.
+-- THE ORDER TICKET. TOP-LEVEL, NOT A LOCAL INSIDE EX.draw_chart, which is where it started.
+-- The seven cells were named ONLY by EX.PANEL_LAYOUT_CHART and written ONLY by draw_chart, so
+-- with deep_history off there was no chart page, no draw_chart call, and no way to place an
+-- order at all - while the ledger page sat there telling the player to "set one under its
+-- chart". Both pages place these cells now and both call this.
+--
+-- GATED ON THE SWITCH as well as on the selection. With orders off the chart page still exists
+-- and still places the ticket, and a live Place button with no ledger behind it is a way to
+-- create orders that nothing can then cancel. EX.place_order_check carries the same gate for
+-- the model; this one keeps the dead button off the screen.
+function EX.clear_ticket(panel)
+    for _, n in ipairs(EX.TICKET_CELLS) do
+        -- BLANK AND HIDDEN TOGETHER, not just blanked: five of these are BUTTONS, and a
+        -- blank-but-live button under "No commodity chosen" is still clickable.
+        --
+        -- BOTH STATES, via set_text, even though the cell is about to be hidden - a click
+        -- that reopens it later (SetVisible(true) with no text write in between) must not
+        -- show whichever commodity's numbers were left in the state the mouse was not over
+        -- when this ran. Plain SetStateText reaches ONE state, which is that bug.
+        local c = find_uicomponent(panel, n)
+        if EX.TWO_STATE_CELLS[n] then
+            set_text(panel, n, "")
+        elseif is_uicomponent(c) then
+            c:SetStateText("")
+        end
+        if is_uicomponent(c) then c:SetVisible(false) end
+    end
+end
+
+function EX.draw_ticket(panel, res)
+    if not is_uicomponent(panel) then return end
+    if not EX.feature("orders") then return EX.clear_ticket(panel) end
+    local known = false
+    for _, k in ipairs(EX.instruments()) do
+        if k == res then known = true break end
+    end
+    if not known then return EX.clear_ticket(panel) end
+    -- AN EXPLICIT SHOW, for the two ticket cells that carry no hover state and so do not go
+    -- through set_text's own SetVisible(true). Without it these two rely on EX.layout() having
+    -- shown them at some earlier point, which is silently wrong the moment anything calls
+    -- EX.refresh_panel() alone after a clear hid them: five live buttons beside two cells
+    -- still hidden from the last time nothing was selected.
+    local function show(name, text)
+        local c = find_uicomponent(panel, name)
+        if is_uicomponent(c) then
+            c:SetStateText(text)
+            c:SetVisible(true)
+        end
+    end
+    set_text(panel, "ord_side", EX.ord_side == "b" and "Buy" or "Sell")
+    set_text(panel, "ord_cmp", EX.ord_cmp == "le" and "At or below" or "At or above")
+    set_text(panel, "ord_down", "-")
+    set_text(panel, "ord_up", "+")
+    set_text(panel, "ord_place", "Place order")
+    set_text(panel, "ord_qty_down", "-")
+    set_text(panel, "ord_qty", EX.amount_units(res))
+    set_text(panel, "ord_qty_up", "+")
+    local rung = EX.ord_rung or EX.current[res] or EX.neutral_rung()
+    -- THE GOODS AND THE GOLD, under the ticket. Written before the refusal branch below
+    -- returns, so a refused placement still shows what the player was trying to buy.
+    set_text(panel, "ord_cost", EX.amount_line(res, rung))
+    -- WHAT THE FILL WILL PAY, not the mid - see EX.order_price.
+    show("ord_price", tostring(EX.order_price(res, EX.ord_side, rung)) .. "g")
+    -- THE LAST REFUSAL, IF THERE IS ONE, and it replaces the standing line rather than
+    -- sharing it: a player who just pressed Place is being told why nothing happened, and
+    -- that is the whole content of this cell until they change something.
+    if EX.ord_refusal then
+        show("ord_standing", EX.ord_refusal)
+        return
+    end
+    local nm = EX.instrument_name(res)
+    local standing = EX.orders_on(res)
+    if #standing == 0 then
+        show("ord_standing", "No standing order on " .. nm .. ".")
+    else
+        local parts = {}
+        for i = 1, #standing do parts[i] = EX.order_text(standing[i]) end
+        show("ord_standing", "Standing on " .. nm .. ": " .. table.concat(parts, "; "))
+    end
+end
+
 function EX.draw_chart()
     local panel = EX.panel()
     if not is_uicomponent(panel) then return end
@@ -7032,8 +8639,14 @@ function EX.draw_chart()
         blank_axes()
         paint_icon(nil)
         hide_bars()
+        EX.draw_ticket(panel, nil)
         return
     end
+
+    -- THE TICKET DOES NOT NEED CHART HISTORY, only a selection - it places an order at
+    -- whatever the current rung is, which exists from the first turn. Written once here so
+    -- both the no-history branch below and the normal one draw it, rather than twice.
+    EX.draw_ticket(panel, res)
 
     local d, lo, hi = EX.deep_of(res)
     local name = EX.instrument_name(res)
@@ -7062,7 +8675,7 @@ function EX.draw_chart()
     local sh = EX.shock[res] or 0
     local why = EX.shock_why[res]
     if sh ~= 0 and why then
-        say("chart_note", string.format("Shaken %.1f rungs (%s).", sh, why))
+        say("chart_note", string.format("Shaken %.1f steps (%s).", sh, why))
     elseif hi == lo then
         say("chart_note", "This price has not moved since it was first recorded.")
     else
@@ -7132,6 +8745,118 @@ function EX.draw_chart()
     end
 end
 
+-- WHAT THE DEALS FOOTER SAYS, and the empty cases are the point of it. A blank list with no
+-- sentence under it reads as a broken page; each of these three says something different
+-- about the world, and EX.deal_ok returning can_issue and score separately is what makes the
+-- middle two distinguishable at all.
+--
+-- THE SWITCH IS READ LIVE, not off EX.deal_why: a player who turns the feature off mid-turn
+-- sees the reason change on the next refresh rather than next turn.
+-- THE FIVE STRINGS ONE DEAL DRAWS. Out of the draw call deliberately, the way EX.log_lines
+-- and EX.help_lines are: text computed inside EX.refresh_panel can only be checked by
+-- rendering a panel, and nothing offline renders one - so it would ship unchecked.
+--
+-- "Buys" AND "Sells" ARE FROM THE ACTOR'S SIDE, which is the side the name beside them is
+-- on. The player does the opposite, and the price column says what that costs them.
+function EX.deal_cells(i)
+    local d = EX.deals[i]
+    if not d then return nil end
+    local lots = d.lots .. (d.lots == 1 and " lot of " or " lots of ")
+    -- SIGNED, AND ROUNDED AWAY FROM ZERO ON A HALF. math.floor(x + 0.5) agrees with this at
+    -- every whole number - floor(-6.0 + 0.5) is -6, not -7, and the first version of this
+    -- comment claimed otherwise until a mutant that swapped the two survived. They differ
+    -- only at an exact half, where plain floor rounds -6.5 to -6 while rounding +6.5 to +7:
+    -- the same distance from market displayed as a different number depending on which side
+    -- of it the deal sits, on the one column this page exists for. The fixture carries a
+    -- 935-against-1000 deal so this branch is exercised rather than asserted about.
+    local mkt = EX.price(d.res)
+    local pc = (mkt and mkt > 0) and ((d.px - mkt) / mkt * 100) or 0
+    pc = (pc >= 0) and math.floor(pc + 0.5) or -math.floor(-pc + 0.5)
+    -- THE BUTTON IS A CELL TOO, and it is computed here for the reason every other string on
+    -- this page is: nothing offline can run EX.refresh_panel, so a label or a disabled state
+    -- decided inside it ships unread. A mutant that asked EX.buy_refusal on BOTH sides
+    -- survived every check in this file on 2026-09-16 with the logic still inside the draw.
+    --
+    -- ASKED ONLY WHERE THE PLAYER PAYS. d.side is the COUNTERPARTY's verb, so "sell" is the
+    -- side where they sell and the player buys. Selling INTO a deal stays open even with the
+    -- market shut - the same asymmetry the commodity and house rows already ship ("SELLING
+    -- STAYS OPEN, on paper as on commodities"), and not a new rule: the war lock exists to
+    -- stop the player buying their way out of a war.
+    local why, why_label = nil, nil
+    if d.side == "sell" then why, why_label = EX.buy_refusal(d.res) end
+    return {
+        name  = EX.faction_display(d.fac),
+        offer = (d.side == "buy" and "Buys " or "Sells ") .. lots .. EX.display(d.res),
+        price = d.px .. "g",
+        edge  = string.format("%+d%%", pc),
+        total = (d.px * d.lots) .. "g",
+        res   = d.res,
+        take  = why_label or "Take",
+        why   = why,
+    }
+end
+
+-- ONE ROW OF THE DEALS PAGE. A top-level function and not five lines inside EX.refresh_panel,
+-- for the reason EX.draw_intro states for itself: the layout harness can build a panel and lay
+-- it out but cannot run refresh_panel, which needs a live faction and half the campaign
+-- interface - so anything written inside the draw call ships unread. Two mutants proved it here
+-- as three proved it for the chart: SetDisabled(false) and a hardcoded button label both
+-- survived a full round with these lines inline.
+--
+-- IT TAKES THE ROW AND THE INDEX, not the deal. EX.deal_cells already turns an index into
+-- every string this writes, and handing it a deal would give the row a second route to the
+-- same five cells - the two would then be free to disagree about which faction a row names.
+function EX.draw_deal_row(row, i)
+    if not is_uicomponent(row) then return end
+    local c = EX.deals[i] and EX.deal_cells(i)
+    -- HIDDEN, NOT SKIPPED. The row pool is fixed and outlives the page, so a row left alone
+    -- keeps last turn's text and draws it under a shorter list.
+    row:SetVisible(c ~= nil)
+    if not c then return end
+    -- THE COUNTERPARTY, and it is the name the settlement uses. EX.accept_deal passes d.fac to
+    -- EX.apply_trade as `only`, so what this cell says is what the gold does - see
+    -- EX.settle_counterparty's `only` parameter.
+    set_text(row, "row_name", c.name)
+    set_text(row, "row_trend", c.offer)
+    set_text(row, "row_price", c.price)
+    set_text(row, "row_sell", c.edge)
+    set_text(row, "row_hold", c.total)
+    -- THE ICON IS THE DEAL'S, NOT THE ROW'S. These rows are created with no instrument and no
+    -- icon baked in - same as the ledger's pool - so an unpainted cell would show whatever the
+    -- last view left in it.
+    local ic = find_uicomponent(row, "icon")
+    if is_uicomponent(ic) then
+        local path = EX.icon(c.res)
+        if path then ic:SetImagePath(path, 0) end
+        ic:SetVisible(path ~= nil)
+    end
+    -- THE ACCEPT BUTTON, WHOLLY DECIDED IN EX.deal_cells. Both states via set_text - btn_buy is
+    -- in EX.TWO_STATE_CELLS, so a hover state left unwritten shows the last view's label to the
+    -- one player already pointing at it.
+    set_text(row, "btn_buy", c.take)
+    local bb = find_uicomponent(row, "btn_buy")
+    if is_uicomponent(bb) then bb:SetDisabled(c.why ~= nil) end
+    set_tip(bb, c.why or EX.TIP_DEAL)
+end
+
+function EX.deals_line()
+    if not EX.setting("ai_deals") then
+        return "Deals from the world are switched off in this campaign's settings."
+    end
+    local n = #EX.deals
+    if n > 0 then
+        return n .. (n == 1 and " deal is" or " deals are") .. " on the table this turn, "
+            .. "up to " .. EX.opt("deal_max") .. ". Click one to take it; they expire at the turn end."
+    end
+    if EX.deal_why == "declined" then
+        return "Every faction in a position to deal turned you down this turn."
+    end
+    if EX.deal_why == "none" then
+        return "No faction on the map is in a position to deal with you this turn."
+    end
+    return "No deals this turn."
+end
+
 function EX.refresh_panel()
     local panel = EX.panel()
     if not is_uicomponent(panel) then return end
@@ -7139,6 +8864,7 @@ function EX.refresh_panel()
     local stats = (EX.mode == EX.MODE_STATS)
     local offer = (EX.mode == EX.MODE_OFFER)
     local houses = (EX.mode == EX.MODE_HOUSES)
+    local orders = EX.on_orders()
 
     local title = find_uicomponent(panel, "title_text")
     if is_uicomponent(title) then
@@ -7164,12 +8890,25 @@ function EX.refresh_panel()
         elseif houses then t = nm .. ": Houses"
         elseif EX.mode == EX.MODE_INTRO then t = EX.the_name()
         elseif EX.mode == EX.MODE_HELP then t = "How the " .. nm .. " works"
+        elseif EX.mode == EX.MODE_DEALS then t = nm .. ": Deals"
         elseif EX.mode == EX.MODE_LOG then t = nm .. ": Log" end
         title:SetStateText(fit(title, t))
     end
-    for hid, label in pairs(EX.HEADERS[EX.mode]) do
+    for hid, label in pairs(EX.HEADERS[EX.view()]) do
         local c = find_uicomponent(panel, hid)
         if is_uicomponent(c) then c:SetStateText(EX.sort_mark(hid, label)) end
+    end
+    -- THE LIST'S AMOUNT BUTTON. set_text and not SetStateText: it is in EX.TWO_STATE_CELLS,
+    -- and a one-state write leaves the hover state holding whatever it held before - which
+    -- on a button whose whole label IS the number means the wrong size is shown to the one
+    -- player certain to be looking at it, the one with the pointer on it. check_lua_hover
+    -- caught exactly that here.
+    -- GUARDED: see EX.in_layout. Only the views whose own layout names this cell may write
+    -- to it, because writing to it is also showing it.
+    if EX.in_layout("btn_amount") then
+        set_text(panel, "btn_amount", EX.amount_label())
+        set_text(panel, "btn_amt_down", "-")
+        set_text(panel, "btn_amt_up", "+")
     end
 
     -- THE TAB STRIP. Labels are written every refresh for the same reason the row buttons'
@@ -7211,6 +8950,11 @@ function EX.refresh_panel()
     -- page as on the list. The row loop costs nothing: EX.mode_instruments is empty here.
     if EX.on_chart() then EX.draw_chart() end
 
+    -- AND THE TICKET ON THE LEDGER PAGE. draw_chart draws it on the chart page; this page
+    -- places the same seven cells and nothing else would ever write them. It is the only
+    -- route to placing an order when deep_history is off.
+    if EX.on_orders() then EX.draw_ticket(panel, EX.selected) end
+
     local rows_holder = find_uicomponent(panel, "rows_holder")
 
     -- THE GUIDE. It borrows the row components rather than owning any: one line per row, the
@@ -7219,6 +8963,27 @@ function EX.refresh_panel()
     -- THE LOG, drawn exactly as the guide is - borrowed rows, name cell and wide cell. It
     -- scans for changes first so a refusal that appeared this refresh is already in the list
     -- by the time the rows are written.
+    -- THE DEALS PAGE. Drawn like the log and the guide - borrowed rows, written by position -
+    -- and it returns before EX.hold_guild for the same reason they do: no cell here asks a
+    -- price question of the guild. The ROW BODY is EX.draw_deal_row, a top-level function, for
+    -- exactly the reason EX.draw_chart and EX.draw_intro are: nothing offline runs
+    -- EX.refresh_panel, so two mutants on the button - never disabling it, and writing a
+    -- hardcoded label over the one EX.deal_cells computed - survived a full round on
+    -- 2026-09-16 while these lines were still inline.
+    if EX.mode == EX.MODE_DEALS then
+        for i, key in ipairs(EX.mode_instruments()) do
+            EX.draw_deal_row(EX.row(rows_holder, key), i)
+        end
+        local df1 = find_uicomponent(panel, "footer_text")
+        local df2 = find_uicomponent(panel, "footer_text2")
+        if is_uicomponent(df1) then df1:SetStateText(fit(df1, EX.deals_line())) end
+        if is_uicomponent(df2) then
+            df2:SetStateText(fit(df2, "A deal lasts one turn and is gone at the next. The "
+                .. "price is agreed: the market markup does not apply to it."))
+        end
+        return
+    end
+
     if EX.mode == EX.MODE_LOG then
         pcall(EX.log_scan)
         local lines = EX.log_lines()
@@ -7367,7 +9132,11 @@ function EX.refresh_panel()
                 -- 19 commodities came through here drawing a raw key for a name and a Seat of
                 -- "horde" (cm:get_faction on a commodity key answers false).
                 set_text(row, "row_name", EX.faction_display(res))
-                local lot = EX.lot(res)
+                -- THE WHOLE CLICK, not one lot of it. EX.trade moves EX.amount lots, so a
+                -- button that still reads "Buy 10" at x5 understates what pressing it does by
+                -- a factor of five - and this is the only place on the panel where the units
+                -- are unambiguous, because a row is one instrument with one lot size.
+                local lot = EX.lot(res) * EX.clamp_lots(EX.amount)
                 local bb = find_uicomponent(row, "btn_buy")
                 local bs = find_uicomponent(row, "btn_sell")
                 -- house_gone AS WELL AS is_delisted. A house killed during the player's own
@@ -7433,9 +9202,45 @@ function EX.refresh_panel()
                     if is_uicomponent(bs) then bs:SetDisabled(false) end
                 end
                 set_text(row, "row_trend", EX.trend_arrow(res))
+            elseif orders then
+                -- THE ORDER THIS ROW NAMES, straight off the synthetic "ordN" key
+                -- EX.mode_instruments handed out - res here is "ord1"/"ord2"/... and NOT a
+                -- resource, so o.res (never res) is what EX.display/EX.icon/EX.price are
+                -- asked about below. Same index arithmetic EX.order_of_row uses for the
+                -- Cancel click, so the row's text and its click agree about which order they
+                -- mean even when two orders share an instrument (a ladder).
+                local n = tonumber(string.match(res, "^ord(%d+)$"))
+                local o = n and EX.orders[n]
+                if o then
+                    set_text(row, "row_name", EX.display(o.res))
+                    -- REPAINTED FROM THE ORDER'S OWN RESOURCE, not the row's - the generic
+                    -- icon write a few lines up this loop used res ("ord1") and found
+                    -- nothing in EX.INFO, so it already hid this cell once this refresh.
+                    local ic = find_uicomponent(row, "icon")
+                    if is_uicomponent(ic) then
+                        local path = EX.icon(o.res)
+                        if path then ic:SetImagePath(path, 0) end
+                        ic:SetVisible(path ~= nil)
+                    end
+                    set_text(row, "row_trend", EX.order_text(o))
+                    -- THE SIDE'S OWN PRICE, not the mid. The column is headed "Now" and a
+                    -- sell order's row must not quote what a buyer would pay - same reason
+                    -- EX.order_text goes through EX.order_price.
+                    set_text(row, "row_price", tostring(
+                        (o.side == "b") and EX.buy_price(o.res) or EX.sell_price(o.res)))
+                    -- BOTH STATES, via set_text - btn_buy is in EX.TWO_STATE_CELLS, so this
+                    -- already writes hover and standard; a plain SetStateText call would leave
+                    -- "Buy 5" showing the instant the mouse arrived, from whichever state this
+                    -- physical row was last drawn as a commodity or a house.
+                    set_text(row, "btn_buy", "Cancel")
+                end
             else
                 set_text(row, "row_supply", sup and tostring(sup) or "-")
-                local lot = EX.lot(res)
+                -- THE WHOLE CLICK, not one lot of it. EX.trade moves EX.amount lots, so a
+                -- button that still reads "Buy 10" at x5 understates what pressing it does by
+                -- a factor of five - and this is the only place on the panel where the units
+                -- are unambiguous, because a row is one instrument with one lot size.
+                local lot = EX.lot(res) * EX.clamp_lots(EX.amount)
                 -- NO HOUSE REACHES THIS BRANCH ANY MORE. EX.mode_instruments() gives the trade,
                 -- stats and offerings views commodities and layer 2 only, so the delisted-house
                 -- special case that used to live here - a row drawn by faction key with a blank
@@ -7448,7 +9253,6 @@ function EX.refresh_panel()
                 -- and a house refusing you or the war lock - come back through one call, so
                 -- the price cell, the label, the disabled flag and the tooltip cannot disagree.
                 local why, why_label = EX.buy_refusal(res)
-                local gone = EX.unavailable(res)
                 -- 5,054 is the MULT_MAX clamp, not a price anyone would sell at. Showing the
                 -- number invited a trade that cannot happen, so the row says so instead.
                 -- buy_price, NOT price - the Buy column must draw what EX.trade charges.
@@ -7566,6 +9370,14 @@ function EX.refresh_panel()
         -- while every Buy on it refused. REPLACES line 2 rather than being appended to it: the
         -- appetite clauses grow with the board and a fourth would overrun the box.
         l2 = EX.closed_banner() or l2
+        -- THE EMPTY LEDGER. Everything above still applies on the orders page too - the
+        -- world lines are as worth reading there as on the list, same reasoning as the chart
+        -- page - but an empty ledger with nothing placed reads as a bare treasury line with
+        -- no hint of what the page is even for, so line 1 alone is replaced with the guide.
+        if orders and #EX.orders == 0 then
+            l1 = "No standing orders. Choose a commodity on the Trade list, then set one "
+                .. "on the ticket below."
+        end
     end
     if is_uicomponent(footer) then footer:SetStateText(fit(footer, l1)) end
     if is_uicomponent(footer2) then footer2:SetStateText(fit(footer2, l2)) end
@@ -7596,11 +9408,12 @@ EX.PANEL_LAYOUT_OFFER = {
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -7644,6 +9457,12 @@ EX.PANEL_LAYOUT_HOUSES = {
     { "hdr_trend",    406,  50,  46 },
     { "hdr_spark",    470,  50, 108 },
     { "hdr_hold",     580,  50,  88 },
+    -- THE AMOUNT CLUSTER, in the 232px the header row leaves right of hdr_hold (which ends at
+    -- 668) - directly above the rows' own Buy and Sell columns at 654 and 762, because that is
+    -- what it governs.
+    { "btn_amt_down", 676,  46,  26 },
+    { "btn_amount",   706,  46, 130 },
+    { "btn_amt_up",   840,  46,  26 },
     { "rows_holder",   20,  78 },
     -- BOTH FOOTERS KEEP THE FULL 880. They reach 114 and 118 characters at worst case in a
     -- box that holds ~131, and this text has clipped mid-word in play twice; the nav cluster
@@ -7655,11 +9474,12 @@ EX.PANEL_LAYOUT_HOUSES = {
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
-    { "derpy_chd_ex_tab_trade", 20, 698, 132 },
-    { "derpy_chd_ex_tab_stats", 160, 698, 132 },
-    { "derpy_chd_ex_tab_offer", 300, 698, 132 },
-    { "derpy_chd_ex_tab_houses", 440, 698, 132 },
-    { "derpy_chd_ex_tab_log",   580, 698, 132 },
+    { "derpy_chd_ex_tab_trade", 20, 698, 108 },
+    { "derpy_chd_ex_tab_stats", 136, 698, 108 },
+    { "derpy_chd_ex_tab_offer", 252, 698, 108 },
+    { "derpy_chd_ex_tab_houses", 368, 698, 108 },
+    { "derpy_chd_ex_tab_deals", 484, 698, 108 },
+    { "derpy_chd_ex_tab_log",   600, 698, 108 },
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
@@ -7704,14 +9524,15 @@ function EX.page_count()
     if EX.mode == EX.MODE_HELP then return #EX.HELP_PAGES end
     if EX.mode == EX.MODE_LOG then return EX.log_pages() end
     if EX.mode == EX.MODE_HOUSES then return EX.house_pages() end
-    -- TRADE ALWAYS HAS TWO, even with nothing selected. The arrows are greyed at one page,
-    -- so a count that depended on a selection would hide the only affordance that tells
-    -- the player the chart exists - and page 2 with nothing chosen is a perfectly good
-    -- place to say so.
+    -- TRADE'S COUNT IS #EX.trade_pages(), NOT A FIXED NUMBER. It used to read "always two,
+    -- even with nothing selected" back when the chart was the only optional page; the orders
+    -- ledger made that false the moment it shipped as a second switch - with two switches
+    -- there are four combinations and 1-3 pages, and EX.trade_pages is the one place that
+    -- already gets all four right, so this only has to defer to it rather than repeat it.
     if EX.mode == EX.MODE_TRADE then
-        -- ONE PAGE WITH deep_history OFF, so the arrows grey and the counter reads 1/1 rather
-        -- than offering a second page that EX.on_chart now refuses to draw.
-        return EX.feature("deep_history") and 2 or 1
+        -- ONE ENTRY PER ENABLED PAGE. Both switches grey the arrows by shortening this list
+        -- rather than by arithmetic - see EX.trade_pages.
+        return #EX.trade_pages()
     end
     return 1
 end
@@ -7719,7 +9540,16 @@ function EX.page_index()
     if EX.mode == EX.MODE_HELP then return EX.help_page end
     if EX.mode == EX.MODE_LOG then return EX.log_page end
     if EX.mode == EX.MODE_HOUSES then return EX.house_page end
-    if EX.mode == EX.MODE_TRADE then return EX.trade_page end
+    -- CLAMPED, exactly as EX.trade_kind clamps and for the same reason: a switch can be
+    -- thrown while the player stands on the page it removes. Unclamped this read "3/2" until
+    -- an arrow was pressed, while trade_kind was already correctly showing page 2.
+    if EX.mode == EX.MODE_TRADE then
+        local n = #EX.trade_pages()
+        local at = EX.trade_page or 1
+        if at < 1 then at = 1 end
+        if at > n then at = n end
+        return at
+    end
     return 1
 end
 
@@ -7945,6 +9775,26 @@ function EX.pay_house(house, amount)
     return amount
 end
 
+-- EX.pay_house with the world tier's ceiling. Kept separate rather than parameterised because
+-- the two caps differ by an order of magnitude and reading pay_house(x, y, cap) at a call site
+-- tells you nothing about which tier you are in.
+function EX.pay_actor(faction, amount)
+    if not EX.setting("ai_gold") then return 0 end
+    if amount == 0 then return 0 end
+    local cap = EX.opt("world_cash_max")
+    if amount > cap then amount = cap end
+    if amount < -cap then amount = -cap end
+    if amount < 0 then
+        -- THE SCANNED TREASURY, not a cm:get_faction. The scan read it this turn and the whole
+        -- tier is built on not re-fetching it ~80 times.
+        local gold = ((EX.actors or {})[faction] or {}).gold or 0
+        if -amount > gold then amount = -gold end
+        if amount >= 0 then return 0 end
+    end
+    cm:treasury_mod(faction, amount)
+    return amount
+end
+
 -- THE GUILD HOUSE ON THE OTHER SIDE, or nil. A house at war has left the pool entirely, and
 -- that war test is the only one here.
 --
@@ -7980,6 +9830,57 @@ function EX.guild_counterparty(res, is_buy)
     return best
 end
 
+-- THE WORLD TIER'S COUNTERPARTY. Same shape as EX.guild_counterparty, without the treaty test:
+-- a world actor has no guild membership to leave. On a buy it can only sell what it holds; on
+-- a sell it buys with gold, so the choice is sized on the scanned treasury.
+function EX.world_counterparty(res, is_buy)
+    if EX.is_house(res) or EX.is_layer2(res) then return nil end
+    if not EX.setting("ai_world") then return nil end
+    local best, best_n = nil, 0
+    for faction, info in pairs(EX.actors or {}) do
+        -- EVERY HUMAN IS EXCLUDED, same rule and same reason as EX.step_world: EX.actors is
+        -- built in EX.scan_supply from every landholding faction whose culture is not Chaos
+        -- Dwarf, with no human filter on that path - a Chaos Dwarf human is already out of
+        -- EX.actors by culture, so the reachable case is a non-Chaos-Dwarf human (the mixed
+        -- multiplayer board EX.pool_absent and EX.LAYER2 already support). Without this, that
+        -- player is routed to as rung 2's counterparty and both charged and credited the same
+        -- price by EX.trade and this function - a free trade. Filtered HERE, the shared reader
+        -- both callers of this function go through, not at a call site.
+        if not EX.is_human(faction) then
+            local n
+            if is_buy then n = EX.world_sellable(faction, res) else n = info.gold or 0 end
+            if n > best_n then best, best_n = faction, n end
+        end
+    end
+    return best
+end
+
+-- NOBODY IS HOLDING ANY. Returns the largest landholder so the tooltip can still name somebody
+-- - "Karaz-a-Karak holds the last of it" is a refusal a player can act on; "sold out" is not.
+-- Returns nil while stock remains, and nil outright when the switch is off, which is today's
+-- shipped behaviour: top_holder as the unbounded fallback.
+function EX.sold_out(res)
+    if not EX.setting("world_scarcity") then return nil end
+    -- AND ai_world. Ruled 2026-09-13 in the pre-flight scan: with the world tier off the world
+    -- book is empty by definition, so scarcity alone would report every commodity the guild does
+    -- not happen to hold as sold out - taking the market away, which is the worst failure this
+    -- feature can produce. The two switches must not combine into a refusal nobody asked for.
+    if not EX.setting("ai_world") then return nil end
+    if EX.is_house(res) or EX.is_layer2(res) then return nil end
+    if EX.guild_book(res) > 0 then return nil end
+    -- A COMMODITY THE WORLD TIER CAN NEVER SUPPLY IS NOT ITS TO REFUSE. Every producer smaller
+    -- than one lot floors to zero capacity - see EX.world_capacity - so without this, a thin
+    -- commodity (the shipped case: glass, 6 units a turn against a 10-unit lot) is refused from
+    -- turn 1 for the life of the campaign, at default settings. "Never a participant" is not
+    -- scarcity; only a drained EX.world_potential > 0 is.
+    if EX.world_potential(res) == 0 then return nil end
+    -- SUPPLY, NOT THE NET BOOK. Task 9 made the world book a position, and a position nets to
+    -- zero across the map by construction - so testing it here refused every commodity the
+    -- guild did not happen to be long, which is most of the board, every turn.
+    if EX.world_supply(res) > 0 then return nil end
+    return EX.top_holder(res) or "unknown"
+end
+
 -- The largest holder of the commodity is the counterparty, and the gold moves to or from their
 -- treasury. cm:treasury_mod takes a faction KEY STRING, so any faction on the map can be paid -
 -- measured 2026-09-04.
@@ -7987,15 +9888,36 @@ end
 -- This is what stops the exchange being a hole in the world that gold falls into. It also makes
 -- buying a political act: cornering iron means paying whoever owns the iron, who is quite
 -- possibly the faction you are arming against.
-function EX.settle_counterparty(res, is_buy, price)
+-- `only` NAMES THE COUNTERPARTY AND SKIPS THE WALK (Stage 2, Task 4). A deal is struck with
+-- one faction and the page prints its name, so the gold has to move to or from THAT faction -
+-- a panel that says one name and pays another is the same class of lie as a quoted price that
+-- is not the price charged. With `only` given there is NO FALLBACK: the guild rung is skipped,
+-- and if the named faction cannot settle, this returns nil rather than quietly paying whoever
+-- the preference order would have found instead.
+function EX.settle_counterparty(res, is_buy, price, only)
     -- Layer 2 has no map holder. Armaments and Raw Materials come out of the Forge, not off
     -- somebody's land, so there is nobody to pay.
     if EX.is_layer2(res) then return nil end
 
-    -- PREFERENCE ORDER, spec 8.2. A guild house holding the book first; today's top_holder
-    -- second. Rung 2 is deliberate and unchanged - "cornering iron means paying whoever owns
-    -- the iron" - and it is also the empty-guild path, which is most campaigns.
-    local g = EX.guild_counterparty(res, is_buy)
+    -- PREFERENCE ORDER, spec 8.2. A guild house holding the book first; the world tier second
+    -- (Rung 2, below); today's top_holder third. Rung 3 is deliberate and unchanged -
+    -- "cornering iron means paying whoever owns the iron" - and it is also the empty-guild
+    -- path, which is most campaigns.
+    -- SKIPPED ENTIRELY FOR A NAMED COUNTERPARTY - see `only` above.
+    local g = nil
+    if not only then g = EX.guild_counterparty(res, is_buy) end
+    -- THE SAME FLAT-CAP MISMATCH RUNG 2 WAS FIXED FOR, one tier up. EX.apply_trade moves the
+    -- player's full uncapped price through cm:treasury_mod; EX.pay_house clamps the house's own
+    -- leg at house_cash_max. Above that cap the two legs disagree and the difference is minted
+    -- on a sell or destroyed on a buy. Checked BEFORE EX.pay_house, because cm:treasury_mod
+    -- cannot be un-rung once called.
+    --
+    -- UNREACHABLE AT ALL FOUR SHIPPED PRESETS and reachable under Custom: the top ladder price
+    -- runs 3.7k to 21.7k against caps of 20k to 60k, but a Custom ladder_step of 1.30 gives a
+    -- 146k top price against a house_cash_max a player may set to 5,000. Fixed here rather than
+    -- inside EX.pay_house because the cap is a deliberate per-turn budget for the guild's OWN
+    -- trading in EX.step_books, where nothing uncapped sits opposite it.
+    if g and EX.setting("ai_gold") and price > EX.opt("house_cash_max") then g = nil end
     if g then
         local moved = EX.pay_house(g, is_buy and price or -price)
         -- THE BOOK MOVES EVEN WHEN THE GOLD DOES NOT. With MCT's ai_gold off, EX.pay_house
@@ -8022,11 +9944,80 @@ function EX.settle_counterparty(res, is_buy, price)
         end
     end
 
-    local who = EX.top_holder(res)
+    -- RUNG 2, the world tier. Between the guild and top_holder: a guild house is still
+    -- preferred (it is the deeper relationship and the one the panel names), but an actor
+    -- actually holding the goods beats a landholder who merely owns the ground they came from.
+    local w = only or EX.world_counterparty(res, is_buy)
+    -- F2, FINAL REVIEW 2026-09-13. DECLINE UPFRONT WHEN THE FLAT CAP ALONE WOULD SHORT THE
+    -- TRADE - checked BEFORE anything is paid, not after. EX.apply_trade always charges or
+    -- credits the PLAYER the full, uncapped `price` via cm:treasury_mod, while EX.pay_actor
+    -- clamps the actor's own leg at world_cash_max (3000 default, 1500 easy). Above the cap the
+    -- two legs disagreed and the difference was minted (a player sell) or destroyed (a player
+    -- buy) every single trade, silently, on ordinary prices - the ladder passes world_cash_max
+    -- around rung 37 of 42 at default settings.
+    --
+    -- CHECKED AGAINST `price` DIRECTLY, NOT AGAINST WHAT EX.pay_actor WOULD RETURN, and this
+    -- is deliberate: cm:treasury_mod, once called, cannot be un-rung, so the check has to
+    -- happen before EX.pay_actor is ever called, not after reading its result back. It is also
+    -- why this gate is price > cap and not "the actor cannot afford it" - the actor's OWN gold
+    -- shortfall (poverty) is left untouched below, same as it always was and same as rung 3's
+    -- own documented trade-off ("a poor counterparty does mint a little gold... bounded by
+    -- their treasury") - a real, if small, treasury is the bound rung 3 already accepts. Only
+    -- the FLAT, ARTIFICIAL cap being tighter than that is the thing this task fixes; declining
+    -- on poverty too would have EX.pay_actor's OWN debit clamp fire, `moved` fall short of
+    -- `price` there instead, and the actor would still have been paid a partial, real amount
+    -- before this function ever finds out - undoing that would need reversing a
+    -- cm:treasury_mod that already ran, which is the same "cannot be un-rung" problem in a
+    -- different place. A price-vs-cap comparison needs no such reversal: it never calls
+    -- EX.pay_actor at all when it declines, so nothing is ever paid to undo.
+    if w and EX.setting("ai_gold") and price > EX.opt("world_cash_max") then
+        w = nil
+        -- DECLINED: EX.pay_actor was never called, so no gold moved and the book below did
+        -- not either. Falls through to EX.top_holder, unclamped by world_cash_max, same as if
+        -- EX.world_counterparty had found nobody at all.
+        --
+        -- A NAMED COUNTERPARTY DECLINED HERE IS REFUSED BY THE `only` GUARD ABOVE RUNG 3,
+        -- which every fall-through reaches. A second `if only then return nil end` right
+        -- here was written first and deleted after the mutation round showed it could not
+        -- be made to fail on its own - both guards caught the same case and only one is
+        -- needed. Two guards for one failure is one guard nobody can test.
+    end
+    if w then
+        local moved = EX.pay_actor(w, is_buy and price or -price)
+        if moved ~= 0 or not EX.setting("ai_gold") then
+            -- SPEND THE SCANNED TREASURY AS A PER-TURN BUDGET, same rule and same reason as
+            -- EX.step_world's own match: EX.actors[w].gold is read fresh from the scan once a
+            -- turn and nothing else writes it back on this path, so without this line a player
+            -- selling (or buying) from the same actor repeatedly in one turn meets the
+            -- identical, unclamped treasury every time - `moved` is already signed (positive
+            -- paid TO the actor, negative taken FROM them), so one line covers both directions.
+            local wi = (EX.actors or {})[w]
+            if wi then wi.gold = wi.gold + moved end
+            -- THE BOOK MOVES EVEN WHEN THE GOLD DOES NOT, the same rule and the same reason as
+            -- the guild rung above: gating the book on moved ~= 0 freezes it with ai_gold off
+            -- and the tier becomes an infinite seller again.
+            local n = EX.world_book_of(w, res)
+            EX.set_world_book(w, res, is_buy and (n - 1) or (n + 1))
+            return w, math.abs(moved)
+        end
+    end
+
+    -- CORNERING A COMMODITY MUST NOT TRAP IT. F2, REVIEW 2026-09-13: EX.top_holder used to
+    -- return the player outright and the two lines below refused the trade - which was harmless
+    -- while a refusal here silently minted the gold instead, but B2 turned that same nil into an
+    -- outright "nobuyer" refusal, and "a position carried in from an older save has to be
+    -- closable" (above) and "blocking a sell traps the player's capital with no exit" (EX.apply_
+    -- trade's own unavailable-guard comment) both say this file's standard is the opposite.
+    -- Skipping the player inside EX.top_holder itself finds the SECOND-largest holder instead,
+    -- so a cornering player can still close the position against whoever holds the next pile.
+    -- Only when the player is the ONLY holder does this come back nil, same as before.
+    -- RUNG 3 IS NOT REACHABLE FOR A NAMED COUNTERPARTY EITHER. Falling here means the named
+    -- faction could not pay (EX.pay_actor returned 0 with ai_gold on); the answer to that is a
+    -- refusal, not a different faction.
+    if only then return nil end
+
+    local who = EX.top_holder(res, EX.who())
     if not who then return nil end
-    -- PAYING YOURSELF IS FREE. If the player is the largest holder, a buy would credit the same
-    -- treasury it debits and every commodity you had cornered would cost nothing at all.
-    if who == EX.who() then return nil end
 
     local moved = price
     if not is_buy then
@@ -8051,15 +10042,64 @@ end
 -- the gold have to happen in the same pass, on the same machine, or a trade the sender thought
 -- was legal moves gold on the clients that disagreed.
 function EX.trade(res, is_buy)
-    EX.mp_send(is_buy and "buy" or "sell", res)
+    -- The amount rides ON the op rather than being read from EX.amount on the far side: in
+    -- multiplayer the op is applied on every machine, and EX.amount is the LOCAL player's
+    -- session state - reading it there would have each machine trading its own operator's
+    -- current setting. EX.ORD_FS is the separator the order ops already use.
+    EX.mp_send(is_buy and "buy" or "sell", res .. EX.ORD_FS .. tostring(EX.amount))
 end
 
-EX.MP_OPS.buy  = function(res) EX.apply_trade(res, true) end
-EX.MP_OPS.sell = function(res) EX.apply_trade(res, false) end
+-- N LOTS AS N REAL TRADES, not one trade of N lots. Clicking Buy twenty-five times is what
+-- this replaces, and it must cost and move exactly what that cost and moved - the same
+-- per-trade counterparty walk, the same hostility, the same book drawdown, the same log
+-- lines. A bulk path with its own arithmetic would be a second pricing model to keep in
+-- agreement with the first.
+--
+-- IT STOPS AT THE FIRST REFUSAL. Twenty-five attempts against an empty treasury is
+-- twenty-five identical "cannot afford" lines in the log and twenty-five counterparty walks
+-- for nothing. The first no ends the run, and whatever filled before it stands.
+function EX.bulk_trade(arg, is_buy)
+    local res, n = arg, 1
+    -- NO PLAIN FLAG. See the note above EX.display: string.find(s, p, 1, true) corrupts WH3's
+    -- string subsystem process-wide. EX.ORD_FS is matched as a PATTERN, which is safe for the
+    -- same reason EX.unpack_orders can build "[^,]+" out of it - it carries no pattern magic.
+    local cut = string.find(tostring(arg), EX.ORD_FS)
+    if cut then
+        res = string.sub(arg, 1, cut - 1)
+        n = EX.clamp_lots(string.sub(arg, cut + 1))
+    end
+    local done, last = 0, nil
+    for _ = 1, n do
+        last = EX.apply_trade(res, is_buy)
+        if last ~= true then break end
+        done = done + 1
+    end
+    if n > 1 then
+        EX.say("trade", (is_buy and "bulk buy " or "bulk sell ") .. done .. "/" .. n
+            .. " lots of " .. tostring(res)
+            .. ((last ~= true) and (" - stopped: " .. tostring(last)) or ""))
+    end
+    return done
+end
 
-function EX.apply_trade(res, is_buy)
+EX.MP_OPS.buy  = function(arg) EX.bulk_trade(arg, true) end
+EX.MP_OPS.sell = function(arg) EX.bulk_trade(arg, false) end
+
+-- RETURNS true ON A FILL, or a reason token. Additive: every caller before 2026-09-10
+-- ignored the return, and EX.fill_orders is the first to read it. The tokens are classified
+-- by EX.ORDER_FATAL and given sentences by EX.ORDER_REASON.
+-- TWO OPTIONAL PARAMETERS, ADDED IN STAGE 2 TASK 4, both defaulted to today's behaviour so
+-- every existing caller is byte-identical. `unit_px` is the price one lot settles at when
+-- the caller has already agreed one (a deal off the Deals page); `only` is the faction that
+-- must be on the other side of it.
+--
+-- NO `lots` PARAMETER, AGAINST THE PLAN'S OWN INTERFACE TABLE. EX.bulk_trade already answers
+-- that question - "N LOTS AS N REAL TRADES, not one trade of N lots... a bulk path with its
+-- own arithmetic would be a second pricing model to keep in agreement with the first" - and
+-- that ruling predates this stage and is still right. EX.accept_deal loops the same way.
+function EX.apply_trade(res, is_buy, unit_px, only)
     local faction = EX.who()
-    if not faction then return end
+    if not faction then return "nofaction" end
     -- SEE EX.bind_player: the stance memo belongs to whoever was bound when it was built, and
     -- a trade arriving mid-refresh on one machine only must not read the wrong one.
     EX.free_guild()
@@ -8078,7 +10118,7 @@ function EX.apply_trade(res, is_buy)
     -- hook exactly - "buy the house BEFORE you take its seat" becomes "buy it after, for free".
     if EX.is_house(res) and (EX.is_delisted(res) or EX.house_gone(res)) then
         EX.say("trade", res .. " is delisted or gone")
-        return
+        return "delisted"
     end
     -- cm:perform_ritual(performing faction key, target faction key, ritual key). The DB row
     -- carries the gold cost and the pooled-resource movement, so affordability, the treasury
@@ -8089,14 +10129,14 @@ function EX.apply_trade(res, is_buy)
     -- has nothing to refuse with.
     if not is_buy and EX.held(res) < lot then
         EX.say("trade", "not enough " .. pool .. " to sell")
-        return
+        return "nothold"
     end
     -- No producer anywhere means no seller. See EX.unavailable. Selling is deliberately still
     -- allowed: the held-check above already gates it, and a position carried in from an older
     -- save has to be closable.
     if is_buy and EX.unavailable(res) then
         EX.say("trade", "no offer - nothing on this map produces " .. res)
-        return
+        return "unavailable"
     end
     -- BUYS ONLY. A house that despises you is delighted to take your goods cheap, and
     -- blocking a sell traps the player's capital with no exit - the lockout that actually
@@ -8110,15 +10150,19 @@ function EX.apply_trade(res, is_buy)
         pcall(function()
             EX.log_add(EX.log_subject(res), "Buy refused. " .. tostring(why), res)
         end)
-        return
+        return "blocked"
     end
     -- buy_price, NOT price. EX.price is the world price; what the player pays includes the
     -- guild's hostility markup, and the panel draws the same number.
-    local price = is_buy and EX.buy_price(res) or EX.sell_price(res)
+    -- AN AGREED PRICE IS NOT MARKED UP. buy_price and sell_price carry the guild's hostility
+    -- markup, which is the guild's cut of a guild trade; a deal is struck directly with the
+    -- faction on the page, at the number the page printed, and that number is already off market
+    -- by EX.DEAL_EDGE in the player's favour.
+    local price = unit_px or (is_buy and EX.buy_price(res) or EX.sell_price(res))
     local fac = cm:get_faction(faction)
     if is_buy and fac:treasury() < price then
         EX.say("trade", "cannot afford " .. price .. " for " .. pool)
-        return
+        return "afford"
     end
 
     -- WHY THIS DOES NOT CALL cm:perform_ritual. Measured in game 2026-09-04: perform_ritual
@@ -8140,7 +10184,55 @@ function EX.apply_trade(res, is_buy)
             EX.log_add(EX.log_subject(res),
                 "Trade refused: this market is not open to your people.", res)
         end)
-        return
+        return "nopool"
+    end
+    -- CONSULT SETTLEMENT FIRST. EX.settle_counterparty reads only the counterparty's treasury
+    -- and the books, never the player's, so hoisting it above the player's own cm:treasury_mod
+    -- is free - and it has to happen first, because cm:treasury_mod cannot be un-rung once
+    -- called. See the "NOBODY CAN PAY FOR THIS" guard immediately below for why the order
+    -- matters.
+    local who, moved = EX.settle_counterparty(res, is_buy, price, only)
+    -- NOBODY CAN PAY FOR THIS. EX.apply_trade credits the player the full price through
+    -- cm:treasury_mod, and until 2026-09-13 it did so BEFORE asking who was on the other side -
+    -- so a sell that found no counterparty at all minted the whole price out of nothing. That
+    -- is the oldest of the three leaks this effort found and the only one that predates it.
+    --
+    -- BUY IS DELIBERATELY NOT REFUSED HERE. A buy with no counterparty destroys gold rather
+    -- than minting it, which is a sink and not an exploit; EX.blocked already refuses the buy
+    -- cases that matter, and refusing more of them here would take the market away for the
+    -- commodity a player has cornered - they are the top holder, which is why rung 3 can
+    -- return nil, but only when the player is the SOLE holder. F2 gave EX.top_holder its
+    -- optional skip parameter, so with a second holder present rung 3 falls through to them
+    -- instead of returning nil.
+    --
+    -- ONLY A COMMODITY HAS A MAP HOLDER TO PAY, SO ONLY A COMMODITY CAN FAIL TO FIND ONE. F1,
+    -- REVIEW 2026-09-13: the guard first shipped here named a single exempt case (houses) where
+    -- the general rule was needed, and that omission refused every Layer 2 sell (Armaments,
+    -- Raw Materials) forever, at shipped defaults - EX.settle_counterparty's own first line is
+    -- `if EX.is_layer2(res) then return nil end`, "Armaments and Raw Materials come out of the
+    -- Forge, not off somebody's land, so there is nobody to pay". `who` is structurally nil for
+    -- Layer 2 always, not occasionally - the same shape of defect as the house case below, one
+    -- tier over. EX.is_commodity(res) is true only for the seventeen commodities, so it excludes
+    -- both Layer 2 and Layer 3 (houses) in the one test a house's own exemption needed anyway.
+    --
+    -- THE WORKED EXAMPLE, KEPT: A HOUSE'S OWN PAPER IS ALSO EXEMPT, which is what first surfaced
+    -- this rule. Found by running check_lua_houses.py's held_after_sell fixture (buy 2 lots,
+    -- sell 1, expect 5 left) against a guard scoped to `not EX.is_house(res)` alone: it read 10,
+    -- because EX.guild_counterparty and EX.world_counterparty BOTH hard-exclude a house at
+    -- their own first line (`if EX.is_house(res) then return nil end`), and EX.top_holder
+    -- reads EX.owners, which is keyed by COMMODITY and never carries a house key - so `who` is
+    -- nil for a house sale ALWAYS, not occasionally. That is not scarcity, it is the paper
+    -- model: EX.held's own comment calls shares "save state, not a pooled resource", and every
+    -- other refusal in this file (market_closed, house_at_war, refused_by) explicitly leaves
+    -- selling shares open. Refusing a house sale here would not close a leak, it would delete
+    -- share selling from the game.
+    if not is_buy and not who and EX.is_commodity(res) then
+        EX.say("trade", "REFUSED - nobody on this map can pay for " .. pool)
+        pcall(function()
+            EX.log_add(EX.log_subject(res),
+                "Sale refused: no buyer on this map can pay for it.", res)
+        end)
+        return "nobuyer"
     end
     cm:treasury_mod(faction, is_buy and -price or price)
     if EX.is_house(res) then
@@ -8151,7 +10243,6 @@ function EX.apply_trade(res, is_buy)
     else
         cm:faction_add_pooled_resource(faction, pool, "other", is_buy and lot or -lot)
     end
-    local who, moved = EX.settle_counterparty(res, is_buy, price)
     EX.say("trade", (is_buy and "bought " or "sold ") .. lot .. " " .. pool
         .. " for " .. price
         .. (who and ((is_buy and " paid to " or " taken from ") .. who
@@ -8162,7 +10253,10 @@ function EX.apply_trade(res, is_buy)
         local nm = EX.log_subject(res)
         local h = EX.hostility(res)
         local extra = ""
-        if h ~= 0 then
+        -- NOT ON AN AGREED PRICE. The markup sentence explains a number the guild changed; on a
+        -- deal the guild changed nothing, and printing it would tell the player their 940 was
+        -- really something else.
+        if h ~= 0 and not unit_px then
             local cp = EX.guild_counterparty(res, is_buy)
             -- Same realised figure the cell and the tooltip use; see EX.sell_tip.
             extra = "  " .. (cp and EX.faction_display(cp) or "The guild")
@@ -8178,10 +10272,796 @@ function EX.apply_trade(res, is_buy)
     if p < -EX.PRESSURE_MAX then p = -EX.PRESSURE_MAX end
     EX.pressure[res] = p
     EX.setv(EX.SAVE_PRESS .. res, p)
-    cm:callback(function()
-        EX.apply_prices()
-        EX.after_holding_change(faction)
-    end, 0.1, "zharr_after_trade_" .. tostring(faction))
+    -- NOT DURING A FILL PASS. See EX.filling: twelve fills would queue twelve repricings,
+    -- and EX.turn_round schedules one for the whole round instead.
+    if not EX.filling then
+        cm:callback(function()
+            EX.apply_prices()
+            EX.after_holding_change(faction)
+        end, 0.1, "zharr_after_trade_" .. tostring(faction))
+    end
+    return true
+end
+
+-- ===========================================================================================
+-- STANDING ORDERS. A target rung, a comparison, and a fill at turn start.
+--
+-- THE TARGET IS A RUNG AND NEVER A GOLD PRICE. EX.current[res] is an integer 1..EX.RUNGS and
+-- the test below is an integer compare. WH3's Lua is single precision - 1.05 is
+-- 1.0499999523163 - so comparing EX.price_at() outputs would put a .5 boundary on the wrong
+-- side of itself. The ticket DISPLAYS price_at; nothing compares it.
+--
+-- LIMIT AND STOP ARE THE SAME ROW. side x cmp gives all four:
+--   b/le limit buy (buy the dip)      b/ge stop buy   (buy the breakout)
+--   s/ge limit sell (take profit)     s/le stop sell  (stop loss)
+-- ===========================================================================================
+
+EX.ORDER_MAX = 12
+EX.ORD_RS = ";"
+EX.ORD_FS = ","
+
+-- THE LIST. Placement order, and EX.fill_orders walks it in that order - see FIFO there.
+EX.orders = {}
+
+-- WHAT CAN CARRY AN ORDER: exactly what Trade page 1 lists. EX.mode_instruments never returns
+-- a house on that tab and the ticket is reached by selecting a row for the chart, so a house
+-- share has no way to be chosen. Refusing it here means the refusal has a sentence rather
+-- than being an order nobody can ever see again.
+function EX.orderable(res)
+    return EX.is_commodity(res) or EX.is_layer2(res)
+end
+
+-- READ BACK OUT OF A SAVE STRING, so this is a trust boundary and not a tidy-up. Anything
+-- this accepts is something EX.fill_orders will index into on a turn boundary.
+-- qty IS OPTIONAL AND DEFAULTS TO ONE. Every caller that predates the amount control passes
+-- four arguments, and an order read out of a save written before this build has no fifth
+-- field - both must stay valid, or a build upgrade silently empties the ledger.
+function EX.valid_order(res, side, cmp, rung, qty)
+    if qty ~= nil then
+        if type(qty) ~= "number" then return false end
+        if qty ~= math.floor(qty) then return false end
+        if qty < 1 or qty > EX.AMOUNTS[#EX.AMOUNTS] then return false end
+    end
+    if type(res) ~= "string" or res == "" then return false end
+    if side ~= "b" and side ~= "s" then return false end
+    if cmp ~= "le" and cmp ~= "ge" then return false end
+    if type(rung) ~= "number" then return false end
+    if rung ~= math.floor(rung) then return false end
+    if rung < 1 or rung > EX.RUNGS then return false end
+    return true
+end
+
+function EX.pack_orders()
+    local out = {}
+    for i = 1, #EX.orders do
+        local o = EX.orders[i]
+        out[#out + 1] = o.res .. EX.ORD_FS .. o.side .. EX.ORD_FS .. o.cmp
+            .. EX.ORD_FS .. tostring(o.rung) .. EX.ORD_FS .. tostring(o.qty or 1)
+    end
+    return table.concat(out, EX.ORD_RS)
+end
+
+-- ONE BAD RECORD MUST NOT EMPTY THE LIST. Same rule EX.unpack_log follows: a record that does
+-- not validate is dropped and its neighbours are kept. Refusing the whole string would clear
+-- a live campaign's orders on the first load after any change to this format.
+function EX.unpack_orders(s)
+    EX.orders = {}
+    if not s or s == "" then return end
+    for rec in string.gmatch(s, "[^" .. EX.ORD_RS .. "]+") do
+        local f = {}
+        for fld in string.gmatch(rec .. EX.ORD_FS,
+                                 "([^" .. EX.ORD_FS .. "]*)" .. EX.ORD_FS) do
+            f[#f + 1] = fld
+        end
+        local rung = tonumber(f[4])
+        -- A FOUR-FIELD RECORD IS A PRE-AMOUNT SAVE and loads as one lot. Reading the missing
+        -- field as nil and defaulting here is what keeps every order a player already holds
+        -- when they take this build.
+        local qty = EX.clamp_lots(f[5])
+        if #f >= 4 and EX.valid_order(f[1], f[2], f[3], rung, qty) then
+            EX.orders[#EX.orders + 1] =
+                { res = f[1], side = f[2], cmp = f[3], rung = rung, qty = qty }
+        end
+    end
+    while #EX.orders > EX.ORDER_MAX do EX.orders[#EX.orders] = nil end
+end
+
+-- STAGE 2 DEALS. Same shape as EX.pack_orders/EX.unpack_orders above, plain "," and ";"
+-- separators rather than EX.ORD_FS/EX.ORD_RS, because every field here is a key, a short side
+-- word or a number - none of them free text - so the log's control-byte reasoning does not
+-- apply and the file's ordinary separators are correct.
+function EX.pack_deals()
+    local out = {}
+    for i = 1, #EX.deals do
+        local d = EX.deals[i]
+        out[i] = table.concat({ d.fac, d.res, d.side, d.lots, d.px, d.turn }, ",")
+    end
+    return table.concat(out, ";")
+end
+
+function EX.unpack_deals(s)
+    EX.deals = {}
+    if type(s) ~= "string" or s == "" then return end
+    for chunk in string.gmatch(s, "[^;]+") do
+        local f = {}
+        for part in string.gmatch(chunk, "[^,]+") do f[#f + 1] = part end
+        -- SIX FIELDS OR NONE. A short record is a truncated save, not a deal with defaults:
+        -- guessing a missing price would settle real gold against a number nobody wrote.
+        if #f == 6 then
+            EX.deals[#EX.deals + 1] = {
+                fac = f[1], res = f[2], side = f[3],
+                lots = tonumber(f[4]), px = tonumber(f[5]), turn = tonumber(f[6]),
+            }
+        end
+    end
+end
+
+function EX.save_orders()
+    pcall(function() EX.setp(EX.SAVE_ORDERS, EX.pack_orders()) end)
+end
+
+-- WRITTEN HERE, NOT ONLY AT THE CALL SITE THAT HAPPENS TO NEED IT. A save key with a reader
+-- and no writer is Stage 1's SAVE_WBOOK bug inverted: there the world book was written and
+-- never read, so every load silently emptied it. Either half alone passes every gate.
+function EX.save_deals()
+    pcall(function() EX.setp(EX.SAVE_DEALS, EX.pack_deals()) end)
+end
+
+-- THE ONE PLACE THIS MOD ASKS THE ENGINE'S OWN AI A QUESTION AND OBEYS THE ANSWER.
+--
+-- CA'S ORDER, NOT THE SPEC'S. All six of CA's call sites in wh3_narrative_shared_chains.lua read
+-- `if can_issue then ... score ... end`. "Cannot issue" and "scored low" are different states and
+-- the page reports them differently, so the score is returned even when can_issue is false rather
+-- than being collapsed into one number.
+--
+-- (MINE, THEM) - THE PLAYER PROPOSES, THE AI FACTION IS THE TARGET WHOSE ACCEPTANCE IS SCORED.
+-- FIX ROUND 1: shipped backwards as (them, mine) at first, which computes whether the PLAYER
+-- would accept a deal from the AI - the opposite of this function's purpose. CA's own doc text
+-- (episodic_scripting.html): "a quick deal score greater than zero means it would likely be
+-- accepted by the TARGET faction" - the target is the SECOND argument. CA's six call sites in
+-- wh3_narrative_shared_chains.lua pass (faction, met_faction), and the narrative trigger's
+-- default event is ScriptEventHumanFactionTurnStart, so `faction` (context:faction(), the first
+-- argument) is the human player whose turn just started and `met_faction` (second) is the AI
+-- being scored. Confirmed independently against docs/CAMPAIGN_AI.md section 8 as well as the
+-- review that caught the inversion - not taken on the review's word alone.
+--
+-- BOTH FACTION ARGUMENTS ARE INTERFACES, NOT KEYS. episodic_scripting.html's own parameter list
+-- reads "faction proposing faction interface" / "faction recipient faction interface" - not key
+-- strings. This call is in the group that takes interfaces; a key string here fails silently
+-- rather than erroring - see CLAUDE.md's three receiver conventions.
+--
+-- "diplomatic_option_trade_agreement" is verified, not guessed: CA uses it verbatim at
+-- wh3_narrative_shared_chains.lua:3102, and it is a real diplomatic_actions key.
+function EX.deal_ok(fkey)
+    local me = EX.who()
+    if not me or not fkey or fkey == me then return false, 0 end
+    local them = cm:get_faction(fkey)
+    local mine = cm:get_faction(me)
+    -- cm:get_faction returns FALSE, not nil, for a key it does not know.
+    if not them or not mine then return false, 0 end
+    if them.is_null_interface and them:is_null_interface() then return false, 0 end
+    if mine.is_null_interface and mine:is_null_interface() then return false, 0 end
+    local score, can_issue = 0, false
+    local ok = pcall(function()
+        score, can_issue = cm:cai_evaluate_quick_deal_action(
+            mine, them, "diplomatic_option_trade_agreement")
+    end)
+    -- AN ERROR IS A REFUSAL. This is the only engine call in the mod whose answer is obeyed, and
+    -- a thrown error must not read as consent.
+    if not ok then return false, 0 end
+    return (can_issue == true), (tonumber(score) or 0)
+end
+
+-- ONE PASS A TURN, AFTER EX.apply_prices. The plan said "immediately after EX.step_world",
+-- and its own snippet comment said "so deals reflect the prices this turn actually set" -
+-- those two are not the same place. step_world runs BEFORE the reprice, deliberately, because
+-- the world tier trades at last turn's prices the way the guild does. A DEAL IS NOT A TRADE:
+-- nothing it does moves the market, so there is no circular dependency to avoid, and quoting
+-- it off a rung the reprice is about to move would put one number on this page and another on
+-- the Trade page beside it. Posted after the reprice, the edge is against the price the panel
+-- actually shows.
+--
+-- THE WHOLE LIST IS REBUILT EVERY TURN, which IS the expiry: a deal not taken on the turn it
+-- was posted is gone. No age field to check and nothing to sweep - the `turn` stamp is for the
+-- page to show and for a save restored mid-turn to be honest about.
+function EX.post_deals()
+    EX.deals = {}
+    -- WHY THE PAGE IS EMPTY, and this is the whole reason EX.deal_ok returns can_issue and
+    -- score SEPARATELY. "Nobody is eligible" and "everybody said no" are different states of
+    -- the world and a page that renders both as a blank list explains neither. Not saved:
+    -- it is this turn's reason, and after a load the page says the neutral sentence rather
+    -- than a stale one.
+    EX.deal_why = nil
+    -- EX.setting, NOT EX.opt. Both answer true for this key now that it is in EX.TUNE_BOOL,
+    -- and they differ on the case that matters: EX.setting FAILS OPEN, so a key that ever
+    -- stops being a knob leaves the feature running rather than silently switched off. It is
+    -- the same call every other system switch in this file makes.
+    if not EX.setting("ai_deals") then return end
+    local me = EX.who()
+    if not me or not EX.actors then return end
+    -- THE FILE'S OWN DEFENSIVE IDIOM (see EX.log_add): a turn number is worth having and never
+    -- worth an error. Harnesses stub cm without it.
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+
+    local cand = {}
+    for fac, info in pairs(EX.actors) do
+        -- NO HUMAN EVER POSTS A DEAL TO A HUMAN. EX.actors is built from every landholder whose
+        -- culture is not Chaos Dwarf, with no human filter on that path - the same hole
+        -- EX.step_world had to close in its own fix round 2.
+        if fac ~= me and not EX.is_human(fac) then
+            for _, res in ipairs(EX.COMMODITIES) do
+                local want = EX.world_desire(fac, res)
+                local px = EX.price(res)
+                local side, lots
+                if want > 0 and (info.gold or 0) >= px then
+                    side, lots = "buy", 1
+                else
+                    local sellable = EX.world_sellable(fac, res)
+                    if sellable > 0 then
+                        side, lots = "sell", math.min(sellable, EX.opt("world_trade_max"))
+                    end
+                end
+                if side then
+                    cand[#cand + 1] = { fac = fac, res = res, side = side, lots = lots,
+                                        want = want, px = px,
+                                        jit = EX.key_hash(fac .. res .. turn) }
+                end
+            end
+        end
+    end
+
+    -- STRONGEST CONVICTION FIRST, AND A STABLE TIEBREAK.
+    --
+    -- ON math.abs, WHICH THE PLAN DID NOT HAVE. Sorting on `want` itself ranks every buyer above
+    -- every seller, because a producer's desire for what it already makes is NEGATIVE by
+    -- construction (EX.world_desire's production term) while every non-producer scores at least
+    -- the +0.5 constant. With ~80 actors and 17 commodities the buy side fills all three slots
+    -- every turn and THE SELL HALF OF THE FEATURE NEVER APPEARS. Ranking on the strength of the
+    -- conviction rather than its sign is what puts the map's biggest dumper on the page beside
+    -- its keenest buyer.
+    --
+    -- THE TIEBREAK IS NOT COSMETIC. pairs() order over EX.actors is unspecified in Lua 5.1, so
+    -- without it the same world state posts a different page on a reload - the reason EX.houses
+    -- and EX.pack_book both sort. In multiplayer it is worse: two clients would resolve
+    -- different deals from the same save.
+    --
+    -- AND THE TIEBREAK IS THE TURN HASH, NOT THE ALPHABET. Every non-producer scores the same
+    -- +0.5 constant plus its culture's taste, so the buy side of this list is one long exact
+    -- tie - and broken on the faction key, the alphabetically first faction of the keenest
+    -- culture took a slot every turn, for the life of the campaign. EX.key_hash over
+    -- (faction, commodity, turn) is bounded, deterministic and already asserted as both, so
+    -- the page rotates through the tied factions without costing multiplayer its determinism:
+    -- every client computes the same hash from the same three strings.
+    --
+    -- THE ALPHABETICAL TIEBREAK STAYS UNDER IT, as a backstop and not as coverage: key_hash
+    -- has 65,536 buckets against up to ~1,400 candidates, so two tied candidates sharing a
+    -- hash is uncommon rather than impossible, and pairs() order must never be what decides.
+    -- It is ONE comparison and not two because the 2026-09-16 mutation round proved it is
+    -- reached only on a collision: with the hash above it, deleting the faction comparison
+    -- changed no page in any fixture, because the commodity comparison under it was still
+    -- total. Two backstops for one unreachable case is one more than the case needs. The
+    -- slash is load-bearing - without it 'ab' .. 'c' and 'a' .. 'bc' are the same string,
+    -- and a faction key never contains one.
+    table.sort(cand, function(a, b)
+        local aw, bw = math.abs(a.want), math.abs(b.want)
+        if aw ~= bw then return aw > bw end
+        if a.jit ~= b.jit then return a.jit < b.jit end
+        return a.fac .. "/" .. a.res < b.fac .. "/" .. b.res
+    end)
+
+    -- ONE DEAL PER ACTOR, AND THE ENGINE IS ASKED ABOUT EACH FACTION EXACTLY ONCE.
+    --
+    -- The page is three FACTIONS with something to say, not three rows from whichever faction
+    -- happens to be biggest: a producer holding nine regions of iron outranks every buyer on
+    -- the map by construction, so undeduplicated it took the whole page. It is also the
+    -- gameplay argument - three deals concentrated on one AI treasury is three times the gold
+    -- into one faction's armies, and per-lot settlement means world_cash_max never sees the
+    -- total (see HOUSE_CASH_MAX's note: this is the one number here that changes the campaign
+    -- for factions the player is not playing).
+    --
+    -- MARKED BEFORE THE ANSWER IS READ, not after a successful post. EX.deal_ok takes a
+    -- FACTION and no commodity, so asking twice about one faction cannot give two answers -
+    -- it is two wasted cm:get_faction calls. Worst case falls from ~2 x actors x commodities
+    -- to 2 x actors, which on a full map is ~2,700 engine calls a turn against ~160.
+    local seen = {}
+    for i = 1, #cand do
+        if #EX.deals >= EX.opt("deal_max") then break end
+        local c = cand[i]
+        if not seen[c.fac] then
+            seen[c.fac] = true
+            -- THE ENGINE'S OWN ANSWER, AND IT IS OBEYED. can_issue before score, CA's order.
+            local can, score = EX.deal_ok(c.fac)
+            if can then EX.deal_why = EX.deal_why or "declined" end
+            if can and score > 0 then
+                local edge = (c.side == "buy") and (100 + EX.opt("deal_edge"))
+                                              or  (100 - EX.opt("deal_edge"))
+                EX.deals[#EX.deals + 1] = {
+                    fac = c.fac, res = c.res, side = c.side, lots = c.lots,
+                    px = math.floor(c.px * edge / 100), turn = turn,
+                }
+            end
+        end
+    end
+    -- NOBODY WAS EVEN ELIGIBLE, which is not the same as everybody declining. Set last, and
+    -- only if the loop never saw a can_issue, so "declined" wins wherever both could be said.
+    if #EX.deals == 0 and not EX.deal_why then EX.deal_why = "none" end
+    -- THROUGH EX.save_deals, NOT AN INLINE EX.setp. The writer lives with its key so neither
+    -- half can go missing on its own - Stage 1 shipped SAVE_WBOOK written and never read.
+    EX.save_deals()
+end
+
+-- ACCEPTING ONE. A deal is INTENT AND NEVER A RESERVATION (this stage's pre-flight ruling), so
+-- the counterparty's money is re-read here, at accept time, and the acceptance can fail. What is
+-- NOT re-read is the price: the player agreed to the number the page printed, and a page that
+-- quotes one price and charges another is the defect EX.buy_refusal exists to prevent elsewhere
+-- in this file.
+--
+-- SIDE IS FROM THE AI'S POINT OF VIEW, is_buy IS FROM THE PLAYER'S. A deal whose side is "buy"
+-- is an actor buying, so the PLAYER SELLS into it. Getting this backwards is Task 2's inverted
+-- argument order wearing a different hat, and the assertions pin the direction of the gold rather
+-- than the spelling of the flag.
+--
+-- N LOTS AS N REAL TRADES, the same contract EX.bulk_trade documents and for the same reason.
+-- Its own loop is not reused only because its argument is a packed op string and its summary line
+-- says "bulk buy"; the CONTRACT is reused exactly, including stopping at the first refusal and
+-- letting whatever filled before it stand.
+function EX.accept_deal(i)
+    local d = EX.deals[tonumber(i) or 0]
+    if not d or not d.fac or not d.res or not d.lots or not d.px then return "nodeal" end
+    local is_buy = (d.side == "sell")
+
+    -- THE RE-READ. EX.actors[fac].gold is this turn's scanned treasury, spent down as a budget
+    -- by every settlement on this path - so a faction that has already been sold to this turn
+    -- reads poorer here, which is the intended behaviour and not a stale number.
+    local info = (EX.actors or {})[d.fac]
+    if not info then return "gone" end
+    if not is_buy and (info.gold or 0) < d.px * d.lots then return "poor" end
+
+    local done, last = 0, nil
+    for _ = 1, d.lots do
+        last = EX.apply_trade(d.res, is_buy, d.px, d.fac)
+        if last ~= true then break end
+        done = done + 1
+    end
+
+    -- ANY SETTLEMENT CONSUMES THE DEAL. A one-turn offer that partly filled is spent, the same
+    -- way a bulk order that stopped at the first no does not queue the rest - and leaving it on
+    -- the page would let the player click it again for another go at a price the market has
+    -- already moved past.
+    if done > 0 then
+        table.remove(EX.deals, tonumber(i))
+        EX.save_deals()
+        pcall(function()
+            EX.log_add(EX.log_subject(d.res),
+                (is_buy and "Bought " or "Sold ") .. done .. "/" .. d.lots .. " lots "
+                .. (is_buy and "from " or "to ") .. EX.faction_display(d.fac)
+                .. " at " .. d.px .. "g a lot.", d.res)
+        end)
+    end
+    if done < d.lots then return tostring(last) end
+    return true
+end
+
+function EX.find_order(res, side, cmp, rung)
+    for i = 1, #EX.orders do
+        local o = EX.orders[i]
+        if o.res == res and o.side == side and o.cmp == cmp and o.rung == rung then
+            return i
+        end
+    end
+    return nil
+end
+
+-- EVERY ORDER ON ONE INSTRUMENT, in placement order. The ticket prints these; the ledger
+-- draws all of them.
+function EX.orders_on(res)
+    local t = {}
+    for i = 1, #EX.orders do
+        if EX.orders[i].res == res then t[#t + 1] = EX.orders[i] end
+    end
+    return t
+end
+
+-- THE SHARED GUARD. Returns the reason EX.place_order would refuse for, WITHOUT placing -
+-- the dry run the ticket's Place button needs so it can print a refusal locally instead of
+-- sending an order over MP that the network op then refuses anyway. EX.place_order calls this
+-- too, so the button and the op are reading the exact same four checks rather than two
+-- copies that could drift apart.
+function EX.place_order_check(res, side, cmp, rung)
+    -- THE KILL-SWITCH GATES PLACEMENT TOO. It had exactly two readers - EX.trade_pages and
+    -- EX.fill_orders - and neither is on this path, so with orders off a player could still
+    -- place from the chart page's ticket (that page answers to deep_history) while the ledger
+    -- page holding the only Cancel button no longer existed. Twelve orders, no way to delete
+    -- one, and all twelve live again the moment the switch went back on. EX.place_order and
+    -- EX.MP_OPS.ord both route through here, so this one line closes the button and the op.
+    if not EX.feature("orders") then
+        return "Standing orders are switched off."
+    end
+    if not EX.valid_order(res, side, cmp, rung) then
+        return "That is not a valid order."
+    end
+    if not EX.orderable(res) then
+        return "The Exchange takes no standing orders on that instrument."
+    end
+    -- THE DUPLICATE IS TESTED FIRST, and the order matters. With the cap first, re-placing
+    -- an order the player already holds while at twelve answered "Cancel one first" - true,
+    -- and useless: cancelling one would not have let this one in, because it was already
+    -- there. The duplicate is the more specific answer, so it wins whenever both apply.
+    if EX.find_order(res, side, cmp, rung) then
+        return "That order already stands."
+    end
+    if #EX.orders >= EX.ORDER_MAX then
+        return "You hold " .. EX.ORDER_MAX .. " orders. Cancel one first."
+    end
+    return nil
+end
+
+-- RETURNS THE REASON IT WAS REFUSED, or nil on success. A reason and not a boolean because
+-- the ticket prints it - a click that silently does nothing is the complaint the Log view
+-- exists to answer, and this is the same standard.
+-- THE LEDGER'S OWN HISTORY HAS TO SHOW AN ORDER EXISTING, AND LEAVING.
+--
+-- Only the FILL pass logged. So an order that disappeared for a bad reason - dropped by a save
+-- round trip, truncated over the cap, removed by a machine that disagreed with its neighbour -
+-- read exactly like one the player withdrew on purpose: no line either way, in a Log whose
+-- whole job is answering "why did that happen". Found 2026-09-10 the only way this kind of
+-- thing is found: by trying to answer "did the limit orders work?" from a live campaign's own
+-- Log, at turn 11, and being unable to. Three orders had been standing, none was there, and
+-- the Log had nothing to say about any of it.
+--
+-- FOUR VERBS, ALL DIFFERENT, because the whole value here is telling causes apart:
+-- "Order placed" / "Order withdrawn" (the player), "Order filled" (the pass), "Order
+-- cancelled" (the pass, on a FATAL refusal - a delisted house or an unregistered pool). A
+-- withdrawal and a fatal cancel are the two that would otherwise collide, and they are the two
+-- a player most needs separated: one they did, one the world did to them.
+--
+-- ON THE SUCCESS PATH ONLY. A refusal already answers through the return value, which the
+-- ticket prints on the standing line and EX.ticket_click logs; logging here as well would put
+-- two lines in the Log for one click.
+function EX.place_order(res, side, cmp, rung, qty)
+    if qty ~= nil then EX.amount = EX.clamp_lots(qty) end
+    local why = EX.place_order_check(res, side, cmp, rung)
+    if why then return why end
+    -- THE AMOUNT ON SCREEN AT THE MOMENT PLACE WAS PRESSED, frozen onto the order. Reading
+    -- EX.amount at FILL time instead would let a player change the amount button and quietly
+    -- rewrite the size of every standing order they hold.
+    local o = { res = res, side = side, cmp = cmp, rung = rung, qty = EX.clamp_lots(EX.amount) }
+    EX.orders[#EX.orders + 1] = o
+    EX.save_orders()
+    -- pcall for the same reason every other EX.log_add call site has one: EX.log_subject
+    -- reaches the loc system through EX.display / EX.faction_display, and the Log is never
+    -- worth failing a placement over.
+    pcall(function()
+        EX.log_add(EX.log_subject(res), "Order placed. " .. EX.order_text(o) .. ".", res)
+    end)
+    return nil
+end
+
+-- "WITHDRAWN", NOT "CANCELLED". EX.fill_orders already writes "Order cancelled." when a
+-- FATAL refusal kills an order, and that is the one line this must not be mistaken for: the
+-- player needs to know whether they did it or the world did. Read as a pair in the Log,
+-- "withdrawn" is unambiguously theirs.
+function EX.cancel_order(res, side, cmp, rung)
+    local i = EX.find_order(res, side, cmp, rung)
+    if not i then return false end
+    local o = EX.orders[i]
+    table.remove(EX.orders, i)
+    EX.save_orders()
+    pcall(function()
+        EX.log_add(EX.log_subject(res), "Order withdrawn. " .. EX.order_text(o) .. ".", res)
+    end)
+    return true
+end
+
+-- IS IT IN THE MONEY. The whole feature, and the one place an inverted comparison would be
+-- invisible: a stop-loss that sells on the way up packs, draws and saves perfectly.
+function EX.order_hits(o)
+    local now = EX.current[o.res] or EX.neutral_rung()
+    if o.cmp == "le" then return now <= o.rung end
+    return now >= o.rung
+end
+
+-- tostring, NOT a formatted number. Every price in this panel is a raw tostring(n) - see
+-- EX.price_cell - and a thousands separator here would make these two views look foreign
+-- beside the other five.
+-- WHAT A FILL AT THIS RUNG ACTUALLY PAYS, on the side the order is. EX.price_at is the MID of
+-- the spread, and every order surface printed it: the ticket, the order sentence and the
+-- ledger's price column all read "Sell at or above 621g" on an instrument whose sell side pays
+-- 559 - or 310 on Layer 2, where EX.sell_price applies the l2_sell factor. A number the player
+-- decides against has to be the number they get. Routed through the same two functions the
+-- Trade view's own Buy and Sell columns use, with the rung's mid substituted for today's, so
+-- the ticket and the list cannot disagree about the spread.
+--
+-- AT TODAY'S HOSTILITY, which is the honest limit of this: the guild's temper can move between
+-- now and the fill. The rung comparison is unaffected - EX.order_hits compares integers and
+-- never this number.
+function EX.order_price(res, side, rung)
+    local at = EX.price_at(rung)
+    if side == "b" then return EX.buy_price(res, at) end
+    return EX.sell_price(res, at)
+end
+
+-- THE SIZE IS ONLY SPOKEN WHEN THERE IS ONE. A ledger of "Buy x1 ..." on every row spends
+-- the reader's attention on a number that is the default; the row that is not one lot is the
+-- row worth noticing. Fits the 320px row_trend cell either way.
+function EX.order_text(o)
+    return (o.side == "b" and "Buy" or "Sell")
+        .. (((o.qty or 1) > 1) and (" x" .. tostring(o.qty)) or "")
+        .. (o.cmp == "le" and " at or below " or " at or above ")
+        .. tostring(EX.order_price(o.res, o.side, o.rung)) .. "g"
+end
+
+-- WHY A FILL DID NOT HAPPEN, and whether the order survives it.
+--
+-- FATAL IS THE SHORT LIST ON PURPOSE. A delisted house never comes back and a pooled
+-- resource this faction does not hold never appears, so an order against either is dead
+-- paper. Everything else is a condition of this turn: the treasury, the guild's temper, the
+-- war lock, the map's supply, the position. An order cancelled on a transient refusal is one
+-- the player was still waiting on, and nothing on screen would say where it went.
+--
+-- AN UNKNOWN TOKEN IS TRANSIENT, which is the safe direction - a token added to
+-- EX.apply_trade later and not classified here leaves the order standing and visible in the
+-- ledger rather than deleting it in silence.
+EX.ORDER_FATAL = { delisted = true, nopool = true }
+
+EX.ORDER_REASON = {
+    delisted    = "That house is delisted or gone.",
+    nopool      = "This market is not open to your people.",
+    nothold     = "You hold too little to sell a lot.",
+    unavailable = "Nothing on this map produces it.",
+    blocked     = "The house that holds the book refuses you.",
+    afford      = "You could not afford the fill.",
+    rent        = "The fill would not have left this turn's warehousing.",
+    threw       = "The trade could not be completed.",
+    -- NOT IN EX.ORDER_FATAL, deliberately: nobody able to pay today is a transient state, the
+    -- same as "afford" or "blocked" - a counterparty may exist next turn, so the order is
+    -- retried rather than cancelled.
+    nobuyer     = "Nobody on this map can pay for it.",
+}
+
+-- THE FILL HAS TO LEAVE THIS TURN'S WAREHOUSING BEHIND IT.
+--
+-- EX.fill_orders spends at turn step 9b and EX.charge_carry debits the rent about six steps
+-- later in the SAME turn round, with no floor of its own - EX.apply_trade's affordability
+-- test is `treasury() < price`, so the last fill can leave the treasury anywhere in
+-- 0 .. price-1 and the rent then takes it negative. Worked shape: treasury 1,500, a limit buy
+-- fills at 1,400, 600 Tusks at carry_per_unit 0.5 is 300 gold of warehousing, and the turn
+-- ends at -200 on two movements of gold the player clicked neither of.
+--
+-- A MANUAL BUY IS DELIBERATELY NOT FLOORED, and that distinction is the whole design. The
+-- player is looking at the treasury when they press Buy, so both the purchase and the
+-- decision to be that thin are theirs. A standing order is the one case where neither was,
+-- which is why this lives here and not in EX.apply_trade - putting it there would quietly
+-- refuse manual buys that have always been allowed.
+--
+-- THE NEW LOT PAYS RENT THIS TURN TOO, because EX.charge_carry reads EX.held AFTER the pass.
+-- Reserving today's EX.carry_total alone under-reserves by exactly what the fill just put in
+-- the warehouse. Computed as a DIFFERENCE OF TWO FLOORS rather than floor(lot * rate):
+-- EX.carry_cost floors the whole holding, so at carry_per_unit 0.5 a lot of 10 added to an
+-- odd holding costs 5 gold on one parity and 5 on the other only because both floors move
+-- together - taking floor(lot * rate) on its own disagrees by a gold whenever the holding's
+-- own fraction carries, and this number is compared against a treasury.
+function EX.rent_delta(res)
+    if not EX.setting("warehouse_rent") then return 0 end
+    -- The same two exemptions EX.carry_cost makes, and for its reasons: Layer 2 is Hell-Forge
+    -- currency out of buildings, and a house is paper with nothing to store.
+    if EX.is_layer2(res) or EX.is_house(res) then return 0 end
+    local held = EX.held(res)
+    local rate = EX.opt("carry_per_unit")
+    return math.floor((held + EX.lot(res)) * rate) - math.floor(held * rate)
+end
+
+-- FAIL OPEN. If the treasury cannot be read there is nothing to compare it against, and
+-- EX.apply_trade's own affordability check still stands behind this. Refusing here instead
+-- would stop every fill for a faction whose interface is momentarily null - a kill-switch
+-- nobody threw.
+--
+-- EX.buy_price IS THE PRICE EX.apply_trade WILL CHARGE, the same call on the same line, so
+-- the floor cannot drift from the debit it is predicting.
+function EX.fill_clears_rent(res, reserve)
+    if reserve <= 0 then return true end
+    local f = cm:get_faction(EX.who())
+    if not f or f:is_null_interface() then return true end
+    local ok, gold = pcall(function() return f:treasury() end)
+    if not ok or type(gold) ~= "number" then return true end
+    return gold - EX.buy_price(res) >= reserve
+end
+
+-- TRUE WHILE THE PASS IS RUNNING. EX.apply_trade ends with a cm:callback that reprices;
+-- twelve fills would queue twelve of them, and CA's timer_manager docs are explicit that a
+-- callback name exists only so remove_callback can cancel every callback matching it - names
+-- need not be unique, so all twelve would fire. The flag suppresses the per-trade callback
+-- and EX.turn_round schedules exactly one after EX.remember_all.
+EX.filling = false
+EX.fill_factions = {}
+
+-- ONE PASS, ONE FILL PER INSTRUMENT, FIFO WITHIN AN INSTRUMENT.
+--
+-- FIFO COSTS THE PLAYER NOTHING. They pay the market price, not their limit, so which rung of
+-- a ladder is consumed changes no gold - only which row leaves the ledger.
+--
+-- THE SWITCH GATES THE MODEL, not just the page. A kill-switch is thrown while the thing is
+-- on screen doing the wrong thing, and the half that moves gold is this one.
+function EX.fill_orders()
+    if not EX.feature("orders") then return end
+    if #EX.orders == 0 then return end
+    local keep, done = {}, {}
+    -- SNAPSHOT ONCE, ACCUMULATE LOCALLY. EX.held reads back out of the pooled resource
+    -- manager, and whether that reflects a cm:faction_add_pooled_resource made earlier in
+    -- this same pass is NOT MEASURED. Building the reserve from one pre-pass reading plus the
+    -- deltas of the fills this loop actually made is exact either way. One fill per instrument
+    -- per pass (done[]) is what makes it exact: an instrument's own delta is always read
+    -- before that instrument has filled.
+    local rent_base = EX.setting("warehouse_rent") and EX.carry_total() or 0
+    local rent_added = 0
+    EX.filling = true
+    for i = 1, #EX.orders do
+        local o = EX.orders[i]
+        local drop = false
+        if not done[o.res] and EX.order_hits(o) then
+            local is_buy = (o.side == "b")
+            -- AN ORDER IS N LOTS, AND EACH LOT IS ITS OWN TRADE. Same rule as the manual
+            -- bulk buy: the price, the counterparty walk and the book drawdown must be the
+            -- ones a player clicking N times would have got, not a bulk formula beside them.
+            local want, got, r = EX.clamp_lots(o.qty), 0, nil
+            for _ = 1, want do
+                -- A SELL IS NEVER FLOORED. It credits gold and lowers the holding, so it
+                -- moves both sides of this comparison the safe way; floor it and a player
+                -- who is short of rent could not raise the money to pay it.
+                --
+                -- RE-READ PER LOT, and correct whichever way EX.held behaves. If the pooled
+                -- resource updates inside the pass, each delta is the true increment and the
+                -- accumulated total telescopes exactly. If it does not, every lot re-reads
+                -- the same pre-pass holding and the total OVER-reserves - which refuses a
+                -- fill that was affordable, the safe direction, and never the reverse.
+                local delta = is_buy and EX.rent_delta(o.res) or 0
+                if is_buy and not EX.fill_clears_rent(o.res, rent_base + rent_added + delta) then
+                    -- TRANSIENT, and it must stay off EX.ORDER_FATAL. The treasury is a
+                    -- condition of this turn like the guild's temper is; the order stands and
+                    -- the ledger keeps showing it, with the reason in the Log.
+                    r = "rent"
+                    break
+                end
+                -- EX.apply_trade IS NOT DEFENSIVE - cm:get_faction and the counterparty walk
+                -- can throw - and an error escaping here would skip BOTH the flag reset and
+                -- the `EX.orders = keep` commit below. The flag stuck true silently stops
+                -- every later manual trade repricing; the missing commit leaves an order that
+                -- ALREADY FILLED in the list, to fire a second real trade next turn. An error
+                -- is therefore an ordinary transient token: the order stands, the loop
+                -- continues, cleanup runs.
+                local ok, rr = pcall(function() return EX.apply_trade(o.res, is_buy) end)
+                if not ok then
+                    EX.say("error",
+                        "order fill on " .. tostring(o.res) .. " threw: " .. tostring(rr))
+                    r = "threw"
+                    break
+                end
+                if rr ~= true then r = rr break end
+                got = got + 1
+                rent_added = rent_added + delta
+            end
+            -- ANY LOT AT ALL CLAIMS THE INSTRUMENT FOR THIS TURN. One fill per instrument
+            -- per pass was never about the lot count - it is about a second order on the same
+            -- good not compounding the move the first one just made.
+            if got > 0 then
+                done[o.res] = true
+                EX.fill_factions[EX.who()] = true
+            end
+            if got >= want then
+                drop = true
+                pcall(function()
+                    EX.log_add(EX.log_subject(o.res),
+                        "Order filled. " .. EX.order_text(o) .. ".", o.res)
+                end)
+            elseif got > 0 then
+                -- PART-FILLED ORDERS SHRINK AND STAND. Dropping the whole order because the
+                -- treasury ran out two lots in would silently discard the rest of a size the
+                -- player chose; refilling the full size next turn would buy more than they
+                -- asked for. The remainder is what is left to do.
+                o.qty = want - got
+                pcall(function()
+                    EX.log_add(EX.log_subject(o.res), "Order part-filled. " .. got .. " of "
+                        .. want .. " lots. " .. (EX.ORDER_REASON[r] or "Not this turn.")
+                        .. " The rest still stands.", o.res)
+                end)
+            elseif EX.ORDER_FATAL[r] then
+                drop = true
+                pcall(function()
+                    EX.log_add(EX.log_subject(o.res), "Order cancelled. "
+                        .. (EX.ORDER_REASON[r] or "It can no longer be filled."), o.res)
+                end)
+            else
+                pcall(function()
+                    EX.log_add(EX.log_subject(o.res), "Order did not fill. "
+                        .. (EX.ORDER_REASON[r] or "Not this turn.")
+                        .. " It still stands.", o.res)
+                end)
+            end
+        end
+        if not drop then keep[#keep + 1] = o end
+    end
+    EX.filling = false
+    EX.orders = keep
+    EX.save_orders()
+end
+
+-- THE NETWORK HALF. Placement and cancellation cross; FILLS DO NOT, because they run in the
+-- turn round, which every machine already executes identically over cm:get_human_factions().
+--
+-- CANCEL SENDS THE ORDER, NOT AN INDEX. The list is per-player and every machine holds the
+-- same one, so an index would usually work - but "usually" is how a machine deletes a
+-- different row from its neighbours and the two saves diverge from then on.
+function EX.pack_one(res, side, cmp, rung, qty)
+    return res .. EX.ORD_FS .. side .. EX.ORD_FS .. cmp .. EX.ORD_FS .. tostring(rung)
+        .. EX.ORD_FS .. tostring(qty or 1)
+end
+
+function EX.unpack_one(s)
+    local f = {}
+    for fld in string.gmatch(tostring(s) .. EX.ORD_FS,
+                             "([^" .. EX.ORD_FS .. "]*)" .. EX.ORD_FS) do
+        f[#f + 1] = fld
+    end
+    if #f < 4 then return nil end
+    local rung = tonumber(f[4])
+    local qty = EX.clamp_lots(f[5])
+    if not EX.valid_order(f[1], f[2], f[3], rung, qty) then return nil end
+    return f[1], f[2], f[3], rung, qty
+end
+
+EX.MP_OPS.ord = function(arg)
+    local res, side, cmp, rung, qty = EX.unpack_one(arg)
+    if not res then return end
+    local why = EX.place_order(res, side, cmp, rung, qty)
+    if why then EX.say("trade", "order refused: " .. why) end
+end
+
+EX.MP_OPS.ordx = function(arg)
+    local res, side, cmp, rung = EX.unpack_one(arg)
+    if not res then return end
+    EX.cancel_order(res, side, cmp, rung)
+end
+
+-- THE DEAL, ACROSS THE WIRE. Everything a click can do to another player's gold goes through
+-- EX.mp_send, and this is no different: EX.accept_deal moves the treasury and the book on both
+-- sides of a trade, so a local apply in a multiplayer game would desync the save.
+--
+-- THE INDEX IS THE WHOLE MESSAGE, and that is only safe because both clients resolved the SAME
+-- LIST. EX.post_deals sorts on (desire, turn hash, faction/commodity) - every term of it a
+-- function of the save - so client B's EX.deals[3] is client A's EX.deals[3] or the feature is
+-- broken. That is the property check_lua_mp asserts for this op, and it is the reason the sort
+-- carries a collision backstop it will almost never reach.
+--
+-- EX.mp_send stringifies its argument into the event id, so what EX.MP_OPS.deal receives is
+-- "3" and not 3 on the multiplayer path and 3 on the single-player one. EX.accept_deal already
+-- takes either - `EX.deals[tonumber(i) or 0]` - which is why nothing converts here.
+function EX.deal_send(i)
+    EX.mp_send("deal", i)
+end
+
+EX.MP_OPS.deal = function(arg)
+    local why = EX.accept_deal(arg)
+    -- THE REFUSAL IS SAID, NOT SWALLOWED. EX.accept_deal returns true or a reason, and every
+    -- reason it can return is about the world rather than the click - the counterparty is gone,
+    -- it cannot pay, the market moved - so a silent no reads as a dead button.
+    if why ~= true then EX.say("trade", "deal refused: " .. tostring(why)) end
+    -- GUARDED, because this runs on EVERY machine and not just the one that clicked. On the
+    -- others the panel is very often shut, and EX.refresh_panel with no panel is the same
+    -- unguarded call EX.raise_demand already refuses to make. EX.layout as well as the
+    -- refresh: a settled deal leaves the list, so the ROW SET changed and not just its text.
+    if is_uicomponent(EX.panel()) then
+        EX.layout()
+        EX.refresh_panel()
+    end
+end
+
+function EX.order_send(res, side, cmp, rung)
+    EX.mp_send("ord", EX.pack_one(res, side, cmp, rung, EX.amount))
+end
+
+function EX.order_cancel_send(res, side, cmp, rung)
+    EX.mp_send("ordx", EX.pack_one(res, side, cmp, rung))
 end
 
 -- ---------------------------------------------------------------------------------------
@@ -8656,6 +11536,216 @@ cm:add_saving_game_callback(function(context)
     pcall(function() cm:save_named_value(EX.SAVE_STORE, EX.store, context) end)
 end)
 
+-- THE TICKET-CLICK TAIL, LIFTED OUT OF THE LISTENER for the same reason EX.row_click is
+-- below - a harness has to be able to drive a Place click with no live campaign. These six
+-- components are PANEL-LEVEL, with no row parent, so the listener calls this BEFORE the
+-- `UIComponent(clicked:Parent())` walk that resolves every other click to a row: a branch
+-- that only exists after that walk would be unreachable from these clicks and every geometry
+-- check would still be green, which is exactly the two fix rounds this cost before a harness
+-- could drive it at all.
+function EX.ticket_click(s)
+    -- THE SWITCH, FIRST. The ticket is placed by the chart page as well as the ledger, and the
+    -- chart page answers to deep_history - so with orders off these seven cells were on screen
+    -- and live. EX.draw_ticket hides them; this is the half that holds if a click reaches here
+    -- anyway, and EX.place_order_check is the half that holds for the model.
+    if not EX.feature("orders") then return end
+    local res = EX.selected
+    if not res then return end
+    -- ANY EDIT TO THE TICKET CLEARS THE LAST REFUSAL: it described the order that was on
+    -- screen when Place was pressed, and this click has just changed that order.
+    EX.ord_refusal = nil
+    if s == "ord_side" then
+        EX.ord_side = (EX.ord_side == "b") and "s" or "b"
+    elseif s == "ord_cmp" then
+        EX.ord_cmp = (EX.ord_cmp == "le") and "ge" or "le"
+    elseif s == "ord_qty" then
+        EX.cycle_amount()
+    elseif s == "ord_qty_down" then
+        EX.step_amount(-1)
+    elseif s == "ord_qty_up" then
+        EX.step_amount(1)
+    elseif s == "ord_down" or s == "ord_up" then
+        local r = (EX.ord_rung or EX.current[res] or EX.neutral_rung())
+            + ((s == "ord_up") and 1 or -1)
+        if r < 1 then r = 1 end
+        if r > EX.RUNGS then r = EX.RUNGS end
+        EX.ord_rung = r
+    elseif s == "ord_place" then
+        local rung = EX.ord_rung or EX.current[res] or EX.neutral_rung()
+        -- THE DRY RUN FIRST. A refusal EX.place_order_check already knows about - the cap,
+        -- a duplicate, an invalid rung - needs no network round trip at all, and reporting
+        -- it locally is what keeps the button and EX.MP_OPS.ord from disagreeing about why.
+        local why = EX.place_order_check(res, EX.ord_side, EX.ord_cmp, rung)
+        if why then
+            EX.say("trade", "order refused: " .. why)
+            -- ON SCREEN, NOT ONLY IN THE SCRIPT LOG. EX.say is out() behind log_level >= 2 AND
+            -- the log_trade debug toggle, so every refusal this button can give - the cap, a
+            -- duplicate, an unorderable instrument, the switch - was invisible in a real game
+            -- and the button simply looked dead. The ticket prints it and the Log view keeps
+            -- it, which is the standard EX.apply_trade's own refusals already hold to.
+            EX.ord_refusal = why
+            EX.log_add(EX.log_subject(res), why)
+        else
+            EX.order_send(res, EX.ord_side, EX.ord_cmp, rung)
+        end
+    end
+    EX.refresh_panel()
+end
+
+-- THE ROW-CLICK TAIL, LIFTED OUT OF THE LISTENER so it can be called without a live campaign.
+-- The listener body is unreachable from any harness - it is an anonymous function inside
+-- EX.init behind a real ComponentLClickUp - so every check of a row click used to call the
+-- MODEL directly and proved nothing about whether the click reached it. It did not: the
+-- ledger's Cancel sat below a `if not res then return end` gate that a synthetic ord%d row id
+-- can never pass, and the whole page was dead with every other check green.
+function EX.row_click(s, row_id)
+    -- A LEDGER ROW RESOLVES THROUGH EX.order_of_row, NOT EX.res_of_row - a synthetic
+    -- "ord%d" id names no instrument, so the res_of_row gate below would eat every ledger
+    -- click before this branch was ever reached. THIS ORDER IS THE FIX: on_orders first,
+    -- the instrument gate second.
+    if EX.on_orders() then
+        -- THE ROW'S INDEX, NOT ITS INSTRUMENT. A ladder puts two rows on one
+        -- commodity and EX.res_of_row cannot tell them apart - see EX.order_of_row.
+        local o = EX.order_of_row(row_id)
+        if o and s == "btn_buy" then
+            EX.order_cancel_send(o.res, o.side, o.cmp, o.rung)
+            EX.layout()
+            EX.refresh_panel()
+        end
+        return
+    end
+    -- A DEAL ROW RESOLVES THROUGH EX.deal_of_row, AND IT HAS TO BE ABOVE THE GATE BELOW for
+    -- the same reason the ledger branch is: "dl3" names no instrument, so EX.res_of_row
+    -- answers nil and the gate would eat every deal click before this branch was reached.
+    -- That is how Stage 1 shipped a dead Cancel button with every check green.
+    if EX.mode == EX.MODE_DEALS then
+        local n = EX.deal_of_row(row_id)
+        if n and s == "btn_buy" then EX.deal_send(n) end
+        return
+    end
+    local res = EX.res_of_row(row_id)
+    if not res then return end
+    -- A NAME CLICK CHARTS IT, and takes you to the page the chart is on. Doing
+    -- only one of those leaves the player looking at an unchanged list wondering
+    -- whether the click registered.
+    if s == "row_name" then
+        EX.selected = res
+        -- A NEW SELECTION RETIRES THE LAST REFUSAL - it named a different instrument.
+        EX.ord_refusal = nil
+        -- THE PAGE THE SELECTION IS FOR, NOT THE LITERAL 2: the chart when there is one, the
+        -- ticket's page otherwise. EX.chart_page_index alone was right only while the ticket
+        -- lived on the chart page - with deep_history off it returns nil, and the click left
+        -- the player on the list with no indication anything had happened.
+        local cp = EX.selection_page_index()
+        if cp then EX.trade_page = cp end
+        -- The ticket opens on this instrument's own current rung.
+        EX.ord_rung = EX.current[res] or EX.neutral_rung()
+        EX.layout()
+        EX.refresh_panel()
+        return
+    end
+    -- Same component, different verb. btn_buy is the Sacrifice button in the
+    -- offerings view, which is why the mode is checked and not just the name.
+    if EX.mode == EX.MODE_OFFER then
+        if s == "btn_buy" then EX.offer(res) end
+    else
+        EX.trade(res, s == "btn_buy")
+    end
+end
+
+-- THE WHOLE CLICK HANDLER, LIFTED OUT for the same reason EX.row_click and EX.ticket_click
+-- are above it - and this is the piece that was still missing. Extracting the TAILS proved
+-- each of them behaves correctly once called; it proved nothing about whether the real
+-- dispatch actually REACHES the ticket branch before the row-resolution walk below it. That
+-- gap is exactly how Task 6's Cancel button shipped dead: a correct model, a correct filter,
+-- and a handler branch that was never reachable, with every check in the suite green.
+--
+-- Callable with a bare { string = <component name>, component = <fake UIComponent> } table
+-- and no live campaign - see tools/_orders_harness.lua's "TICKET DISPATCH" section, which
+-- drives a Place click through THIS function rather than calling EX.ticket_click directly,
+-- and separately proves the ticket branch runs before UIComponent(clicked:Parent()) by
+-- handing it a component whose Parent() would resolve to a row.
+function EX.click_dispatch(context)
+    local s = context.string
+    if s == EX.BUTTON then
+        -- NOT DURING THE AI ROUND. Belt to EX.gate_button's braces: a disabled
+        -- component should raise no click at all, but this is the half that is true
+        -- even on a save loaded mid-round, where nothing has run to grey anything.
+        if not EX.player_turn() then return end
+        local p = EX.panel()
+        EX.show(not (is_uicomponent(p) and p:Visible()))
+        return
+    end
+    if s == "close_button" then
+        EX.show(false)
+        return
+    end
+    if EX.sort_click(s) then return end
+    if s == EX.HELP_BTN then
+        -- A TOGGLE, and it returns you to the view you left. Sending the player back
+        -- to the trade view instead would lose their place every time they checked
+        -- what a column meant, which is the one moment they are already lost.
+        if EX.mode == EX.MODE_HELP then
+            EX.set_mode(EX.mode_before_help or EX.MODE_TRADE)
+        else
+            EX.mode_before_help = EX.mode
+            -- The guide opens on page 1 every time. Persisting the page would
+            -- reopen on a page about a system the player has since switched off
+            -- in MCT (Task 10 adds those toggles). EX.help_page is view state,
+            -- never saved - see the note beside its declaration.
+            EX.help_page = 1
+            EX.set_mode(EX.MODE_HELP)
+        end
+        return
+    end
+    if s == EX.MODE_BTN or s == EX.MODE_PREV then
+        EX.nav_click(s)
+        return
+    end
+    -- THE TICKET, ABOVE THE ROW WALK BELOW. These five have no row parent - they are
+    -- PANEL-LEVEL - so `UIComponent(clicked:Parent())` would resolve to the panel
+    -- itself, not a row, and EX.row_click has no branch for that. THE TAIL LIVES IN
+    -- EX.ticket_click, a top-level function outside EX.init, for the same reason
+    -- EX.row_click does - see its own comment.
+    if s == "ord_side" or s == "ord_cmp" or s == "ord_down"
+       or s == "ord_up" or s == "ord_place" or s == "ord_qty"
+       or s == "ord_qty_down" or s == "ord_qty_up" then
+        EX.ticket_click(s)
+        return
+    end
+    -- THE LIST'S OWN AMOUNT BUTTON, not routed through EX.ticket_click: that function gates
+    -- on EX.feature("orders") and on a selected instrument, and neither has anything to do
+    -- with how many lots a manual Buy moves. With orders switched off the ticket is gone and
+    -- this button must still work.
+    if s == "btn_amount" or s == "btn_amt_down" or s == "btn_amt_up" then
+        if s == "btn_amount" then EX.cycle_amount()
+        else EX.step_amount(s == "btn_amt_up" and 1 or -1) end
+        EX.layout()
+        EX.refresh_panel()
+        return
+    end
+    local tab = EX.tab_mode(s)
+    if tab then
+        -- LEAVING THE GUIDE BY TAB has to clear the return-to memory the help button
+        -- keeps, or the next press of "?" would toggle back to a view the player left
+        -- two tabs ago rather than the one they are looking at.
+        EX.mode_before_help = nil
+        EX.set_mode(tab)
+        return
+    end
+    -- NO CELL OR BUTTON CARRIES A KEY, so the row it belongs to is what identifies
+    -- it. One resolution for all three of buy, sell and the name click - this walk
+    -- used to be written out here and a second copy for the chart would be two
+    -- places to change when the row naming does.
+    --
+    -- THE TAIL ITSELF LIVES IN EX.row_click, a top-level function outside EX.init,
+    -- so a harness can call it with a bare row id and no live campaign - see the
+    -- comment on EX.row_click for why its internal order matters.
+    local clicked = UIComponent(context.component)
+    local row = UIComponent(clicked:Parent())
+    EX.row_click(s, row:Id())
+end
+
 -- EVERYTHING THIS MOD DOES AT STARTUP, and it is deliberately not an anonymous first-tick
 -- callback any more.
 --
@@ -8688,6 +11778,24 @@ function EX.init()
     -- so the rebind has to land before the first scan or turn one's house-region tally is
     -- counted against the Chaos Dwarf default whatever the players actually are.
     EX.bind_race()
+
+    -- THE CULTURE LOCK, and this is the ONLY place it is enforced. After bind_race, because it
+    -- reads EX.HOUSE_CULTURE; before everything else, because a locked culture must get no
+    -- scan, no UI, no listeners, no saved state and no turn round - as close to "this mod is
+    -- not installed" as one return statement gets.
+    --
+    -- EX.inited IS ALREADY TRUE above, so this returns once and stays returned for the session.
+    -- That means UNLOCKING IN MCT NEEDS A RESTART, which the switch's own tooltip says: the
+    -- alternative is every listener in this file checking the lock on every call, for a setting
+    -- nobody changes twice.
+    local locked = EX.exchange_locked()
+    if locked then
+        EX.say("turn", "no Exchange for " .. tostring(EX.HOUSE_CULTURE)
+            .. " - the " .. locked .. " group is locked in the mod settings. Nothing further "
+            .. "runs this session; enable it and restart to trade.")
+        return
+    end
+
     EX.rescan()
     -- Validate our keys once. resource_exists_anywhere returns false for an INVALID key, which
     -- is the only free runtime key validator available here.
@@ -8727,6 +11835,11 @@ function EX.init()
     EX.restore()
     EX.apply_prices()
     EX.apply_trade_income()
+    -- THE SAME RESYNC, for the same reason and one bundle family over. EX.rescan() above has
+    -- already filled EX.actors, so this is a real sweep and not the early return. Without it a
+    -- loaded save wears last session's position bundles until the next turn start, which is
+    -- exactly the window apply_trade_income is called here to close.
+    EX.apply_positions()
     -- RESYNC, NOT A CHARGE. Effect bundles survive the save and this script's tables do not,
     -- so a load carries whatever tier the last session applied while EX knows nothing about
     -- it. apply_stockpiles removes every tier it does not want, which makes a load self-heal
@@ -8844,12 +11957,42 @@ function EX.init()
             EX.step_books()
         end)
 
+        -- THE WORLD TIER, step 9a. Outside EX.with_player: the world trades with itself and
+        -- has no reference human, unlike step_books whose front-run term reads a player's book.
+        -- Before apply_prices for the same reason step_books is - actors trade at last turn's
+        -- prices and the reprice runs on the result.
+        EX.step_world()
+
         -- WORLD. The reprice, and the record of what it settled at.
         EX.apply_prices()
+        -- THE DEALS PAGE. After the reprice on purpose - see EX.post_deals. Not on the
+        -- first-tick path either: a load is not a turn, and reposting there would overwrite the
+        -- list EX.restore just unpacked out of the save.
+        EX.post_deals()
+
+        -- PLAYER, step 9b. AFTER apply_prices, so a limit tests the number the panel shows;
+        -- BEFORE remember_all, so the bar this turn records is the price the fill got rather
+        -- than the price the fill caused.
+        EX.fill_factions = {}
+        for _, f in ipairs(EX.humans()) do
+            EX.with_player(f, function() EX.fill_orders() end)
+        end
         -- AFTER apply_prices: it records the rung the turn settled at. Deliberately not
         -- called from the first-tick path - a load is not a turn, and remembering there
         -- would let five reloads fill the whole sparkline with one turn's price.
         EX.remember_all()
+        -- ONE REPRICE FOR THE WHOLE ROUND. Every fill bumped EX.pressure and suppressed its
+        -- own callback; this is the single reprice they share, and it is after remember_all
+        -- so the recorded bar is untouched by it.
+        if next(EX.fill_factions) then
+            local who = {}
+            for f in pairs(EX.fill_factions) do who[#who + 1] = f end
+            EX.fill_factions = {}
+            cm:callback(function()
+                EX.apply_prices()
+                for _, faction in ipairs(who) do EX.after_holding_change(faction) end
+            end, 0.1, "zharr_after_fills")
+        end
         -- WORLD. The guild's books and the world's appetite, decided ONCE and written to every
         -- human's log below. AFTER step_books, which is what fills EX.book_flow, and after
         -- apply_prices, so the appetite line reads the same numbers the panel will draw.
@@ -8871,6 +12014,15 @@ function EX.init()
         -- WORLD, despite the name: this applies a trade-income bundle to EVERY faction that
         -- owns a commodity region, humans and AI alike, off EX.owners.
         EX.apply_trade_income()
+        -- WORLD, its sibling, and immediately after it on purpose: both are world effects
+        -- landing on AI factions (spec section 11), and a fixed order between the two bundle
+        -- families is one less thing that can differ between two clients in multiplayer.
+        EX.apply_positions()
+        -- WORLD, and the other half of the same idea: apply_trade_income changes what
+        -- the market PAYS an AI faction, this changes how the AI houses FEEL about the
+        -- players. After the reprice only because it belongs beside it - it reads
+        -- EX.owners and the warehouse, neither of which the reprice touches.
+        EX.promote_stances()
 
         -- PLAYER. The warehouse, the rent, the dividends and the next demand.
         for _, f in ipairs(EX.humans()) do
@@ -9077,81 +12229,24 @@ function EX.init()
                 or s == EX.HELP_BTN or s == "btn_buy" or s == "btn_sell"
                 -- The name cell, which selects that instrument for the chart.
                 or s == "row_name"
+                -- THE TICKET. The filter decides whether the game dispatches to us AT ALL -
+                -- a name only the handler recognises is a button that never fires, and no
+                -- geometry check can see that from here.
+                or s == "ord_side" or s == "ord_cmp" or s == "ord_down"
+                or s == "ord_up" or s == "ord_place" or s == "ord_qty"
+                or s == "ord_qty_down" or s == "ord_qty_up"
+                -- THE LIST'S AMOUNT BUTTON. Shipped 2026-09-11 wired into EX.click_dispatch
+                -- and NOT into this filter, so it drew, lit on hover and did nothing at all -
+                -- which is precisely what the note above says happens. The handler is not the
+                -- gate; this is.
+                or s == "btn_amount" or s == "btn_amt_down" or s == "btn_amt_up"
                 -- Two table lookups, and this filter runs on every click in the game.
                 or EX.sort_fn(s) ~= nil
         end,
-        function(context)
-            local s = context.string
-            if s == EX.BUTTON then
-                -- NOT DURING THE AI ROUND. Belt to EX.gate_button's braces: a disabled
-                -- component should raise no click at all, but this is the half that is true
-                -- even on a save loaded mid-round, where nothing has run to grey anything.
-                if not EX.player_turn() then return end
-                local p = EX.panel()
-                EX.show(not (is_uicomponent(p) and p:Visible()))
-                return
-            end
-            if s == "close_button" then
-                EX.show(false)
-                return
-            end
-            if EX.sort_click(s) then return end
-            if s == EX.HELP_BTN then
-                -- A TOGGLE, and it returns you to the view you left. Sending the player back
-                -- to the trade view instead would lose their place every time they checked
-                -- what a column meant, which is the one moment they are already lost.
-                if EX.mode == EX.MODE_HELP then
-                    EX.set_mode(EX.mode_before_help or EX.MODE_TRADE)
-                else
-                    EX.mode_before_help = EX.mode
-                    -- The guide opens on page 1 every time. Persisting the page would
-                    -- reopen on a page about a system the player has since switched off
-                    -- in MCT (Task 10 adds those toggles). EX.help_page is view state,
-                    -- never saved - see the note beside its declaration.
-                    EX.help_page = 1
-                    EX.set_mode(EX.MODE_HELP)
-                end
-                return
-            end
-            if s == EX.MODE_BTN or s == EX.MODE_PREV then
-                EX.nav_click(s)
-                return
-            end
-            local tab = EX.tab_mode(s)
-            if tab then
-                -- LEAVING THE GUIDE BY TAB has to clear the return-to memory the help button
-                -- keeps, or the next press of "?" would toggle back to a view the player left
-                -- two tabs ago rather than the one they are looking at.
-                EX.mode_before_help = nil
-                EX.set_mode(tab)
-                return
-            end
-            -- NO CELL OR BUTTON CARRIES A KEY, so the row it belongs to is what identifies
-            -- it. One resolution for all three of buy, sell and the name click - this walk
-            -- used to be written out here and a second copy for the chart would be two
-            -- places to change when the row naming does.
-            local clicked = UIComponent(context.component)
-            local row = UIComponent(clicked:Parent())
-            local res = EX.res_of_row(row:Id())
-            if not res then return end
-            -- A NAME CLICK CHARTS IT, and takes you to the page the chart is on. Doing
-            -- only one of those leaves the player looking at an unchanged list wondering
-            -- whether the click registered.
-            if s == "row_name" then
-                EX.selected = res
-                EX.trade_page = 2
-                EX.layout()
-                EX.refresh_panel()
-                return
-            end
-            -- Same component, different verb. btn_buy is the Sacrifice button in the
-            -- offerings view, which is why the mode is checked and not just the name.
-            if EX.mode == EX.MODE_OFFER then
-                if s == "btn_buy" then EX.offer(res) end
-            else
-                EX.trade(res, s == "btn_buy")
-            end
-        end, true)
+        -- THE BODY IS EX.click_dispatch, a top-level function outside EX.init - see its own
+        -- comment for why the whole dispatch, not just the tails it calls into, has to be a
+        -- named function a harness can drive directly.
+        EX.click_dispatch, true)
 end
 
 core:add_listener("zharr_exchange_init", "ScriptEventFirstTickAfterWorldCreated",

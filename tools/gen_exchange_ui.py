@@ -16,6 +16,8 @@ GUID RANGES, so nothing here can collide with what already ships:
     DE16xxxx  derpy_chd_exchange_panel                 <- this file
     DE17xxxx  derpy_chd_exchange_row                   <- this file
     DE18xxxx  derpy_chd_exchange_button                <- this file
+    GG21xxxx  derpy_gg_panel / _card / _row            (The Great Guilds, claimed 2026-09-10,
+                                                        owned by tools/gen_guilds_ui.py)
 """
 import io
 import re
@@ -51,7 +53,8 @@ CHART_FLOOR = 6
 # THE FIVE VIEWS, in the order their tabs sit across the strip. selftest() asserts this is
 # exactly EX.MODES from the Lua: a tab with no mode is a dead button, a mode with no tab is a
 # view the player cannot reach now that the arrows page instead of cycling.
-TAB_MODES = ["trade", "stats", "offer", "houses", "log"]
+TAB_MODES = ["trade", "stats", "offer", "houses", "deals", "log"]
+TAB_W, TAB_PITCH = 108, 116
 
 ROW_W, ROW_H = 880, 40
 # 736, not 700: the last 36px are the nav strip below the two footer lines. See the
@@ -274,6 +277,22 @@ TIP_BUY = ("Buy a lot||Bought at the price shown. Buying repeatedly drives this 
 # tooltip repeating a number that is already on the row is one more place for it to go stale.
 TIP_SELL = ("Sell a lot||Sold at the Sell price, which is under the Buy price. The exchange "
             "keeps the difference, so a round trip cannot mint gold.")
+
+# THE ORDER TICKET'S OWN FOUR TOOLTIPS. Literal text for the same reason every tooltip above
+# is: {{tr:}} prints the "||" title split as two literal pipes (see the block above TIP_OPEN).
+TIP_ORD_SIDE = "Buy or sell||Switch this standing order between buying and selling."
+TIP_ORD_CMP = ("At or below / at or above||Whether the order fires once the price falls to "
+               "this level, or once it rises to it.")
+TIP_ORD_STEP = ("Adjust the price||Move the order's target one rung up or down the same "
+                "ladder every price on this board sits on.")
+TIP_ORD_PLACE = ("Place the order||Stands until the price crosses the level shown, then "
+                  "fills automatically on a later turn.")
+TIP_AMOUNT = ("Amount per click||How many lots a Buy or Sell moves, and the size a new "
+              "standing order is placed at. Cycles 1, 5, 10, 25; the - and + beside it step "
+              "one lot at a time. A lot is 10 of a commodity, 100 of Armaments or Raw "
+              "Materials, 5 of a house share.")
+TIP_AMOUNT_STEP = ("One lot at a time||The button between these cycles the round sizes. "
+                   "Use these to reach the ones in between.")
 
 DIVIDER = "ui/skins/default/1x1_blank_white.png"
 DIVIDER_COLOUR = "#6B583680"
@@ -577,15 +596,18 @@ def build_panel():
     # selftest() asserts this list against EX.MODES, because a tab the Lua never places is a
     # button that is simply not on screen and a mode with no tab is a view with no way in.
     #
-    # 132 WIDE AT 140 PITCH from x=20: the last ends at 712 and the back arrow starts at 774,
-    # so the two clusters cannot touch. The x/y here are placeholders - place() positions
-    # every one of these from the layout tables in the Lua, which is where the numbers live.
+    # 108 WIDE AT 116 PITCH from x=20: the last ends at 708 and the back arrow starts at 774,
+    # so the two clusters cannot touch. It was 132 on 140 for FIVE tabs, ending at 712 - a sixth
+    # on that pitch would have started at 720 and run to 852, straight through both nav buttons,
+    # which is why adding a view re-pitched the strip. The 8px gap between tabs is preserved.
+    # The x/y here are placeholders - place() positions every one of these from the layout
+    # tables in the Lua, which is where the numbers live, and selftest() pins the two together.
     tabhov = [{"path": BTN_HOVER, "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0,
                "dock": None}]
     for i, mode in enumerate(TAB_MODES):
-        p.add(C("derpy_chd_ex_tab_" + mode, 132, 26, interactive=True, image=BTN_BG,
+        p.add(C("derpy_chd_ex_tab_" + mode, TAB_W, 26, interactive=True, image=BTN_BG,
                 hover=tabhov, sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
-                dockpoint="Bottom Left", dock_offset="%.2f,-12.00" % (20 + i * 140),
+                dockpoint="Bottom Left", dock_offset="%.2f,-12.00" % (20 + i * TAB_PITCH),
                 tooltip=TIP_TAB))
     # ONE LABEL PER COLUMN, not one space-padded string. The font is proportional, so padded
     # spaces never line up with the row columns below; and the single header_text carried
@@ -733,6 +755,58 @@ def build_panel():
     p.add(C("chart_note", ROW_W, 22, text=True, size=12, colour="#C8B48CFF",
             dockpoint="Top Left", dock_offset="20.00,%.2f" % (CHART_TOP + CHART_H + 70),
             tx="0.00,0.00", ty="0.00,0.00"))
+
+    # THE ORDER TICKET, in the 130px between the chart's note and the footers. It acts on
+    # whatever instrument the chart already has selected, which is what makes it six controls
+    # and not a picker as well.
+    tickhov = [{"path": BTN_HOVER, "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0,
+                "dock": None}]
+    p.add(C("ord_side", 100, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="20.00,508.00", tooltip=TIP_ORD_SIDE))
+    p.add(C("ord_cmp", 140, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="128.00,508.00", tooltip=TIP_ORD_CMP))
+    p.add(C("ord_down", 40, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="276.00,508.00", tooltip=TIP_ORD_STEP))
+    p.add(C("ord_price", 100, 26, text=True, size=13, align="Center",
+            dockpoint="Top Left", dock_offset="324.00,508.00"))
+    p.add(C("ord_up", 40, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="432.00,508.00", tooltip=TIP_ORD_STEP))
+    p.add(C("ord_place", 100, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="480.00,508.00", tooltip=TIP_ORD_PLACE))
+    p.add(C("ord_standing", ROW_W, 22, text=True, size=12, colour="#C8B48CFF",
+            dockpoint="Top Left", dock_offset="20.00,540.00"))
+    # THE AMOUNT, TWICE, ONE VALUE. btn_amount sits in the header band directly above the
+    # rows' own Buy and Sell columns (they start at x654), because that is what it governs;
+    # ord_qty sits on the ticket right of Place, where it governs the size Place bakes in.
+    # Both read and cycle EX.amount, so the number cannot disagree with itself.
+    p.add(C("btn_amt_down", 26, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="676.00,46.00", tooltip=TIP_AMOUNT_STEP))
+    p.add(C("btn_amount", 130, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="706.00,46.00", tooltip=TIP_AMOUNT))
+    p.add(C("btn_amt_up", 26, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="840.00,46.00", tooltip=TIP_AMOUNT_STEP))
+    # THE TICKET'S COPY. It counts in real goods rather than in lots - it has a selected
+    # instrument and the list button does not - and carries the cost line underneath.
+    p.add(C("ord_qty_down", 26, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="596.00,508.00", tooltip=TIP_AMOUNT_STEP))
+    p.add(C("ord_qty", 130, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="626.00,508.00", tooltip=TIP_AMOUNT))
+    p.add(C("ord_qty_up", 26, 26, interactive=True, image=BTN_BG, hover=tickhov,
+            sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+            dockpoint="Top Left", dock_offset="760.00,508.00", tooltip=TIP_AMOUNT_STEP))
+    p.add(C("ord_cost", ROW_W, 22, text=True, size=12, colour="#C8B48CFF",
+            dockpoint="Top Left", dock_offset="20.00,566.00"))
+
     p.add(C("footer_text", ROW_W, 24, text=True, size=12,
             dockpoint="Bottom Left", dock_offset="16.00,-38.00"))
     p.add(C("footer_text2", ROW_W, 24, text=True, size=12,
@@ -1072,6 +1146,13 @@ def selftest():
          ("hdr_supply", "row_supply"), ("hdr_trend", "row_trend"),
          ("hdr_spark", "spark"), ("hdr_hold", "row_hold")))
 
+    # THE DEALS PAGE (Stage 2). Five columns, no sparkline: a deal is an offer standing now, not
+    # a price history. row_trend carries the offer as a sentence, which is why it is the wide one.
+    check_mode(
+        "deals", "EX.ROW_LAYOUT_DEALS", "EX.PANEL_LAYOUT_DEALS",
+        (("hdr_name", "row_name"), ("hdr_trend", "row_trend"), ("hdr_price", "row_price"),
+         ("hdr_sell", "row_sell"), ("hdr_hold", "row_hold")))
+
     # THE LOG VIEW. Two columns - a "T14  Gems" stamp and a whole sentence - so it is checked
     # on the pair it has. It borrows the guide's geometry, but unlike the guide it sits IN the
     # mode cycle, which is what makes every rule below apply to it: a player reaches it with
@@ -1112,6 +1193,29 @@ def selftest():
         "btn_sell must not be placed in the offerings view"
     assert "btn_buy" in offsets("EX.ROW_LAYOUT_OFFER"), \
         "the offerings view has no Sacrifice button"
+    # THE ORDERS LEDGER REUSES btn_buy AS "Cancel", the same idiom as the offerings view above -
+    # a placed btn_sell would be a live Sell button sitting over the Cancel column.
+    assert "btn_sell" not in offsets("EX.ROW_LAYOUT_ORDERS"), \
+        "btn_sell must not be placed in the orders ledger"
+    assert "btn_buy" in offsets("EX.ROW_LAYOUT_ORDERS"), \
+        "the orders ledger has no Cancel button"
+    # THE LEDGER'S OWN ROW-WIDTH CHECK, not check_mode()'s: that function's 24px dead-space
+    # rule assumes a SECOND button out near the row's right edge, which every view it covers
+    # has and this one does not - Cancel is the only button, so the space past it is
+    # deliberate. What check_mode would still be right to catch is a cell with nowhere to
+    # go: PANEL_LAYOUT_ORDERS names no header for price, sell, supply or the sparkline (see
+    # its own comment), so any of those cells - or anything else - landing in this row would
+    # draw whatever the previous view left painted into it, with nothing here to say what it
+    # means.
+    order_rows = offsets("EX.ROW_LAYOUT_ORDERS")
+    order_allowed = {"divider", "icon", "row_name", "row_trend", "row_price", "btn_buy"}
+    assert set(order_rows) == order_allowed, (
+        "EX.ROW_LAYOUT_ORDERS places %s, which PANEL_LAYOUT_ORDERS names no header for"
+        % sorted(set(order_rows) - order_allowed))
+    order_right = max(x + (w or xml_w[n]) for n, (x, w) in order_rows.items()
+                       if n != "divider")
+    assert order_right <= ROW_W, (
+        "the ledger row reaches %d in a %dpx row" % (order_right, ROW_W))
     # THE NAV STRIP HAS TO CLEAR THE FOOTERS AND STAY ON THE PANEL, and both failures are
     # silent. The footer lines reach 114 and 118 characters at worst case (check_footer_bounds
     # in gen_zharr_exchange.py measures them by running the shipped summary functions), so a
@@ -1178,6 +1282,29 @@ def selftest():
             assert name in cells, (
                 "%s places %s, which EX.ROW_CELLS does not list - no other mode will hide it"
                 % (tbl, name))
+
+    # THE TAB STRIP MUST NOT REACH THE NAV CLUSTER, in any view. The .twui.xml has said "the
+    # two clusters cannot touch" since the strip was five wide, and nothing enforced it: a
+    # mutant that re-pitched the six tabs back to 132-on-140 - running the last two straight
+    # through the back arrow and the page counter - passed every check in both generators.
+    # Measured per layout table, because each one carries its own copy of the strip.
+    for tbl in [n for n in re.findall(r"EX\.PANEL_LAYOUT\w*", lua)]:
+        placed = offsets(tbl)
+        tabs = {k: v for k, v in placed.items() if k.startswith("derpy_chd_ex_tab_")}
+        if not tabs or "derpy_chd_ex_prev" not in placed:
+            continue
+        arrow = placed["derpy_chd_ex_prev"][0]
+        for name, (x, w) in sorted(tabs.items()):
+            end = x + (w or xml_w[name])
+            assert end <= arrow, (
+                "%s: %s ends at %d and the back arrow starts at %d. The strip has run into the "
+                "nav cluster - both are drawn, both are clickable, and the overlap is only "
+                "visible in a screenshot." % (tbl, name, end, arrow))
+        # AND NOT INTO EACH OTHER.
+        byx = sorted((v[0], k) for k, v in tabs.items())
+        for (x, k), (nx, nk) in zip(byx, byx[1:]):
+            end = x + (tabs[k][1] or xml_w[k])
+            assert end <= nx, ("%s: tab %s ends at %d but %s starts at %d" % (tbl, k, end, nx, nk))
 
     # TAB_MODES HERE VS EX.MODES IN THE LUA. This file MAKES the five tab components and the
     # Lua PLACES and labels them, so the two lists have to be the same list. A tab this file

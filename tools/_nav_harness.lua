@@ -313,3 +313,111 @@ houses(41)
 EX.house_page = 1
 print("h_summary_hidden " .. tostring(string.find(EX.guild_summary() or "",
                                                   "not shown") ~= nil))
+
+-- TRADE PAGES UNDER EVERY COMBINATION OF THE TWO SWITCHES ---------------------------------
+-- Four combinations, and the index arithmetic this replaced got two of them wrong: with
+-- deep_history off, page 2 was the chart's index and the orders page was unreachable at 3.
+EX.mode = EX.MODE_TRADE
+local function combo(deep, ord)
+    EX.feature = function(k)
+        if k == "deep_history" then return deep end
+        if k == "orders" then return ord end
+        return true
+    end
+    return table.concat(EX.trade_pages(), ",")
+end
+print("pages_both " .. combo(true, true))
+print("pages_nodeep " .. combo(false, true))
+print("pages_noord " .. combo(true, false))
+print("pages_neither " .. combo(false, false))
+
+-- CAN AN ORDER ACTUALLY BE PLACED, per combination, and where does the ticket live. A page
+-- COUNT answers neither, which is how two of the four combinations shipped broken on
+-- 2026-09-10 with this whole section green: with orders OFF the ticket sat live on the chart
+-- page (that page answers to deep_history) while the ledger holding the only Cancel button
+-- was gone, and with deep_history off there was no chart page, so no ticket at all, on a
+-- ledger page that told the player to go and set one under its chart.
+local function place_reach(deep, ord)
+    EX.feature = function(k)
+        if k == "deep_history" then return deep end
+        if k == "orders" then return ord end
+        return true
+    end
+    EX.orders = {}
+    local why = EX.place_order_check("res_gems", "b", "le", 18)
+    local idx = EX.selection_page_index()
+    return (why and "refused" or "ok") .. "," .. (idx and EX.trade_pages()[idx] or "none")
+end
+print("place_both " .. place_reach(true, true))
+print("place_nodeep " .. place_reach(false, true))
+print("place_noord " .. place_reach(true, false))
+print("place_neither " .. place_reach(false, false))
+
+-- THE LEDGER'S OWN COLUMN LABELS, AND ITS DEAD SORT. The ledger is a PAGE of the trade view
+-- and not a mode, so every table keyed by EX.mode handed it Trade's entries: "Buy" over a
+-- price on rows that are half sells, "Trend" over an order sentence, and a header click that
+-- resolved through the trade sorter - colouring the header, leaving the ledger's own rows
+-- exactly where they were, and re-sorting page 1 underneath the player. EX.view() is the one
+-- accessor all four tables route through now.
+EX.feature = function() return true end
+EX.mode = EX.MODE_TRADE
+EX.trade_page = 3
+print("view3 " .. tostring(EX.view()))
+print("hdr3_price " .. tostring((EX.HEADERS[EX.view()] or {}).hdr_price))
+print("hdr3_trend " .. tostring((EX.HEADERS[EX.view()] or {}).hdr_trend))
+-- NO SORTER FOR THE LEDGER, deliberately: its rows are the order list in placement order.
+-- sort_click must therefore refuse the click outright rather than half-handling it, and it
+-- must leave EX.sort_col alone - that field is what carries the green mark onto page 1.
+EX.sort_col = nil
+print("sort3 " .. tostring(EX.sort_fn("hdr_price")))
+print("sortclick3 " .. tostring(EX.sort_click("hdr_price")))
+print("sortcol3 " .. tostring(EX.sort_col))
+EX.trade_page = 1
+print("hdr1_price " .. tostring((EX.HEADERS[EX.view()] or {}).hdr_price))
+print("sort1 " .. tostring(EX.sort_fn("hdr_price") ~= nil))
+
+-- THE COUNTER CANNOT READ "3/2". EX.trade_kind clamps and EX.page_index did not, so throwing
+-- a switch while standing on the page it removes left the label naming a page that no longer
+-- existed until an arrow was pressed.
+EX.trade_page = 3
+EX.feature = function(k) if k == "orders" then return false end return true end
+print("idx_clamped " .. EX.page_index())
+print("nav_clamped " .. EX.nav_label())
+EX.feature = function() return true end
+EX.trade_page = 1
+
+-- THE KIND FOLLOWS THE INDEX, whatever the list holds.
+EX.feature = function() return true end
+EX.trade_page = 1
+print("kind1 " .. EX.trade_kind())
+EX.trade_page = 2
+print("kind2 " .. EX.trade_kind())
+print("onchart2 " .. tostring(EX.on_chart()))
+EX.trade_page = 3
+print("kind3 " .. EX.trade_kind())
+print("onorders3 " .. tostring(EX.on_orders()))
+
+-- AND WITH THE CHART OFF, page 2 IS the orders page - no gap, no dead page.
+EX.feature = function(k) return k ~= "deep_history" end
+EX.trade_page = 2
+print("nodeep_kind2 " .. EX.trade_kind())
+print("nodeep_onchart " .. tostring(EX.on_chart()))
+print("nodeep_onorders " .. tostring(EX.on_orders()))
+
+-- A PAGE INDEX PAST THE END CLAMPS rather than returning nil. The switch can move while the
+-- player is standing on page 3.
+EX.feature = function() return false end
+EX.trade_page = 3
+print("clamped " .. EX.trade_kind())
+
+-- THE ROW-NAME CLICK'S CHART JUMP, closed here rather than through a simulated UI click -
+-- EX.chart_page_index is a pure function pulled out of the click handler for exactly this.
+-- Task 5 shipped the dynamic lookup (finding "chart" in EX.trade_pages()) replacing a literal
+-- EX.trade_page = 2, but nothing ran it with the chart switched off, so reverting to that
+-- literal passed the whole suite - measured 2026-09-10, and the mutant this closes.
+EX.feature = function() return true end
+print("chart_idx_both " .. tostring(EX.chart_page_index()))
+EX.feature = function(k) return k ~= "deep_history" end
+print("chart_idx_nodeep " .. tostring(EX.chart_page_index()))
+EX.feature = function(k) return k ~= "orders" end
+print("chart_idx_noord " .. tostring(EX.chart_page_index()))

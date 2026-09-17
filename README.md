@@ -11,13 +11,20 @@ no price discovery anywhere. The Exchange is that missing layer: each good gets 
 live price driven by what the world actually produces, who owns the production, who
 is at war, what the AI factions are holding, and what the player has been buying.
 
-Five things you can do with gold in it:
+What you can do with gold in it:
 
 - **Trade the 17 commodities** - corner a good and watch your own buying move the price against you.
 - **Hold a position** in a warehouse, for a standing campaign bonus and per-turn rent.
 - **Burn goods on the altar** for a timed buff.
-- **Buy shares in AI factions** - they pay a per-turn dividend and settle when the faction dies, at a premium if you were the one who killed it.
+- **Buy shares in AI factions** - they pay a per-turn dividend and settle when the faction dies, at a premium if you were the one who killed it. Which factions you may buy into is set by lore-shaped trading blocs, not by your own culture alone.
 - **Pay a patron's tithe**, or refuse it and take the consequences.
+- **Take a deal.** Each turn a few factions with real money and a real need post an offer - over the market for what they lack, under it for what they are dumping.
+- **Leave a standing order** - buy when a good falls to your price, sell when it rises to it. Twelve can wait at once.
+
+And two things that happen whether you trade or not:
+
+- **The world trades against itself.** Every landholding faction keeps a book and buys and sells each turn, so prices move because the world moved.
+- **Iron, timber and obsidian are war materiel.** Your net position in them sets a replenishment modifier on the faction holding them - the AI included. Selling iron to someone at war visibly arms them.
 
 Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**.
 
@@ -27,14 +34,14 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 18,221 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 10,390 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 2,811 |
-| UI layouts (`.twui.xml`) | 4,109 |
-| Generated DB + localisation (TSV) | 2,431 rows |
-| Documentation | 132 KB |
+| Python generators (`tools/`) | 24,751 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 13,597 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 3,337 |
+| UI layouts (`.twui.xml`) | 5,249 |
+| Generated DB + localisation (TSV) | 2,425 rows |
+| Documentation | 144 KB |
 
-The mod itself is 10 DB tables, 641 rows and 1,768 localisation strings, plus the
+The mod itself is 10 DB tables, 649 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
 three `.twui.xml` files and the settings Lua are outputs, committed so the repo is
 readable without running anything.
@@ -46,7 +53,7 @@ emitted by `tools/gen_zharr_exchange.py`, which owns every constant, every price
 curve, every table row and every localised string in one place, and generates:
 
 - the 10 DB table fragments and the loc, as TSV
-- the MCT settings Lua (a difficulty preset, 23 sliders, 7 feature switches)
+- the MCT settings Lua (a difficulty preset, 45 tunable knobs, feature switches)
 - and, via `gen_exchange_ui.py`, the three `.twui.xml` panels - 315 GUIDs, all
   allocated and paired by the generator, because a duplicate or mismatched GUID in
   that format is a silent non-draw with no error anywhere
@@ -77,7 +84,7 @@ It asserts, among ~60 other things:
 
 - every one of the 517 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
-- every one of the 5 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
+- every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters
 - multiplayer paths route through the right entry points
 - the UI generator's 315 GUIDs are unique and hierarchy-paired

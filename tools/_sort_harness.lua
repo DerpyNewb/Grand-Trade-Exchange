@@ -150,3 +150,46 @@ print("resort_page " .. EX.house_page .. " " .. order())
 -- THE DEFAULT PATH ALLOCATES NOTHING: EX.sorted hands back the very table it was given.
 EX.sort_col = nil
 print("identity " .. tostring(EX.sorted(EX.houses) == EX.houses))
+
+-- ===========================================================================================
+-- OWN PEOPLE FIRST, THE NAME COLUMN, AND THE POWER CAP. Added 2026-09-11 with trade blocs.
+-- ===========================================================================================
+--
+-- All three live in EX.listed_houses, which EX.house_pages and EX.house_slice BOTH read. The
+-- grouping has to survive every column: it is a primary key, not a default order.
+EX.MAX_ROWS = 20
+EX.house_page = 1
+EX.sort_col, EX.sort_dir = nil, 1
+EX.HOUSE_CULTURE = "mine"
+EX.houses = { "a_far", "b_own", "c_far", "d_own" }
+EX.culture_of = function(k) return string.find(k, "own") and "mine" or "far" end
+-- Names deliberately out of key order, so a name sort cannot be mistaken for the key sort.
+EX.faction_display = function(k) return ({ a_far = "Zulu", b_own = "Yankee",
+                                           c_far = "Alpha", d_own = "Bravo" })[k] end
+EX.buy_price = function(k) return ({ a_far = 10, b_own = 20, c_far = 30, d_own = 40 })[k] end
+EX.held = function() return 0 end
+EX.house_regions = {}
+
+local function listed() return table.concat(EX.listed_houses(), ",") end
+
+print("grp_default " .. listed())
+EX.sort_col, EX.sort_dir = "hdr_name", 1
+print("grp_name_asc " .. listed())
+EX.sort_dir = -1
+print("grp_name_desc " .. listed())
+EX.sort_col, EX.sort_dir = "hdr_price", 1
+print("grp_price_asc " .. listed())
+
+-- THE CAP, on a board where the foreign tail is longer than it. Own-culture rows never count
+-- against it and held rows are exempt from it.
+EX.sort_col, EX.sort_dir = nil, 1
+EX.HOUSE_LIST_MAX = 2
+EX.houses = { "b_own", "f1", "f2", "f3", "f4" }
+EX.house_regions = { f1 = 1, f2 = 9, f3 = 5, f4 = 7 }
+print("cap_power " .. listed())
+EX.held = function(k) return k == "f1" and 5 or 0 end
+print("cap_held " .. listed())
+-- AND THE PAGE COUNT FOLLOWS THE CAPPED LIST. If it read #EX.houses the counter would promise
+-- a page the slice returns empty.
+EX.MAX_ROWS = 2
+print("cap_pages " .. EX.house_pages())

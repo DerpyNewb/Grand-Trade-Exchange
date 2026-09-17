@@ -161,6 +161,32 @@ TRADE_SCOPE = "faction_to_faction_own"
 # the per-faction cost of a change.
 TRADE_STEPS = [-40, -30, -20, -10, 10, 20, 30, 40]
 
+# STAGE 3: THE POSITION FAMILY. Mirrors EX.POS_TIERS and EX.POS_STEP_LOTS in the campaign
+# script; the two files are cross-checked value for value at the bottom of this one.
+POS_TIERS = [-2, -1, 1, 2]
+POS_STEP_LOTS = 4
+# THE EFFECT AND ITS SCOPE ARE BOTH ALREADY SHIPPED IN THIS PACK - WRATH_EFFECTS carries
+# exactly this pair at -10 - so they inherit that verification instead of being re-chosen.
+# An effect paired with a scope it does not support is not an error, it is a row that
+# quietly does nothing, which is why the scope is taken from a live use and not picked.
+#
+# THE SIGN IS REASONED, NOT COPIED. effects.is_positive_value_good is TRUE for this key -
+# read out of the vanilla cache rather than assumed - because it is not a *_cost_mod. So
+# positive reads as good and no inversion applies: the negative tiers carry a negative value
+# on a positive-is-good effect, which is one inversion and the one the player expects.
+POS_EFFECT = "wh_main_effect_force_all_campaign_replenishment_rate"
+POS_SCOPE = "faction_to_force_own"
+# PER TIER, SO THE LADDER IS LINEAR AND SYMMETRIC: -6, -3, +3, +6. Deliberately smaller than
+# WRATH's -10, which is a one-off punishment the player chose to earn; this one lands on most
+# of the map every turn. Spec section 15 item 5 says the set is unsized and no offline check
+# can answer it - too weak to notice is recoverable, too strong re-tunes the whole campaign.
+POS_PER_TIER = 3.0
+POS_TITLE = "War Stocks"
+POS_TEXT_UP = ("This faction's stores of iron, timber and obsidian keep its armies in the "
+               "field.")
+POS_TEXT_DOWN = ("This faction has sold the iron, timber and obsidian its armies were "
+                 "counting on.")
+
 # -------------------------------------------------------------------------------------------
 # OFFERINGS TO HASHUT - what a stockpile is FOR.
 #
@@ -1012,6 +1038,7 @@ ICON_OFFERING = "icon_ritual_currency_favour_bundle.png"  # favour bought with g
 ICON_PLEASED  = "trait_chaos_dwarfs.png"                # Hashut smiles on you
 ICON_WRATH    = "attrition.png"                         # ...and when he does not
 ICON_STOCK    = "cargo.png"                             # goods held, not burnt
+ICON_POS      = "replenishment.png"                     # war stocks, long or short
 
 PLEASED_BUNDLE = PREFIX + "hashut_pleased"
 PLEASED_TITLE = "Hashut is Pleased"
@@ -1203,7 +1230,7 @@ def hhi(counts):
     """Herfindahl-Hirschman concentration of an ownership split.
 
     Mirrors EX.hhi in zzz_derpy_chd_exchange.lua; check_lua_agrees() asserts they match.
-    1.0 = one faction owns every producing region of a commodity, ~1/n = spread over n.
+    1.0 = one faction produces every unit of a commodity's supply, ~1/n = spread over n.
     """
     total = float(sum(counts))
     if total <= 0:
@@ -1287,6 +1314,16 @@ def ladder_bundle(res, index):
 def trade_bundle(step):
     """Key for one trade-income step. Mirrors EX.trade_bundle_key in the campaign script."""
     return "%strade_%s%02d" % (PREFIX, "neg" if step < 0 else "pos", abs(step))
+
+
+def pos_bundle(tier):
+    """Key for one position tier. Mirrors EX.pos_bundle_key in the campaign script.
+
+    pos_, not trade_ or stock_: both of those families are live and each is applied by a
+    sweep that removes the whole family before applying one of it, so a shared key would
+    have one family deleting the other's bundles with nothing anywhere saying so.
+    """
+    return "%spos_%s%02d" % (PREFIX, "neg" if tier < 0 else "pos", abs(tier))
 
 
 def demand_key(res, sfx, seg=""):
@@ -1789,7 +1826,7 @@ DWF_OFFER_TEXT = {
     "wh_main_effect_technology_research_points":
         "The apprentices get the tusk and the engineers get three ideas out of what is left.",
     "wh_main_effect_force_all_campaign_replenishment_rate":
-        "Salt and physic reach the throng, and the throng comes back up to strength.",
+        "Salt and medicine reach the throng, and the throng comes back up to strength.",
     "wh_main_effect_force_all_campaign_movement_range":
         "Furs for the high passes, and the throng marches further before it stops to "
         "complain.",
@@ -1872,7 +1909,7 @@ HEF_OFFER_TEXT = {
         "Curiosities reach the White Tower, and the White Tower returns something more useful "
         "than thanks.",
     "wh_main_effect_force_all_campaign_replenishment_rate":
-        "Physic reaches the host, and the host is whole again faster than it has any right to "
+        "Medicine reaches the host, and the host is whole again faster than it has any right to "
         "be.",
     "wh_main_effect_force_all_campaign_movement_range":
         "Furs for the northern watch, and the columns keep the pace they are famous for.",
@@ -1906,7 +1943,7 @@ DEF_FLAVOUR = {
                       "timber faster than the raids can bring it home.",
     "res_dyes": "The robes of the temple are a particular red, and the temple is particular "
                 "about how it is got. The dye itself is bought like anything else.",
-    "res_medicine": "Naggaroth grows physic it has no intention of wasting on its own. It "
+    "res_medicine": "Naggaroth grows medicine it has no intention of wasting on its own. It "
                     "sells very well to people who will.",
     "res_trinkets": "Asur work taken at sea and sold on to Old World collectors who prefer "
                     "not to ask, at a markup that reflects how it was got.",
@@ -1955,7 +1992,7 @@ DEF_OFFER_TEXT = {
     "wh_main_effect_technology_research_points":
         "Curiosities go to the Convent and come back as a method nobody wants explained.",
     "wh_main_effect_force_all_campaign_replenishment_rate":
-        "Physic and salt for the host, and the ranks close up again.",
+        "Medicine and salt for the host, and the ranks close up again.",
     "wh_main_effect_force_all_campaign_movement_range":
         "Furs for the long marches, and the columns cross Naggaroth without losing a quarter "
         "of themselves.",
@@ -2199,6 +2236,21 @@ def build():
             "is_global_effect": True, "show_in_3d_space": False, "owner_only": True})
         bundle_junc.append({"effect_bundle_key": trade_bundle(step), "effect_key": TRADE_EFFECT,
                             "effect_scope": TRADE_SCOPE, "value": float(step),
+                            "advancement_stage": STAGE})
+
+    # STAGE 3: THE POSITION FAMILY. One row per tier, built from the same formula the script
+    # uses - a key that exists in the Lua and in no table applies nothing and says nothing,
+    # because cm:apply_effect_bundle does not fail on an unknown key.
+    for tier in POS_TIERS:
+        bundles.append({
+            "key": pos_bundle(tier),
+            "localised_description": POS_TEXT_UP if tier > 0 else POS_TEXT_DOWN,
+            "localised_title": POS_TITLE,
+            "bundle_target": "faction", "priority": 1, "ui_icon": ICON_POS,
+            "is_global_effect": True, "show_in_3d_space": False, "owner_only": True})
+        bundle_junc.append({"effect_bundle_key": pos_bundle(tier), "effect_key": POS_EFFECT,
+                            "effect_scope": POS_SCOPE,
+                            "value": float(POS_PER_TIER * tier),
                             "advancement_stage": STAGE})
 
     # THREE WAREHOUSE BUNDLES PER COMMODITY - the ramp. Same effect and the same scope as that
@@ -2646,12 +2698,17 @@ def selftest():
     offerb = [b for b in bun
               if any(b["key"].startswith(PREFIX + sg + "offering_") for sg in _segs)]
     stockb = [b for b in bun if b["key"].startswith(PREFIX + "stock_")]
+    posb = [b for b in bun if b["key"].startswith(PREFIX + "pos_")]
     wrathb = [b for b in bun if b["key"] in set(r["wrath"] for r in _races.values())]
     pleasedb = [b for b in bun if b["key"] in set(r["pleased"] for r in _races.values())]
     assert not [b for b in bun if b["key"].startswith(PREFIX + "ladder_")], \
         "the price ladder is back - stage 2 removed it, see section 28 of the handoff"
-    assert len(tradeb) + len(offerb) + len(stockb) + len(wrathb) + len(pleasedb) == len(bun), \
-        "an effect bundle in no family"
+    assert (len(tradeb) + len(offerb) + len(stockb) + len(wrathb) + len(pleasedb)
+            + len(posb)) == len(bun), "an effect bundle in no family"
+    assert len(posb) == len(POS_TIERS), (
+        "%d position bundles for %d tiers. One row per tier, or the sweep applies a key "
+        "with no record - which cm:apply_effect_bundle accepts and then does nothing "
+        "about." % (len(posb), len(POS_TIERS)))
     assert len(pleasedb) == len(_races), (
         "%d reward bundles for %d races - one per patron, and a race with none applies a key "
         "that has no row" % (len(pleasedb), len(_races)))
@@ -2875,6 +2932,7 @@ def selftest():
     # THE OFFERING AND PATRON HALVES ARE PER RACE; the warehouse tiers and the trade-income
     # steps are shared. Getting that split wrong in either direction is what this counts.
     assert len(bj) == (len(TRADE_STEPS)
+                       + len(POS_TIERS)
                        + len(COMMODITIES) * len(_races)
                        + len(COMMODITIES) * len(STOCK_TIERS)
                        + (len(WRATH_EFFECTS) + len(PLEASED_EFFECTS)) * len(_races)), len(bj)
@@ -2900,10 +2958,56 @@ def selftest():
     assert sorted(j["value"] for j in tj) == sorted(float(x) for x in TRADE_STEPS)
     assert {j["effect_bundle_key"] for j in tj} == {trade_bundle(x) for x in TRADE_STEPS}
 
+    # STAGE 3: the position family. Asserted as SYMMETRIC rather than as four literals - the
+    # ladder is meant to be re-tuned after a campaign, and the property that has to survive
+    # that re-tune is the symmetry, not the number.
+    #
+    # SELECTED BY BUNDLE KEY, NOT BY EFFECT KEY. WRATH_EFFECTS carries this same
+    # replenishment effect once per race, so an effect-key filter returns 34 rows for a
+    # four-row family - which is how this was first written and what caught it. The offering
+    # block above selects by bundle key for the same reason; the trade block gets away with
+    # an effect-key filter only because TRADE_EFFECT is used nowhere else in this pack.
+    pos_keys = {pos_bundle(x) for x in POS_TIERS}
+    pj = [j for j in bj if j["effect_bundle_key"] in pos_keys]
+    assert all(j["effect_key"] == POS_EFFECT for j in pj), (
+        "a position bundle carries an effect that is not %s" % POS_EFFECT)
+    assert len(pj) == len(POS_TIERS), len(pj)
+    assert all(j["effect_scope"] == POS_SCOPE for j in pj)
+    # AND POS_SCOPE IS NOT SELF-CERTIFYING. The line above restates the constant the rows
+    # were built from and cannot fail; this one can. The (effect, scope) pair has to be one
+    # this pack already ships and has live-verified - WRATH_EFFECTS carries exactly it - and
+    # that is the whole reason it was chosen rather than picked. An effect paired with a
+    # scope it does not support is not an error, it is a row that quietly does nothing.
+    assert (POS_EFFECT, POS_SCOPE) in [(e, s) for e, s, _v in WRATH_EFFECTS], (
+        "%s / %s is not a pair this pack already ships. Every scope here is the one vanilla "
+        "uses with its effect; re-choosing one throws that verification away silently, "
+        "because a mismatched pair produces a row the game accepts and ignores."
+        % (POS_EFFECT, POS_SCOPE))
+    # THE SET IS CHECKED BEFORE IT IS INDEXED. Without this the loop below raises a bare
+    # KeyError on the missing twin, which is a failure that names a bundle key and not the
+    # problem. Python-side mirror of the Lua's pos_tiers_symmetric probe.
+    assert set(POS_TIERS) == set(-x for x in POS_TIERS) and 0 not in POS_TIERS, (
+        "POS_TIERS is %r: not symmetric, or contains 0. Long and short are the same ladder "
+        "in two directions, and a 0 tier would emit a derpy_chd_ex_pos_pos00 row for the "
+        "one state the sweep expresses by applying nothing at all." % (POS_TIERS,))
+    pv = dict((j["effect_bundle_key"], j["value"]) for j in pj)
+    for tier in POS_TIERS:
+        assert pv[pos_bundle(tier)] == -pv[pos_bundle(-tier)], (
+            "the position ladder is not symmetric: tier %d is %s and tier %d is %s. Long "
+            "and short are the same ladder in two directions; an asymmetry here is a thumb "
+            "on the scale that nothing states anywhere."
+            % (tier, pv[pos_bundle(tier)], -tier, pv[pos_bundle(-tier)]))
+        assert (pv[pos_bundle(tier)] > 0) == (tier > 0), (
+            "tier %d carries value %s. is_positive_value_good is TRUE for %s - it is not a "
+            "*_cost_mod - so a long position must carry a POSITIVE value and a short a "
+            "negative one. This is the assertion that catches a sign copied from a cost "
+            "effect instead of reasoned." % (tier, pv[pos_bundle(tier)], POS_EFFECT))
+
     # Every bundle key the Lua can ever APPLY resolves to a real row. The ladder keys are
     # deliberately absent: the only Lua that still names one is EX.strip_legacy_bundles, which
     # REMOVES it, under a pcall, from saves made before stage 2.
     assert ({trade_bundle(x) for x in TRADE_STEPS}
+            | {pos_bundle(x) for x in POS_TIERS}
             | set(offer_keys)
             | {stock_bundle(r, i) for r in COMMODITIES
                for i in range(1, len(STOCK_TIERS) + 1)}
@@ -2934,6 +3038,7 @@ def selftest():
     check_race_tune()
     check_no_foreign_keys(t)
     check_culture_appetites()
+    check_bloc()
     check_button_decline_log()
     check_no_patron_literals()
     check_intro_art()
@@ -2956,6 +3061,11 @@ def selftest():
     check_demands()
     check_production()
     check_mct()
+    # AFTER check_mct, not beside check_bloc: this one reads the GENERATED MCT file to
+    # assert the locks default to false, and build_mct writes that file later than the
+    # bloc checks run.
+    check_culture_locks()
+    check_knob_reads()
     check_tunables()
     check_presets()
     check_snapshot_and_debug()
@@ -2963,6 +3073,8 @@ def selftest():
     check_trend_survives_load()
     check_lua_shocks()
     check_shock_news()
+    check_click_filter()
+    check_panel_cell_shows()
     check_lua_hover()
     check_lua_warehouse()
     check_lua_houses()
@@ -2981,6 +3093,7 @@ def selftest():
     check_hud_income()
     check_no_orphans()
     check_features()
+    check_lua_orders()
     check_holdings()
     check_footer_literals()
     check_footer_bounds()
@@ -3270,8 +3383,6 @@ def race_table():
         % (len(declared), len(out), sorted(set(declared) - set(out))))
     return out
 
-
-CHD_CULTURE = "wh3_dlc23_chd_chaos_dwarfs"
 
 
 def covered_races():
@@ -3563,10 +3674,25 @@ def check_layout():
         if not line:
             continue
         tag, _, rest = line.partition(" ")
-        have[tag] = dict(kv.split("=", 1) for kv in rest.split(" ") if "=" in kv)
+        kv = dict(x.split("=", 1) for x in rest.split(" ") if "=" in x)
+        have[tag] = kv
+        # ALSO FLATTENED, as "<tag>_<key>": a scene with fields no other scene carries (the
+        # ledger's rows/missing) reads as a plain have["orders_p3_rows"] instead of a second
+        # nesting convention only one scene uses.
+        for k, v in kv.items():
+            have["%s_%s" % (tag, k)] = v
 
+    # 12, NOT 7: the ledger added two - orders_p3 and trade_p1_orders_back - the order
+    # ticket added a tenth, ticket_p2, reusing chart_p2's own scene rather than opening an
+    # eleventh, and the two ladder-cancel scenes joined on 2026-09-10. Those two always
+    # REPORTED the clashes/stale/pstale triple - report() emits it for every scene - but were
+    # not in this tuple, so only their rung values were ever read. A cancel that left the
+    # removed row on screen was invisible to the suite: EX.layout runs between them. "intro" and "after_intro" are asserted separately, further down, and are
+    # deliberately never added here - see the closing print, which reads len(scenes) rather
+    # than a literal for exactly this reason.
     scenes = ("houses_p1", "houses_p2", "after_prune", "after_discover", "trade_after",
-              "chart_p2", "trade_p1_back")
+              "chart_p2", "trade_p1_back", "orders_p3", "trade_p1_orders_back", "ticket_p2",
+              "orders_ladder_cancel1", "orders_ladder_cancel2")
     for tag in scenes:
         assert tag in have, "the layout harness never reported %s: %s" % (tag, got)
 
@@ -3581,11 +3707,71 @@ def check_layout():
         "EX.panel_cells(). EX.layout hides by walking that union, so those cells can "
         "never be taken off screen and will draw at their last coordinates over "
         "whatever the next view puts there." % have["union"]["missing"])
-    assert int(have["union"]["tables"]) >= 7, (
-        "the harness found %s PANEL_LAYOUT* tables, expected at least 7 (trade, chart, "
-        "stats, offerings, houses, log, guide). One has been renamed out of the naming "
-        "convention both this harness and EX.panel_cells depend on."
+    # 9, NOT 8: the message this replaced named 7 concepts (trade, chart, stats, offerings,
+    # houses, log, guide) and had drifted loose even before this task - the introduction
+    # already existed as an 8th PANEL_LAYOUT* table with nothing here counting it. Measured
+    # via this same harness: "union tables=9" once PANEL_LAYOUT_ORDERS is added. A floor of 8
+    # would still pass with either the introduction OR the ledger silently dropped from the
+    # union - a >= floor only catches a missing table if it is pinned to the real count.
+    assert int(have["union"]["tables"]) >= 9, (
+        "the harness found %s PANEL_LAYOUT* tables, expected at least 9 (trade, chart, "
+        "stats, offerings, houses, log, guide, the introduction, orders). One has been "
+        "renamed out of the naming convention both this harness and EX.panel_cells depend on."
         % have["union"]["tables"])
+
+    # A STATIC CHECK, because dropping a PANEL_LAYOUT* table from the ipairs list below can be
+    # INVISIBLE to every behavioural check above, "missing" included, whenever every cell name
+    # it carries is ALSO named by some other table in the union - exactly the case for
+    # PANEL_LAYOUT_ORDERS, which reuses the trade view's own chrome (hdr_name, rows_holder, the
+    # tabs, the nav strip) rather than authoring its own and so contributes not one cell name
+    # the union does not already have. Measured: removing it from this list changes nothing
+    # EX.panel_cells() returns.
+    #
+    # GENERALISED RATHER THAN NAMING PANEL_LAYOUT_ORDERS ALONE: the same invisible-drop fault
+    # exists for ANY table that reuses existing chrome, present or future, and a check that
+    # names one table by hand only ever catches the table someone remembered to add it for.
+    # Every EX.PANEL_LAYOUT* table declared in the source is found by pattern and asserted
+    # into EX.panel_cells()'s own body - one rule, no list to maintain, that catches the whole
+    # class. \b after the name (not a bare substring test) so EX.PANEL_LAYOUT itself is not
+    # satisfied by the mere presence of EX.PANEL_LAYOUT_CHART or any other derived name.
+    lua_pc = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    pc_body = re.search(r"function EX\.panel_cells\(\).*?" + NL + "end", lua_pc, re.S)
+    assert pc_body, "EX.panel_cells is gone"
+    # COMMENTS STRIPPED BEFORE THE SEARCH. A table name mentioned only in a comment inside this
+    # function (an explanatory note, or a stale one left behind by a future edit) must not
+    # satisfy this check - only the live ipairs list may. Line-based like EX.turn_round's split
+    # above, which is safe here for the same reason: no string literal in this function embeds
+    # "--".
+    pc_code = NL.join(l for l in pc_body.group(0).splitlines() if not l.lstrip().startswith("--"))
+    layout_tables = re.findall(r"^EX\.(PANEL_LAYOUT\w*)\s*=\s*\{", lua_pc, re.M)
+    assert len(layout_tables) >= 9, (
+        "found %d EX.PANEL_LAYOUT* table declarations by pattern, expected at least 9 - the "
+        "declaration shape (EX.PANEL_LAYOUT_X = {) changed under this regex" % len(layout_tables))
+    for name in layout_tables:
+        assert re.search(r"EX\." + re.escape(name) + r"\b", pc_code), (
+            "EX.panel_cells() no longer folds EX.%s into its union. If every cell name it "
+            "carries is shared with another PANEL_LAYOUT* table the drop is invisible to the "
+            "\"missing\" counts above, and this static read is the only thing that catches it."
+            % name)
+
+    # THE TICKET'S FILTER, NOT JUST ITS HANDLER. No harness reaches core:add_listener's real
+    # filter callback (it needs a live campaign), and a name present only in the HANDLER is a
+    # button that draws, looks clickable, and never fires - the filter runs first, and CA
+    # never calls the handler for a click the filter refused. Read out of the FILTER function
+    # specifically (the text between "zharr_exchange_click"'s opening function(context) and
+    # its own closing "end,"), not the whole file, so a name that is only in the handler a few
+    # lines further down cannot satisfy this by accident.
+    click_filter = re.search(
+        r'"zharr_exchange_click", "ComponentLClickUp",\s*' + NL
+        + r'\s*function\(context\)(.*?)' + NL + r'\s*end,', lua_pc, re.S)
+    assert click_filter, "the zharr_exchange_click listener's filter function is gone"
+    filt = click_filter.group(1)
+    for name in ("ord_side", "ord_cmp", "ord_down", "ord_up", "ord_place"):
+        assert 's == "%s"' % name in filt, (
+            "%s is not in the click listener's FILTER (only checked the handler, if anywhere). "
+            "The filter decides whether the game dispatches to us AT ALL - a name missing here "
+            "is a button that draws, looks clickable, and never fires, and no geometry check "
+            "can see that from the .twui.xml alone." % name)
 
     for tag in scenes:
         assert have[tag]["clashes"] == "0", (
@@ -3638,6 +3824,56 @@ def check_layout():
         "paging back from the chart left %s of %d commodity rows on screen"
         % (have["trade_p1_back"]["visible"], n_trade))
 
+    # PAGE 3 OF TRADE IS THE STANDING-ORDER LEDGER: a LADDER (two orders on res_gems at
+    # different rungs, plus one on res_dyes) draws three rows, its own layout table, and
+    # nothing left over from paging away from it. A ladder and not three different
+    # commodities on purpose: rows keyed by resource (EX.ROW .. "_" .. EX.short(res)) put
+    # both gem rungs on the SAME physical component, so this is the one scene that can tell
+    # "three rows" from "two rows and a silent collision" apart.
+    assert have["orders_p3_rows"] == "3", (
+        "the ledger drew %s rows for 3 standing orders" % have["orders_p3_rows"])
+    assert have["orders_p3_pstale"] == "0", (
+        "%s panel-level components are visible on the ledger that it does not name. An "
+        "unplaced component keeps its last coordinates and draws over the new view"
+        % have["orders_p3_pstale"])
+    assert have["orders_p3_missing"] == "0", (
+        "%s cells in the layout tables are not in EX.panel_cells(). PANEL_LAYOUT_ORDERS is "
+        "the second table after PANEL_LAYOUT_CHART to name cells no other table names, and "
+        "the hide pass walks that union" % have["orders_p3_missing"])
+    assert have["trade_p1_orders_back_pstale"] == "0", (
+        "paging back from the ledger to the list left %s of its components on screen"
+        % have["trade_p1_orders_back_pstale"])
+
+    # EACH ROW'S OWN ORDER, NOT JUST A COUNT OF THEM. Rungs stand in for the order sentence
+    # EX.order_text would draw (that function's own wording is pinned in
+    # check_lua_orders() against _orders_harness.lua) - 28/20/30 are three different numbers,
+    # so a row answering the wrong one is exactly as visible as a wrong sentence would be.
+    assert (have["orders_p3_r1"], have["orders_p3_r2"], have["orders_p3_r3"]) == (
+        "28", "20", "30"), (
+        "the ledger's three rows resolved to rungs %s/%s/%s, want 28/20/30 - EX.order_of_row "
+        "is resolving a ladder (two orders on one instrument) wrong"
+        % (have["orders_p3_r1"], have["orders_p3_r2"], have["orders_p3_r3"]))
+
+    # CANCEL ON THE FIRST GEM RUNG - what clicking Cancel on row 1 sends - LEAVES THE SECOND
+    # STANDING, at its own row.
+    assert have["orders_ladder_cancel1_left"] == "2", (
+        "%s orders remain after cancelling the first gem rung, not 2"
+        % have["orders_ladder_cancel1_left"])
+    assert (have["orders_ladder_cancel1_r1"], have["orders_ladder_cancel1_r2"]) == (
+        "20", "30"), (
+        "after cancelling the first gem rung the two remaining rows read %s/%s, want 20/30 - "
+        "row 2 is what a resolver that always answers EX.orders[1] gets wrong: row 1 would "
+        "read right either way, because after the cancel it legitimately IS EX.orders[1]"
+        % (have["orders_ladder_cancel1_r1"], have["orders_ladder_cancel1_r2"]))
+
+    # ...AND CANCEL ON THE REMAINING GEM RUNG LEAVES ONLY THE OTHER COMMODITY'S ORDER.
+    assert have["orders_ladder_cancel2_left"] == "1", (
+        "%s orders remain after cancelling the second gem rung, not 1"
+        % have["orders_ladder_cancel2_left"])
+    assert have["orders_ladder_cancel2_r1"] == "30", (
+        "the surviving order reads rung %s, not the dyes order's 30"
+        % have["orders_ladder_cancel2_r1"])
+
     # THE AXIS LABELS, DRAWN RATHER THAN PLACED. Everything above proves the chart's cells
     # are put in the right place and taken off screen again. None of it can see what they
     # SAY, and a label keeps its last text forever unless something writes over it - so
@@ -3664,6 +3900,58 @@ def check_layout():
             "source the list rows use - and hidden outright when nothing is chosen, "
             "because the previous commodity's picture is a claim about the wrong good."
             % (tag, have[tag]["icon"], want))
+
+    # THE ORDER TICKET'S ELEVEN CELLS. Same fault class as the axis labels just above: a
+    # panel-level component keeps its last text forever, so charting furs and clicking away
+    # would otherwise leave the furs ticket standing beside "No commodity chosen".
+    assert have["ticket_p2_text"] == "11", (
+        "%s of the ticket's 11 cells carry text with a commodity selected" % have["ticket_p2_text"])
+    # THE LEDGER PAGE DRAWS THE SAME TICKET, and the switch takes it off screen entirely.
+    assert have["ticket_p3_text"] == "11" and have["ticket_p3_shown"] == "11", (
+        "the ledger page drew %s/11 ticket cells with text and showed %s/11. With deep_history "
+        "off this page is the ONLY place the ticket can be, and without it the feature is "
+        "switched on, its page is on screen, and no order can be created at all"
+        % (have["ticket_p3_text"], have["ticket_p3_shown"]))
+    assert have["ticket_off_shown"] == "0" and have["ticket_off_text"] == "0", (
+        "with the orders switch OFF, %s ticket cells are still visible and %s still carry "
+        "text. The chart page answers to deep_history, not to this switch, so the ticket has "
+        "to read the switch itself - otherwise a live Place button sits there with no ledger "
+        "page left to cancel anything it creates"
+        % (have["ticket_off_shown"], have["ticket_off_text"]))
+
+    # THE GUARD HAS TO BE ABLE TO SAY NO. EX.in_layout is what stops EX.refresh_panel writing
+    # to - and therefore SHOWING, since set_text calls SetVisible(true) - a cell the current
+    # view does not own. check_panel_cell_shows reads the guard out of the source text and so
+    # cannot tell a real guard from one that always answers true; only this can.
+    assert have["inlayout_trade"] == "true", (
+        "EX.in_layout says the Trade view does not carry btn_amount (%s), so the amount button "
+        "is never labelled on the one view whose Buy buttons read it"
+        % have["inlayout_trade"])
+    assert have["inlayout_stats"] == "false" and have["inlayout_never"] == "false", (
+        "EX.in_layout answered %s for btn_amount on the Ownership view and %s for a cell no "
+        "layout names. A guard that cannot say no is not a guard: every view's refresh would "
+        "re-show the button EX.layout had just hidden, at the coordinates the last view that "
+        "owned it left it - reported live 2026-09-11, drawn over the Cartel premium header"
+        % (have["inlayout_stats"], have["inlayout_never"]))
+
+    assert have["ticket_p2_blank"] == "0", (
+        "%s ticket cells still carry text with nothing selected. A panel-level component "
+        "keeps its last text forever, so charting furs and clicking away would leave the "
+        "furs ticket beside 'No commodity chosen'" % have["ticket_p2_blank"])
+
+    # THE VISIBLE HALF, NOT JUST THE TEXT. report()'s own pstale cannot stand in for this:
+    # all eleven are named by EX.PANEL_LAYOUT_CHART on this page whether or not anything is
+    # selected, so pstale (visible AND NOT WANTED here) reads 0 whichever way
+    # clear_ticket()'s SetVisible(false) call goes - it has nothing to say about a component
+    # this page legitimately owns. A blank-but-shown ticket is eleven empty buttons sitting
+    # under "No commodity chosen" inviting a click that silently does nothing.
+    assert have["ticket_p2_shown"] == "11", (
+        "%s of the ticket's 11 cells are visible with a commodity selected" % have["ticket_p2_shown"])
+    assert have["ticket_p2_shown_none"] == "0", (
+        "%s ticket cells are still VISIBLE with nothing selected, even though their text is "
+        "blank (checked separately above). clear_ticket() must hide every one of them, not "
+        "just blank them, or the player sees eleven empty controls under 'No commodity "
+        "chosen' that look like they might do something" % have["ticket_p2_shown_none"])
 
     # THE INTRODUCTION DRAWS NO ROWS OF DATA and heads no columns, so the trade view's own
     # cells are all absent from it - which makes the exit the interesting half. A cell left
@@ -3759,6 +4047,23 @@ def check_layout():
         "the introduction's pictures landed at x=%s against the %s its layout table asks for."
         % (d["icon_x"], want_x.group(1)))
 
+    # AND EX.refresh_panel IS WHAT CALLS THE DEALS ROW DRAW. Same shape as the EX.show check
+    # below and the same reason: EX.draw_deal_row is now reachable by a harness precisely
+    # because it is OUTSIDE EX.refresh_panel, which leaves its one call site inside the very
+    # function nothing offline can run. Deleting that line passes every assertion above - the
+    # function still behaves perfectly and the page draws nothing at all. So it is read
+    # statically, exactly as EX.draw_intro's caller is.
+    lua_draw = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    rp = lua_draw.split("function EX.refresh_panel(", 1)[1]
+    deals_branch = rp.split(NL + "    if EX.mode == EX.MODE_DEALS then", 1)
+    assert len(deals_branch) == 2, (
+        "EX.refresh_panel has no EX.MODE_DEALS branch. The page has a layout, a row pool and "
+        "a cell function, and nothing draws it.")
+    assert "EX.draw_deal_row(" in deals_branch[1].split(NL + "    if ", 1)[0], (
+        "EX.refresh_panel's deals branch no longer calls EX.draw_deal_row. Every assertion "
+        "about that function still passes - it is correct, and unreached, which is exactly "
+        "how the Cancel button shipped dead.")
+
     # AND EX.show IS WHAT CONSULTS IT. The harness sets EX.mode by hand, so it can prove the
     # flag works and never that anything reads it. Read the one caller statically instead.
     lua_src = io.open(LUA_SCRIPT, encoding="utf-8").read()
@@ -3768,11 +4073,46 @@ def check_layout():
         "still passes: the view draws correctly and the flag works, and nobody is ever sent "
         "there.")
 
-    print("  layout: 9 scenes, no two rows share a y, no row and no panel cell outlives "
+    # ONE ROW OF THE DEALS PAGE, DRAWN FOR REAL. EX.deal_cells is asserted string by string in
+    # the books harness; what nothing could see until this section is whether the DRAW writes
+    # what it decided. Two mutants survived a full round on 2026-09-16 with these lines inside
+    # EX.refresh_panel, which no harness can run - hence EX.draw_deal_row.
+    assert have["deal_draw_name"] == "house_a", (
+        "the row named %r. It must be the counterparty EX.accept_deal actually settles with - "
+        "that name is the `only` argument to EX.apply_trade, so a row naming anyone else is a "
+        "page that lies about where the gold goes." % have["deal_draw_name"])
+    assert have["deal_draw_buyside"] == "Closed/true", (
+        "the button on a deal the player BUYS into read %r with the market shut. It must carry "
+        "EX.buy_refusal's label AND be greyed: a live-looking dead control is the fault this "
+        "file already condemns twice in its own comments." % have["deal_draw_buyside"])
+    assert have["deal_draw_sellside"] == "Take/false", (
+        "the button on a deal the player SELLS into read %r with the market shut. Selling "
+        "stays open, and a deal expires at the turn end - a wrongly greyed one is gone before "
+        "anybody can ask why." % have["deal_draw_sellside"])
+    assert have["deal_draw_hover"] == "Closed", (
+        "the button's HOVER state reads %r. btn_buy is in EX.TWO_STATE_CELLS, so a label "
+        "written to the standard state alone leaves hover holding the previous view's word - "
+        "shown to the one player already pointing at it, on a button that spends gold. This "
+        "is the order ticket's blanking bug." % have["deal_draw_hover"])
+    assert have["deal_draw_icon"] == "true", (
+        "the row's icon was never painted. These rows carry no instrument and no baked-in "
+        "picture, so an untouched icon cell shows whatever commodity the last view left there.")
+    assert have["deal_draw_pastend"] == "false/STALE", (
+        "a row past the end of the page came back %r. The pool is fixed and outlives the "
+        "page, so it must be HIDDEN rather than skipped - skipping leaves last turn's deal "
+        "drawn under a shorter list, which is a row offering a price nobody agreed to."
+        % have["deal_draw_pastend"])
+
+    # DERIVED, NOT RESTATED: len(scenes), so this cannot go stale the next time a page grows
+    # the tuple. Before this it was a bare "9" that happened to match 7 tuple entries plus
+    # intro and after_intro - correct by coincidence, and silent about which count it meant.
+    print("  layout: %d scenes, no two rows share a y, no row and no panel cell outlives "
           "its view (prune, discovery, a view change and the chart page all covered); "
           "chart axes drawn at 6/4/0 labels and the icon follows the selection; the "
-          "introduction fills all %d rows and paints 9 pictures, %d put away"
-          % (cap, cap - 9))
+          "introduction fills all %d rows and paints 9 pictures, %d put away; and a deals row "
+          "draws its counterparty, its icon and a Take button greyed on the side the player "
+          "pays on, in both button states"
+          % (len(scenes), cap, cap - 9))
 
 
 def check_chart_geometry():
@@ -3912,9 +4252,85 @@ def check_chart_geometry():
             "%s anchors at x=%.1f but bar %d spans %d..%d. The tick names a turn belonging to "
             "a bar it does not sit over." % (tick, got, bar, lo, hi))
 
+    # THE TICKET MUST CLEAR THE PLOT ABOVE IT AND THE FOOTERS BELOW. The chart is
+    # repositioned and resized at runtime from the Lua's own copies of these constants, so a
+    # plot that grows downward would draw over a ticket the XML still places at 508 -
+    # silently, and only on the page nobody screenshots twice.
+    #
+    # THE FOOTER Y IS READ FROM THE LAYOUT TABLE, not written here. It is 636 today and the
+    # point of this check is to survive it not being 636 tomorrow.
+    TICKET = ("ord_side", "ord_cmp", "ord_down", "ord_price", "ord_up", "ord_place",
+              "ord_qty_down", "ord_qty", "ord_qty_up", "ord_cost", "ord_standing")
+    for name in TICKET:
+        assert name in cells, (
+            "%s is not named by EX.PANEL_LAYOUT_CHART, so EX.layout never places it - and "
+            "since 2026-09-09 that pass also hides everything it does not place, so it "
+            "would never draw and nothing would say why" % name)
+
+    plot_bottom = U.CHART_TOP + U.CHART_H
+    footer_y = cells["footer_text"][1]
+    for name in TICKET:
+        x, y, w = cells[name]
+        assert w, "%s carries no width in the layout table" % name
+        assert y >= plot_bottom, (
+            "%s sits at y=%d, inside the plot which ends at %d" % (name, y, plot_bottom))
+        assert y + 26 <= footer_y, (
+            "%s at y=%d reaches %d, past footer_text at %d" % (name, y, y + 26, footer_y))
+        assert x + w <= 20 + U.ROW_W, (
+            "%s reaches x=%d, past the panel's content edge at %d"
+            % (name, x + w, 20 + U.ROW_W))
+
+    # THE CONTROLS ON THE TOP LINE MUST NOT OVERLAP EACH OTHER. ord_standing is the second
+    # line and drops out by its y, not by being left off the list.
+    line = sorted((cells[n][0], cells[n][2], n) for n in TICKET
+                  if cells[n][1] == cells["ord_side"][1])
+    for (x1, w1, n1), (x2, _w2, n2) in zip(line, line[1:]):
+        assert x1 + w1 <= x2, (
+            "%s ends at %d and %s starts at %d - they overlap, and the one drawn second "
+            "swallows the other's clicks" % (n1, x1 + w1, n2, x2))
+
+    # AND THE SAME SEVEN CELLS ON THE LEDGER PAGE. Named by EX.PANEL_LAYOUT_CHART ALONE until
+    # 2026-09-10, which made the whole feature unusable with deep_history off: no chart page
+    # means no draw_chart call and no ticket, on a ledger page whose own empty-state text told
+    # the player to go and set one under its chart. Both pages place them now.
+    #
+    # IDENTICAL COORDINATES, not merely present. The ticket is the same control in the same
+    # dead space on both pages, and every clearance proved above is proved for these numbers -
+    # letting the two tables drift would need the whole check run twice against two geometries
+    # for no gain, and would put one control in two places for the player.
+    obody = lua.split("EX.PANEL_LAYOUT_ORDERS = {", 1)[1].split(NL + "}", 1)[0]
+    ocells = {}
+    for mm in re.finditer(r'\{\s*"([a-z0-9_]+)"\s*,\s*(-?\d+)\s*,\s*(-?\d+)'
+                          r'(?:\s*,\s*(\d+))?\s*\}', obody):
+        ocells[mm.group(1)] = (int(mm.group(2)), int(mm.group(3)),
+                               int(mm.group(4)) if mm.group(4) else None)
+    for name in TICKET:
+        assert name in ocells, (
+            "%s is not named by EX.PANEL_LAYOUT_ORDERS, so EX.layout hides it on the ledger "
+            "page. With deep_history off that page is the ONLY place the ticket can be, and "
+            "without it the feature is switched on, its page is on screen and there is no "
+            "way to create an order at all." % name)
+        assert ocells[name] == cells[name], (
+            "%s is at %s on the ledger page and %s on the chart page. One control, one "
+            "position: the clearances proved above are proved for the chart page's numbers."
+            % (name, ocells[name], cells[name]))
+
+    # IT MUST CLEAR THE LEDGER'S LAST ROW, which the chart page has no equivalent of - the
+    # chart draws no rows at all, so the plot-clearance test above says nothing about a page
+    # that draws up to EX.ORDER_MAX of them.
+    order_max = luaconst("ORDER_MAX")
+    pitch = luaconst("ROW_PITCH")
+    last_row = ocells["rows_holder"][1] + order_max * pitch
+    assert ocells["ord_side"][1] >= last_row, (
+        "the ticket starts at y=%d and %d ledger rows from y=%d reach %d - a full book of "
+        "orders draws straight over the Place button"
+        % (ocells["ord_side"][1], order_max, ocells["rows_holder"][1], last_row))
+
     print("  chart geometry: %d constants agree across both files, %d cells all reachable, "
-          "y ticks on the bar formula's own gridlines with a rule drawn across the plot at each, x ticks over bars 0/%d/%d"
-          % (5, len(xml), U.DEEP_BARS // 2, U.DEEP_BARS - 1))
+          "y ticks on the bar formula's own gridlines with a rule drawn across the plot at each, x ticks over bars 0/%d/%d, "
+          "the %d-cell order ticket clears the plot and the footers on the chart page and "
+          "%d ledger rows on the orders page"
+          % (5, len(xml), U.DEEP_BARS // 2, U.DEEP_BARS - 1, len(TICKET), order_max))
 
 
 # The four knobs a race profile may NEVER move, and the reason is arithmetic rather than taste:
@@ -4080,6 +4496,356 @@ def check_culture_appetites():
 
     print("  culture appetites: %d cultures, every covered race and every land-holding vanilla "
           "culture has one, all within -1..1, none a one-way pump" % len(wants))
+
+
+BLOC_VALUES = ("order", "destr", "any")
+
+# DELIBERATELY OUTSIDE EVERY BLOC, and listed here so adding one is a decision rather than an
+# edit. A culture absent from EX.BLOC is not an investment for outsiders; it is NOT locked out,
+# because branch 1 of EX.is_house_culture passes the player's own culture first.
+BLOC_ABSENT = (
+    "wh2_main_lzd_lizardmen",     # the Slann have no concept of commerce
+    "wh_dlc03_bst_beastmen",      # herdstones, not an economy
+    "wh3_main_kho_khorne",
+    "wh3_main_tze_tzeentch",
+    "wh3_main_sla_slaanesh",
+    "wh3_main_nur_nurgle",
+    "wh3_main_dae_daemons",
+    # THE UNDEAD, removed 2026-09-11 after the first build shipped them in. The dead are not a
+    # going concern: Settra hoards rather than trades, Sylvania's wealth is in its crypts, and
+    # a share is a claim on a capital that has to still be accumulating something.
+    "wh2_dlc09_tmb_tomb_kings",
+    "wh_main_vmp_vampire_counts",
+    "wh2_dlc11_cst_vampire_coast",
+)
+
+
+def check_bloc():
+    """EX.BLOC parsed and asserted, then EX.is_house_culture RUN to see the gate open.
+
+    Four things here fail silently and only one of them is visible in the source:
+
+    1. A CULTURE KEY TYPO. EX.BLOC is keyed by culture and a key nothing matches is simply
+       never looked up - that culture is untradeable forever, with nothing in the log. The
+       subset assertion against EX.CULTURE_WANTS is the whole defence, and it works because
+       check_culture_appetites already holds THAT table against the vanilla cultures table.
+       Note the direction: EX.BLOC must be a subset of CULTURE_WANTS and NOT the reverse, since
+       seven cultures are deliberately absent.
+    2. A BLOC VALUE TYPO. "dest" instead of "destr" makes a bloc of one that nothing else
+       matches, so that culture can only ever be traded by itself.
+    3. THE GATE READING THE WRONG TABLE. EX.is_house_culture must read EX.BLOCS, the union over
+       humans, and never EX.HOUSE_CULTURE - a per-client read there forks EX.instruments(), and
+       a forked row list forks the price ladder. Static reading cannot tell the two apart with
+       any confidence, so the harness below sets one and not the other.
+    4. THE PRE-BIND DEFAULT. Twenty-odd checks in this module load the shipped file WITHOUT
+       calling EX.bind_race and measure the old own-culture-only behaviour. That keeps working
+       only while EX.BLOCS starts empty, so the harness asserts the empty case explicitly.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    m = re.search(r"EX\.BLOC = \{(.*?)\n\}", lua, re.S)
+    assert m, (
+        "EX.BLOC is gone. Without it EX.is_house_culture finds no bloc for any culture and "
+        "every board silently collapses back to own-culture-only.")
+    bloc = dict(re.findall(r'\["([a-z0-9_]+)"\]\s*=\s*"([a-z]+)"', m.group(1)))
+    assert len(bloc) >= 16, "EX.BLOC parsed to %d cultures" % len(bloc)
+
+    bad = sorted(c for c, v in bloc.items() if v not in BLOC_VALUES)
+    assert not bad, (
+        "%s carry a bloc outside %s. A value nothing else shares is a bloc of one, and that "
+        "culture can then only be traded by itself." % (bad, list(BLOC_VALUES)))
+
+    wm = re.search(r"EX\.CULTURE_WANTS = \{(.*?)\n\}", lua, re.S)
+    assert wm, "EX.CULTURE_WANTS is gone"
+    wants = set(re.findall(r'\["([a-z0-9_]+)"\]\s*=\s*\{', wm.group(1)))
+    orphan = sorted(set(bloc) - wants)
+    assert not orphan, (
+        "%s are in EX.BLOC but not in EX.CULTURE_WANTS. CULTURE_WANTS is the table this "
+        "module already holds against the vanilla cultures table, so a key outside it has "
+        "never been checked against anything and a typo there is permanent silence." % orphan)
+
+    for c in BLOC_ABSENT:
+        assert c not in bloc, (
+            "%s was given a bloc. It is on the deliberately-absent list in this checker - no "
+            "economy, or no concept of commerce - so if that is now intended, take it off "
+            "BLOC_ABSENT in the same edit and say why." % c)
+        assert c in wants, (
+            "%s is on BLOC_ABSENT but is not a culture EX.CULTURE_WANTS knows, so the "
+            "assertion above is checking nothing." % c)
+
+    for v in BLOC_VALUES:
+        assert any(x == v for x in bloc.values()), (
+            "no culture is in bloc %r, so that bloc does nothing" % v)
+
+    # THE GATE, RUN. Everything above reads the table; this reads the code.
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped bloc gate run: no lua.exe)")
+        return
+    import subprocess
+    import tempfile
+    harness = r"""
+local SAVED = {}
+cm = {
+    add_first_tick_callback = function() end,
+    add_loading_game_callback = function() end,
+    add_saving_game_callback = function() end,
+    callback = function() end,
+    set_saved_value = function(_, k, v) SAVED[k] = v end,
+    get_saved_value = function(_, k) return SAVED[k] end,
+    get_local_faction_name = function() return "player" end,
+    get_faction = function() return false end,
+    turn_number = function() return 10 end,
+}
+core = { add_listener = function() end }
+function out() end
+dofile([[%s]])
+EX.store = SAVED
+
+local CHD = "wh3_dlc23_chd_chaos_dwarfs"
+local function probe(tag)
+    local t = {}
+    for _, c in ipairs({ CHD, "wh_main_grn_greenskins", "wh_main_emp_empire",
+                         "wh2_main_skv_skaven", "wh2_main_lzd_lizardmen" }) do
+        t[#t + 1] = (EX.is_house_culture(c) and "1" or "0")
+    end
+    print(tag .. " " .. table.concat(t, ""))
+end
+
+-- PRE-BIND. EX.BLOCS is empty, so only the own-culture branch fires. This is what every other
+-- harness in this module is measuring against and it must not move.
+probe("prebind")
+
+-- A CHAOS DWARF PLAYER. Destruction, so greenskins open and the Empire does not; skaven open
+-- because "any" is a wildcard and lizardmen never do.
+EX.BLOCS = { destr = true }
+probe("destr")
+
+-- AN EMPIRE PLAYER. The mirror image: the Empire opens, greenskins do not, skaven still do.
+EX.HOUSE_CULTURES = { ["wh_main_emp_empire"] = true }
+EX.BLOCS = { order = true }
+probe("order")
+
+-- A MERCHANT-RACE PLAYER. "any" on the player's side opens every bloc, but still not a culture
+-- that is in no bloc at all.
+EX.HOUSE_CULTURES = { ["wh2_main_skv_skaven"] = true }
+EX.BLOCS = { any = true }
+probe("wildcard")
+
+-- THE SWITCH OFF. Own culture survives; everything else closes, whatever the bloc says.
+EX.HOUSE_CULTURES = { [CHD] = true }
+EX.BLOCS = { destr = true }
+EX.opt = function(k) if k == "cross_bloc" then return false end return nil end
+probe("switchoff")
+
+-- AND THE GATE MUST NOT BE READING EX.HOUSE_CULTURE. With the local culture set to Empire but
+-- the UNION still Destruction, an Empire faction must stay shut: a per-client read here forks
+-- EX.instruments() and therefore the price ladder.
+EX.opt = function() return nil end
+EX.HOUSE_CULTURE = "wh_main_emp_empire"
+EX.HOUSE_CULTURES = { [CHD] = true }
+EX.BLOCS = { destr = true }
+probe("uniononly")
+print("nilsafe " .. tostring(EX.is_house_culture(nil)))
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False,
+                                     encoding="utf-8") as fh:
+        fh.write(harness % LUA_SCRIPT.replace("\\", "\\\\"))
+        tmp = fh.name
+    try:
+        got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    have = dict(l.split(" ", 1) for l in
+                (x.strip() for x in got.splitlines()) if l and " " in l)
+
+    # Columns, in probe() order: CHD, greenskins, empire, skaven, lizardmen.
+    for tag, want, why in (
+            ("prebind", "10000",
+             "the pre-bind default is not own-culture-only. Twenty-odd checks in this module "
+             "load the file without calling bind_race and measure exactly that"),
+            ("destr", "11010",
+             "a Chaos Dwarf player does not see Destruction plus the wildcard"),
+            ("order", "00110",
+             "an Empire player does not see Order plus the wildcard - note greenskins MUST be "
+             "shut and the Chaos Dwarfs with them"),
+            ("wildcard", "11110",
+             "a merchant-race player does not reach every bloc - and lizardmen must STILL be "
+             "shut, because 'any' opens blocs and does not invent one"),
+            ("switchoff", "10000",
+             "cross_bloc off did not close the board back to own culture"),
+            # THE DISCRIMINATING PAIR IS greenskins AND empire. EX.HOUSE_CULTURE says Empire
+            # while the union says Destruction, so a gate reading the union answers 11010 and
+            # one reading this client's culture answers 10110 - opposite on both columns.
+            ("uniononly", "11010",
+             "the gate answered on EX.HOUSE_CULTURE rather than EX.BLOCS. That is a per-client "
+             "read inside the function that builds EX.instruments(), so two machines would "
+             "walk different rows and the price ladder would fork"),
+    ):
+        assert have.get(tag) == want, (
+            "%s: expected %s got %s - %s" % (tag, want, have.get(tag), why))
+    assert have.get("nilsafe") == "false", (
+        "EX.is_house_culture(nil) answered %s. faction:culture() can return nil and the "
+        "discovery walk feeds it straight in." % have.get("nilsafe"))
+
+    print("  blocs: %d cultures over %d blocs, %d deliberately absent, gate run for a "
+          "Destruction / Order / wildcard player, the switch closes it, nil is safe, and it "
+          "answers on the union rather than this client's culture"
+          % (len(bloc), len(BLOC_VALUES), len(BLOC_ABSENT)))
+
+
+def check_culture_locks():
+    """The per-culture lock: the two lists agree, the default really is OFF, and init obeys it.
+
+    Four silent failures, and the first two are the dangerous ones because they fail OPEN:
+
+    1. A DEFAULT OF `true` IN THE MCT FILE. Every other checkbox this mod writes defaults true,
+       so the wrong literal here is the one a copy-paste produces - and it unlocks all thirteen
+       cultures on every fresh install, which is the exact opposite of what was asked for.
+    2. A GROUP NAME THAT DISAGREES between EX.LOCK_GROUPS and CULTURE_LOCKS. EX.lock_allowed
+       reads "allow_" .. group, so a group MCT never registered gets nil, and nil is FALSE here
+       - locked forever with a checkbox beside it that does nothing.
+    3. THE LOCK PLACED AFTER EX.rescan IN EX.init. A locked culture would then still pay for a
+       full supply scan and, worse, write turn-one state into the save.
+    4. A CULTURE KEY TYPO, same as everywhere else in this file: EX.LOCK_OF simply never
+       matches it and that culture is quietly unlocked.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    m = re.search(r"EX\.LOCK_GROUPS = \{(.*?)\n\}", lua, re.S)
+    assert m, "EX.LOCK_GROUPS is gone - every culture can open the Exchange again"
+    body = m.group(1)
+    starts = [(mm.start(), mm.group(1))
+              for mm in re.finditer(r"(\w+)\s*=\s*\{", body)]
+    groups = {}
+    for i, (pos, name) in enumerate(starts):
+        blk = body[pos:starts[i + 1][0]] if i + 1 < len(starts) else body[pos:]
+        groups[name] = set(re.findall(r'"([a-z0-9_]+)"', blk))
+
+    want = set(k for k, _l, _t in CULTURE_LOCKS)
+    assert set(groups) == want, (
+        "EX.LOCK_GROUPS has %s, CULTURE_LOCKS has %s. EX.lock_allowed reads "
+        '"allow_" .. group, so a group MCT never registers reads nil, and nil is locked '
+        "forever with a dead checkbox beside it." % (sorted(groups), sorted(want)))
+
+    wm = re.search(r"EX\.CULTURE_WANTS = \{(.*?)\n\}", lua, re.S)
+    wants = set(re.findall(r'\["([a-z0-9_]+)"\]\s*=\s*\{', wm.group(1)))
+    for g, cultures in sorted(groups.items()):
+        bad = sorted(c for c in cultures if c not in wants)
+        assert not bad, (
+            "lock group %s names %s, which EX.CULTURE_WANTS does not know. EX.LOCK_OF never "
+            "matches a typo, so that culture is quietly UNLOCKED." % (g, bad))
+
+    # THE TWO SETS ARE DELIBERATELY DIFFERENT, and this is where that is written down.
+    assert groups["uncommercial"] == set(BLOC_ABSENT), (
+        "the uncommercial lock group and BLOC_ABSENT have drifted apart: %s. They are the same "
+        "ten cultures said two ways - no economy means both 'cannot be invested in' and "
+        "'cannot trade'."
+        % sorted(groups["uncommercial"] ^ set(BLOC_ABSENT)))
+    bloc = dict(re.findall(r'\["([a-z0-9_]+)"\]\s*=\s*"([a-z]+)"',
+                           re.search(r"EX\.BLOC = \{(.*?)\n\}", lua, re.S).group(1)))
+    for c in sorted(groups["raiders"]):
+        assert c in bloc, (
+            "%s is locked as a raider AND absent from EX.BLOC. That was decided the other way "
+            "on 2026-09-11: a raider culture cannot USE the Exchange but stays investable by "
+            "everyone else, because you are betting on its territory rather than its "
+            "bookkeeping. Removing it here quietly guts the Destruction board." % c)
+
+    # THE ORDER INSIDE EX.init. Read positionally, because "before the scan" is the whole point.
+    init = lua[lua.index("function EX.init()"):]
+    init = init[:init.index("\nend")]
+    for probe in ("EX.bind_race()", "EX.exchange_locked()", "EX.rescan()"):
+        assert probe in init, "EX.init no longer calls %s" % probe
+    assert (init.index("EX.bind_race()") < init.index("EX.exchange_locked()")
+            < init.index("EX.rescan()")), (
+        "EX.init runs bind_race, the lock and rescan in the wrong order. The lock has to sit "
+        "AFTER bind_race (which sets EX.HOUSE_CULTURE, the thing it reads) and BEFORE rescan "
+        "(or a locked culture still pays for a full supply scan and writes turn-one state into "
+        "the save).")
+
+    mct = io.open(MCT_LUA, encoding="utf-8").read()
+    for key, _label, _tip in CULTURE_LOCKS:
+        assert 'm:add_new_option("allow_%s", "checkbox")' % key in mct, (
+            "MCT never registers allow_%s" % key)
+        assert "o_allow_%s:set_default_value(false)" % key in mct, (
+            "allow_%s does not default to FALSE in the generated MCT file. Every other "
+            "checkbox this mod writes defaults true, so this is the literal a copy-paste gets "
+            "wrong - and wrong here unlocks all thirteen cultures on every fresh install."
+            % key)
+
+    # AND THE ACCESSOR, RUN. Everything above reads files; these four lines are where "default
+    # off" actually lives, and every way of getting them wrong fails OPEN.
+    if os.path.isfile(LUA_EXE):
+        import subprocess
+        import tempfile
+        harness = r"""
+local SAVED = {}
+cm = { add_first_tick_callback = function() end, add_loading_game_callback = function() end,
+       add_saving_game_callback = function() end, callback = function() end,
+       set_saved_value = function(_, k, v) SAVED[k] = v end,
+       get_saved_value = function(_, k) return SAVED[k] end,
+       get_local_faction_name = function() return "player" end,
+       get_faction = function() return false end, turn_number = function() return 10 end }
+core = { add_listener = function() end }
+function out() end
+dofile([[%s]])
+
+-- NO MCT AT ALL - a fresh install, or MCT not subscribed. get_mct is nil, EX.mct_raw returns
+-- nil, and nil must read as LOCKED.
+EX.mp_ignores_mct = function() return false end
+print("nomct_orc "  .. tostring(EX.culture_locked("wh_main_grn_greenskins")))
+print("nomct_tmb "  .. tostring(EX.culture_locked("wh2_dlc09_tmb_tomb_kings")))
+print("nomct_chd "  .. tostring(EX.culture_locked("wh3_dlc23_chd_chaos_dwarfs")))
+print("nomct_emp "  .. tostring(EX.culture_locked("wh_main_emp_empire")))
+print("unknown "    .. tostring(EX.culture_locked("not_a_culture")))
+print("nilsafe "    .. tostring(EX.culture_locked(nil)))
+
+-- THE SWITCH ON, one group only. The other group must not move with it.
+EX.mct_raw = function(k) return k == "allow_raiders" end
+print("on_orc "     .. tostring(EX.culture_locked("wh_main_grn_greenskins")))
+print("on_tmb "     .. tostring(EX.culture_locked("wh2_dlc09_tmb_tomb_kings")))
+
+-- MULTIPLAYER IGNORES MCT, and must fall to the DEFAULT rather than to "on". Same switch set.
+EX.mp_ignores_mct = function() return true end
+print("mp_orc "     .. tostring(EX.culture_locked("wh_main_grn_greenskins")))
+
+-- A GROUP THAT DOES NOT EXIST is not a way in either.
+print("badgroup "   .. tostring(EX.lock_allowed("nonesuch")))
+"""
+        with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False,
+                                         encoding="utf-8") as fh:
+            fh.write(harness % LUA_SCRIPT.replace("\\", "\\\\"))
+            tmp = fh.name
+        try:
+            got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+        finally:
+            os.unlink(tmp)
+        have = dict(l.split(" ", 1) for l in
+                    (x.strip() for x in got.splitlines()) if l and " " in l)
+        for k, want, why in (
+                ("nomct_orc", "raiders",
+                 "with no MCT at all a raider culture is NOT locked. EX.mct_raw returns nil "
+                 "there and nil must read as locked - this is a fresh install"),
+                ("nomct_tmb", "uncommercial", "the uncommercial group is not locked by default"),
+                ("nomct_chd", "nil", "the Chaos Dwarfs were locked, and they are the flagship"),
+                ("nomct_emp", "nil", "the Empire was locked and is in no lock group"),
+                ("unknown", "nil", "an unknown culture was locked"),
+                ("nilsafe", "nil", "a nil culture threw or locked"),
+                ("on_orc", "nil", "allow_raiders on did not unlock the raiders"),
+                ("on_tmb", "uncommercial",
+                 "allow_raiders on ALSO unlocked the uncommercial group - the two switches are "
+                 "not independent"),
+                ("mp_orc", "raiders",
+                 "multiplayer read this client's MCT. It must fall to the default instead, or "
+                 "two machines disagree about whether the Exchange exists"),
+                ("badgroup", "false", "an unknown group name was allowed"),
+        ):
+            assert have.get(k) == want, (
+                "%s: expected %r got %r - %s" % (k, want, have.get(k), why))
+
+    print("  culture locks: %d groups covering %d cultures, default OFF in MCT, the lock sits "
+          "between bind_race and rescan in EX.init, the uncommercial group matches BLOC_ABSENT "
+          "exactly, all %d raider cultures stay investable in EX.BLOC, and the accessor is RUN - "
+          "no MCT reads as locked, one switch does not move the other, and multiplayer falls "
+          "to the default rather than to this client's setting"
+          % (len(groups), sum(len(v) for v in groups.values()), len(groups["raiders"])))
 
 
 def check_no_foreign_keys(tables):
@@ -4518,6 +5284,37 @@ def check_sorting():
     assert "[[col:red]]Buy[[/col]]" in have.get("price_desc", ""), (
         "the descending header is not marked red: %s" % have.get("price_desc"))
 
+    # OWN PEOPLE FIRST, THE NAME COLUMN AND THE CAP - all three inside EX.listed_houses.
+    #
+    # grp_name_asc IS THE DISCRIMINATING ROW. The display names are deliberately out of key
+    # order, so a name sort that silently fell back to the key order would still produce the
+    # default grouping and pass every other row here.
+    for key, want, why in (
+            ("grp_default", "b_own,d_own,a_far,c_far",
+             "own-culture houses are not first in the default order"),
+            ("grp_name_asc", "d_own,b_own,c_far,a_far",
+             "the name column did not sort by DISPLAY name (Alpha Bravo Yankee Zulu) inside "
+             "each group. EX.sorted only accepted numbers before 2026-09-11, and a string "
+             "accessor silently sorted every row to -math.huge - which is the list's own "
+             "order, and therefore looks exactly like a working default"),
+            ("grp_name_desc", "b_own,d_own,a_far,c_far",
+             "the name column does not reverse"),
+            ("grp_price_asc", "b_own,d_own,a_far,c_far",
+             "the own-people-first grouping did not survive a numeric column. It is a primary "
+             "key, not a default order"),
+            ("cap_power", "b_own,f2,f4",
+             "the cap did not keep the two most powerful foreign houses (f2=9, f4=7), or it "
+             "counted the own-culture row against the limit"),
+            ("cap_held", "b_own,f1,f2,f4",
+             "a HELD position was capped out of the list. f1 is the weakest house on the "
+             "board and the player owns paper in it; dropping the row hides a live position"),
+            ("cap_pages", "2",
+             "EX.house_pages counted the uncapped list. The counter would then promise a page "
+             "EX.house_slice returns empty, which reads as a market with no houses in it"),
+    ):
+        assert have.get(key) == want, (
+            "%s: expected %r got %r - %s" % (key, want, have.get(key), why))
+
     assert have.get("tie_order") == "b,d,c,a stable=true", (
         "tied rows do not hold their order across repeated reads, so the panel reshuffles "
         "about once a second: %s" % have.get("tie_order"))
@@ -4577,9 +5374,11 @@ def check_sorting():
         "order: %s" % have.get("resort_page"))
     assert have.get("identity") == "true", (
         "the unsorted path copies the list instead of handing back the same table")
-    print("  sorting: 3-click cycle, ties stable over 20 reads, 5 columns by accessor, "
+    print("  sorting: 3-click cycle, ties stable over 20 reads, 6 columns by accessor, "
           "houses sorted across pages not within one, trend ordered by its own glyphs "
-          "(Hi ^ - v Lo), erroring accessor survives")
+          "(Hi ^ - v Lo), erroring accessor survives; and the Houses list groups own people "
+          "first under the name column both ways and under a numeric one, caps the foreign "
+          "tail on power while exempting a held position, and pages the capped list")
 
 
 def check_pool_reach(t):
@@ -4857,10 +5656,24 @@ def check_lua_mp():
                   # each meet the panel for the first time on their own turn and one of them
                   # reading it must not take it away from the other. World-scoped, the
                   # second player would never see the page and nothing would say why.
-                  "SAVE_INTRO"}
+                  "SAVE_INTRO",
+                  # Standing orders. PER PLAYER because an order spends one player's gold -
+                  # a world-scoped key would let either player's orders fire out of the
+                  # other's treasury.
+                  "SAVE_ORDERS",
+                  # Posted deals. PER PLAYER because a deal names a counterparty willing to
+                  # trade WITH ONE PLAYER - EX.deal_ok and EX.post_deals read that player's
+                  # standing and treasury, so a world-scoped key would show every human the
+                  # deals rolled for whichever player was bound last, and accepting one would
+                  # settle against a price the viewer never actually saw offered.
+                  "SAVE_DEALS"}
     WORLD = {"SAVE_PREFIX", "SAVE_HIST", "SAVE_PRESS", "SAVE_STRIPPED", "SAVE_HOUSES",
              "SAVE_HOME", "SAVE_BOOK", "SAVE_DELISTED", "SAVE_SHOCK", "SAVE_SHOCK_WHY",
              "SAVE_SHOCKED", "SAVE_SNAP", "SAVE_STORE",
+             # The world tier's books. WORLD for the same reason SAVE_BOOK is: one market
+             # has one set of positions, and scoping a non-house actor's book per player
+             # would fork the same faction's holdings into two different numbers.
+             "SAVE_WBOOK",
              # Last turn's culture shares. WORLD because it describes the map and two
              # players must read one map; scoping it per player would give each of them a
              # private history of the world and therefore private demand shocks.
@@ -4889,12 +5702,59 @@ def check_lua_mp():
             bad = sorted(found & keys)
             assert not bad, "EX.%s%s used on %s - %s" % (verb, accessor, bad, why)
 
-    # AND THE PER-PLAYER KEYS ARE ACTUALLY USED. A key nothing reads is a position that never
-    # comes back from a save, which looks exactly like a key that is correctly scoped.
-    used = set(re.findall(r"EX\.(?:set|get)p\(EX\.(SAVE_[A-Z_]+)", code))
-    assert used == PER_PLAYER, (
-        "these per-player keys go through no scoped accessor at all: %s"
-        % sorted(PER_PLAYER - used))
+    # AND THE PER-PLAYER KEYS ARE ACTUALLY USED - BOTH HALVES (tightened fix round 2, F1b).
+    # `(?:set|get)p` alone lets a key pass on EITHER accessor, which is exactly why nothing
+    # caught SAVE_DEALS shipping with a getp and no setp in Task 1: EX.getp returned nil on
+    # every load and the restore branch was a permanent no-op, one arrow of Stage 1's
+    # SAVE_WBOOK bug (written, never read) run the other way. Split into two checks so a key
+    # with only one half fails on its own line naming which half is missing. Measured against
+    # the shipped file 2026-09-14: every PER_PLAYER key goes through both EX.setp and EX.getp
+    # once EX.save_deals exists, so this tightens cleanly with no exceptions to carve out.
+    set_used = set(re.findall(r"EX\.setp\(EX\.(SAVE_[A-Z_]+)", code))
+    get_used = set(re.findall(r"EX\.getp\(EX\.(SAVE_[A-Z_]+)", code))
+    assert set_used == PER_PLAYER, (
+        "these per-player keys are never written through EX.setp: %s - whatever holds them in "
+        "memory never reaches the save at all" % sorted(PER_PLAYER - set_used))
+    assert get_used == PER_PLAYER, (
+        "these per-player keys are never read through EX.getp: %s - a load restores nothing "
+        "for them, forever, the SAVE_DEALS shape of bug" % sorted(PER_PLAYER - get_used))
+
+    # AND SO ARE THE WORLD KEYS - THE SAME BOTH-HALVES AUDIT, NEVER RUN BEFORE FIX ROUND 2
+    # (F1b). This is exactly the shape SAVE_WBOOK's own Stage 1 bug took - written every turn,
+    # never read back, so every load silently emptied the world book - and no liveness check on
+    # WORLD keys existed at all to have caught it.
+    #
+    # NO EXEMPTION LIST (fix round 3, G1, superseding F1b's WORLD_ACCESSOR_EXEMPT). A named
+    # exemption is fail-open forever: a key on the list can rot into a genuine one-sided bug and
+    # the gate stays green by construction, because nothing ever re-checks WHY it was on the
+    # list. Recognising the actual access pattern instead is fail-closed - an idiom this file
+    # has never used before goes red and demands an explanation, which is the direction a gate
+    # should fail in. Proof this is the right direction, not just the tidier one: an exemption
+    # list would NOT have caught SAVE_WBOOK's own Stage 1 bug, because that bug was
+    # write-with-no-read and SAVE_WBOOK would have been exempted from exactly the read half
+    # that was missing. The idiom check below WOULD have been red, because `#EX.SAVE_WBOOK`
+    # only exists as part of the fix and was not there when the bug shipped.
+    #
+    # THREE PATTERNS COVER ALL 16 WORLD KEYS WITH NOTHING LEFT OVER:
+    #   EX.setv(EX.SAVE_X / EX.getv(EX.SAVE_X - the ordinary direct accessor pair.
+    #   #EX.SAVE_X - the prefix-scan idiom. A key used as a LENGTH rather than passed whole to
+    #   EX.getv is being read as a prefix over EX.store's own keys, not as a key in its own
+    #   right - SAVE_WBOOK's EX.restore_world_books loop (line 3574) is the one user of this
+    #   today. Counts as a read.
+    #   cm:save_named_value(EX.SAVE_X / cm:load_named_value(EX.SAVE_X - the outer save-slot
+    #   pair, one level outside EX.setv/EX.getv entirely - SAVE_STORE's own pair (lines 10743,
+    #   10749).
+    wset_used = set(re.findall(r"EX\.setv\(EX\.(SAVE_[A-Z_]+)", code))
+    wget_used = set(re.findall(r"EX\.getv\(EX\.(SAVE_[A-Z_]+)", code))
+    wget_used |= set(re.findall(r"#EX\.(SAVE_[A-Z_]+)", code))
+    wset_used |= set(re.findall(r"cm:save_named_value\(EX\.(SAVE_[A-Z_]+)", code))
+    wget_used |= set(re.findall(r"cm:load_named_value\(EX\.(SAVE_[A-Z_]+)", code))
+    assert WORLD <= wset_used, (
+        "these world keys are never written through EX.setv or cm:save_named_value: %s"
+        % sorted(WORLD - wset_used))
+    assert WORLD <= wget_used, (
+        "these world keys are never read through EX.getv, the #key prefix-scan idiom, or "
+        "cm:load_named_value: %s" % sorted(WORLD - wget_used))
 
     # ---------------------------------------------------------------------------------------
     # 2. THE SLICE LISTS MATCH WHAT IS RESTORED. This is how the swap drifts: somebody adds a
@@ -4915,6 +5775,19 @@ def check_lua_mp():
     # named here rather than found by the regex.
     assert "EX.unpack_log(" in rp.group(0), "EX.restore_player no longer restores the log"
     assigned.add("LOG")
+    # SAME SHAPE FOR ORDERS. EX.unpack_orders(EX.getp(EX.SAVE_ORDERS)) replaced the bare
+    # `EX.orders = {}` reset once the real read-back was wired in, so the assignment regex
+    # above no longer sees it either.
+    assert "EX.unpack_orders(" in rp.group(0), (
+        "EX.restore_player no longer restores standing orders")
+    assigned.add("orders")
+    # SAME SHAPE AGAIN FOR DEALS (Stage 2 fix round 1, R3). EX.deals follows the subject the
+    # same way EX.orders does - EX.post_deals builds it against EX.who() and EX.deal_ok asks
+    # the engine about one specific faction, so two humans hold different deal lists and an
+    # unfenced global would leak one player's deals into the other's on a subject swap.
+    assert "EX.unpack_deals(" in rp.group(0), (
+        "EX.restore_player no longer restores deals")
+    assigned.add("deals")
     assert assigned == slice_names, (
         "EX.restore_player restores %s but the slice lists carry %s. A value in one and not "
         "the other is a value that does not follow the subject - it belongs to whichever "
@@ -4940,7 +5813,7 @@ def check_lua_mp():
     # 4. THE TRANSPORT. Every op has a handler, and the two clickable paths go through it.
     # ---------------------------------------------------------------------------------------
     ops = set(re.findall(r"EX\.MP_OPS\.(\w+)\s*=", code))
-    assert ops == {"buy", "sell", "offer"}, (
+    assert ops == {"buy", "sell", "offer", "ord", "ordx", "deal"}, (
         "EX.MP_OPS carries %s. Every model change reachable from a click needs one, and "
         "nothing else belongs in it." % sorted(ops))
     # EVERY LITERAL IN THE ARGUMENT, not just one at the front: EX.trade picks its op with
@@ -5018,11 +5891,22 @@ def check_lua_mp():
     # of what the subject swap is for, and the only fault here that costs anybody money.
     eq("subject_after_adopt", "alpha_player",
        "EX.adopt_local did not claim the file-scope tables for the local player")
+    # THE LOG COUNT IS 2, NOT 1, AND THAT IS NOT A LEAK. The harness seeds one line per player
+    # and then calls EX.place_order, which since 2026-09-11 writes its own "Order placed."
+    # line - so two entries per player, each still in that player's own slice. It went 1 -> 2
+    # the moment placement started logging and this check caught it immediately, which is the
+    # behaviour wanted: any change to what lands in a per-player table has to be looked at
+    # rather than absorbed. A real leak shows as counts that DIFFER from each other or as a
+    # signature naming another player's instrument, never as all four moving together.
     eq("slices",
-       "alpha_player=10/10/res_alpha_player/10/1 mid_player=20/20/res_mid_player/20/1 "
-       "omega_player=30/30/res_omega_player/30/1 zeta_player=40/40/res_zeta_player/40/1",
-       "one player's shares, offering count, pending tithe, offering timer or log reached "
-       "another. Every one of those is per player and they are swapped as a set")
+       "alpha_player=10/10/res_alpha_player/10/2/1:res_gems:ble:10 "
+       "mid_player=20/20/res_mid_player/20/2/1:res_dyes:sge:20 "
+       "omega_player=30/30/res_omega_player/30/2/1:res_gold_idols:bge:30 "
+       "zeta_player=40/40/res_zeta_player/40/2/1:res_rom_timber:sle:40",
+       "one player's shares, offering count, pending tithe, offering timer, log or standing "
+       "orders reached another. Every one of those is per player and they are swapped as a "
+       "set - the trailing count:signature is EX.orders, and a leak there is an order that "
+       "fires out of the wrong player's treasury")
     eq("subject_after_loop", "alpha_player",
        "the subject was left bound to somebody else after the loop, so every later payout "
        "would be credited to the wrong faction")
@@ -5091,6 +5975,45 @@ def check_lua_mp():
        "trade lands in the wrong treasury on three machines out of four")
     eq("cqi_unknown", "nil", "an unknown cqi resolved to a faction")
 
+    # THE DEALS PAGE, AND THE ONLY REASON ITS BUTTON IS SAFE TO SHIP. EX.mp_send carries the
+    # LIST INDEX and nothing else, so client B's EX.deals[3] has to be client A's EX.deals[3]
+    # or one click settles two different trades. The harness runs the page twice from two
+    # table insertion orders, which is as close as a single process gets to two machines.
+    eq("deal_pages_agree", "4/4",
+       "two clients built different deal pages from the same world. The wire carries an INDEX "
+       "into that page, so a disagreement here is one click settling a different trade on "
+       "each machine - and only the player who clicked sees the one they meant")
+    eq("deal_pages_empty", "0",
+       "a player's page came back empty, so the agreement above is agreement about nothing")
+
+    # AND THE ENGINE IS ASKED ABOUT THE BOUND PLAYER, NOT THE LOCAL ONE. This is the fault
+    # agreement cannot see: four machines each asking about their own local player agree
+    # perfectly with themselves and are wrong for three players out of four. The stub refuses
+    # house_b to mid_player alone, so exactly three pages may carry house_b and mid_player's
+    # must not be one of them.
+    eq("deal_house_b_pages", "3",
+       "the AI refuses to deal with exactly one of the four players, so exactly three pages "
+       "may carry it. A different number means EX.deal_ok is not passing the bound player as "
+       "the proposing side")
+    eq("deal_mid_has_house_b", "false",
+       "the one player the AI refused still got the deal. EX.deal_ok read somebody else as "
+       "the proposer - on this machine that is the local player, and every other machine "
+       "would post a different page for the same faction")
+    eq("deal_pages_distinct", "2",
+       "the four pages are not two distinct strings. They SHOULD mostly match - the AI world "
+       "offers the same deals to every human - but the refused pair has to show, or this "
+       "whole section is comparing four copies of one string")
+
+    # AND THE SETTLEMENT RUNS AS THE SENDER. mid_player clicks Take on their machine; the gold
+    # that moves on THIS machine, which is playing alpha_player, must still be mid_player's.
+    eq("deal_moved", "mid_player",
+       "accepting a deal moved the wrong treasury. Applied as the local player it looks "
+       "correct on the clicker's own screen and is wrong on every other machine, which is "
+       "the worst way for it to be wrong")
+    eq("deal_subject_after", "alpha_player",
+       "the deal op left somebody else bound. Every payout after it would be credited to the "
+       "wrong faction, silently, on this machine only")
+
     # MCT IS A LOCAL REGISTRY AND MULTIPLAYER IGNORES IT. Two players can hold different
     # presets and nothing reconciles them, so a snapshot taken from MCT freezes a DIFFERENT
     # economy into each machine's save on turn one.
@@ -5105,7 +6028,8 @@ def check_lua_mp():
     print("  multiplayer: %d per-player keys scoped and %d world keys shared, slice lists "
           "match EX.restore_player, one forced local-faction read, 4 humans isolated across "
           "shares/tithe/offerings/log, subject restored after an error, race and patron follow "
-          "the subject, MCT ignored, and the round runs once per turn"
+          "the subject, MCT ignored, the round runs once per turn, and two clients resolve "
+          "the same deal page for each player off the BOUND subject rather than the local one"
           % (len(PER_PLAYER), len(WORLD)))
 
 
@@ -5650,6 +6574,28 @@ MCT_OPTIONS = [
      "The altar periodically demands a commodity tithe."),
     ("trade_income", "Exchange prices drive trade income",
      "A commodity you produce trading high raises your trade income that turn."),
+    ("cross_bloc", "Trade shares across your bloc",
+     "Houses of the cultures your people deal with are listed beside your own. Off, the "
+     "board lists your own people only, as it did before."),
+    ("ai_stance", "Houses react to your book",
+     "A large stake in a house warms it toward you; hoarding the goods it sells cools "
+     "it. This promotes a real AI strategic stance, so it reaches war targeting and "
+     "deal generation - and it clears any other scripted stance between that house and "
+     "you every turn. Off, your market position stays inside the Exchange."),
+    ("ai_world", "The world trades",
+     "Every landholding faction holds commodities, and buys and sells them each turn. "
+     "Off: only the fourteen houses trade."),
+    ("world_scarcity", "Supply can run out",
+     "A purchase fails when no faction anywhere is holding that good. "
+     "Off: you can always buy."),
+    ("ai_deals", "Factions offer you deals",
+     "Factions with something to buy or sell put a one-turn offer to you each turn, priced "
+     "off market in your favour. Off: no offers are posted and the Deals page says so."),
+    ("world_bundles", "Positions supply armies",
+     "A faction holding iron, timber and obsidian replenishes its armies faster; one that "
+     "has sold them short replenishes slower, and being at war doubles it either way. "
+     "Applies to you and to the AI alike. Off: no supply effect is applied to anyone, and "
+     "any left over from a previous save is removed."),
 ]
 
 # THE CUSTOM KNOBS. key, section, label, tooltip, default, min, max, step, precision.
@@ -5663,8 +6609,8 @@ MCT_OPTIONS = [
 # the slider cannot land on is a setting the player can never reproduce by hand, and the panel
 # and the game then disagree about what the mod is doing. check_presets() asserts both.
 TUNABLES = [
-    ("ladder_step", "market", "Price step per rung",
-     "How far one rung moves the price. 1.10 is a 10% step; higher means sharper swings both "
+    ("ladder_step", "market", "Price move per step",
+     "How far one step moves the price. 1.10 is a 10% move; higher means sharper swings both "
      "ways.", 1.10, 1.02, 1.30, 0.01, 2),
     ("spread", "market", "Buy/sell spread",
      "The gap between what you pay and what you are paid. 0.10 means a lot sells back for 10% "
@@ -5680,23 +6626,23 @@ TUNABLES = [
     ("sell_floor", "market", "Sell floor",
      "However hostile the guild is, a sale never pays less than this fraction of the world "
      "price.", 0.25, 0.05, 1.00, 0.05, 2),
-    ("pressure_per_rung", "market", "Lots to move a rung",
-     "Net lots you must buy before your own trading pushes the price up a rung. Lower means "
+    ("pressure_per_rung", "market", "Lots to move one step",
+     "Net lots you must buy before your own trading pushes the price up one step. Lower means "
      "cornering a good is easier.", 4, 1, 20, 1, 0),
     ("carry_per_unit", "market", "Warehouse rent per unit",
      "Gold charged each turn for every unit you hold. Needs Warehouse rent switched on.",
      0.5, 0.0, 3.0, 0.1, 1),
 
     ("ai_gain", "houses", "AI price appetite",
-     "Rungs per unit of world appetite before the cap. Higher means the guild moves prices "
+     "Price steps per unit of world appetite, before the cap. Higher means the guild moves prices "
      "harder on war and culture.", 6.0, 0.0, 20.0, 0.5, 1),
-    ("ai_max_rungs", "houses", "AI rungs per turn",
+    ("ai_max_rungs", "houses", "AI steps per turn",
      "The most the guild can move one price in a single turn.", 2, 0, 8, 1, 0),
-    ("book_per_rung", "houses", "Book size per rung",
-     "Units a house must hold to shift a price one rung. Lower means the guild's positions "
+    ("book_per_rung", "houses", "Book size per step",
+     "Units a house must hold to shift a price one step. Lower means the guild's positions "
      "move the market more.", 30, 5, 100, 1, 0),
-    ("book_max", "houses", "Book rung cap",
-     "The most rungs the guild's holdings can shift a price, either way.", 2, 0, 8, 1, 0),
+    ("book_max", "houses", "Book step cap",
+     "The most steps the guild's holdings can shift a price, either way.", 2, 0, 8, 1, 0),
     ("hostile_max", "houses", "Hostility markup cap",
      "The most a house that despises you can add to a price. 0.25 is +25%.",
      0.25, 0.00, 1.00, 0.05, 2),
@@ -5709,7 +6655,7 @@ TUNABLES = [
     # wonder why 0.25 is not 25%.
     ("friendly_max", "houses", "Friendly discount cap",
      "The most a house that likes you can take off a price - it buys cheaper AND sells "
-     "dearer. Bounded by the buy/sell spread: at the default spread only about 1% gets "
+     "higher. Bounded by the buy/sell spread: at the default spread only about 1% gets "
      "through, and raising the spread raises this with it.",
      0.25, 0.00, 1.00, 0.05, 2),
     ("guild_close", "houses", "War closes the Exchange at",
@@ -5745,10 +6691,10 @@ TUNABLES = [
      "Per cent chance each turn once off cooldown.", 30, 0, 100, 5, 0),
 
     ("shock_gain", "shocks", "Shock strength",
-     "Rungs per unit of world supply disrupted by a sack, a raze or a siege.",
+     "Price steps per unit of world supply disrupted by a sack, a raze or a siege.",
      10, 0, 40, 1, 0),
     ("shock_max", "shocks", "Shock cap",
-     "The most rungs one shock can move a price, either way.", 6, 0, 20, 1, 0),
+     "The most steps one shock can move a price, either way.", 6, 0, 20, 1, 0),
     ("shock_decay", "shocks", "Shock decay per turn",
      "What survives into the next turn. 0.5 halves it; higher makes a spike linger.",
      0.5, 0.00, 0.95, 0.05, 2),
@@ -5768,10 +6714,42 @@ TUNABLES = [
      "dividend; Cathay is the calmest board and the most taxed. Chaos Dwarfs are the baseline "
      "and never change.",
      1.0, 0.0, 2.0, 0.05, 2),
+
+    ("world_cash_max", "world", "World trader purse",
+     "The most gold one faction outside the guild will move in a single turn.",
+     3000, 0, 50000, 500, 0),
+    ("world_trade_max", "world", "World trade size",
+     "The most lots one faction outside the guild will buy or sell in a single turn.",
+     3, 1, 10, 1, 0),
+    ("world_gain", "world", "World book weight",
+     "How hard the wider world's holdings push a price. 0 means the world trades but its "
+     "positions never move the board.",
+     4.0, 0.0, 20.0, 0.5, 1),
+    # THE CEILING IS THE ROW POOL. EX.build_panel creates exactly deal_max row components once,
+    # off the same knob, so the maximum here is also the most rows the Deals page can ever
+    # draw. 6 against 20 panel slots leaves the page far inside the list's own limit.
+    ("deal_max", "world", "Deals offered per turn",
+     "How many one-turn offers the world puts to you each turn. Every one is a decision to "
+     "read, so this is small on purpose. Needs the offers switch on.", 3, 1, 6, 1, 0),
+    # MINIMUM 1, NOT 0. A deal priced AT market is not a deal - it is the Trade view with extra
+    # clicks - and the deals check refuses a zero rather than shipping a page of non-offers.
+    ("deal_edge", "world", "Deal edge, per cent",
+     "How far off market an offer is priced, always in your favour: a buyer pays over, a "
+     "seller takes under. Keep it under one step of the price ladder or a deal becomes a free "
+     "round trip against the market.", 6, 1, 25, 1, 0),
+    # SMALLER IS STRONGER, which is the opposite of how most of these read - the step is how
+    # many lots of net war goods one tier costs, so a narrow step puts a bundle on more of
+    # the map. The floor is 1 and not 0: at 0 every position divides to infinity and the
+    # whole map sits on the top tier in both directions at once.
+    ("pos_step", "world", "War-goods position step",
+     "How many lots of net iron, timber and obsidian one supply tier is worth. Lower means "
+     "more factions carry a war-supply bonus or penalty; higher means only the biggest "
+     "positions register.", 4, 1, 12, 1, 0),
 ]
 
 TUNE_SECTIONS = [("market", "Market"), ("houses", "AI houses"), ("shares", "Shares"),
-                 ("hashut", "Tithes"), ("shocks", "War shocks"), ("race", "Race profile")]
+                 ("hashut", "Tithes"), ("shocks", "War shocks"), ("race", "Race profile"),
+                 ("world", "The world")]
 
 PRESET_ORDER = ["easy", "default", "hard", "ultra", "custom"]
 PRESET_LABEL = {
@@ -5780,13 +6758,13 @@ PRESET_LABEL = {
                      "double. Rent and the patron's tithe are off."),
     "default": ("Default", "The Exchange as designed and as every previous build played."),
     "hard": ("Hard", "High risk, high reward. Every edge that costs you widens, the guild "
-                     "moves three rungs a turn, war closes the market sooner - and dividends "
+                     "moves three steps a turn, war closes the market sooner - and dividends "
                      "and buyouts rise with it."),
     "ultra": ("Ultra Capitalism", "The extreme. A quarter spread against a tenth floor, the "
-                                  "guild moving five rungs a turn on books that shift twice "
+                                  "guild moving five steps a turn on books that shift twice "
                                   "as hard, hostility to +60%, the market shutting when under "
                                   "a third of the guild is at war, the altar demanding from "
-                                  "turn 5, and shocks reaching twelve rungs and lingering. "
+                                  "turn 5, and shocks reaching twelve steps and lingering. "
                                   "Shares pay 5% and a buyout pays double."),
     "custom": ("Custom", "Every value below becomes live. Set them before you start a "
                          "campaign; they are fixed once one is running."),
@@ -5832,7 +6810,7 @@ DEBUG_CATS = [
     ("log_ui", "Panel", "The panel, the opener button and the finance screen."),
 ]
 
-# THE FEATURE KILL-SWITCHES. Three, and every one of them gates real code - check_features
+# THE FEATURE KILL-SWITCHES. Four, and every one of them gates real code - check_features
 # refuses to generate otherwise, which is the whole reason this table exists.
 #
 # NOT LOCKED IN A CAMPAIGN, and that is the difference between these and the seven system
@@ -5840,9 +6818,10 @@ DEBUG_CATS = [
 # price you were quoted stays the price you are charged; a kill-switch exists to be moved
 # WHILE a bug is happening, which is the same argument the debug options already carry.
 #
-# "orders" WAS THE FOURTH AND IS DELETED, not registered. Limit and stop orders were never
-# built, so EX.feature("orders") was called from nowhere: registering it would have put a
-# checkbox in the panel for a system the player is not running. See EX.FEATURE_DEFAULT.
+# "orders" CAME BACK 2026-09-10, in the same commit as its first call site. It was deleted
+# 2026-09-08 because limit and stop orders were never built, so EX.feature("orders") was
+# called from nowhere: registering it would have put a checkbox in the panel for a system the
+# player was not running. See EX.FEATURE_DEFAULT.
 FEATURE_SWITCHES = [
     ("deep_history", "Price history chart",
      "The forty-turn chart on the Trade view's second page. Off greys the page arrows and "
@@ -5853,7 +6832,35 @@ FEATURE_SWITCHES = [
      "in the footer. Off and prices move only on supply, trade and the guild."),
     ("appetite_drift", "World appetite",
      "Cultures wanting more of some goods than they make, drifting over the campaign - the "
-     "Wanted and Going begging lines. Off and every good is priced on supply alone."),
+     "Wanted and Unwanted lines. Off and every good is priced on supply alone."),
+    ("orders", "Standing orders",
+     "Limit and stop orders on the Trade view's third page, filled at your turn start. Off "
+     "and the page is gone and nothing fills - orders you have already placed are kept, not "
+     "cancelled, and start filling again when you turn this back on."),
+]
+
+# THE CULTURE LOCKS. A THIRD CLASS OF SWITCH, and the only one in this mod that DEFAULTS OFF.
+#
+# Every other switch here turns something off; these turn a permission on, so the two existing
+# accessors are both the wrong way round - EX.setting and EX.feature each return TRUE for a key
+# MCT never wrote. EX.lock_allowed defaults to false instead, and answers false in multiplayer
+# too, where MCT is ignored and every machine has to reach the same answer.
+#
+# NOT in FEATURE_SWITCHES on purpose: check_features asserts exactly four of those and that each
+# gates code, and a permission is not a kill-switch.
+#
+# The group keys must match EX.LOCK_GROUPS in the campaign script; check_culture_locks asserts
+# both directions, including that every culture named is one EX.CULTURE_WANTS knows.
+CULTURE_LOCKS = [
+    ("uncommercial", "Let raider cultures trade",
+     "Tomb Kings, both vampire cultures, the four Chaos gods, Daemons of Chaos, Beastmen and "
+     "Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at "
+     "all: no button, no panel, no prices. Others can still buy shares in them either way. "
+     "Takes effect on a restart."),
+    ("raiders", "Let raider cultures trade",
+     "Greenskins, Norsca and the Warriors of Chaos. They take rather than trade, so off - the "
+     "default - they have no Exchange at all. This does NOT remove them as investments: other "
+     "cultures can still buy shares in them. Takes effect on a restart."),
 ]
 
 
@@ -5980,6 +6987,18 @@ def build_mct():
                 'o_feat_%s:set_tooltip_text("%s")' % (key, lua_q(tip)),
                 'o_feat_%s:set_default_value(true)' % key,
                 'o_feat_%s:set_assigned_section("features")' % key,
+                ""]
+
+    # THE CULTURE LOCKS, beside the feature switches and for the same reason: outside the
+    # `economic` list, so a campaign cannot freeze them. set_default_value(false) is the whole
+    # point - see the note on CULTURE_LOCKS - and check_culture_locks asserts the literal,
+    # because a `true` here would silently unlock every culture on a fresh install.
+    for key, label, tip in CULTURE_LOCKS:
+        out += ['local o_allow_%s = m:add_new_option("allow_%s", "checkbox")' % (key, key),
+                'o_allow_%s:set_text("%s")' % (key, lua_q(label)),
+                'o_allow_%s:set_tooltip_text("%s")' % (key, lua_q(tip)),
+                'o_allow_%s:set_default_value(false)' % key,
+                'o_allow_%s:set_assigned_section("features")' % key,
                 ""]
 
     # DEBUG. Never locked, never preset-controlled, and the level's "off" value is the only
@@ -6215,10 +7234,12 @@ def check_features():
     nothing was registered.
 
     The other half is worse and is why this asserts the CALL SITE too. Two of the four gated
-    no code at all - EX.feature("orders") guarded limit and stop orders, which were never
+    no code at all - EX.feature("orders") guarded limit and stop orders, which were not yet
     built, and EX.feature("deep_history") guarded the deep chart from nowhere. Registering
-    those would have put two checkboxes in the panel that turned nothing off. orders is
-    deleted and deep_history is wired; this refuses to let either shape back in.
+    those would have put two checkboxes in the panel that turned nothing off. Both switches
+    were pulled from FEATURE_SWITCHES until their call sites existed; orders came back
+    2026-09-10 in the same commit as EX.trade_pages and EX.fill_orders. This still refuses to
+    let an unwired switch back in.
     """
     text = io.open(MCT_LUA, encoding="utf-8").read()
     code = io.open(LUA_SCRIPT, encoding="utf-8").read()
@@ -6257,20 +7278,57 @@ def check_features():
             "disabled a system that is still running - or, as with orders, one that was "
             "never built. Wire it or delete it." % (key, label, key))
 
-    # deep_history NEEDS BOTH ITS READERS, and the n > 0 above cannot tell one from two.
-    # EX.page_count is what greys the arrows, so the page cannot be REACHED; EX.on_chart is
-    # what stops it being DRAWN when trade_page is already 2 as the switch moves - which is
-    # the normal case, because a kill-switch is thrown while the thing is on screen doing the
-    # wrong thing. Either alone leaves a visible half-gate: a chart that still draws under a
-    # counter reading 1/1, or an empty second page with nothing on it and no way to be told why.
+    # deep_history AND orders EACH NEED BOTH THEIR READERS, and the n > 0 above cannot tell
+    # one reader from two. Since 2026-09-10 EX.on_chart and EX.page_count no longer read
+    # EX.feature("deep_history") directly - both reach it through EX.trade_pages, so this
+    # checks that function's body once for both switches, then checks the remaining readers:
+    # EX.page_count is what greys the arrows, so a page cannot be REACHED; EX.on_chart / the
+    # orders page equivalent is what stops it being DRAWN if trade_page is already on it as
+    # the switch moves - the normal case, because a kill-switch is thrown while the thing is
+    # on screen doing the wrong thing. Either half alone leaves a visible half-gate.
+    m = re.search(r"function EX\.trade_pages\(\)(.*?)" + NL + "end", body, re.S)
+    assert m, "EX.trade_pages is gone - the trade view has no page gate to hold"
+    assert 'EX.feature("deep_history")' in m.group(1), \
+        "EX.trade_pages does not read the deep_history switch"
+    assert 'EX.feature("orders")' in m.group(1), \
+        "EX.trade_pages does not read the orders switch"
+
     for fn in ("EX.on_chart", "EX.page_count"):
         m = re.search(r"function " + re.escape(fn) + r"\(\)(.*?)" + NL + "end", body, re.S)
-        assert m, "%s is gone - the chart page has no gate to hold" % fn
-        assert 'EX.feature("deep_history")' in m.group(1), (
-            "%s does not read the deep_history switch. The other reader does, so the switch "
-            "half-works: %s" % (fn, "the page is unreachable but the panel still draws it"
-                                 if fn == "EX.on_chart" else
-                                 "the panel refuses to draw a page the arrows still offer"))
+        assert m, "%s is gone" % fn
+        assert "EX.trade_pages()" in m.group(1) or "EX.trade_kind()" in m.group(1), (
+            "%s no longer reads the page list, so the two switches half-work: %s"
+            % (fn, "the page is unreachable but the panel still draws it"
+               if fn == "EX.on_chart" else
+               "the panel refuses to draw a page the arrows still offer"))
+
+    # ORDERS' SECOND READER. EX.trade_pages is checked above; EX.fill_orders is the half that
+    # stops the model RUNNING rather than the page being REACHED, and it reads the switch
+    # directly rather than through the page list.
+    m = re.search(r"function EX\.fill_orders\(\)(.*?)" + NL + "end", body, re.S)
+    assert m, "EX.fill_orders is gone - the orders switch has no gate to hold"
+    assert 'EX.feature("orders")' in m.group(1), (
+        "EX.fill_orders does not read the orders switch. EX.trade_pages does, so the switch "
+        "half-works: nothing fills but the page still offers a Place button")
+
+    # ORDERS' THIRD READER, AND THE ONE THE OTHER TWO DO NOT COVER. EX.trade_pages stops the
+    # ledger being REACHED and EX.fill_orders stops the model RUNNING - but the ticket that
+    # CREATES an order is placed by the chart page too, and that page answers to deep_history,
+    # not to this switch. So with orders off the Place button was still on screen and still
+    # worked, while the ledger page holding the only Cancel button no longer existed: twelve
+    # orders, no way to delete one, and all twelve live again the moment the switch went back
+    # on. Shipped 2026-09-10 and found by the whole-feature review, not by this check - which
+    # asserted the fill gate and stopped, on the belief that Place lived on the orders page.
+    #
+    # EX.place_order_check IS THE RIGHT PLACE for it: EX.place_order and EX.MP_OPS.ord both
+    # route through it, so one gate covers the button and the network op and they cannot
+    # drift apart about why a placement was refused.
+    m = re.search(r"function EX\.place_order_check\([^)]*\)(.*?)" + NL + "end", body, re.S)
+    assert m, "EX.place_order_check is gone - nothing gates order PLACEMENT"
+    assert 'EX.feature("orders")' in m.group(1), (
+        "EX.place_order_check does not read the orders switch, so the switch half-works in "
+        "its most dangerous direction: the ledger page vanishes while the ticket on the "
+        "CHART page can still create orders that nothing is then able to cancel")
 
     # NOT IN THE CAMPAIGN LOCK. A switch that greys out the moment you load the campaign you
     # need it in has been locked out of its only job.
@@ -6284,6 +7342,681 @@ def check_features():
 
     print("  features: %d switches registered, each gating code, none campaign-locked (%s)"
           % (len(registered), ", ".join(sorted(registered))))
+
+
+def check_lua_orders():
+    """Standing orders: validation, packing, the cap, and which side of the rung each fires on.
+
+    THE ASSERTION THAT MATTERS IS THE LAST BLOCK. A comparison inverted between "le" and "ge"
+    is a stop-loss that sells on the way up and a limit buy that buys the spike - it packs,
+    round-trips, draws and saves perfectly, and no other check in this suite reads the
+    direction. Both the in-the-money and the out-of-the-money case are asserted for all four
+    combinations, because a hits() that returns true for everything passes half of them.
+    """
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped orders run: no lua.exe)")
+        return
+    import subprocess, tempfile
+    harness = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "_orders_harness.lua"), encoding="utf-8").read()
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness % LUA_SCRIPT.replace(chr(92), chr(92) * 2))
+        tmp = fh.name
+    try:
+        got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    have = {}
+    for line in got.splitlines():
+        line = line.strip()
+        if line:
+            k, _, v = line.partition(" ")
+            have[k] = v
+
+    assert have["reject"] == "8/8", (
+        "EX.valid_order let a malformed order through (%s). Orders are read back out of a "
+        "save string, so anything this accepts is something EX.fill_orders will later index "
+        "into - and one of the 8 is a NIL instrument, the case a caller bug in EX.ticket_click "
+        "(dropping its own EX.selected guard) would actually produce" % have["reject"])
+    assert have["accept"] == "true", "EX.valid_order rejected a well-formed order"
+
+    assert have["cap"] == "12", (
+        "%s orders were placed against a cap of 12" % have["cap"])
+    assert have["capsaid"] == "true", (
+        "the order over the cap was refused with no reason string. The ticket prints what "
+        "EX.place_order returns, so a nil there is a click that silently does nothing")
+
+    assert have["dup"] == "true" and have["dupcount"] == "1", (
+        "an identical order was accepted twice. Both would fire, but one fill per instrument "
+        "per turn means the second sits there looking live forever")
+
+    assert have["house"] == "true", (
+        "an order was accepted on a house share. Nothing can select one for the ticket, so "
+        "the order could be placed and never seen again")
+
+    # THE LEDGER'S PRICE COLUMN, STATICALLY. The three behavioural assertions below pin
+    # EX.order_price and the order sentence, but the ledger's own "Now" cell is written deep
+    # inside EX.refresh_panel's row loop, which no harness can reach without a live panel -
+    # so the regression it guards (back to the mid, EX.price) is pinned by reading the write
+    # itself. A weaker check than a measurement, and the honest reason is reach.
+    lua_all = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    m = re.search(r'set_text\(row, "row_price", tostring\(\s*\n?\s*(.*?)\)\)',
+                  lua_all[lua_all.index('local o = n and EX.orders[n]'):], re.S)
+    assert m, "the ledger no longer writes row_price at all"
+    expr = " ".join(m.group(1).split())
+    assert "buy_price" in expr and "sell_price" in expr, (
+        "the ledger's price column is written from %r. The column is headed \"Now\" and half "
+        "its rows are sells - it has to be the price THAT order's side gets, the same two "
+        "functions the Trade view's own Buy and Sell columns use." % expr)
+
+    # THE PRICE AN ORDER QUOTES IS THE PRICE ITS SIDE GETS. EX.price_at is the MID of the
+    # spread and every order surface printed it - the ticket, the order sentence and the
+    # ledger's price column. On a neutral board a sell at the mid's rung pays roughly a
+    # tenth less, and on a Layer 2 instrument EX.sell_price applies l2_sell and it pays half.
+    # "Sell at or above 621g" over a 559g fill is a promise about money, and the Trade view
+    # has had a separate Sell column since 2026-09-06 for exactly this reason.
+    mid, obuy = int(have["mid"]), int(have["ordbuy"])
+    osell, osell2 = int(have["ordsell"]), int(have["ordsell2"])
+    assert osell < mid, (
+        "a sell order at the rung whose mid is %d quotes %d. The mid is not what a sell "
+        "pays - EX.sell_price is, and it is the function the Trade view's own Sell column "
+        "already uses." % (mid, osell))
+    assert obuy >= mid, (
+        "a buy order quotes %d against a mid of %d - a buy never pays LESS than the mid, so "
+        "this is the spread applied on the wrong side" % (obuy, mid))
+    assert osell2 > osell, (
+        "a sell order four rungs higher quotes %d, the same or less than %d at the lower "
+        "rung. The quote must follow the stepper or the ticket reads one number whatever "
+        "the player sets" % (osell2, osell))
+    assert str(osell) in have["ordtext"] and str(mid) not in have["ordtext"], (
+        "the order sentence reads %r. It must carry the side's own price (%d) and not the "
+        "mid (%d) - it is the string the ledger draws and the ticket echoes"
+        % (have["ordtext"], osell, mid))
+
+    # A REFUSED PLACE IS VISIBLE. EX.place_order's own comment sets the standard: "a reason
+    # and not a boolean because the ticket prints it - a click that silently does nothing is
+    # the complaint the Log view exists to answer". The ticket did not print it until
+    # 2026-09-10; EX.say alone is the script log, behind log_level and a debug toggle.
+    assert have["dup_refusal"] == "true", (
+        "a refused Place left EX.ord_refusal unset, so the ticket has nothing to print and "
+        "the button looks dead - which is the exact complaint, on the exact control")
+    assert have["dup_logged"] == "true", (
+        "a refused Place wrote nothing to the Log view. Every other refusal in this file "
+        "pairs EX.say with EX.log_add; the Log is where a player goes to ask why nothing "
+        "happened")
+    assert have["ticket_off_side"] == "b" and have["ticket_off_left"] == "0", (
+        "with the orders switch OFF the ticket still works: the side toggled to %r and a "
+        "Place left %s orders. EX.place_order_check refuses the placement either way, so "
+        "this is belt to that brace - but without it every other control on a switched-off "
+        "feature is still live under the player's cursor"
+        % (have["ticket_off_side"], have["ticket_off_left"]))
+
+    assert have["dup_refusal_cleared"] == "true", (
+        "the refusal survived an edit to the ticket. It describes the order that was on "
+        "screen when Place was pressed, so it must not outlive that order")
+
+    assert have["trip"] == "true", (
+        "pack/unpack did not round-trip: %s" % have["packed"])
+    assert have["tripn"] == "3", "%s orders survived the round trip, not 3" % have["tripn"]
+    # THE AMOUNT. One value drives the Buy/Sell buttons and the size Place freezes onto a new
+    # order, so the number cannot mean two things in one panel.
+    assert have["amount_cycle"] == "1,5,10,25,1", (
+        "the amount ladder cycles %s. It must walk every rung and wrap, or a player can reach "
+        "a size and never get back to 1" % have["amount_cycle"])
+    assert have["amount_offladder"] == "1", (
+        "an amount that is not on the ladder (a stale save, a hand-set value) advanced to %s "
+        "instead of landing back on the first rung - off the ladder it would stick forever"
+        % have["amount_offladder"])
+    assert have["clamp_lo"] == "1 1 1" and have["clamp_nil"] == "1", (
+        "EX.clamp_lots let a zero, a negative or a non-number through (%s / %s). It is reached "
+        "from a network op and from a save, and the number becomes that many REAL trades"
+        % (have["clamp_lo"], have["clamp_nil"]))
+    assert have["clamp_hi"] == "25" and have["clamp_frac"] == "3", (
+        "EX.clamp_lots returned %s for 9999 and %s for 3.7 - it must cap at the ladder's top "
+        "and floor to a whole lot" % (have["clamp_hi"], have["clamp_frac"]))
+
+    # ONE LOT AT A TIME. The ladder cannot reach 20, which is the size the player asked for.
+    assert have["step_floor"] == "1" and have["step_ceil"] == "25", (
+        "stepping below 1 gave %s and above the top rung gave %s - the steppers have to go "
+        "through EX.clamp_lots, not add to a raw field: a negative amount is a loop that never "
+        "runs and an unbounded one is that many real trades"
+        % (have["step_floor"], have["step_ceil"]))
+    assert have["step_twenty"] == "20", (
+        "19 + 1 gave %s. Reaching a size the four-rung ladder does not carry is the entire "
+        "reason these two buttons exist" % have["step_twenty"])
+
+    # A LOT IS NOT A UNIT, AND THE PANEL HAS TO SAY WHICH.
+    assert have["units_commodity"] == "Amount 50" and have["units_layer2"] == "Amount 500", (
+        "at x5 the ticket reads %r on a commodity and %r on a Layer 2 pool. A lot is 10 of one "
+        "and 100 of the other, so the multiplier alone never says how much is being bought - "
+        "which is exactly what was reported on Marble, 2026-09-11"
+        % (have["units_commodity"], have["units_layer2"]))
+    assert have["units_none"] == "Amount x5", (
+        "with no instrument selected the label reads %r. The Trade list governs 17 commodities "
+        "and two Layer 2 pools at once, so its button must fall back to the multiplier rather "
+        "than quote a unit count that is wrong on two of its rows" % have["units_none"])
+    assert have["cost_line"] == "50 Gemstones - " + have["cost_expect"] + "g", (
+        "the cost line reads %r against an expected 50 Gemstones at %s gold. It has to be the "
+        "SIDE's price (EX.order_price) times the lots, at the rung the ticket is set to - the "
+        "mid would understate a buy by the whole spread"
+        % (have["cost_line"], have["cost_expect"]))
+    assert have["cost_sell"] == "50 Gemstones - " + have["cost_sell_expect"] + "g", (
+        "the sell-side cost line reads %r, expected 50 Gemstones at %s"
+        % (have["cost_sell"], have["cost_sell_expect"]))
+    assert have["cost_sell_expect"] != have["cost_mid"], (
+        "the sell price and the mid are both %s on this board, so the assertion above cannot "
+        "tell EX.order_price from EX.price_at - the scene needs a spread to measure against"
+        % have["cost_mid"])
+
+    # BACKWARD COMPATIBILITY, and it is the part of this feature that can destroy something.
+    # Every order in every existing save is four fields.
+    assert have["legacy_n"] == "2" and have["legacy_qty"] == "1", (
+        "a save written before the amount existed loaded %s orders with qty %s. Four-field "
+        "records must load, and must load as ONE lot - dropping them empties a player's "
+        "ledger on upgrade, and defaulting them high silently resizes every standing order "
+        "they hold" % (have["legacy_n"], have["legacy_qty"]))
+    assert have["legacy_requantised"] == "res_gems,b,le,28,1;res_dyes,s,ge,30,1", (
+        "a legacy order did not re-pack with an explicit size: %s" % have["legacy_requantised"])
+    assert have["modern_qty"] == "5" and have["wild_qty"] == "25", (
+        "a five-field record round-tripped its size as %s, and an out-of-range one as %s - "
+        "a wild value is CLAMPED rather than rejected, so a corrupted save loses the size and "
+        "keeps the order" % (have["modern_qty"], have["wild_qty"]))
+    assert " x" not in have["text_one"] and " x5 " in have["text_many"], (
+        "the order sentence reads %r at one lot and %r at five. A ledger that says x1 on "
+        "every row spends the reader on the default; the row that is not one lot is the one "
+        "worth seeing" % (have["text_one"], have["text_many"]))
+
+    # AND THE SIZE SURVIVES A SAVE. Every other order in this harness is one lot, so a
+    # pack_orders that wrote a constant "1" would round-trip all of them perfectly and still
+    # silently reset every sized order a live campaign holds on its next load.
+    assert have["sized_packed"] == "res_gems,b,le,28,10" and have["sized_qty"] == "10", (
+        "a 10-lot order packed as %s and reloaded at qty %s - the size has to be read off the "
+        "order on the way out, not written as a constant"
+        % (have["sized_packed"], have["sized_qty"]))
+
+    # N LOTS IS N REAL TRADES, not a bulk formula beside the per-trade one.
+    assert have["bulk_calls"] == "5" and have["bulk_same"] == "true", (
+        "an amount of 5 reached EX.apply_trade %s times. Clicking Buy five times is what this "
+        "replaces and it must cost and move exactly that" % have["bulk_calls"])
+    assert have["bulk_bare"] == "1", (
+        "a bare resource key with no amount field traded %s lots, not 1. That is the shape "
+        "every caller written before the amount control sends" % have["bulk_bare"])
+    assert have["bulk_done"] == "0" and have["bulk_stopped"] == "1", (
+        "a refused bulk buy made %s attempts (filled %s). The first no ends the run - ten "
+        "identical refusals is ten counterparty walks and ten log lines for nothing"
+        % (have["bulk_stopped"], have["bulk_done"]))
+
+    # AND AN ORDER FILLS THE SIZE IT WAS PLACED AT.
+    assert have["order_qty"] == "5", (
+        "Place froze qty %s onto the order instead of the amount on screen" % have["order_qty"])
+    assert have["qty_calls"] == "5" and have["qty_left"] == "0", (
+        "a 5-lot order made %s trades and left %s orders standing" % (have["qty_calls"], have["qty_left"]))
+    # PART FILLS SHRINK AND STAND.
+    assert have["part_calls"] == "4" and have["part_left"] == "1" and have["part_qty"] == "2", (
+        "a 5-lot order that could only afford 3 made %s attempts and left %s order(s) at qty "
+        "%s. It must keep the REMAINDER: dropping it discards a size the player chose, and "
+        "keeping it whole buys more than they asked for next turn"
+        % (have["part_calls"], have["part_left"], have["part_qty"]))
+    assert "part-filled" in have["part_said"] and "3 of 5" in have["part_said"], (
+        "the part-fill Log line reads %r - it has to say how much of the order went through, "
+        "or the shrunk row in the ledger looks like the order the player placed"
+        % have["part_said"])
+
+    assert have["packed"] == "res_gems,b,le,28,1;res_gems,b,le,24,1;res_rom_iron,s,ge,19,1", (
+        "the packed form changed shape: %s. It goes over the network as well as into the "
+        "save, so both ends have to agree on it" % have["packed"])
+
+    assert (have["on_gems"], have["on_iron"], have["on_dyes"]) == ("2", "1", "0"), (
+        "EX.orders_on filtered wrong: gems=%s iron=%s dyes=%s. The ticket lists a resource's "
+        "own orders beside it; a wrong filter here shows one instrument's orders on another's"
+        % (have["on_gems"], have["on_iron"], have["on_dyes"]))
+
+    assert have["empty"] == "0" and have["nilin"] == "0", (
+        "unpacking an empty or nil string did not clear the list. Both are what a save with "
+        "no orders in it hands back")
+    assert have["salvage"] == "2", (
+        "a malformed record took its neighbours with it (%s of 4 survived, 2 are valid). One "
+        "bad record must not empty a live campaign's order list" % have["salvage"])
+
+    assert have["cancel"] == "true" and have["cancelleft"] == "1", (
+        "cancel did not remove exactly one order")
+    assert have["cancelkept"] == "24", (
+        "cancel removed the wrong order - it kept rung %s, not the 24 it was not asked about"
+        % have["cancelkept"])
+    assert have["cancelmiss"] == "false", (
+        "cancelling an order that does not exist reported success")
+
+    for name, want in (("limitbuy_in", "true"), ("limitbuy_out", "false"),
+                       ("stopbuy_in", "true"), ("stopbuy_out", "false"),
+                       ("limitsell_in", "true"), ("limitsell_out", "false"),
+                       ("stopsell_in", "true"), ("stopsell_out", "false"),
+                       ("exact_le", "true"), ("exact_ge", "true")):
+        assert have[name] == want, (
+            "%s should be %s and is %s. The four combinations are one comparison flag apart, "
+            "so an inverted test is a stop-loss that sells on the way up - it packs, draws "
+            "and saves perfectly and nothing else here reads the direction"
+            % (name, want, have[name]))
+
+    assert have["text"].startswith("Buy at or below "), (
+        "the order sentence reads %r" % have["text"])
+    assert have["textsell"].startswith("Sell at or above "), (
+        "the order sentence reads %r" % have["textsell"])
+    assert "," not in have["text"].split(" ")[-1], (
+        "the price in the order sentence carries a thousands separator (%r). Every other "
+        "price in this panel is a raw tostring(n) - see EX.price_cell" % have["text"])
+
+    assert have["fatal"] == "2", (
+        "%s of the eight refusal tokens are fatal, not 2. Only 'delisted' and 'nopool' are "
+        "permanent; a house that refuses you this turn may not next turn, and cancelling on "
+        "a transient refusal throws away an order the player is still waiting on"
+        % have["fatal"])
+    assert have["transient"] == "6", "%s transient tokens, not 6" % have["transient"]
+    assert have["reasons"] == "8/8", (
+        "%s refusal tokens have no sentence. The Log prints one per non-fill, and a missing "
+        "one reads as an order that did nothing for no reason" % have["reasons"])
+    assert have["unknown_transient"] == "true", (
+        "an unclassified refusal token defaults to FATAL. It must default to transient: an "
+        "order that outlives its cause is visible in the ledger, one silently cancelled is "
+        "not, and a token added later without a classification is the likely case")
+
+    code = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    body = NL.join(l for l in code.splitlines() if not l.lstrip().startswith("--"))
+    m = re.search(r"function EX\.fill_orders\(\)(.*?)" + NL + "end", body, re.S)
+    assert m, "EX.fill_orders is gone"
+    # READ THE CONSUMER, NOT THE FUNCTION IT IS SUPPOSED TO CALL. Two of the ten mutants of
+    # the 2026-09-10 review fixes survived their first run for exactly this: an assertion
+    # that read the helper directly stayed green while the caller stopped calling it.
+    assert "EX.fill_clears_rent(" in m.group(1), (
+        "EX.fill_orders no longer reserves the warehouse rent. The behavioural scene stubs "
+        "EX.apply_trade, so it cannot tell a floor that moved from a floor that vanished")
+    # THE PARAMETER LIST IS NOT PINNED HERE, only the name: Stage 2 Task 4 added the optional
+    # `unit_px` and `only` and this anchor read `(res, is_buy)` literally, so it failed as
+    # "EX.apply_trade is gone" for a function that had not moved at all. What this check is
+    # about is the rent floor NOT being inside the function, which no signature affects.
+    at = re.search(r"function EX\.apply_trade\([^)]*\)(.*?)" + NL + "end", body, re.S)
+    assert at, "EX.apply_trade is gone"
+    assert "EX.fill_clears_rent(" not in at.group(1), (
+        "the rent floor has been pushed down into EX.apply_trade, which silently applies it "
+        "to MANUAL buys as well. That is the one case it must not cover: the player is "
+        "looking at the treasury when they click, so being that thin is their decision - a "
+        "standing order is the case where it was not")
+    assert "EX.apply_trade(" in m.group(1), (
+        "EX.fill_orders does not call EX.apply_trade. That function carries every refusal, "
+        "the price read, the treasury move, the pooled move, the counterparty settle, the "
+        "Log line and the pressure bump - a fill that reimplements any of it will disagree "
+        "with the Buy button, and no check compares the two")
+
+    assert have["fills"] == "res_gems:b|res_rom_iron:s", (
+        "the fill pass chose %r. Expected exactly two fills: the FIRST gems order (FIFO) and "
+        "the iron one. A second gems fill in the same turn would let one fill's pressure "
+        "cascade into the next order inside one step, which is the rule that keeps the turn "
+        "deterministic across machines" % have["fills"])
+    assert have["left"] == "2", (
+        "%s orders remain, not 2. The two that filled are consumed; the unfilled gems ladder "
+        "rung and the out-of-the-money dyes order stay" % have["left"])
+    assert have["leftfirst"] == "res_gems,24", (
+        "the wrong gems order was consumed - %s was left. FIFO means the first placed fills"
+        % have["leftfirst"])
+
+    assert have["transient_left"] == "1", (
+        "a transient refusal cancelled the order. The player is still waiting on it and "
+        "nothing on screen would say where it went")
+    assert have["fatal_left"] == "0", (
+        "a fatal refusal left the order standing. It is dead paper that will refuse again "
+        "every turn for the rest of the campaign, writing a Log line each time")
+
+    assert have["switched_off"] == "0", (
+        "EX.fill_orders traded with the orders switch off. The switch has to stop the MODEL "
+        "and not only the page - a kill-switch is thrown while the thing is misbehaving, and "
+        "a fill is the half that moves gold")
+    assert have["switched_left"] == "1", (
+        "the switch being off destroyed a standing order. Off means dormant, not cancelled")
+    assert have["filling_clear"] == "true", (
+        "EX.filling was left true after the pass. It suppresses the per-trade reprice "
+        "callback, so a stuck flag means no manual trade reprices for the rest of the "
+        "campaign")
+
+    # AN ERROR INSIDE EX.apply_trade MUST NOT ABORT THE PASS. EX.apply_trade is not
+    # defensive (cm:get_faction and the counterparty walk can throw), and nothing above this
+    # point can exercise that: every stubbed EX.apply_trade returns a plain value. Without the
+    # pcall in EX.fill_orders, an error here escapes past BOTH the EX.filling reset and the
+    # EX.orders = keep commit, so an order that already filled earlier in the same pass is
+    # still in the list - primed to fire a second real trade next turn - and EX.filling is
+    # stuck true, silently killing every later manual trade's reprice.
+    assert have["throw_survived"] == "true", (
+        "an error inside EX.apply_trade escaped EX.fill_orders instead of being caught. "
+        "EX.with_player's pcall one level up hides it from the player, but by then it has "
+        "already skipped the cleanup below")
+    assert have["throw_gems_gone"] == "true", (
+        "the gems order, which filled BEFORE the iron order threw, was still in EX.orders "
+        "afterwards - the skipped `EX.orders = keep` commit left it live to fire a second "
+        "real trade next turn")
+    assert have["throw_iron_kept"] == "true", (
+        "the order whose fill threw was not left standing. An error is an ordinary transient "
+        "refusal, not a fatal one - the player never asked for that fill to be cancelled")
+    assert have["throw_filling_clear"] == "true", (
+        "EX.filling was left true after a fill that threw. Every later manual Buy/Sell checks "
+        "'if not EX.filling' before rescheduling its reprice, so a stuck flag silently kills "
+        "that for the rest of the session")
+
+    m = re.search(r"function EX\.turn_round\(\)(.*?)" + NL + "    end", body, re.S)
+    assert m, "EX.turn_round is gone"
+    round_body = m.group(1)
+    ip = round_body.find("EX.apply_prices()")
+    io_ = round_body.find("EX.fill_orders()")
+    ir = round_body.find("EX.remember_all()")
+    assert ip < io_ < ir, (
+        "the fill step is out of order (apply_prices %d, fill_orders %d, remember_all %d). "
+        "It goes AFTER pricing, so the limit tests the number the panel shows, and BEFORE "
+        "remember_all, so the recorded bar is the price the fill got" % (ip, io_, ir))
+
+    assert have["op_place"] == "1", "the place op did not add an order"
+    assert have["op_cancel"] == "0", "the cancel op did not remove the order it named"
+    assert have["op_junk"] == "0", (
+        "a malformed op payload was accepted. The payload arrives off the network and is a "
+        "trust boundary, not a convenience")
+    # AN ORDER'S WHOLE LIFE HAS TO BE READABLE IN THE LOG. Only the fill pass used to write
+    # one, so an order that disappeared for a BAD reason - lost across a save, truncated over
+    # the cap, removed by a machine that disagreed - looked exactly like a withdrawal. Measured
+    # live 2026-09-10 at turn 11: three standing orders gone and zero order lines in a
+    # 37-entry Log, with no way to tell which had happened.
+    assert have["place_logged"] == "1", (
+        "placing an order wrote %s Log lines. The Log is the only history the ledger has, and "
+        "a row that appears with no line explaining it cannot later be told from one that "
+        "appeared by accident" % have["place_logged"])
+    assert "Order placed" in have["place_said"], (
+        "the placement Log line reads %r" % have["place_said"])
+    assert have["cancel_logged"] == "1", (
+        "withdrawing an order wrote %s Log lines" % have["cancel_logged"])
+    # THE TWO VERBS MUST NOT COLLIDE. EX.fill_orders writes "Order cancelled." on a FATAL
+    # refusal; if a player's own withdrawal said that too, the Log could no longer answer the
+    # one question it is there for - did I do this, or did the world do it to me.
+    assert "Order withdrawn" in have["cancel_said"], (
+        "a player's own withdrawal logs %r. The fill pass already writes \"Order cancelled.\" "
+        "when a delisted house or a dead pool kills an order, so this line has to use a "
+        "different verb or the two causes are indistinguishable in the Log"
+        % have["cancel_said"])
+    assert "cancelled" not in have["cancel_said"].lower(), (
+        "the withdrawal line %r contains the fill pass's own word for a fatal cancel"
+        % have["cancel_said"])
+    assert have["refused_why"] != "nil" and have["refused_logged"] == "0", (
+        "a REFUSED placement (why=%s) wrote %s Log lines. The refusal already reaches the "
+        "player through the return value, which the ticket prints and EX.ticket_click logs - "
+        "a line here as well is two entries for one click"
+        % (have["refused_why"], have["refused_logged"]))
+    assert have["nocancel"] == "false" and have["nocancel_logged"] == "0", (
+        "withdrawing an order that does not exist returned %s and wrote %s Log lines"
+        % (have["nocancel"], have["nocancel_logged"]))
+
+    assert "already stands" in have["capdup"], (
+        "at the cap, re-placing an order the player already holds answered %r. Both refusals "
+        "are true at once and the specific one has to win - 'cancel one first' sends them off "
+        "to make room for an order that is already standing" % have["capdup"])
+    assert have["capdup_n"] == "12", (
+        "the duplicate at the cap changed the list to %s orders" % have["capdup_n"])
+
+    # THE OVER-CAP TRUNCATION BRANCH. EX.ORDER_MAX can be lowered between builds and a save
+    # written under the old one still names every order - the while-loop at the end of
+    # EX.unpack_orders is all that stands between that save and a ledger longer than the page.
+    assert have["overcap"] == "12", (
+        "a save naming 16 orders loaded %s of them. The ledger draws ORDER_MAX rows, so the "
+        "surplus would be invisible AND fill against a page that cannot cancel it"
+        % have["overcap"])
+    assert have["overcap_first"] == "1" and have["overcap_last"] == "12", (
+        "over-cap truncation kept rungs %s..%s. It drops from the END, so the orders placed "
+        "FIRST survive - dropping from the front would silently discard the oldest standing "
+        "orders instead" % (have["overcap_first"], have["overcap_last"]))
+
+    # THE OP BUDGET MEASURES THE LONGEST KEY THERE IS, not a hand-picked one. It named
+    # res_gold_idols (14) while res_rom_textiles is 16.
+    assert len(have["op_longest"]) >= 16, (
+        "the op-length worst case is built from %r, %d characters. Anything shorter than "
+        "res_rom_textiles means the harness is no longer finding the longest instrument key"
+        % (have["op_longest"], len(have["op_longest"])))
+    assert int(have["op_len"]) < 100, (
+        "the longest op string is %s characters, over MCT's 100-character convention for "
+        "CampaignUI.TriggerCampaignScriptEvent ids" % have["op_len"])
+    assert have["unpack_one_junk"] == "true", (
+        "EX.unpack_one accepted a malformed payload. op_junk alone cannot catch this - it goes "
+        "through EX.MP_OPS.ord, and EX.place_order re-validates on its own - but EX.MP_OPS.ordx "
+        "has no second gate, so EX.unpack_one is the only check standing at that boundary")
+
+    # THE LEDGER'S CANCEL CLICK. Rows are keyed by ORDER INDEX ("ord1".."ordN"), not by
+    # instrument: EX.row is pooled one component per RESOURCE everywhere else in this file,
+    # and no EX.short(res) output ever ends in a digit while uicomponent:Id() only ever
+    # returns the exact name CreateComponent was given (per CA's own docs) with no rename
+    # call available - so a resource-keyed row could never carry two orders on one
+    # instrument. Tested with a LADDER (two rungs on res_gems) precisely because that is the
+    # case a resource-keyed row collides on.
+    assert have["order_of_row_res"] == "res_gems" and have["order_of_row_rung"] == "20", (
+        "EX.order_of_row resolved row 2 to %s@%s, not the res_gems order at rung 20"
+        % (have["order_of_row_res"], have["order_of_row_rung"]))
+    assert have["order_of_row_unknown"] == "true", (
+        "EX.order_of_row returned something for a row id that names no order at all")
+    assert have["res_of_row_on_ord_id"] == "true", (
+        "EX.res_of_row resolved an order-row id to a real instrument. It inverts "
+        "EX.ROW .. \"_\" .. EX.short(res) against EX.instruments(), which never contains an "
+        "\"ordN\" key - if this is ever not nil, the trade/offerings/houses click paths could "
+        "claim a ledger row by accident")
+    assert have["cancel_click_left"] == "2", (
+        "%s orders remain after one Cancel click, not 2" % have["cancel_click_left"])
+    assert have["cancel_click_gone_rung20"] == "true", (
+        "the Cancel click did not remove the order its own row named")
+    assert (have["cancel_click_kept_rung28"], have["cancel_click_kept_dyes"]) == (
+        "true", "true"), (
+        "the Cancel click removed an order it was not clicked on (rung 28 kept=%s, dyes "
+        "kept=%s) - a resolver that always answers EX.orders[1] passes every other check in "
+        "this file (index 1 there legitimately IS the order under test) and cancels the "
+        "FIRST gem rung no matter which row was clicked"
+        % (have["cancel_click_kept_rung28"], have["cancel_click_kept_dyes"]))
+
+    # THE ROW-CLICK DISPATCH. Every assertion above proves the MODEL works but never once
+    # calls EX.row_click, the function the real ComponentLClickUp listener dispatches to -
+    # so none of them could have caught the ledger's Cancel button being fully dead. It was:
+    # the listener used to resolve EX.res_of_row and bail with `if not res then return end`
+    # BEFORE ever reaching the EX.on_orders() branch, and EX.res_of_row can never match a
+    # synthetic "ordN" ledger row id, so every ledger click returned early with every check
+    # above still green. These assertions go through EX.row_click(s, row_id) itself.
+    assert have["row_click_1_left"] == "2" and have["row_click_1_first"] == "res_gems,20", (
+        "clicking ord1 on a fresh ladder (28, 20, dyes 30) left %s orders with %s first, not "
+        "2 orders with res_gems,20 first - the click did not remove the FIRST gem rung"
+        % (have["row_click_1_left"], have["row_click_1_first"]))
+    assert have["row_click_2_left"] == "1" and have["row_click_2_first"] == "res_dyes,30", (
+        "clicking ord1 AGAIN left %s orders with %s first, not 1 order with res_dyes,30 - "
+        "the second click has to remove what is NOW first (rung 20), not no-op and not reach "
+        "past it to the dyes order" % (have["row_click_2_left"], have["row_click_2_first"]))
+    assert have["row_click_instrument_id_on_ledger_noop"] == "true", (
+        "clicking an instrument-keyed row id while EX.on_orders() is true changed the order "
+        "list. A resource-keyed id names no ledger row and must be a no-op there, not fall "
+        "through to EX.res_of_row and be treated as an ordinary buy")
+    assert have["row_click_trade_reached"] == "true", (
+        "EX.row_click did not reach EX.trade for an ordinary instrument row off the ledger. "
+        "Moving the EX.on_orders() branch to the front of the dispatch must not swallow every "
+        "other row click with it")
+
+    # THE TICKET-CLICK DISPATCH. Same gap as the row-click one just above: the static filter
+    # check in check_layout() proves the listener DISPATCHES to EX.ticket_click by name, but
+    # says nothing about what EX.ticket_click actually DOES once it is called - a toggle wired
+    # backwards or a Place button reading the wrong side would still pass that check.
+    assert have["ticket_side_toggle"] == "s" and have["ticket_side_back"] == "b", (
+        "ord_side toggled to %s and back to %s, not s then b" % (
+            have["ticket_side_toggle"], have["ticket_side_back"]))
+    assert have["ticket_cmp_toggle"] == "ge" and have["ticket_cmp_back"] == "le", (
+        "ord_cmp toggled to %s and back to %s, not ge then le" % (
+            have["ticket_cmp_toggle"], have["ticket_cmp_back"]))
+    assert have["ticket_up"] == "21" and have["ticket_down"] == "19", (
+        "from rung 20, ord_up read %s (want 21) and two ord_down clicks read %s (want 19)"
+        % (have["ticket_up"], have["ticket_down"]))
+    assert have["ticket_floor"] == "1", (
+        "ord_down at rung 1 moved to %s - the ladder has to clamp, not walk past its own "
+        "ends into a rung EX.valid_order refuses forever after" % have["ticket_floor"])
+    assert have["ticket_ceiling"] == str(42), (
+        "ord_up at rung EX.RUNGS moved to %s - same clamp, top end" % have["ticket_ceiling"])
+    assert have["ticket_place_left"] == "1" and have["ticket_place_order"] == "true", (
+        "clicking ord_place left %s orders (order present: %s), not exactly one matching "
+        "res_gems/b/le/24 - EX.ticket_click has to reach EX.order_send with the ticket's own "
+        "side/cmp/rung, not place nothing or place the wrong order"
+        % (have["ticket_place_left"], have["ticket_place_order"]))
+    assert have["ticket_place_dup_left"] == "1", (
+        "clicking Place again on the SAME order left %s, not 1 - the dry run "
+        "(EX.place_order_check) has to refuse a duplicate before EX.order_send is ever called, "
+        "or the button and EX.MP_OPS.ord could disagree about whether it stands")
+    assert have["ticket_place_nil_left"] == "1", (
+        "clicking Place with EX.selected nil changed the order count to %s. Between "
+        "EX.ticket_click's own guard and EX.place_order_check's EX.valid_order call underneath "
+        "it, a nil instrument must never reach EX.orders" % have["ticket_place_nil_left"])
+
+    # THE REAL DISPATCH, NOT THE TAIL. Everything above calls EX.ticket_click directly, which
+    # proves the tail behaves correctly once reached and proves NOTHING about whether the real
+    # handler - EX.click_dispatch, the whole ComponentLClickUp body - actually reaches it
+    # before the row-resolution walk. This is the exact gap that shipped Task 6's Cancel
+    # button dead: a correct model, a correct filter, an unreachable handler branch, and every
+    # check in the suite green.
+    assert have["dispatch_place_left"] == "1" and have["dispatch_place_order"] == "true", (
+        "driving an ord_place click through EX.click_dispatch (not EX.ticket_click) left %s "
+        "orders (order present: %s), not exactly one matching res_gems/b/le/26 - the real "
+        "handler is not reaching EX.ticket_click for this component"
+        % (have["dispatch_place_left"], have["dispatch_place_order"]))
+    assert have["dispatch_no_row_walk"] == "true", (
+        "EX.click_dispatch called UIComponent(clicked:Parent()) while handling an ord_place "
+        "click. These five components are PANEL-LEVEL with no row parent, so the ticket "
+        "branch has to return before that walk ever runs - a branch that runs after it is "
+        "unreachable in exactly the way Task 6's Cancel button was, and no check that calls "
+        "EX.ticket_click directly could ever see it")
+    assert have["dispatch_wrong_branch_calls"] == "0", (
+        "%s call(s) reached EX.trade while dispatching an ord_place click - if the ticket "
+        "branch is skipped, this component's name falls through to EX.row_click and is "
+        "treated as an ordinary row button instead of doing nothing at all"
+        % have["dispatch_wrong_branch_calls"])
+
+    # THE DEALS PAGE'S ACCEPT BUTTON, THROUGH THE SAME DISPATCH AND FOR THE SAME REASON. Every
+    # assertion about EX.accept_deal in the books harness calls it BY NAME; not one of them can
+    # see whether a click ever reaches it. The deal branch has to sit ABOVE the EX.res_of_row
+    # gate in EX.row_click - "dl2" names no instrument, so below the gate it is eaten silently
+    # and the button is dead with every check green, which is the whole history of this file.
+    #
+    # EX.mp_send is what is stubbed, not EX.accept_deal: the op name and the argument ARE the
+    # message in multiplayer, so a route that reaches the right function with the wrong index
+    # is not a working button.
+    assert have["dispatch_deal_op"] == "deal/2", (
+        "a btn_buy click on deal row 2 sent %r. It must send the op 'deal' with the row's own "
+        "LIST INDEX - that index is the entire message, and the other client resolves it "
+        "against a list it built for itself." % have["dispatch_deal_op"])
+    assert have["dispatch_deal_wrong_branch"] == "0", (
+        "%s call(s) reached EX.trade while dispatching a deal click. btn_buy is the same "
+        "component the trade page buys with, so a missing mode branch does not do nothing - "
+        "it buys a lot of whatever commodity the row resolves to, at market."
+        % have["dispatch_deal_wrong_branch"])
+    assert have["dispatch_deal_past_end"] == "nil", (
+        "a click on a row past the end of the page sent %r. The row components are a fixed "
+        "pool that outlives the page (the ledger's are the precedent), so a click landing on "
+        "a shorter list would send an index into a deal that has already expired."
+        % have["dispatch_deal_past_end"])
+    assert have["dispatch_deal_name"] == "nil/res_gems", (
+        "a row_name click on the deals page did something: %r. On the trade page that click "
+        "charts the instrument; a deal row has no instrument to chart, and moving the player "
+        "to another page is worse than the click doing nothing." % have["dispatch_deal_name"])
+
+    print("  orders: 8 malformed rejected (including a nil instrument), cap 12, round trip 3, "
+          "all four side/comparison combinations firing on the correct side, "
+          "2/8 refusal tokens fatal with a sentence for all eight")
+    print("  amount: the 1/5/10/25 ladder cycles and wraps, an off-ladder value lands back on "
+          "1, clamp_lots holds zero/negative/non-number/fractional/oversize, a pre-amount "
+          "four-field save loads as one lot and re-packs with an explicit size, N lots is N "
+          "real EX.apply_trade calls on the same instrument, a refused bulk buy stops at the "
+          "first no, Place freezes the size on screen, and a 5-lot order that can only afford "
+          "3 shrinks to 2 and stands with the count in its Log line")
+    # THE FILL LEAVES THIS TURN'S WAREHOUSE RENT BEHIND IT. EX.fill_orders spends at turn
+    # step 9b and EX.charge_carry debits about six steps later in the same turn round with no
+    # floor of its own, so before this a standing order could end a turn on a negative
+    # treasury the player never chose - the one thing manual trading cannot do to them,
+    # because there they are looking at the number when they click.
+    #
+    # THE SCENE MUST NOT BE VACUOUS. Both terms of the reserve have to be non-zero or the two
+    # treasuries below stop bracketing anything: rent_base is the standing holding's rent and
+    # rent_delta is what the lot being bought adds this same turn.
+    rbase, rdelta = int(have["rent_base"]), int(have["rent_delta"])
+    assert rbase > 0 and rdelta > 0, (
+        "the rent scene reserves nothing (base %d, delta %d), so every assertion below it "
+        "passes whether the floor exists or not" % (rbase, rdelta))
+    assert have["floor_calls"] == "0", (
+        "a buy filled with only %d gold left against %d of warehousing due the same turn. "
+        "EX.apply_trade's own test is `treasury() < price`, so it cannot see this - the "
+        "reserve has to be taken before the fill" % (rbase, rbase + rdelta))
+    assert have["floor_left"] == "1", (
+        "the floored order was removed from the ledger. A thin treasury is a condition of "
+        "this turn, like the guild's temper - 'rent' must stay off EX.ORDER_FATAL or the "
+        "player loses a standing order to a shortfall that clears next turn")
+    assert "warehousing" in have["floor_said"] and "still stands" in have["floor_said"], (
+        "the Log line for a floored fill reads %r. It is the only place the player can see "
+        "why an in-the-money order did nothing" % have["floor_said"])
+    # AND IT IS NOT SIMPLY REFUSING EVERYTHING. Ten gold more clears a reserve of
+    # rent_base + rent_delta; drop the delta term and the floored case above fills too.
+    assert have["clear_calls"] == "1" and have["clear_left"] == "0", (
+        "a buy with the rent covered did not fill (calls %s, left %s). The floor reserves "
+        "the rent, it does not stop trading" % (have["clear_calls"], have["clear_left"]))
+    assert have["rentoff_calls"] == "1", (
+        "warehouse_rent is switched OFF and the fill was still floored - the treasury there "
+        "is exactly the price, so the switch must reserve NOTHING rather than merely less. "
+        "Nothing will be debited, so any reserve under-fills for a charge that never comes")
+    # THE FLOOR PREDICTS THE PRICE THE FILL WILL ACTUALLY PAY. EX.buy_price and EX.price are
+    # the same number on a calm board, so every case above passes whichever is used; the
+    # markup a hostile guild adds is real gold and separates them.
+    hot_buy, hot_mid = int(have["hot_buy"]), int(have["hot_mid"])
+    assert hot_buy > hot_mid, (
+        "the hostile-guild scene quotes %d against a mid of %d, so it cannot tell EX.buy_price "
+        "from EX.price and the assertion below is vacuous" % (hot_buy, hot_mid))
+    assert have["hot_calls"] == "0", (
+        "a fill on a hostile board cleared the floor. The reserve was measured against the "
+        "mid (%d) rather than the %d EX.apply_trade is about to charge, so the markup is "
+        "spent out of the rent" % (hot_mid, hot_buy))
+    # LAYER 2 PAYS NO WAREHOUSING - Armaments and Raw Materials come out of BUILDINGS, and
+    # EX.carry_cost exempts them so the feature never taxes a player who does not trade.
+    assert have["l2_delta"] == "0" and have["l2_calls"] == "1", (
+        "a Layer 2 buy reserved rent (delta %s, filled %s). Nothing will be charged for it, "
+        "so the reserve refuses fills against a bill that is never sent"
+        % (have["l2_delta"], have["l2_calls"]))
+    assert have["sell_calls"] == "1", (
+        "a SELL was floored. It credits gold and lowers the holding, so it moves both sides "
+        "of the comparison the safe way - and floored, a player short of the rent could not "
+        "sell to raise it")
+    # THE PASS ACCUMULATES. Two buys, no standing holding, so the entire reserve is the two
+    # new lots' own rent: the first fill must carry its share into the second's floor.
+    assert have["accum_calls"] == "res_gems:b" and have["accum_left"] == "1", (
+        "both buys of the pass filled (%s). The reserve is read once before the loop, so "
+        "without carrying each fill's own delta forward the second buy is measured against "
+        "the empty warehouse the first one just filled" % have["accum_calls"])
+
+    print("  order pricing: a sell quotes %d and a buy %d against a mid of %d, the quote "
+          "follows the rung, and the order sentence carries the side's price not the mid"
+          % (osell, obuy, mid))
+    print("  rent floor: a fill leaving %d gold against %d of warehousing due the same turn "
+          "is refused and the order stands, one leaving %d clears it, the pass carries each "
+          "fill's own share forward, it measures the reserve against the %d a hostile guild "
+          "charges rather than the %d mid, and none of a sell, a Layer 2 buy or rent "
+          "switched off is floored" % (rbase, rbase + rdelta, rbase + 10, hot_buy, hot_mid))
+    print("  fill pass: FIFO per instrument, fatal refusals cancel, transient refusals keep, "
+          "the orders switch gates the model, EX.filling clears after the pass, "
+          "an error inside EX.apply_trade is caught rather than aborting the commit, and "
+          "EX.turn_round runs it between apply_prices and remember_all")
+    print("  ops: place and cancel round-trip through EX.mp_send/EX.mp_apply, a malformed "
+          "payload is refused, the packed op string is under MCT's 100-character convention")
+    print("  ledger: EX.order_of_row resolves a real order-index row id to the order it "
+          "names even on a ladder (two orders on one instrument), EX.res_of_row refuses "
+          "that id, and the Cancel click removes only the order it was clicked on")
+    print("  row-click dispatch: EX.row_click cancels a ladder sequentially through two "
+          "clicks on the same row id, ignores an instrument-keyed id while on the ledger, "
+          "and still reaches EX.trade for an ordinary row off the ledger")
+    print("  ticket-click dispatch: EX.ticket_click toggles side and comparison, steps and "
+          "clamps the rung both ends, places through EX.order_send with the ticket's own "
+          "values, refuses a duplicate via the shared dry run, and a nil EX.selected still "
+          "cannot reach EX.orders")
+    print("  click dispatch: EX.click_dispatch (the real ComponentLClickUp handler, not the "
+          "tail) places an order for an ord_place click without ever walking "
+          "UIComponent(clicked:Parent()), and does not fall through to EX.trade")
+    print("  deals dispatch: a Take click sends deal/<index> through EX.mp_send, a click past "
+          "the end of the page sends nothing, a name click does nothing, and none of the "
+          "three falls through to EX.trade")
 
 
 def check_holdings():
@@ -6427,6 +8160,56 @@ def parse_lua_table(code, name):
         out[k] = True if v == "true" else False if v == "false" else \
             v.strip('"') if v.startswith('"') else float(v)
     return out
+
+
+def check_knob_reads():
+    """A knob's CONSTANT is its default and nothing else. Every use site reads EX.opt.
+
+    THIS CHECK EXISTS BECAUSE TWO SITES WERE ALREADY WRONG when it was written for Task 7, and
+    neither was visible to anything else in this file: a slider the player moves, a constant
+    the code keeps reading, and every preset and every range check still green - because they
+    all agree about the DEFAULT. The fault only shows on a non-default difficulty, which is
+    exactly where nobody looks.
+
+      - EX.post_deals capped a world seller at EX.WORLD_TRADE_MAX, so the World trade size
+        slider moved every other world trade and not the ones on the Deals page.
+      - EX.friendly_cap computed its headroom against EX.LADDER_STEP while reading the spread
+        through EX.opt - and that one is a MONEY PRINTER. On ultra (step 1.18, spread 0.25) the
+        safe discount is 5.3% and it granted 8.3%, so buying from a friendly house and selling
+        one rung up nets gold with no price movement at all. That is the precise exploit the
+        algebra in that function's own comment was written to rule out, defeated by reading one
+        of its two inputs from the wrong place.
+
+    THE FALLBACK IDIOM IS ALLOWED, and named rather than inferred: a constant read within two
+    lines of an EX.opt call for the SAME key is a type guard on what EX.opt returned, not a
+    second source of truth. EX.race_factor is the one instance.
+    """
+    code = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    tune_num = dict(re.findall(r'(\w+)\s*=\s*"(\w+)"',
+                               re.search(r"EX\.TUNE_NUM = \{(.*?)\n\}", code, re.S).group(1)))
+    lines = code.splitlines()
+    bad = []
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("--"):
+            continue
+        for key, const in tune_num.items():
+            if not re.search(r"EX\.%s\b" % const, line):
+                continue
+            # THE DECLARATION ITSELF, anchored at the line start so an assignment buried in an
+            # expression cannot pass as one.
+            if re.match(r"EX\.%s\s*=" % const, line):
+                continue
+            near = NL.join(lines[max(0, i - 2):i + 1])
+            if 'EX.opt("%s")' % key in near:
+                continue
+            bad.append("EX.%s at :%d" % (const, i + 1))
+    assert not bad, (
+        "%s read the CONSTANT, not EX.opt. The constant is the default that the sliders and the "
+        "presets are measured against; reading it at a use site means the player moves a "
+        "slider, the panel agrees, every preset check stays green, and the game keeps running "
+        "the default - visible only on a difficulty nobody tests." % ", ".join(bad))
+    print("  knob reads: %d sliders, every use site through EX.opt (the constant is the default "
+          "and nothing else)" % len(tune_num))
 
 
 def check_tunables():
@@ -7448,11 +9231,19 @@ def check_spread():
     assert seen >= 4, "only %d presets were checked - the parse is wrong" % seen
 
     # THE LUA'S OWN CLAMP MUST BE THE SAME ARITHMETIC, not a second copy that can drift.
+    #
+    # AND IT MUST READ THE SAME STEP. The loop above takes `step` from the PRESET; the Lua
+    # read it off EX.LADDER_STEP, the default, until 2026-09-16 - so this model and the code
+    # it claims to pin were solving for different ladders, and this assertion held the wrong
+    # version in place by pinning its literal text. On ultra that gap was a money printer:
+    # 8.3% granted into 5.3% of headroom. check_knob_reads() found it; the expected text is
+    # updated deliberately, and to the version the loop above already models.
     lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
     cap = re.search(r"function EX\.friendly_cap\(\)(.*?)\nend", lua, re.S)
     assert cap, "EX.friendly_cap is gone - the discount is unbounded"
-    assert ("(1 - EX.LADDER_STEP * (1 - EX.opt(\"spread\"))) / (1 + EX.LADDER_STEP)"
-            in cap.group(1)), (
+    want_cap = ['local step = EX.opt("ladder_step")',
+                '(1 - step * (1 - EX.opt("spread"))) / (1 + step)']
+    assert all(w in cap.group(1) for w in want_cap), (
         "EX.friendly_cap no longer divides by (1 + STEP). The discount lands on BOTH sides of "
         "the trade, so the buy-side-only bound is roughly twice too generous - that version "
         "paid +25 a lot on a SAME-RUNG round trip:%s%s" % (NL, cap.group(1)))
@@ -7488,14 +9279,18 @@ def check_lua_scan():
 
     # r4 is razed, r5's owner is a null interface, r6 belongs to another commodity.
     harness = r"""
-local function iface(name)
+local function iface(name, culture, war, gold)
     if name == nil then return { is_null_interface = function() return true end } end
     return { is_null_interface = function() return false end,
-             name = function() return name end }
+             name = function() return name end,
+             culture = function() return culture end,
+             at_war = function() return war == true end,
+             treasury = function() return gold or 0 end }
 end
 local rcount = 0
 -- buildings is a list of building keys; the scan looks each up in EX_PRODUCTION.
-local function region(res, owner, abandoned, throws, besieged, no_garrison, buildings)
+local function region(res, owner, abandoned, throws, besieged, no_garrison, buildings,
+                      culture, war, gold)
     rcount = rcount + 1
     local rname = "region_" .. rcount
     return {
@@ -7503,7 +9298,7 @@ local function region(res, owner, abandoned, throws, besieged, no_garrison, buil
         is_abandoned = function() return abandoned == true end,
         owning_faction = function()
             if throws then error("owning_faction blew up") end
-            return iface(owner)
+            return iface(owner, culture, war, gold)
         end,
         resource_exists = function(_, r) return r == res end,
         slot_list = function()
@@ -7577,6 +9372,17 @@ for k in pairs(owners["res_rom_iron"]) do names[#names + 1] = k end
 table.sort(names)
 for _, k in ipairs(names) do print("own " .. k .. "=" .. owners["res_rom_iron"][k]) end
 
+-- THE WORLD TIER ROSTER, a filter over the SAME fcache this same scan just built - no
+-- second call, no second walk. fac_a/fac_b/fac_c are all non-house (nil culture), so all
+-- three must survive the EX.is_house_culture filter.
+local anames = {}
+for k in pairs(EX.actors or {}) do anames[#anames + 1] = k end
+table.sort(anames)
+print("actor_n " .. #anames)
+print("actor_gold " .. tostring((EX.actors["fac_b"] or {}).gold))
+print("actor_regions " .. tostring((EX.actors["fac_b"] or {}).regions))
+print("actor_war " .. tostring((EX.actors["fac_b"] or {}).war))
+
 REGIONS = { region("res_rom_iron", "fac_a", false, true) }
 local s2 = EX.scan_supply()
 print("failed " .. tostring(s2 == nil))
@@ -7633,6 +9439,28 @@ end
 for _, t in ipairs(EX.DEMAND_TIERS) do
     print("tier " .. t[1] .. "=" .. (counts[t[1]] or 0))
 end
+
+-- TASK 11, D2: EX.actors's is_house_culture FILTER, in EX.scan_supply. Nothing above proves a
+-- house-cultured faction gets EXCLUDED from the world-tier roster - fac_a/fac_b/fac_c are all
+-- non-house (culture nil) and only prove the filter lets THEM through. Without it, a guild
+-- house is priced and paid by both tiers: once through its own book, once more as an ordinary
+-- world-tier actor.
+--
+-- TASK 11, D3: THE SCAN'S TREASURY READ. fac_a/fac_b/fac_c above all report gold 0 (iface's
+-- default), so "actor_gold != nil" passes even if the read were stubbed or hardcoded to 0 for
+-- every actor - 0 is not nil. fac_gold pins an exact, distinctive, non-zero figure instead.
+--
+-- REGIONS REBUILT FRESH, not appended to: the "failed" test just above replaced it with a
+-- single THROWING region, and appending to that board would still fail the whole scan (the
+-- pcall around the walk returns nil, nil for supply/owners the moment any region throws).
+REGIONS = {
+    region("res_gems", "fac_house", false, false, false, false, nil, EX.HOUSE_CULTURE),
+    region("res_dyes", "fac_gold", false, false, false, false, nil, nil, false, 4242),
+}
+local _supply3, owners3 = EX.scan_supply()
+print("actor_house_excluded " .. tostring(EX.actors["fac_house"] == nil))
+print("actor_house_gems_owned " .. tostring((owners3["res_gems"] or {})["fac_house"]))
+print("actor_gold_exact " .. tostring((EX.actors["fac_gold"] or {}).gold))
 
 local HOLD = {}
 cm.get_local_faction_name = function() return "player" end
@@ -7759,6 +9587,38 @@ print("dkeys " .. #keys .. " " .. keys[1] .. " " .. keys[#keys])
         assert k + "_title" in loc_keys, (
             "%s is the key the script builds and there is no loc row for it. This is the "
             "check that used to compare two dead spellings to each other." % k)
+
+    # THE ACTOR ROSTER. actor_* probes are "key value" lines, parsed into their own dict -
+    # the list-membership checks above are for whole-line stubs, but these have a value to
+    # pull out.
+    have = dict(x.split(" ", 1) for x in lines if x.startswith("actor_"))
+    assert int(have["actor_n"]) >= 3, (
+        "EX.actors listed %s factions. The scan walks every region; every landholder that is not "
+        "a house is an actor, and an empty roster means the export never ran."
+        % have["actor_n"])
+    assert have["actor_gold"] != "nil", (
+        "EX.actors carried no treasury. The whole point of reading it inside the existing fcache "
+        "pcall is that no later pass has to call cm:get_faction ~80 times.")
+    assert int(have["actor_regions"]) >= 1, have
+
+    # TASK 11, D2: EX.actors's is_house_culture FILTER.
+    assert have["actor_house_excluded"] == "true", (
+        "a faction of EX.HOUSE_CULTURE appeared in EX.actors. Without the is_house_culture "
+        "filter a guild house is priced and paid by both tiers: once through its own book, "
+        "once more as an ordinary world-tier actor.")
+    assert have["actor_house_gems_owned"] == "1", (
+        "the house-cultured faction's land dropped out of EX.owners too (%s), not just "
+        "EX.actors. The filter belongs on the ACTORS roster alone - EX.owners still feeds "
+        "pricing and EX.top_holder for a house-owned deposit, which must not vanish."
+        % have["actor_house_gems_owned"])
+
+    # TASK 11, D3: THE SCAN'S TREASURY READ, pinned to an exact non-zero figure - "actor_gold
+    # != nil" above passes even for a read stubbed or hardcoded to 0 for every actor.
+    assert have["actor_gold_exact"] == "4242", (
+        "EX.actors's treasury read was %s, not the 4242 the stub region reports. A read "
+        "stubbed or hardcoded to 0 for every actor leaves 'actor_gold != nil' green (0 is not "
+        "nil, it is a real answer) without pinning that actors have any money at all."
+        % have["actor_gold_exact"])
 
 
 
@@ -8139,7 +9999,7 @@ print(string.format("shk_off %%.4f", EX.shock[most_wanted] or 0))
     assert have["layer2"] == "0", (
         "Armaments and Raw Materials come out of the Forge, not off the world's land, and "
         "must take no appetite at all - got %s" % have["layer2"])
-    assert "Wanted:" in have["summary"] and "Going begging:" in have["summary"], (
+    assert "Wanted:" in have["summary"] and "Unwanted:" in have["summary"], (
         "the footer summary must name both sides on a board that moves both ways - got %r"
         % have["summary"])
 
@@ -8999,9 +10859,18 @@ def check_help_lines():
         # file is only the Chaos Dwarf case - "Hashut" is 6 characters against "The Council"
         # at 11. The loop above cannot see the other three, so the longest patron is measured
         # here against the same box.
-        widest = max(len(r["patron"]) for r in race_table().values()) - len("Hashut")
-        for name, page_i, mark in (("EX.HELP_OFFER_LINE", 0, "Burn"),
-                                   ("EX.HELP_GUILD_LINE", 1, "trade here too")):
+        # EACH LINE IS PADDED BY ITS OWN SUBSTITUTION, and they are different fields. The
+        # offerings line takes EX.patron() ("Hashut" 6 against "The Council" 11); the guild
+        # line took the patron too until 2026-09-11 and now takes EX.house_word()
+        # ("A Chaos Dwarf house" 19 against "A Southern Realms city" 22). Measuring both
+        # against the patron spread overstates one and understates the other, and the
+        # understated direction clips mid-word in game with no error.
+        pad_patron = max(len(r["patron"]) for r in race_table().values()) - len("Hashut")
+        pad_house = (max(len(r["house_word"]) for r in race_table().values())
+                     - len("A Chaos Dwarf house"))
+        for name, page_i, mark, pad, what in (
+                ("EX.HELP_OFFER_LINE", 0, "Burn", pad_patron, "patron name"),
+                ("EX.HELP_GUILD_LINE", 1, "trades here", pad_house, "house word")):
             mi = re.search(name + r"\s*=\s*(\d+)", lua)
             if not mi or pi != page_i:
                 continue
@@ -9009,12 +10878,12 @@ def check_help_lines():
             assert mark in sentence, (
                 "%s points at %r, which does not look like the line bind_race rewrites"
                 % (name, sentence[:60]))
-            grown = (len(markup.sub("", sentence)) + widest) * px_per_char
+            grown = (len(markup.sub("", sentence)) + pad) * px_per_char
             assert grown <= boxes["row_trend"], (
                 "guide page %d line %r reaches ~%.0fpx in a %dpx column once the longest "
-                "patron name is substituted in. Nothing else measures that - this loop only "
-                "sees the Chaos Dwarf literal."
-                % (pi + 1, sentence, grown, boxes["row_trend"]))
+                "%s is substituted in. Nothing else measures that - this loop only sees the "
+                "Chaos Dwarf literal."
+                % (pi + 1, sentence, grown, what, boxes["row_trend"]))
         all_entries.extend(entries)
     entries = all_entries
 
@@ -9256,7 +11125,11 @@ def check_tooltips():
         "EX.apply_tips returns early when the view has no tooltips. The cells are shared "
         "between views, so that leaves the last view's text sitting on them - which is how "
         "the Log came to explain the Trend column's arrows.")
-    assert re.search(r"EX\.TIPS\[EX\.mode\]\s*or\s*\{\}", ap.group(0)), (
+    # EX.view() OR EX.mode. The ledger is a PAGE of the trade view rather than a mode, so
+    # keying on EX.mode alone handed it the Trade view's tooltips over three columns that mean
+    # something else entirely - EX.view() is what routes it to its own entry. Either spelling
+    # satisfies the fallback this assertion is actually about.
+    assert re.search(r"EX\.TIPS\[EX\.(?:mode|view\(\))\]\s*or\s*\{\}", ap.group(0)), (
         "EX.apply_tips no longer falls back to an empty tip table, so a view absent from "
         "EX.TIPS writes nothing at all and inherits the last one's tooltips")
     assert "pairs(EX.TIP_CELL)" in ap.group(0), (
@@ -10085,6 +11958,9 @@ GF_CALLS = 0
 -- house was paid" from "the house was not paid" - which is exactly the distinction the
 -- ai_gold-off tests below turn on.
 PAID = {}
+-- WHAT THE STANCE MANAGER WAS TOLD. Two tables, not one: "cleared but not promoted" is
+-- the whole of a neutral book, and a single table cannot tell it from "never touched".
+STANCE, CLEARED = {}, {}
 cm = {
     add_first_tick_callback = function() end,
     add_loading_game_callback = function() end,
@@ -10100,7 +11976,12 @@ cm = {
     -- DIPLO entry reads as 0 (the zero anchor), both matching a house we know nothing bad about.
     get_faction = function(_, k)
         GF_CALLS = GF_CALLS + 1
-        return { is_null_interface = function() return false end,
+        -- __key: STAGE 2 TASK 2 ONLY. The real interface carries no such field; this stub
+        -- stamps it so a probe can prove which key produced which interface object reached
+        -- the engine call, which EX.deal_ok's contract (interfaces, not key strings, in
+        -- (them, me) order) cannot otherwise be observed from outside.
+        return { __key = k,
+                 is_null_interface = function() return false end,
                  treasury = function() return TREASURY[k] or 0 end,
                  at_war_with = function() return TREATY[k] == "war" end,
                  allied_with = function() return TREATY[k] == "allied" end,
@@ -10112,6 +11993,10 @@ cm = {
     end,
     treasury_mod = function(_, k, amt) PAID[k] = (PAID[k] or 0) + amt end,
     faction_add_pooled_resource = function() end,
+    cai_strategic_stance_manager_clear_all_promotions_between_factions =
+        function(_, a, b) CLEARED[#CLEARED + 1] = a .. ">" .. b end,
+    cai_strategic_stance_manager_promote_specified_stance_towards_target_faction =
+        function(_, a, b, s) STANCE[a .. ">" .. b] = s end,
 }
 core = { add_listener = function() end }
 function out() end
@@ -10675,8 +12560,24 @@ local dn = EX.faction_display("deep")
 print("why_display " .. tostring(dn ~= nil and dn ~= ""))
 print("why_names " .. tostring(wr ~= nil and dn ~= "" and string.find(wr, dn, 1, true) ~= nil))
 print("why_unavailable " .. tostring(EX.buy_refusal("res_ivory") ~= nil))
+-- THE LABEL, NOT JUST NON-NIL. res_ivory has zero supply in this fixture, so before Task 7
+-- the only thing that could make buy_refusal non-nil here was EX.unavailable - now
+-- EX.sold_out can also answer it (guild and world book both empty for res_ivory too), and
+-- "why_unavailable" passing on ~= nil alone cannot tell "No offer" (EX.unavailable's own
+-- branch) from "Sold out" (the new fourth cause) apart. The two sentences are materially
+-- different and reach different UI.
+local _, why_unavailable_label = EX.buy_refusal("res_ivory")
+print("why_unavailable_label " .. tostring(why_unavailable_label))
 EX.book = {}
+-- WORLD_SCARCITY IS TASK 7'S AXIS, NOT THIS ONE'S. This line isolates refused_by's own
+-- no-book-no-refusal path; left alone, an empty guild book with nobody in the world tier
+-- holding a lot now legitimately trips EX.sold_out, and this assertion would be testing the
+-- wrong feature. Scarcity gets its own fixture and its own assertions further down.
+local REAL_SETTING_WHY = EX.setting
+EX.setting = function(k) if k == "world_scarcity" then return false end
+             return REAL_SETTING_WHY(k) end
 print("why_open " .. tostring(EX.buy_refusal("res_gems") == nil))
+EX.setting = REAL_SETTING_WHY
 
 -- THE WAR LOCK MUST NOT BORROW THE REFUSAL SENTENCE. buy_refusal used to read EX.blocked, which
 -- is market_closed() OR refused_by(), and phrase either as "<house> will not sell to you". Under
@@ -10793,6 +12694,2262 @@ TREATY = { pactish = "pact" }
 DIPLO = { pactish = -900 }
 EX.book = { pactish = { res_gems = 10 } }
 print("pact_cap " .. string.format("%%.4f", EX.hostility("res_gems")))
+
+-- ---------------------------------------------------------------------------------------
+-- THE STANCE PROMOTION. Market position -> a CAI strategic stance.
+-- ---------------------------------------------------------------------------------------
+EX.free_guild()
+EX.houses = { "stakeheld", "cornered", "neither" }
+EX.house_set = nil
+EX.delisted = {}
+EX.book = {}
+TREATY = {}
+DIPLO = {}
+-- The player owns gem regions nowhere; these are the HOUSES' producing regions, which is
+-- the only thing the corner term is allowed to look at.
+EX.owners = { res_gems = { cornered = 4 }, res_rom_iron = { neither = 2 } }
+-- EX.held is overridden rather than stubbed through pooled_resource_manager, the same way
+-- REAL_STANCE_OF is captured above: the shared cm.get_faction stub is read by twenty other
+-- assertions in this file and must not change shape for this one.
+local REAL_HELD = EX.held
+HELD = {}
+EX.held = function(res) return HELD[res] or 0 end
+EX.humans = function() return { "player" } end
+
+local function score(h) 
+    local mine = {}
+    for _, res in ipairs(EX.COMMODITIES) do mine[res] = HELD[res] or 0 end
+    return EX.stance_score(h, mine)
+end
+
+-- A POSITION TOO SMALL TO MEAN ANYTHING READS ZERO ON BOTH SIDES. math.floor(-0.5) is -1.
+HELD = { stakeheld = EX.STANCE_SHARES - 1, res_gems = EX.STANCE_CORNER - 1 }
+print("tiny_up " .. score("stakeheld"))
+print("tiny_down " .. score("cornered"))
+
+-- ONE STEP EACH WAY, THEN THE CLAMP.
+HELD = { stakeheld = EX.STANCE_SHARES }
+print("warm_one " .. score("stakeheld"))
+HELD = { stakeheld = EX.STANCE_SHARES * 9 }
+print("warm_clamped " .. score("stakeheld"))
+HELD = { res_gems = EX.STANCE_CORNER }
+print("cold_one " .. score("cornered"))
+HELD = { res_gems = EX.STANCE_CORNER * 9 }
+print("cold_clamped " .. score("cornered"))
+
+-- HOARDING SOMETHING A HOUSE DOES NOT SELL IS NOTHING TO IT.
+HELD = { res_gems = EX.STANCE_CORNER * 9 }
+print("cold_unrelated " .. score("neither"))
+
+-- THE TWO TERMS NET. A stake big enough to cover the hoard leaves the house neutral.
+HELD = { stakeheld = EX.STANCE_SHARES, res_gems = EX.STANCE_CORNER }
+EX.owners = { res_gems = { stakeheld = 4 } }
+print("nets_off " .. score("stakeheld"))
+EX.owners = { res_gems = { cornered = 4 }, res_rom_iron = { neither = 2 } }
+
+-- THE ROUND ITSELF. Clear must be called for every house; a promotion only where the score
+-- is non-zero, or a neutral book would still be shoving the AI somewhere.
+STANCE, CLEARED = {}, {}
+HELD = { stakeheld = EX.STANCE_SHARES * 2, res_gems = EX.STANCE_CORNER * 2 }
+EX.promote_stances()
+print("cleared_n " .. #CLEARED)
+print("promoted_warm " .. tostring(STANCE["stakeheld>player"]))
+print("promoted_cold " .. tostring(STANCE["cornered>player"]))
+print("promoted_neutral " .. tostring(STANCE["neither>player"]))
+
+-- THE SWITCH. Off means the AI is not touched at all - not cleared, not promoted. Anything
+-- else and turning the feature off still stomps everybody else's stance promotions.
+STANCE, CLEARED = {}, {}
+EX.store["zharr_opts"] = nil
+local REAL_SETTING = EX.setting
+EX.setting = function(k) if k == "ai_stance" then return false end return REAL_SETTING(k) end
+EX.promote_stances()
+print("off_cleared " .. #CLEARED)
+print("off_promoted " .. tostring(next(STANCE)))
+EX.setting = REAL_SETTING
+EX.held = REAL_HELD
+
+-- THE WORLD BOOK. Same three accessors as the guild, same persistence rule, plus one the
+-- guild does not need: a faction whose book empties must stop occupying a save key, or a rump
+-- state that traded once in turn 4 is still in the save at turn 300.
+EX.actors = { fac_a = { gold = 9000, regions = 3 },
+              fac_b = { gold = 100,  regions = 1 } }
+EX.set_world_book("fac_a", "res_rom_iron", 7)
+EX.set_world_book("fac_b", "res_rom_iron", 2)
+EX.set_world_book("fac_a", "res_gems", 4)
+print("wb_one " .. EX.world_book_of("fac_a", "res_rom_iron"))
+print("wb_sum " .. EX.world_book("res_rom_iron"))
+print("wb_none " .. EX.world_book("res_rom_wine"))
+print("wb_absent " .. EX.world_book_of("fac_zzz", "res_rom_iron"))
+
+-- A FACTION ABSENT FROM THIS TURN'S ROSTER MUST STILL PRICE. EX.wbook is the position
+-- record; EX.actors is only a per-turn observation of the map (Task 2's roster). Regressing
+-- world_book to iterate EX.actors instead of EX.wbook would drop a conquered faction's lots
+-- out of the pricing term silently and jolt every price it held - the exact ruling this pins.
+-- "fac_ghost" is deliberately absent from EX.actors above.
+EX.set_world_book("fac_ghost", "res_rom_iron", 5)
+print("wb_ghost " .. EX.world_book("res_rom_iron"))
+
+-- TASK 9: NO SHORTING WITH NOTHING TO SHORT. Before Task 9 this pinned "actors do not short,
+-- same rule as the houses" - a floor at 0 no matter what. Task 9 lets an actor short down to
+-- what its land can make, and fac_b has no EX.owners entry for res_rom_iron here, so its
+-- capacity - and therefore its floor - is 0; -5 still clamps to 0, but because there is no
+-- capacity to be short AGAINST, not because shorting itself is disallowed. See EX.world_capacity
+-- and the cap_small/short_floor fixtures below for a producer, where the floor is negative.
+-- REVIEW FIX ROUND 2: fac_b needs a SECOND, still-positive commodity before this probe for a
+-- narrower reason than it used to be. Under the CURRENT `v ~= 0` emptiness test, an unclamped
+-- -5 would already keep its own row on its own merits (it is not zero) - only the correctly
+-- clamped 0 this probe actually produces can empty a one-commodity row, and would then read
+-- back 0 through the faction-absent branch instead of the field this probe means to exercise.
+-- res_gems keeps fac_b's row alive so wb_floor reads the clamped FIELD on its own, and hands a
+-- still-live, two-commodity row down to wb_cleared/wb_kept below, which need one.
+EX.set_world_book("fac_b", "res_gems", 6)
+EX.set_world_book("fac_b", "res_rom_iron", -5)
+print("wb_floor " .. EX.world_book_of("fac_b", "res_rom_iron"))
+
+-- THE SAVE KEY CLEARS when the last lot goes - now genuinely the LAST lot, since fac_b holds
+-- two commodities after the floor probe above; both must reach zero before the row (and its
+-- save key) may disappear.
+-- READ `EX.store`, NOT `SAVED`. Verified 2026-09-13: `EX.setv(key, value)` is one line,
+-- `EX.store[key] = value` - it never calls `cm:set_saved_value`, which is what the harness's
+-- `SAVED` table captures. The whole store is persisted once, as a table, through
+-- `cm:save_named_value(EX.SAVE_STORE, EX.store)`. A probe reading `SAVED` here would report nil
+-- whatever the code did: `wb_cleared` would pass trivially and `wb_kept` would always fail.
+-- The stance tests further up already manipulate `EX.store` directly, which is the precedent.
+EX.set_world_book("fac_b", "res_rom_iron", 0)
+EX.set_world_book("fac_b", "res_gems", 0)
+print("wb_cleared " .. tostring(EX.store[EX.SAVE_WBOOK .. "fac_b"]))
+print("wb_kept " .. tostring(EX.store[EX.SAVE_WBOOK .. "fac_a"] ~= nil))
+
+-- WORLD DESIRE. Sign first: a faction that makes a thing sells it, a faction that does not
+-- buy it. These are the two terms that must never be the wrong way round.
+EX.actors = { maker = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000, regions = 4 },
+              lacker = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000, regions = 4 },
+              fighter = { culture = "wh_main_dwf_dwarfs", war = true, gold = 9000, regions = 4 } }
+EX.owners = { res_rom_iron = { maker = 4 } }
+EX.wbook = {}
+print("des_maker " .. tostring(EX.world_desire("maker", "res_rom_iron") < 0))
+print("des_lacker " .. tostring(EX.world_desire("lacker", "res_rom_iron") > 0))
+
+-- WAR MOVES IT, in the direction WAR_APPETITE says. Iron is a war good; the only difference
+-- between these two actors is the war flag.
+print("des_war " .. tostring(EX.world_desire("fighter", "res_rom_iron")
+                             > EX.world_desire("lacker", "res_rom_iron")))
+
+-- POSITION DAMPS IT. Already long reduces the appetite to add.
+-- COMPARE THE SAME FACTION AGAINST ITSELF. Comparing `lacker` to `fighter` would assert the
+-- inequality `des_war` has ALREADY established through the war term, so deleting the position
+-- term outright would leave the probe passing. Only faction, commodity and book held constant
+-- with the position changed isolates this term.
+local bare = EX.world_desire("lacker", "res_rom_iron")
+EX.set_world_book("lacker", "res_rom_iron", 6)
+local long = EX.world_desire("lacker", "res_rom_iron")
+print("des_damped " .. tostring(long < bare))
+print("des_damped_by " .. string.format("%%.4f", bare - long))
+EX.wbook = {}
+
+-- NO ENGINE CALLS. GF_CALLS counts every cm:get_faction in the run; desire is scored ~80 x 17
+-- times a turn and one lookup in here is 1,360 of them.
+local before = GF_CALLS
+for i = 1, 20 do EX.world_desire("lacker", "res_rom_iron") end
+print("des_calls " .. (GF_CALLS - before))
+
+-- VALUE TERM MAGNITUDE. res_rom_iron sits at EX.neutral_rung() for every probe above (reset by
+-- the block near "for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung()
+-- end" earlier in this same harness, and untouched since), so 0.15 * (neutral - rung) has been
+-- contributing exactly 0 to every des_* probe so far - delete the term, flip its sign, or change
+-- 0.15 to anything, and none of them move. SAME FACTION, SAME COMMODITY, SAME EVERYTHING ELSE:
+-- only EX.current changes between the two calls, so the delta is the value term and nothing
+-- else, same trick as des_damped_by. RESTORED immediately after, so nothing downstream sees a
+-- moved rung.
+local base_price = EX.world_desire("lacker", "res_rom_iron")
+EX.current["res_rom_iron"] = EX.neutral_rung() + 4   -- 4 rungs PRICIER than neutral
+local pricier = EX.world_desire("lacker", "res_rom_iron")
+EX.current["res_rom_iron"] = EX.neutral_rung()
+print("des_value_by " .. string.format("%%.4f", base_price - pricier))
+
+-- THE NON-PRODUCER CONSTANT, EXACTLY. des_lacker above only pins this branch's SIGN - and
+-- CULTURE_WANTS["wh_main_dwf_dwarfs"]["res_rom_iron"] = 0.8 dominates it there, so replacing
+-- the `or 0.5` with -0.5, 0 or anything else positive-enough would still read positive and pass
+-- silently. res_rom_lead has no entry in wh_main_dwf_dwarfs's CULTURE_WANTS row, so the taste
+-- term is exactly 0 here; war is off, the price sits at neutral, and lacker's book was cleared
+-- above - the constant is the only term left standing.
+print("des_lacker_const " .. string.format("%%.4f", EX.world_desire("lacker", "res_rom_lead")))
+
+-- THE THREE GUARDS. Never called until now.
+EX.houses = { "some_house" }
+EX.house_set = nil
+print("des_house " .. EX.world_desire("lacker", "some_house"))
+print("des_layer2 " .. EX.world_desire("lacker", "wh3_dlc23_chd_armaments"))
+print("des_unknown " .. EX.world_desire("ghost_faction_zzz", "res_rom_iron"))
+
+-- THE MATCHING PASS. Gold conservation is the assertion this whole task exists for.
+--
+-- EX.current DECLARED FRESH, FIX ROUND 4. This was the last block in the section that did
+-- not set its own rung, and it was correct only because the des_value_by probe ~25 lines
+-- above happens to restore res_rom_iron to neutral and nothing in the gap touches it. One
+-- EX.current["res_rom_iron"] = EX.RUNGS inserted anywhere in that gap takes the price past
+-- world_cash_max, cap_lots goes to 0, NOTHING trades, and every assertion below passes over
+-- an empty trade. Self-contained now, like the other eight blocks in this section.
+PAID = {}
+EX.actors = { rich = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 50000, regions = 4 },
+              poor = { culture = "wh_main_dwf_dwarfs", war = false, gold = 0,     regions = 1 },
+              sellr = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000, regions = 4 } }
+EX.owners = { res_rom_iron = { sellr = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("sellr", "res_rom_iron", 8)
+EX.step_world()
+
+local net = 0
+for _, v in pairs(PAID) do net = net + v end
+print("wld_net " .. net)
+
+-- NON-VACUITY, FIX ROUND 4. wld_net reads 0 and the goods total below reads 8 whether the
+-- trade happened or not, so on their own both pass over a dead block - which is exactly what
+-- the missing EX.current line above could have caused. This pins the trade that is meant to
+-- happen: sellr's 8 lots, world_trade_max 3, cap_lots floor(3000/1000) = 3, rich's 50000
+-- affording 50, so exactly 3 lots reach rich.
+print("wld_first_lots " .. EX.world_book_of("rich", "res_rom_iron"))
+
+-- AN UNMATCHED ORDER DOES NOT EXECUTE - now checked as CONSERVATION OF GOODS across every
+-- commodity rather than against one named one. FIX ROUND 4: the old probe read
+-- EX.world_book("res_rom_wine"), and wine is nobody's best desire and nobody's holding in
+-- this fixture, so no wine order exists at all - matched or unmatched - and the probe read 0
+-- for free. The fixture's real unmatched orders are glass: it is both poor's and sellr's
+-- best pick (1.50 each) and no actor anywhere sells it. Serving unmatched buyers free lots -
+-- credit the buyer's book, move no gold, touch no seller - conjured lots of glass from
+-- nothing while the old probe stayed 0 and the whole suite stayed green. Gold conservation
+-- cannot cover for that because no gold moves. Summing every book instead catches goods
+-- appearing from nowhere whatever commodity they appear in, and goods vanishing too: this is
+-- the goods-side twin of wld_net, and it is fixture-drift-proof in a way a named commodity
+-- is not - the seeded total is 8 however the desires fall out.
+local goods = 0
+for _, res in ipairs(EX.COMMODITIES) do goods = goods + EX.world_book(res) end
+print("wld_goods_conserved " .. goods)
+
+-- CRITICAL FIX, FIX ROUND 2. EX.actors is built in EX.scan_supply from every landholding
+-- faction whose culture is not Chaos Dwarf - with NO human filter on that path, unlike
+-- EX.discover_houses, which explicitly excludes every human ("EVERY HUMAN IS EXCLUDED, not
+-- only this client's faction"). Without a filter here, a human player faction scores a real
+-- EX.world_desire, enters buyers/sellers, and is silently traded on - paid or charged real
+-- gold, and left holding lots nothing can read back (the panel reads EX.held, not
+-- EX.wbook). Found 2026-09-13 in fix round 2.
+--
+-- "player" IS THE HARNESS'S HUMAN throughout this run - EX.humans is overridden to
+-- `return { "player" }` earlier in this same harness (the stance tests, above) and never
+-- restored, so EX.is_human("player") is already true here for free; nothing further to
+-- stub. "player" is given the EXACT shape of "rich" from the wld_net scenario above (dwarf,
+-- at war, 50000 gold) against a fresh producer-seller of iron, so if the filter were
+-- missing this would trade for the same known-good numbers wld_net already established -
+-- a real, would-have-executed trade, not a vacuous one.
+PAID = {}
+EX.actors = { player = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 50000, regions = 4 },
+              sellr2 = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000,  regions = 4 } }
+EX.owners = { res_rom_iron = { sellr2 = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("sellr2", "res_rom_iron", 8)
+EX.step_world()
+print("wld_human_paid " .. tostring(next(PAID)))
+print("wld_human_book " .. EX.world_book_of("player", "res_rom_iron"))
+
+-- wld_cap / wld_cap_net RETIRED IN FIX ROUND 2 - your own fix round 1 killed them. That
+-- block set world_cash_max=500 against a price of 1000: floor(500/1000) = 0, so the new
+-- cap_lots clamp makes n = 0 and NOTHING trades. PAID stayed empty, "0 <= 500" was true and
+-- capnet was 0 regardless of whether either cap clamp existed at all - both assertions
+-- passed over an empty table. Subsumed by wld_goods_lots / wld_goods_gold below (fix round
+-- 1, Finding 1), which use a cap (2500) that actually lets a trade happen and check the
+-- VALUE (goods x price == gold moved), not merely that gold stayed under a bound nothing
+-- was testing any more.
+
+-- THE SWITCH. Off means not one engine call and not one book moved.
+--
+-- EX.actors DECLARED FRESH, FIX ROUND 3. The human-exclusion block just above replaces
+-- EX.actors wholesale with { player, sellr2 } - "sellr" (this block's own seller) no
+-- longer exists there, "player" is now excluded by the filter, and "sellr2" holds no
+-- book. Before this fix NOTHING in this block could trade even with the tier fully ON,
+-- so deleting the ai_world gate entirely was invisible to wld_off_paid/wld_off_book -
+-- found 2026-09-13 by neutering the gate and watching the whole suite stay green.
+PAID = {}
+EX.actors = { rich = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 50000, regions = 4 },
+              sellr = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000,  regions = 4 } }
+EX.owners = { res_rom_iron = { sellr = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("sellr", "res_rom_iron", 8)
+local REAL_SETTING2 = EX.setting
+EX.setting = function(k) if k == "ai_world" then return false end return REAL_SETTING2(k) end
+EX.step_world()
+print("wld_off_paid " .. tostring(next(PAID)))
+print("wld_off_book " .. EX.world_book_of("sellr", "res_rom_iron"))
+EX.setting = REAL_SETTING2
+
+-- IMPORTANT 1 (RULING, no behaviour change), FIX ROUND 2. With ai_gold off, EX.pay_actor
+-- returns 0 but the books still move the full n lots. KEEP that: it matches EX.step_books,
+-- and EX.settle_counterparty documents the identical rule deliberately - "THE BOOK MOVES
+-- EVEN WHEN THE GOLD DOES NOT ... with MCT's ai_gold off the books go NOTIONAL - they are
+-- not frozen", with a note that gating the book on `moved ~= 0` froze them and was a real,
+-- shipped bug. Diverging here would make the two tiers behave differently under the same
+-- switch. Nothing pinned this before this fix round - it was an assumption, now a test.
+PAID = {}
+EX.actors = { rich = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 50000, regions = 4 },
+              sellr = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000,  regions = 4 } }
+EX.owners = { res_rom_iron = { sellr = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("sellr", "res_rom_iron", 8)
+local REAL_SETTING4 = EX.setting
+EX.setting = function(k) if k == "ai_gold" then return false end return REAL_SETTING4(k) end
+EX.step_world()
+print("wld_gold_off_paid " .. tostring(next(PAID)))
+print("wld_gold_off_book " .. EX.world_book_of("rich", "res_rom_iron"))
+EX.setting = REAL_SETTING4
+
+-- FIX ROUND 1, FINDING 1. THE CAP MUST CLAMP THE LOTS, NOT JUST THE GOLD. Before this fix,
+-- a trade priced over world_cash_max had EX.pay_actor clamp the GOLD leg while the books
+-- moved the FULL n lots regardless - goods created from nothing, invisible to wld_net
+-- because gold still nets to zero. Reachable on shipped values: easy preset is
+-- world_cash_max 1500 / world_trade_max 2, so any price above 750 puts a 2-lot trade over
+-- the cap. This asserts goods and gold agree EXACTLY, not merely that gold stays under the
+-- cap (that is wld_cap, above).
+--
+-- CAP 2500, NOT 500. At 500 the cap falls BELOW one lot's price (1000), so cap_lots is 0
+-- and NO trade executes at all - goods (0) trivially "agree" with gold (0) no matter what
+-- the fix does. 2500 buys exactly 2 lots (world_trade_max=3 does not bind), so the cap is
+-- the thing actually deciding n, and there is a real trade to check agreement on.
+--
+-- EX.actors DECLARED FRESH, not inherited from the wld_net block above - the human-exclusion
+-- test (fix round 2) between them replaces EX.actors wholesale, so "rich" no longer exists
+-- by the time this runs. Self-contained, same shape as before.
+PAID = {}
+EX.actors = { rich = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 500000, regions = 4 },
+              sellr = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000,  regions = 4 } }
+EX.owners = { res_rom_iron = { sellr = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.WORLD_CASH_MAX = 2500
+EX.wbook = {}
+EX.set_world_book("sellr", "res_rom_iron", 40)
+EX.step_world()
+local gold_moved = 0
+for _, v in pairs(PAID) do if v > 0 then gold_moved = gold_moved + v end end
+print("wld_goods_lots " .. EX.world_book_of("rich", "res_rom_iron"))
+print("wld_goods_gold " .. tostring(gold_moved == EX.world_book_of("rich", "res_rom_iron") * 1000))
+EX.WORLD_CASH_MAX = 3000   -- back to the real default, not nil - see Finding 2 below
+
+-- FIX ROUND 1, FINDING 2. wld_neg is GONE (see the report: it can never fail - "poor" never
+-- becomes a matched buyer in this scenario, and more fundamentally EX.pay_actor's own
+-- treasury floor is unreachable from EX.step_world's call site, proven by deleting it and
+-- staying green). Replacing it with the thing that IS load-bearing and falsifiable: the
+-- scanned EX.actors[...].gold must be written back AS TRADES EXECUTE, because it is a
+-- PER-TURN budget the pre-flight scan reads once, not something that renews itself.
+--
+-- EX.step_world gives one actor at most ONE buy per CALL - its single highest-desire
+-- commodity, see the header comment above EX.step_world - so within a single call the
+-- decrement is provably unreachable too (confirmed by hand: a buyer with several sellers
+-- of several different commodities in front of it still only ever executes the one trade
+-- matching its single best pick). The place the decrement actually matters is a SECOND
+-- pass over the SAME unrefreshed snapshot - this file already tests for exactly that shape
+-- of bug elsewhere (see "init hardening: ... runs once when both entry points fire"): a
+-- double-fired turn callback, or any future edit that lets one actor trade more than once
+-- a turn. Two calls, same actor, same un-rescanned gold - without the decrement the second
+-- call sees the FULL original treasury again and buys a second time for free.
+PAID = {}
+EX.actors = { spender = { culture = "wh_main_dwf_dwarfs", war = true, gold = 1000, regions = 1 },
+              stocked = { culture = "wh_main_dwf_dwarfs", war = false, gold = 0, regions = 4 } }
+EX.owners = { res_rom_iron = { stocked = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("stocked", "res_rom_iron", 20)
+EX.step_world()
+EX.set_world_book("stocked", "res_rom_iron", 20)   -- restocked; same seller still in front
+EX.step_world()
+local spend = 0
+for k, v in pairs(PAID) do if k == "spender" then spend = spend - v end end
+print("wld_budget_spend " .. spend)
+
+-- THE GOODS LEG OF THE SAME TRADE, FIX ROUND 4. wld_budget_spend reads the GOLD leg only,
+-- and EX.pay_actor's own treasury floor clamps that leg whatever n is - so deleting the
+-- affordability clamp in EX.step_world (`local afford = math.floor(gold / px); if n > afford
+-- then n = afford end`) left spend at exactly 1000 and the whole suite green while spender
+-- walked off with SIX lots of iron for its 1000 gold: 3 in the first pass (floored payment
+-- of 1000) and 3 more in the second (0 gold left, payment floored to 0, books moved anyway).
+-- Goods from nothing again, invisible to every gold-side probe. Affordability is the third
+-- of the three clamps that decide n, and the only one with no test: cap_lots has
+-- wld_goods_lots and world_trade_max has wld_trade_max_lots. EXACTLY 1 lot - 1000 gold at
+-- price 1000, with world_trade_max (3) and cap_lots (3) both well clear, so affordability is
+-- the only clamp that can produce this number. Beside wld_budget_spend == 1000 this pair is
+-- goods x price == gold moved.
+print("wld_budget_lots " .. EX.world_book_of("spender", "res_rom_iron"))
+
+-- MINOR (EX.world_flow stale on off), FIX ROUND 2. The early return used to skip building a
+-- fresh flow table at all, so a player who switches ai_world off mid-campaign kept seeing
+-- LAST turn's numbers forever - the log line this feeds never went quiet even though
+-- nothing was trading. Seed a STALE flow (as if left over from a turn when the tier was
+-- on), then call EX.step_world with ai_world forced off and check it was replaced with a
+-- fresh, empty one.
+--
+-- EX.actors DECLARED FRESH, FIX ROUND 3. This block used to inherit whatever "spender"
+-- and "stocked" the wld_budget_spend block above left behind - spender ends that block at
+-- 0 gold, so a REAL step_world() run (the gate broken) would ALSO compute bought = 0 here,
+-- for the wrong reason: nothing affordable, not "correctly cleared because off". Found
+-- 2026-09-13 while proving Finding A: neutering the ai_world gate left this exact print at
+-- 0 either way, so the assertion could not tell "cleared" from "ran for real and traded
+-- nothing". A real, affordable trade (rich/sellr, the wld_net shape) makes the two cases
+-- read 0 vs 3 instead of 0 vs 0.
+EX.actors = { rich = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 50000, regions = 4 },
+              sellr = { culture = "wh_main_dwf_dwarfs", war = false, gold = 9000,  regions = 4 } }
+EX.owners = { res_rom_iron = { sellr = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("sellr", "res_rom_iron", 8)
+EX.world_flow = { bought = 99, sold = 99, actors = 99 }
+local REAL_SETTING5 = EX.setting
+EX.setting = function(k) if k == "ai_world" then return false end return REAL_SETTING5(k) end
+EX.step_world()
+print("wld_flow_off_bought " .. EX.world_flow.bought)
+EX.setting = REAL_SETTING5
+
+-- MINOR (si.gold has zero coverage), FIX ROUND 2. Every probe above only ever checked the
+-- BUYER's gold decrement (bi.gold); the SELLER's credit (si.gold) was never read back by
+-- anything - deleting it leaves the whole suite green. It is reachable in one ordinary
+-- call: an actor sells commodity A, is credited, then buys commodity B later in
+-- EX.COMMODITIES order using that same-turn credit.
+--
+-- "trader" sells res_animals (COMMODITIES index 1, dwarfs do not want it - taste -0.6 - and
+-- it holds none of the production, so this is its most negative desire among what it
+-- holds) to "buyer_animals" (an ogre importer - CULTURE_WANTS animals = 1.0, its highest),
+-- and is credited 3000 gold it did not start with (only 100). It then wants
+-- res_rom_glass (index 9, dwarfs' single highest taste at 1.0) more than anything else,
+-- and can only afford "seller_glass"'s stock with that credit - 100 alone buys nothing at
+-- a price of 1000. ipairs(EX.COMMODITIES) guarantees animals (1) is processed strictly
+-- before glass (9), so the credit is already applied by the time the buy is checked.
+PAID = {}
+EX.actors = {
+    trader        = { culture = "wh_main_dwf_dwarfs",      war = false, gold = 100,   regions = 1 },
+    buyer_animals = { culture = "wh3_main_ogr_ogre_kingdoms", war = false, gold = 50000, regions = 4 },
+    seller_glass  = { culture = "mixer_teb_southern_realms", war = false, gold = 0,     regions = 4 },
+}
+EX.owners = {}
+EX.current["res_animals"] = EX.neutral_rung()
+EX.current["res_rom_glass"] = EX.neutral_rung()
+EX.wbook = {}
+EX.set_world_book("trader", "res_animals", 20)
+EX.set_world_book("seller_glass", "res_rom_glass", 20)
+EX.step_world()
+print("wld_credit_buy " .. EX.world_book_of("trader", "res_rom_glass"))
+
+-- FINDING C, FIX ROUND 3. world_trade_max HAD ZERO COVERAGE - one of only two settings
+-- this task lands, with its own slider, tooltip and three preset values, and every wld_*
+-- probe above has n decided by cap_lots or by affordability, never by trade_max. Deep
+-- book, ample gold, and world_cash_max raised so cap_lots cannot bind first - only
+-- world_trade_max is left standing between the seller's 50 lots and the buyer's
+-- 1,000,000 gold.
+PAID = {}
+EX.actors = { richbuyer  = { culture = "wh_main_dwf_dwarfs", war = true,  gold = 1000000, regions = 4 },
+              deepseller = { culture = "wh_main_dwf_dwarfs", war = false, gold = 0,       regions = 4 } }
+EX.owners = { res_rom_iron = { deepseller = 5 } }
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.WORLD_CASH_MAX = 100000   -- cap_lots = floor(100000/1000) = 100, well clear of trade_max
+EX.wbook = {}
+EX.set_world_book("deepseller", "res_rom_iron", 50)
+EX.step_world()
+print("wld_trade_max_lots " .. EX.world_book_of("richbuyer", "res_rom_iron"))
+EX.WORLD_CASH_MAX = 3000
+
+-- THE PRICING TERM. The off switch must restore the shipped number exactly - this is the
+-- appetite_drift A/B precedent, and it is the only thing that makes the switch worth having.
+EX.actors = { a = { gold = 9000, regions = 2 }, b = { gold = 9000, regions = 2 } }
+EX.wbook = {}
+-- DECLARED, NOT INHERITED. target_rung reads EX.pressure too and this block does not own it -
+-- a scrambled value left by an earlier block would red this suite with "world_book_shift did
+-- not reach the rung", a true but misleading message for a neighbouring-block effect.
+EX.pressure = {}
+-- A board to price against. target_rung takes (res, supply, owners, med) - EX.price does not
+-- take the shift at all, it reads EX.current, so it cannot see this term.
+local SUP = { res_rom_iron = 20 }
+local OWN = { res_rom_iron = { f1 = 10, f2 = 10 } }
+local function rung() return EX.target_rung("res_rom_iron", SUP, OWN, 20) end
+
+local baseline = rung()
+print("wps_flat " .. EX.world_book_shift("res_rom_iron"))
+
+EX.set_world_book("a", "res_rom_iron", 40)
+EX.set_world_book("b", "res_rom_iron", 40)
+print("wps_long " .. tostring(EX.world_book_shift("res_rom_iron") > 0))
+print("wps_clamp " .. tostring(EX.world_book_shift("res_rom_iron")
+                               <= EX.opt("ai_max_rungs")))
+-- THE TERM REACHES THE RUNG. A shift that never lands in target_rung is a function nothing
+-- calls, and no other assertion in this file would notice.
+print("wps_wired " .. tostring(rung() - baseline
+                               == EX.world_book_shift("res_rom_iron")))
+
+-- OFF RESTORES THE SHIPPED NUMBER EXACTLY, with the book still full.
+local REAL_SETTING3 = EX.setting
+EX.setting = function(k) if k == "ai_world" then return false end return REAL_SETTING3(k) end
+print("wps_off_shift " .. EX.world_book_shift("res_rom_iron"))
+print("wps_off_same " .. tostring(rung() == baseline))
+EX.setting = REAL_SETTING3
+EX.wbook = {}
+
+-- SUB-CLAMP MAGNITUDE. wps_long ("> 0") and wps_clamp ("<= ai_max_rungs") are both satisfied
+-- by the CLAMPED value alone - a net of 80 (two positions of 40) gives 4.0*80/100 = 3.2, which
+-- clamps to 2, and anything at or above gain 2.5 produces the identical "true"/"true" answer.
+-- Neither pins the MAGNITUDE, so a miscalibrated gain or a rewritten divisor can ship green.
+--
+-- net=12 is a REAL sub-rung magnitude (0.48 rungs at the shipped gain 4.0) and must truncate
+-- to exactly 0 - not "happen to read 0 because the book is empty", which is wps_flat, a
+-- different fixture entirely. net=30 (1.2 rungs) must land on exactly 1, below the clamp,
+-- so a doubled or halved gain is caught even though it would still pass wps_long/wps_clamp.
+--
+-- ORDERED sub0 THEN sub1 on purpose: because 12/30 is a fixed ratio, no pure rescaling of the
+-- gain or the divisor can push net=30 out of its expected band while leaving net=12 inside
+-- one - if 30's value is in [1,2) (so it still reads 1), 12's value is always in [0.4,0.8)
+-- (so it still reads 0). sub0 failing first, with sub1 never reached, is therefore the
+-- correct signature of a mutation that is not yet large enough to also move sub1.
+EX.wbook = {}
+EX.set_world_book("a", "res_rom_iron", 12)
+print("wps_sub0 " .. EX.world_book_shift("res_rom_iron"))
+EX.set_world_book("a", "res_rom_iron", 30)
+print("wps_sub1 " .. EX.world_book_shift("res_rom_iron"))
+EX.wbook = {}
+
+-- THE is_house / is_layer2 GUARD. Uncovered until this fix round: deleting the guard line
+-- left the whole selftest green. It matters because EX.sell_price rails Layer 2 at one rung
+-- on the stated premise "Layer 2's rung is moved by EX.pressure_shift and by nothing else" -
+-- a premise this term would quietly falsify the moment anything but EX.COMMODITIES reaches
+-- it. Mirrors EX.book_shift's own shift_house / shift_empty coverage, with a real nonzero
+-- book behind each key so the guard is what is under test, not an incidentally-empty one.
+EX.houses = { "world_house" }
+EX.house_set = nil
+EX.set_world_book("a", "world_house", 500)
+print("wps_house " .. EX.world_book_shift("world_house"))
+EX.set_world_book("a", EX.LAYER2[1], 500)
+print("wps_layer2 " .. EX.world_book_shift(EX.LAYER2[1]))
+EX.houses = {}
+EX.house_set = nil
+EX.wbook = {}
+
+-- RESTORE EX.actors. Left as { a, b } above for the whole of this block; a task appended
+-- after this one otherwise inherits it as pre-loaded state, the exact shape of bug this
+-- stage has fought four rounds over.
+EX.actors = {}
+
+-- THE THIRD RUNG. Crossed fixture: `holder` has the lots and little gold, `rich` has the gold
+-- and one lot. A buy must pick the lots, a sell must pick the gold, and neither can be reached
+-- by returning the first actor the loop saw.
+EX.actors = { holder = { gold = 400, regions = 2 }, rich = { gold = 9000, regions = 1 } }
+EX.wbook = {}
+EX.book = {}
+EX.set_world_book("holder", "res_rom_iron", 3)
+EX.set_world_book("rich", "res_rom_iron", 1)
+print("cp_guild_iron " .. tostring(EX.guild_book("res_rom_iron")))
+print("cp_world_iron " .. tostring(EX.world_book("res_rom_iron")))
+print("cp_who " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+print("cp_sell " .. tostring(EX.world_counterparty("res_rom_iron", false)))
+print("cp_none " .. tostring(EX.world_counterparty("res_rom_wine", true)))
+
+-- SCARCITY. Nobody anywhere PRODUCES wine in this whole harness, so post Task 11 A2 it is a
+-- "never a participant" commodity, not a "sold out" one - see the sold_out_wine assertion. Same
+-- fixture as above - EX.book is still {}, so the guild-book early return cannot be the reason
+-- sold_out_iron is nil; the world book (4 lots, pinned above) is.
+print("sold_out_wine " .. tostring(EX.sold_out("res_rom_wine") ~= nil))
+print("sold_out_iron " .. tostring(EX.sold_out("res_rom_iron")))
+
+-- THE SWITCH. Off restores today's behaviour: a buy can never fail for want of a seller.
+local REAL_SETTING4 = EX.setting
+EX.setting = function(k) if k == "world_scarcity" then return false end
+             return REAL_SETTING4(k) end
+print("sold_out_off " .. tostring(EX.sold_out("res_rom_wine")))
+EX.setting = REAL_SETTING4
+
+-- AND ai_world OFF ALONE MUST ALSO RESTORE IT - the second gate in EX.sold_out. With the world
+-- tier off, EX.wbook is empty by definition and scarcity alone would report every commodity the
+-- guild does not hold as sold out; the two switches must not combine into a refusal nobody
+-- asked for. world_scarcity is back to reading true here (REAL_SETTING4 was just restored), so
+-- a nil below can only come from this second gate.
+local REAL_SETTING6 = EX.setting
+EX.setting = function(k) if k == "ai_world" then return false end
+             return REAL_SETTING6(k) end
+print("sold_out_ai_world_off " .. tostring(EX.sold_out("res_rom_wine")))
+EX.setting = REAL_SETTING6
+
+-- THE is_house / is_layer2 GUARD, for BOTH new functions. Mirrors wps_house / wps_layer2 below:
+-- a real nonzero position behind each key, so the guard - not an incidentally empty book - is
+-- what each assertion is pinned on. Without this, deleting the first line of either function
+-- breaks nothing the rest of the suite would notice.
+EX.houses = { "world_house" }
+EX.house_set = nil
+EX.actors = { holder = { gold = 400, regions = 2 } }
+EX.wbook = {}
+EX.set_world_book("holder", "world_house", 5)
+print("cp_house " .. tostring(EX.world_counterparty("world_house", true)))
+EX.set_world_book("holder", EX.LAYER2[1], 5)
+print("cp_layer2 " .. tostring(EX.world_counterparty(EX.LAYER2[1], true)))
+
+EX.wbook = {}
+EX.owners = { world_house = { holder = 5 } }
+EX.owners[EX.LAYER2[1]] = { holder = 5 }
+print("so_house " .. tostring(EX.sold_out("world_house")))
+print("so_layer2 " .. tostring(EX.sold_out(EX.LAYER2[1])))
+
+EX.houses = {}
+EX.house_set = nil
+EX.owners = {}
+EX.wbook = {}
+
+-- F3, FINAL REVIEW 2026-09-13. THE GUILD-BOOK EARLY RETURN, UNCOVERED UNTIL NOW: deleting
+-- `if EX.guild_book(res) > 0 then return nil end` from EX.sold_out left the WHOLE selftest
+-- green, because cp_guild_iron above (and every other sold_out fixture in this block) pins the
+-- guild book at ZERO precisely so the WORLD book is what answers instead - the comment beside
+-- cp_guild_iron says so outright. Declared fresh: a guild house actually holding res_rom_iron,
+-- and an EMPTY world book for it - so a nil below can only be the guild-book line's doing, the
+-- one axis the whole switch-interaction ruling is about (a commodity the guild is long must
+-- stay in the market even when no world actor holds any).
+EX.houses = { "guild_holder" }
+EX.house_set = nil
+EX.book = { guild_holder = { res_rom_iron = 7 } }
+EX.actors = {}
+EX.wbook = {}
+print("so_guild_iron " .. tostring(EX.guild_book("res_rom_iron")))
+print("so_guild_covers " .. tostring(EX.sold_out("res_rom_iron")))
+EX.houses = {}
+EX.house_set = nil
+EX.book = {}
+
+-- WIRED, RUNG 2. settle_counterparty must route a buy through the world actor and take its lot.
+EX.actors = { holder = { gold = 400, regions = 2 } }
+EX.wbook = {}
+EX.book = {}
+EX.set_world_book("holder", "res_rom_iron", 3)
+local w_who, w_moved = EX.settle_counterparty("res_rom_iron", true, 100)
+print("rung_who " .. tostring(w_who))
+print("rung_paid " .. tostring(w_moved))
+print("rung_book " .. tostring(EX.world_book_of("holder", "res_rom_iron")))
+
+-- WIRED, THE REFUSAL. EX.blocked is what EX.trade tests BEFORE it charges. The guild is empty
+-- (EX.houses = {}, EX.book = {}) so market_closed and refused_by are quiet by construction -
+-- pinned below rather than merely assumed, so blocked_iron's nil is provably sold_out's.
+print("blocked_market_closed " .. tostring(EX.market_closed() ~= nil))
+print("blocked_house_war " .. tostring(EX.house_at_war("res_rom_iron") ~= nil))
+print("blocked_wine " .. tostring(EX.blocked("res_rom_wine") ~= nil))
+print("blocked_iron " .. tostring(EX.blocked("res_rom_iron")))
+
+-- WIRED, THE OTHER HALF OF RULING 1. EX.blocked is what EX.trade tests; EX.buy_refusal is what
+-- SetDisabled, the button label and the price cell all read (8540/8599 and EX.buy_tip). The
+-- fourth block inside EX.buy_refusal is a second, separate insertion from EX.blocked's - one
+-- can be deleted whole while the other stays, leaving a live-looking Buy button that does
+-- nothing when clicked. Same quiet fixture as blocked_wine above.
+local refusal_sold_out, label_sold_out = EX.buy_refusal("res_rom_wine")
+print("refusal_sold_out " .. tostring(refusal_sold_out ~= nil))
+print("label_sold_out " .. tostring(label_sold_out))
+
+-- WIRED, THE HUMAN FILTER (fix round 1, B5). "player" is the harness's human throughout this
+-- run - EX.humans is overridden to `return { "player" }` in the stance tests above and never
+-- restored, so EX.is_human("player") is already true here for free. Crossed the same way as
+-- the holder/rich fixture at the top of this block: without the filter, "player" wins BOTH
+-- the buy (deeper book, 7 against 3) and the sell (richer treasury, 99999 against 500) on
+-- these numbers, so "other" surviving both is provably the filter's doing.
+EX.actors = { player = { gold = 99999, regions = 5 }, other = { gold = 500, regions = 1 } }
+EX.wbook = {}
+EX.set_world_book("player", "res_rom_iron", 7)
+EX.set_world_book("other", "res_rom_iron", 3)
+print("human_buy_cp " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+print("human_sell_cp " .. tostring(EX.world_counterparty("res_rom_iron", false)))
+EX.actors = {}
+EX.wbook = {}
+
+-- WIRED, THE PER-TURN BUDGET (fix round 1, B6). Two sells to the same actor with nothing
+-- between them - the shape of a player selling repeatedly in one turn - must not both draw
+-- against the actor's FULL scanned treasury. EX.step_world already writes this back for its
+-- own two-actor match ("SPEND THE SCANNED TREASURY AS A PER-TURN BUDGET"); rung 2 needs the
+-- identical one line on its own single-actor path.
+EX.houses = {}
+EX.house_set = nil
+EX.book = {}
+EX.owners = {}
+EX.actors = { holder = { gold = 150, regions = 2 } }
+EX.wbook = {}
+local _, wsell_first = EX.settle_counterparty("res_rom_iron", false, 100)
+print("wsell_first_moved " .. tostring(wsell_first))
+print("wsell_gold_after_first " .. tostring(EX.actors.holder.gold))
+local _, wsell_second = EX.settle_counterparty("res_rom_iron", false, 100)
+print("wsell_second_moved " .. tostring(wsell_second))
+-- FIX ROUND 2, G1. wsell_second_moved alone reads EX.pay_actor's OWN return (correctly 50
+-- either way), not the write-back this fixture exists to pin - swapping the write-back's
+-- `moved` for the asking price (`is_buy and price or -price`) still prints 50 here and 100
+-- above, and the whole selftest stays green, while the actor's SCANNED gold goes to -50. The
+-- write-back must floor at exactly 0, the same floor EX.pay_actor's own debit clamp gives the
+-- real treasury.
+print("wsell_gold_after_second " .. tostring(EX.actors.holder.gold))
+local wsell_third_who = EX.settle_counterparty("res_rom_iron", false, 100)
+print("wsell_third_who " .. tostring(wsell_third_who))
+EX.actors = {}
+EX.wbook = {}
+
+-- FIX ROUND 2, G2. THE BUY DIRECTION OF THE SAME WRITE-BACK. The three wsell_* fixtures above
+-- only ever sell, so `if wi and moved < 0 then wi.gold = wi.gold + moved end` - a sell-only
+-- write-back - survives them untouched. Declared fresh: a seller actor holding real world-book
+-- lots (so a BUY, not a sell, is what routes to it) and a starting gold chosen so the result is
+-- an exact, non-zero, non-starting number.
+EX.houses = {}
+EX.house_set = nil
+EX.book = {}
+EX.owners = {}
+EX.actors = { seller = { gold = 500, regions = 2 } }
+EX.wbook = {}
+EX.set_world_book("seller", "res_rom_iron", 5)
+local _, wbuy_moved = EX.settle_counterparty("res_rom_iron", true, 150)
+print("wbuy_moved " .. tostring(wbuy_moved))
+print("wbuy_gold_after " .. tostring(EX.actors.seller.gold))
+EX.actors = {}
+EX.wbook = {}
+
+-- FIX ROUND 2, G3. EX.world_counterparty's OWN ai_world GATE, not EX.sold_out's (already
+-- pinned above as sold_out_ai_world_off). Deleting this function's own top-of-body gate left
+-- the whole selftest green: a BUY still reads nil once the gate is gone, because the loop
+-- below still requires a positive world-book position and the fixture's stubbed switch does
+-- not clear EX.wbook - but a SELL is chosen on TREASURY alone, never on the book, so it would
+-- still route to a real actor and move real gold through rung 2 with "The world trades"
+-- switched off. Same fixture as the crossed cp_who/cp_sell test at the top of this block.
+local REAL_SETTING7 = EX.setting
+EX.setting = function(k) if k == "ai_world" then return false end return REAL_SETTING7(k) end
+EX.actors = { holder = { gold = 400, regions = 2 } }
+EX.wbook = {}
+EX.set_world_book("holder", "res_rom_iron", 3)
+print("wcp_ai_world_off_buy " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+print("wcp_ai_world_off_sell " .. tostring(EX.world_counterparty("res_rom_iron", false)))
+EX.setting = REAL_SETTING7
+EX.actors = {}
+EX.wbook = {}
+
+-- RESTORE, for anything appended after this block.
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+
+-- F2, FINAL REVIEW 2026-09-13. RUNG 2 MUST DECLINE, NOT MINT/DESTROY, ABOVE world_cash_max.
+-- `rich_actor` carries ample gold (50000) so ONLY the world_cash_max cap can bind, never the
+-- actor's own treasury - isolating the cap as the reason a trade above it declines. Price
+-- (5000) sits comfortably above WORLD_CASH_MAX (3000). EX.owners is left empty so
+-- EX.top_holder also finds nobody - the whole call returning nil, rather than silently routing
+-- to a second, independently-paid party, is what proves nothing was double-settled.
+PAID = {}
+EX.actors = { rich_actor = { gold = 50000, regions = 2 } }
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+EX.set_world_book("rich_actor", "res_rom_iron", 5)
+local sell_who = EX.settle_counterparty("res_rom_iron", false, 5000)
+print("rung2_cap_sell_who " .. tostring(sell_who))
+print("rung2_cap_sell_paid " .. tostring(PAID["rich_actor"] or 0))
+print("rung2_cap_sell_book " .. tostring(EX.world_book_of("rich_actor", "res_rom_iron")))
+
+-- AND THE BUY DIRECTION OF THE SAME GUARD. The gold-floor clamp inside EX.pay_actor only ever
+-- applies to a debit; on a buy the actor is CREDITED, so this is the world_cash_max cap alone,
+-- with no gold-floor interaction to confuse the result.
+PAID = {}
+EX.wbook = {}
+EX.owners = {}
+EX.set_world_book("rich_actor", "res_rom_iron", 5)
+local buy_who = EX.settle_counterparty("res_rom_iron", true, 5000)
+print("rung2_cap_buy_who " .. tostring(buy_who))
+print("rung2_cap_buy_paid " .. tostring(PAID["rich_actor"] or 0))
+print("rung2_cap_buy_book " .. tostring(EX.world_book_of("rich_actor", "res_rom_iron")))
+
+-- AND ai_gold OFF MUST STILL WORK ABOVE THE CAP. The full-settlement check must never be
+-- consulted when the switch is off - if it were, EX.clamp_actor_pay would answer against a cap
+-- this switch has nothing to do with, and the book would wrongly freeze at prices above
+-- world_cash_max exactly the way the pre-existing "moved ~= 0" gate used to freeze it.
+local REAL_SETTING_GOLD_OFF = EX.setting
+EX.setting = function(k) if k == "ai_gold" then return false end
+             return REAL_SETTING_GOLD_OFF(k) end
+PAID = {}
+EX.wbook = {}
+EX.owners = {}
+EX.set_world_book("rich_actor", "res_rom_iron", 5)
+local off_who, off_moved = EX.settle_counterparty("res_rom_iron", false, 5000)
+print("rung2_cap_gold_off_who " .. tostring(off_who))
+print("rung2_cap_gold_off_paid " .. tostring(off_moved))
+print("rung2_cap_gold_off_book " .. tostring(EX.world_book_of("rich_actor", "res_rom_iron")))
+EX.setting = REAL_SETTING_GOLD_OFF
+
+-- F1, FINAL REVIEW 2026-09-13. THE WORLD BOOK MUST SURVIVE A SAVE/LOAD. EX.set_world_book has
+-- always written EX.SAVE_WBOOK .. faction; nothing ever read it back, so EX.wbook started
+-- empty on every load - with world_scarcity on (default, hard, ultra) that is every commodity
+-- the guild does not hold refused from the instant a save loads until the player's turn ends.
+--
+-- WRITTEN DIRECTLY INTO EX.store, bypassing EX.set_world_book entirely, to simulate exactly
+-- what a real load sees: a key that exists because a PREVIOUS session wrote it, read by a
+-- session that has not called EX.set_world_book even once. Mirrors EX.pack_world_book's
+-- format exactly (see that function): "res=n;res2=n2".
+--
+-- EX.wbook IS SEEDED WITH A STALE, UNRELATED FACTION FIRST - a pass that MERGED into the
+-- existing table rather than REPLACING it, or that only ever added and never cleared, would
+-- still show this entry afterwards. The guild's own book clear (EX.book = {}) is the precedent
+-- this branch has to mirror.
+EX.store[EX.SAVE_WBOOK .. "restored_actor"] = "res_rom_iron=7;res_gems=2"
+EX.wbook = { stale_ghost = { res_rom_iron = 999 } }
+EX.restore()
+print("wb_restored_iron " .. tostring(EX.world_book_of("restored_actor", "res_rom_iron")))
+print("wb_restored_gems " .. tostring(EX.world_book_of("restored_actor", "res_gems")))
+print("wb_restored_stale_gone " .. tostring(EX.world_book_of("stale_ghost", "res_rom_iron")))
+
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+
+-- TASK 9: THE WORLD BOOK BECOMES A POSITION, NOT A WAREHOUSE.
+
+-- CAPACITY IS LOTS, NOT OUTPUT, AND THE PRODUCT IS FLOORED, NOT THE FACTOR (TASK 11, A1).
+-- `big` makes 26 units of iron a turn: over WORLD_STOCK_TURNS 3 that is 78 units, floor(78/10)
+-- = 7 lots. `small` makes 7 units a turn - less than one lot - but over three turns that is 21
+-- units, floor(21/10) = 2 lots: a sub-lot producer still sells SOMETHING, which is the whole
+-- point of flooring the product instead of the factor. The old floor(mine/lot)*TURNS shape
+-- gave `small` capacity 0 forever - the shipped glass bug.
+EX.actors = { big = { gold = 9000, regions = 3 }, small = { gold = 9000, regions = 1 } }
+EX.owners = { res_rom_iron = { big = 26, small = 7 } }
+EX.wbook = {}
+EX.book = {}
+print("cap_big " .. tostring(EX.world_capacity("big", "res_rom_iron")))
+print("cap_small " .. tostring(EX.world_capacity("small", "res_rom_iron")))
+print("cap_nonproducer " .. tostring(EX.world_capacity("big", "res_rom_wine")))
+print("sell_big " .. tostring(EX.world_sellable("big", "res_rom_iron")))
+
+-- SHORT, TO THE FLOOR AND NO FURTHER. An actor may sell what its land makes and not a lot more.
+EX.set_world_book("big", "res_rom_iron", -100)
+print("short_floor " .. tostring(EX.world_book_of("big", "res_rom_iron")))
+print("short_sellable " .. tostring(EX.world_sellable("big", "res_rom_iron")))
+
+-- A SHORT POSITION MUST SURVIVE THE SAVE. This is the trap: the clear and the packer both
+-- filtered `v > 0`, so a faction short in everything had its row deleted and the goods it owed
+-- were minted back into the world.
+print("short_packed " .. tostring(EX.pack_world_book("big")))
+print("short_key " .. tostring(EX.store[EX.SAVE_WBOOK .. "big"]))
+EX.wbook = {}
+EX.restore_world_books()
+print("short_restored " .. tostring(EX.world_book_of("big", "res_rom_iron")))
+
+-- A PRODUCER SELLS FROM AN EMPTY BOOK. Under accrual it had to wait for stock to exist; its
+-- land makes the stock, so it can sell the moment somebody wants to buy.
+EX.actors = { maker = { gold = 9000, regions = 3 }, buyer = { gold = 90000, regions = 1 } }
+EX.owners = { res_rom_iron = { maker = 26 } }
+-- REVIEW FIX ROUND 2: SAVE AND RESTORE THE WHOLE TABLE, not just res_rom_iron. Replacing
+-- EX.current outright (rather than mutating one key) is what makes every OTHER commodity
+-- price at neutral for free via the `or EX.neutral_rung()` fallback - but only restoring
+-- res_rom_iron afterward left every other rung this table had ever held silently gone,
+-- harmless only because this was the last block in the harness. The next thing appended
+-- after it would inherit a table missing everything but iron.
+local saved_current = EX.current
+EX.current = { res_rom_iron = 1 }
+EX.wbook = {}
+EX.book = {}
+-- THE FIXTURE'S OWN PRECONDITION, PINNED. A non-producer scores a flat +0.5 on every commodity
+-- it does not make, so without a price difference all seventeen tie and step_world's strict `>`
+-- leaves the buyer wanting COMMODITIES[1] forever. Iron is tenth in that list.
+print("cold_wants " .. tostring(EX.world_desire("buyer", "res_rom_iron")
+                                > EX.world_desire("buyer", "res_animals")))
+EX.step_world()
+print("cold_maker " .. tostring(EX.world_book_of("maker", "res_rom_iron")))
+print("cold_buyer " .. tostring(EX.world_book_of("buyer", "res_rom_iron")))
+print("cold_net " .. tostring(EX.world_book("res_rom_iron")))
+print("cold_left " .. tostring(EX.world_sellable("maker", "res_rom_iron")))
+EX.current = saved_current
+
+-- THE POSITION TERM MUST NOT PAY YOU TO BE SHORT. Being short is an actor's normal state here -
+-- it sold what it dug up - and must not read as an appetite to buy back.
+EX.actors = { p = { gold = 9000, regions = 3 } }
+EX.owners = { res_rom_iron = { p = 26 } }
+EX.wbook = {}
+local d_flat = EX.world_desire("p", "res_rom_iron")
+EX.set_world_book("p", "res_rom_iron", -6)
+local d_short = EX.world_desire("p", "res_rom_iron")
+EX.set_world_book("p", "res_rom_iron", 6)
+local d_long = EX.world_desire("p", "res_rom_iron")
+print("pos_short_same " .. tostring(d_short == d_flat))
+print("pos_long_lower " .. tostring(d_long < d_flat))
+
+-- AND THE WITHDRAWN FUNCTION IS GONE, not merely unused.
+print("accrual_gone " .. tostring(EX.accrue_world_stock == nil))
+
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+
+-- REVIEW FIX ROUND 2: THE FLOOR MUST NOT MINT WHEN CAPACITY SHRINKS UNDER A STANDING SHORT.
+-- EX.owners is rebuilt from the map on every scan, so a producer that already went short and
+-- then loses the land that earned it that short has its OWN floor rise (move toward zero) on
+-- its very next write. A write that only moves the position TOWARD zero must never be clamped
+-- by the new, shallower floor - clamping it mints the difference, because the counterparty's
+-- leg of the same match is credited or debited the full, uncapped amount regardless.
+EX.actors = { shorty = { gold = 9000, regions = 3 }, otherside = { gold = 9000, regions = 1 } }
+EX.owners = { res_rom_iron = { shorty = 20 } }      -- capacity floor(20/10)*3 = 6
+EX.wbook = {}
+EX.book = {}
+EX.set_world_book("shorty", "res_rom_iron", -6)     -- established AT the (then-live) floor
+print("shrink_before " .. tostring(EX.world_book_of("shorty", "res_rom_iron")))
+
+-- THE LAND IS LOST. shorty's capacity falls to 0; its floor is now 0, not -6.
+EX.owners = { res_rom_iron = {} }
+print("shrink_cap_after " .. tostring(EX.world_capacity("shorty", "res_rom_iron")))
+
+-- THE BUYER LEG OF A MATCH: shorty buys 3 lots back, moving TOWARD zero from -6 to -3 - still
+-- short, nowhere near the (now much shallower) floor of 0, and must pass exactly as written.
+EX.set_world_book("shorty", "res_rom_iron", EX.world_book_of("shorty", "res_rom_iron") + 3)
+print("shrink_after " .. tostring(EX.world_book_of("shorty", "res_rom_iron")))
+
+-- AND THE SELLER LEG OF THE SAME MATCH, on an actor whose capacity never moved. Conservation
+-- across the WHOLE book is the thing this bug breaks: minting on shorty's leg alone leaves the
+-- world holding lots that were credited without a seller ever having lost them - so the net
+-- after this second leg must equal the net BEFORE the shrink (-6), not something shallower.
+EX.owners = { res_rom_iron = { otherside = 26 } }   -- capacity floor(26*3/10) = 7, unrelated to
+                                                      -- shorty's shrink (TASK 11, A1 renumbered
+                                                      -- this from the pre-A1 value of 6)
+EX.set_world_book("otherside", "res_rom_iron", -3)
+print("shrink_net " .. tostring(EX.world_book("res_rom_iron")))
+
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+
+-- ===========================================================================================
+-- TASK 11, SECTION A: A COMMODITY SMALLER THAN ONE LOT MUST NOT BE REFUSED FOREVER.
+-- ===========================================================================================
+
+-- THE SUB-LOT PRODUCER. 6 units a turn against a 10-unit lot: one lot every other turn, not
+-- nothing forever. This is the shipped glass case.
+EX.actors = { thin = { gold = 9000, regions = 2 } }
+EX.owners = { res_rom_glass = { thin = 6 } }
+EX.wbook = {}
+EX.book = {}
+EX.houses = {}
+print("thin_cap " .. tostring(EX.world_capacity("thin", "res_rom_glass")))
+print("thin_refused " .. tostring(EX.sold_out("res_rom_glass")))
+
+-- AND THE COMMODITY THE TIER CANNOT TOUCH AT ALL. Two units a turn each: nobody can ever fill
+-- a lot, so the world tier is not a participant and must not veto the good.
+EX.actors = { tiny1 = { gold = 9000, regions = 1 }, tiny2 = { gold = 9000, regions = 1 } }
+EX.owners = { res_rom_glass = { tiny1 = 2, tiny2 = 2 } }
+EX.wbook = {}
+print("tiny_pot " .. tostring(EX.world_potential("res_rom_glass")))
+print("tiny_sup " .. tostring(EX.world_supply("res_rom_glass")))
+print("tiny_refused " .. tostring(EX.sold_out("res_rom_glass")))
+
+-- BUT A DRAINED COMMODITY STILL REFUSES. Potential exists and every lot of it is sold forward.
+EX.actors = { big = { gold = 9000, regions = 3 } }
+EX.owners = { res_rom_glass = { big = 40 } }
+EX.wbook = {}
+print("drain_pot " .. tostring(EX.world_potential("res_rom_glass")))
+EX.set_world_book("big", "res_rom_glass", -12)
+print("drain_sup " .. tostring(EX.world_supply("res_rom_glass")))
+print("drain_refused " .. tostring(EX.sold_out("res_rom_glass") ~= nil))
+
+-- F3, REVIEW 2026-09-13: RESTORES THE POSITIVE COVERAGE THE WINE FLIP REMOVED (report section
+-- 3). A2 correctly stood down for wine (never a participant), which left EX.blocked and
+-- EX.buy_refusal with no fixture proving their "genuinely sold out" branch still fires at all -
+-- this drained-glass state (potential > 0, supply 0) is exactly that case.
+print("drain_blocked " .. tostring(EX.blocked("res_rom_glass") ~= nil))
+local drain_why, drain_label = EX.buy_refusal("res_rom_glass")
+print("drain_refusal " .. tostring(drain_why ~= nil))
+print("drain_label " .. tostring(drain_label))
+
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+EX.houses = {}
+
+-- ===========================================================================================
+-- TASK 10: THE PLAYER-FACING HALF OF THE POSITION MODEL. EX.world_book is a NET position and
+-- sums to roughly zero by construction; EX.world_supply is what the world could actually sell.
+-- ===========================================================================================
+
+-- SUPPLY IS WHAT THE WORLD COULD SELL, not what it is holding. `alpha` produces 26 iron a turn
+-- (capacity floor(26*3/10) = 7, post Task 11 A1) and is already short 4; `beta` produces none
+-- and holds 4 it bought. Supply is alpha's remaining 3 plus beta's 4 = 7, while the NET
+-- position is zero.
+EX.actors = { alpha = { gold = 9000, regions = 3 }, beta = { gold = 9000, regions = 1 } }
+EX.owners = { res_rom_iron = { alpha = 26 } }
+EX.wbook = {}
+EX.book = {}
+EX.set_world_book("alpha", "res_rom_iron", -4)
+EX.set_world_book("beta", "res_rom_iron", 4)
+print("sup_net " .. tostring(EX.world_book("res_rom_iron")))
+print("sup_total " .. tostring(EX.world_supply("res_rom_iron")))
+print("sup_none " .. tostring(EX.world_supply("res_rom_wine")))
+
+-- BASELINE WIRING CHECK, NOT A DISCRIMINATING ONE: beta sells 4 against alpha's 3 either way -
+-- alpha's raw book (-4) also loses to beta's raw book (4) here, so this fixture cannot tell a
+-- sellable read from a raw-book read on its own (REVIEW FINDING 2, 2026-09-13; the `sup_cp`
+-- probe further down is the one that does). Trimming beta to 1 below is what starts to
+-- discriminate: alpha's 3 sellable now beats beta's 1, while beta's raw book (1) still beats
+-- alpha's (-4) - pin the sellable ordering.
+print("cp_buy " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+EX.set_world_book("beta", "res_rom_iron", 1)
+print("cp_buy2 " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+
+-- SCARCITY READS SUPPLY, NOT THE NET. This is the whole task: a net of zero is normal.
+print("so_netzero " .. tostring(EX.sold_out("res_rom_iron")))
+-- -7, NOT -6 (TASK 11, A1): alpha's capacity is now 7 (floor(26*3/10)), so -7 is the genuine
+-- floor - full drain, no headroom left. The pre-A1 fixture used -6, which was alpha's OLD
+-- capacity; left unchanged it would leave 1 lot of real headroom post-A1 and so_refuses would
+-- wrongly read false, since the commodity would no longer be genuinely drained.
+EX.set_world_book("alpha", "res_rom_iron", -7)
+EX.set_world_book("beta", "res_rom_iron", 0)
+print("so_drained " .. tostring(EX.world_supply("res_rom_iron")))
+print("so_refuses " .. tostring(EX.sold_out("res_rom_iron") ~= nil))
+
+-- AND THE GUILD STILL COUNTS FIRST. The measurement of 2026-09-13 found the 7 dearest
+-- commodities end a campaign with a ZERO guild book, so on those seven this capacity test is
+-- the only thing between the player and a refusal - but where the guild IS long it must still
+-- answer, exactly as it did before.
+EX.book = { some_house = { res_rom_iron = 3 } }
+EX.houses = { "some_house" }
+print("so_guild " .. tostring(EX.sold_out("res_rom_iron")))
+EX.book = {}
+EX.houses = {}
+
+-- RUNG 1 DECLINES WHAT IT CANNOT SETTLE, same rule rung 2 already follows. EX.apply_trade moves
+-- the player's full uncapped price; EX.pay_house clamps the house at house_cash_max.
+--
+-- TREASURY SEEDED HERE, which the guild rung needs and the book fixture above does not mention:
+-- EX.guild_counterparty on a SELL (is_buy=false) picks its house by treasury, never by book -
+-- see EX.guild_counterparty's own "it buys with gold" branch - so a house absent from TREASURY
+-- reads 0 gold and is never chosen at all, which would make both prints below read nil for a
+-- reason that has nothing to do with the cap this block exists to test.
+EX.actors = {}
+EX.wbook = {}
+EX.book = { rich_house = { res_rom_iron = 9 } }
+EX.houses = { "rich_house" }
+TREASURY = { rich_house = 1000000 }
+local over = EX.opt("house_cash_max") + 1
+local who_over = EX.settle_counterparty("res_rom_iron", false, over)
+print("r1_over " .. tostring(who_over))
+local who_ok = EX.settle_counterparty("res_rom_iron", false, 100)
+print("r1_ok " .. tostring(who_ok))
+print("r1_book " .. tostring(EX.book_of("rich_house", "res_rom_iron")))
+EX.book = {}
+EX.houses = {}
+
+-- THE BOUNDARY ITSELF. Exactly AT the cap must settle; one over must decline. An untested `>`
+-- silently becomes `>=` under a careless edit.
+EX.book = { edge_house = { res_rom_iron = 9 } }
+EX.houses = { "edge_house" }
+TREASURY = { edge_house = 1000000 }
+print("r1_at_cap " .. tostring(EX.settle_counterparty("res_rom_iron", false,
+                                                      EX.opt("house_cash_max"))))
+EX.book = {}
+EX.houses = {}
+
+-- THE PRODUCTION TERM, PINNED AT LAST. Measured 2026-09-13: the coefficient is NOT being
+-- changed - it cannot move a price, because EX.book_shift's denominator and clamp absorb it -
+-- but it has never had a numeric assertion on the producing branch, which is why nobody noticed
+-- it was being fed an output amount. The delta between a producer and a non-producer, with
+-- every other term identical, is exactly -(0.4 * mine) - 0.5.
+--
+-- EX.house_bias STUBBED TO 0 FOR THIS READ ONLY. It is a per-(house, res) hash and does not
+-- cancel between two different house names on its own - "prod_house" and "bare_house" hash to
+-- different buckets, which would smuggle a few hundredths of a rung into what is supposed to be
+-- an exact pin of the production term alone. Restored immediately after.
+EX.owners = { res_rom_iron = { prod_house = 10 } }
+EX.book = {}
+EX.houses = { "prod_house", "bare_house" }
+local REAL_HOUSE_BIAS = EX.house_bias
+EX.house_bias = function() return 0 end
+print("hd_delta " .. tostring(EX.house_desire("prod_house", "res_rom_iron")
+                              - EX.house_desire("bare_house", "res_rom_iron")))
+EX.house_bias = REAL_HOUSE_BIAS
+EX.owners = {}
+EX.book = {}
+EX.houses = {}
+
+-- REVIEW FINDING 1, 2026-09-13: SUPPLY COMES OFF THE LAND, NOT OUT OF THE BOOK. Nothing above
+-- catches `EX.world_supply` reading `EX.wbook` instead of `EX.actors` - in the `sup_*` fixture
+-- both alpha and beta are written into `EX.wbook` by EX.set_world_book, so the two tables have
+-- identical key sets and either iteration gives the same answer; the selftest stayed green with
+-- that swap in place. `alpha` here produces 26 iron - capacity 7, post Task 11 A1 - and has NO
+-- wbook row at all (nothing ever calls EX.set_world_book on it); `beta` produces nothing and
+-- holds 4 it bought.
+-- Iterating the book instead of the roster loses alpha entirely and answers 4.
+EX.actors = { alpha = { gold = 9000, regions = 3 }, beta = { gold = 9000, regions = 1 } }
+EX.owners = { res_rom_iron = { alpha = 26 } }
+EX.wbook = {}
+EX.book = {}
+EX.set_world_book("beta", "res_rom_iron", 4)
+print("sup_noentry " .. tostring(EX.wbook["alpha"] == nil))
+print("sup_offland " .. tostring(EX.world_supply("res_rom_iron")))
+print("sup_cp " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+
+-- RESTORE, for anything appended after this block.
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+EX.houses = {}
+TREASURY = {}
+
+-- RUNG 2'S OWN BOUNDARY, MIRRORED FROM RUNG 1. This was in the draft scope and dropped from the
+-- shipped brief by mistake - EX.pay_actor's identical flat-cap gate never had a boundary test of
+-- its own, only rung 1's r1_at_cap does, and mutating rung 2's `>` to `>=` left the whole
+-- selftest green. EX.actors carries ample gold (900000) so only world_cash_max can bind, never
+-- the actor's own treasury - the same isolation the existing "F2" rung-2 tests already use.
+-- EX.book / EX.houses stay empty so rung 1 (the guild) finds nobody and falls through to rung 2.
+EX.actors = { cap_actor = { gold = 900000, regions = 2 } }
+EX.wbook = {}
+EX.book = {}
+EX.houses = {}
+EX.set_world_book("cap_actor", "res_rom_iron", 9)
+local w_over = EX.opt("world_cash_max") + 1
+local w_who_over = EX.settle_counterparty("res_rom_iron", false, w_over)
+print("r2_over " .. tostring(w_who_over))
+local w_who_ok = EX.settle_counterparty("res_rom_iron", false, 100)
+print("r2_ok " .. tostring(w_who_ok))
+print("r2_book " .. tostring(EX.world_book_of("cap_actor", "res_rom_iron")))
+EX.actors = {}
+EX.wbook = {}
+
+-- THE BOUNDARY ITSELF. Exactly AT world_cash_max must settle and name its actor; one gold over
+-- must decline. An untested `>` silently becomes `>=` under a careless edit - the same trap
+-- r1_at_cap pins one tier down.
+EX.actors = { edge_actor = { gold = 900000, regions = 2 } }
+EX.wbook = {}
+print("r2_at_cap " .. tostring(EX.settle_counterparty("res_rom_iron", false,
+                                                       EX.opt("world_cash_max"))))
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.houses = {}
+
+-- ===========================================================================================
+-- TASK 11, SECTION B: THE PLAYER'S LEG MUST NOT MOVE BEFORE SETTLEMENT IS CONSULTED. A sell
+-- EX.settle_counterparty genuinely cannot pay for must not mint the full price into the
+-- player's treasury through cm:treasury_mod - the refusal has to come BEFORE that call, not
+-- after it, because a treasury move cannot be un-rung.
+-- ===========================================================================================
+
+-- THE POOLED-RESOURCE STUB. The shared cm.get_faction at the top of this harness carries no
+-- pooled_resource_manager - nothing before EX.trade's own "blocked_buy"/"open_sell" test far
+-- above needed one - so it is overridden for the length of this test and restored right
+-- after, same discipline as that test. EX.holdings mirrors what cm:faction_add_pooled_resource
+-- would move; EX.hold_key(res), never res itself, is the real pool key.
+local REAL_GET_FACTION_NB = cm.get_faction
+local REAL_ADD_POOLED_NB = cm.faction_add_pooled_resource
+PAID = {}
+EX.houses = {}
+EX.actors = {}
+EX.owners = { res_gems = {} }
+EX.holdings = { res_gems = 100 }
+cm.get_faction = function(_, k)
+    local f = REAL_GET_FACTION_NB(cm, k)
+    f.treasury = function() return 100000 end
+    f.pooled_resource_manager = function()
+        return { resource = function(_, pk)
+            local v = 0
+            for res, n in pairs(EX.holdings) do
+                if EX.hold_key(res) == pk then v = n end
+            end
+            return { is_null_interface = function() return false end,
+                     value = function() return v end }
+        end }
+    end
+    return f
+end
+-- SAME DISCIPLINE AS THE EARLIER "blocked_buy"/"open_sell" TEST: cm:faction_add_pooled_resource
+-- is a no-op in the base stub, so f1_l2_pool below would read a static number forever without
+-- this - a passing assertion that proves nothing, the exact trap this file's own rule warns of.
+cm.faction_add_pooled_resource = function(_, _fac, pk, _factor, delta)
+    for res, n in pairs(EX.holdings) do
+        if EX.hold_key(res) == pk then EX.holdings[res] = n + delta end
+    end
+end
+
+-- THE FIXTURE'S OWN PRECONDITION, PINNED rather than assumed. EX.settle_counterparty must
+-- genuinely find nobody: an empty guild (rung 1), an empty EX.actors (rung 2), and
+-- EX.top_holder finding nobody because EX.owners is empty for this commodity (rung 3).
+print("nobuyer_precondition " .. tostring(EX.settle_counterparty("res_gems", false, 100) == nil))
+
+local nobuyer_result = EX.apply_trade("res_gems", false)
+print("nobuyer_result " .. tostring(nobuyer_result))
+print("nobuyer_gold " .. tostring(PAID["player"] or 0))
+
+-- F1, REVIEW 2026-09-13: BOTH EXEMPTIONS MUST SETTLE, not merely avoid "nobuyer" by accident.
+-- The guard reads `EX.is_commodity(res)`, true only for the seventeen commodities - so a HOUSE
+-- sale (Layer 3) and a LAYER 2 sale must each fall straight through it and reach the normal
+-- settle-and-move-state tail below, even though rung 3 (EX.top_holder) finds nobody for either -
+-- EX.owners never carries a house key, and Layer 2 is never IN EX.owners at all.
+EX.houses = { "baal" }
+EX.house_set = nil
+EX.delisted = {}
+EX.shares_held = { baal = 10 }
+print("f1_house_is_commodity " .. tostring(EX.is_commodity("baal")))
+print("f1_house_precondition " .. tostring(EX.settle_counterparty("baal", false, 100) == nil))
+local f1_house_result = EX.apply_trade("baal", false)
+print("f1_house_result " .. tostring(f1_house_result))
+print("f1_house_held " .. tostring(EX.held("baal")))
+EX.houses = {}
+EX.house_set = nil
+EX.shares_held = {}
+
+-- SAME PRECONDITION, LAYER 2. EX.LAYER2[1] is never in EX.owners (it has no map holder by
+-- construction - EX.settle_counterparty's own first line), so rung 3 finds nobody here too;
+-- the only thing that can let the sale through is EX.is_commodity reading false for it.
+local L2 = EX.LAYER2[1]
+EX.holdings = { [L2] = 1000 }
+print("f1_l2_is_commodity " .. tostring(EX.is_commodity(L2)))
+print("f1_l2_precondition " .. tostring(EX.settle_counterparty(L2, false, 100) == nil))
+local f1_l2_result = EX.apply_trade(L2, false)
+print("f1_l2_result " .. tostring(f1_l2_result))
+print("f1_l2_pool " .. tostring(EX.held(L2)))
+EX.holdings = nil
+
+-- F2, REVIEW 2026-09-13: CORNERING A COMMODITY MUST NOT TRAP IT. With the player as the
+-- largest holder and a second (AI) holder present, a sell must settle against the SECOND
+-- holder - EX.top_holder(res, EX.who()) skips the player and finds them - and their treasury
+-- must move. With the player as the ONLY holder, no second candidate exists and the sale is
+-- refused exactly as before this fix.
+EX.holdings = { res_gems = 100 }
+EX.owners = { res_gems = { player = 50, second_holder = 20 } }
+print("f2_top_is_player " .. tostring(EX.top_holder("res_gems") == "player"))
+local f2_skip_who = EX.top_holder("res_gems", EX.who())
+print("f2_skip_finds_second " .. tostring(f2_skip_who))
+print("f2_sell_price " .. tostring(EX.sell_price("res_gems")))
+local f2_result = EX.apply_trade("res_gems", false)
+print("f2_result " .. tostring(f2_result))
+print("f2_second_moved " .. tostring(PAID["second_holder"] or 0))
+
+EX.owners = { res_gems = { player = 50 } }
+local f2_sole_result = EX.apply_trade("res_gems", false)
+print("f2_sole_result " .. tostring(f2_sole_result))
+
+cm.get_faction = REAL_GET_FACTION_NB
+cm.faction_add_pooled_resource = REAL_ADD_POOLED_NB
+EX.holdings = nil
+EX.actors = {}
+EX.owners = {}
+EX.houses = {}
+
+-- ===========================================================================================
+-- TASK 11, SECTION C: DEAD FACTIONS ARE PRUNED FROM THE WORLD BOOK, ONCE A TURN, IN
+-- EX.step_world. CONFIRMED dead only - a faction merely absent from EX.actors this scan must
+-- be left alone, which is EX.world_book's own documented tolerance.
+-- ===========================================================================================
+local REAL_GET_FACTION_DEAD = cm.get_faction
+cm.get_faction = function(_, k)
+    if k == "dead_faction" then
+        return { is_null_interface = function() return false end,
+                 is_dead = function() return true end }
+    end
+    if k == "live_faction" then
+        return { is_null_interface = function() return false end,
+                 is_dead = function() return false end }
+    end
+    -- cm:get_faction returns FALSE, not nil, for a key it does not know.
+    if k == "unknown_faction" then return false end
+    return REAL_GET_FACTION_DEAD(cm, k)
+end
+EX.actors = {}
+EX.owners = {}
+EX.wbook = {}
+EX.set_world_book("dead_faction", "res_rom_iron", 5)
+EX.set_world_book("live_faction", "res_rom_iron", 5)
+EX.set_world_book("unknown_faction", "res_rom_iron", 5)
+print("dead_pre " .. tostring(EX.world_book_of("dead_faction", "res_rom_iron")))
+EX.step_world()
+print("dead_pruned " .. tostring(EX.world_book_of("dead_faction", "res_rom_iron")))
+print("dead_key_gone " .. tostring(EX.store[EX.SAVE_WBOOK .. "dead_faction"] == nil))
+print("live_kept " .. tostring(EX.world_book_of("live_faction", "res_rom_iron")))
+print("unknown_kept " .. tostring(EX.world_book_of("unknown_faction", "res_rom_iron")))
+cm.get_faction = REAL_GET_FACTION_DEAD
+EX.actors = {}
+EX.wbook = {}
+EX.owners = {}
+
+-- ===========================================================================================
+-- TASK 11, SECTION D: SIX GUARDS NO TEST COULD SEE. Each is deletable today with the whole
+-- suite green; each gets its own fixture and an exact, non-zero (where the guard is a count)
+-- pin, and each was mutation-tested by deleting the guard it covers - see task-11-report.md.
+-- ===========================================================================================
+
+-- D1: A NET-SHORT WORLD BOOK MUST LOWER THE PRICE, NOT RAISE IT. Every wps_* fixture above
+-- uses a POSITIVE net book - Task 9 made a negative net the NORMAL state (a producer selling
+-- forward), not an edge case, and `if v < 0 then return -q end` never had a test of its own.
+EX.actors = { shortside = { gold = 9000, regions = 3 } }
+EX.owners = { res_rom_iron = { shortside = 200 } }   -- capacity floor(200*3/10) = 60, plenty
+EX.wbook = {}
+EX.set_world_book("shortside", "res_rom_iron", -40)
+print("wps_neg_net " .. tostring(EX.world_book("res_rom_iron")))
+print("wps_neg " .. EX.world_book_shift("res_rom_iron"))
+EX.actors = {}
+EX.wbook = {}
+EX.owners = {}
+
+-- D4: EX.world_sellable's `if n < 0 then n = 0 end`. Load-bearing exactly in the
+-- capacity-shrink case Task 9 created: a faction already short beyond its NEW (shrunk)
+-- capacity must report 0 sellable, not a negative the trade-matching loop would then try to
+-- sell.
+EX.actors = { shrinker = { gold = 9000, regions = 3 } }
+EX.owners = { res_rom_iron = { shrinker = 200 } }   -- capacity floor(200*3/10) = 60
+EX.wbook = {}
+EX.set_world_book("shrinker", "res_rom_iron", -60)  -- established AT the (then-live) floor
+EX.owners = { res_rom_iron = {} }                   -- the land is gone; capacity is now 0
+print("d4_cap_after " .. tostring(EX.world_capacity("shrinker", "res_rom_iron")))
+print("d4_book_after " .. tostring(EX.world_book_of("shrinker", "res_rom_iron")))
+print("d4_sellable " .. tostring(EX.world_sellable("shrinker", "res_rom_iron")))
+EX.actors = {}
+EX.wbook = {}
+EX.owners = {}
+
+-- D5a: THE `sellable > 0` GATE ON THE SELLER PICK, the first of EX.step_world's three order
+-- gates. Without it, an actor picks its lowest-DESIRE commodity as what to sell even when it
+-- holds none of it - starving whatever it COULD actually sell of the one seller slot it gets
+-- that turn. Not a phantom trade: a REAL one that then never happens.
+--
+-- `faker5a` owns only 4 units of dyes (capacity 1, desire -1.6) and nothing else. Pricing
+-- res_gold_idols at EX.RUNGS makes ITS desire even more negative (-2.05, war-appetite -0.9
+-- already priced in via the value term push) despite faker5a owning none of it at all
+-- (sellable 0). With the gate, the algorithm must skip gold_idols (unsellable) and settle on
+-- dyes; without it, the raw minimum (gold_idols) wins and dyes - the only thing faker5a can
+-- actually sell - never gets a seller slot this turn.
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+EX.current["res_gold_idols"] = EX.RUNGS
+EX.actors = {
+    faker5a = { gold = 9000,   regions = 1 },
+    buyer5a = { gold = 900000, regions = 1, culture = "wh_dlc05_wef_wood_elves" },
+}
+EX.owners = { res_dyes = { faker5a = 4 } }
+EX.wbook = {}
+EX.book = {}
+print("d5a_gold_idols_desire " .. string.format("%%.4f",
+    EX.world_desire("faker5a", "res_gold_idols")))
+print("d5a_dyes_desire " .. string.format("%%.4f", EX.world_desire("faker5a", "res_dyes")))
+print("d5a_gold_idols_sellable " .. tostring(EX.world_sellable("faker5a", "res_gold_idols")))
+print("d5a_dyes_sellable " .. tostring(EX.world_sellable("faker5a", "res_dyes")))
+EX.step_world()
+print("d5a_traded " .. tostring(EX.world_book_of("buyer5a", "res_dyes") > 0))
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+
+-- D5b: THE `best_d > 0` GATE ON THE BUYER PICK, the second order gate. An actor whose best
+-- (highest) desire is still <= 0 wants nothing enough to buy; without this gate it is
+-- registered as a buyer of its least-bad option anyway, and a real trade executes for
+-- something nobody actually wanted. Every commodity priced at rung 30 (dear) makes a
+-- NON-PRODUCER's desire negative everywhere: 0.5 + 0.15*(25 - 30) = -0.25.
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = 30 end
+EX.actors = {
+    glutted5b = { gold = 900000, regions = 1 },
+    cheap5b   = { gold = 9000,   regions = 3 },
+}
+EX.owners = { [EX.COMMODITIES[1]] = { cheap5b = 40 } }
+EX.wbook = {}
+EX.book = {}
+print("d5b_best_desire " .. string.format("%%.4f",
+    EX.world_desire("glutted5b", EX.COMMODITIES[1])))
+EX.step_world()
+print("d5b_bought " .. tostring(EX.world_book_of("glutted5b", EX.COMMODITIES[1])))
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+
+-- D5c: THE `worst_d < 0` GATE ON THE SELLER PICK, the third order gate. An actor whose only
+-- sellable commodity has a desire >= 0 does not actually want to be rid of it; without this
+-- gate it becomes the seller slot by default - it is the only sellable thing the actor has -
+-- and a real trade sells stock the actor was never trying to sell. res_gems priced at rung 10
+-- (cheap) makes even a small PRODUCER's desire positive: -(0.4*4) + 0.15*(25-10) = +0.65.
+--
+-- res_dyes is ALSO primed to rung 20, mildly cheap rather than neutral, and content5c owns
+-- none of it - FIX ROUND 3, MUTATION-TESTED 2026-09-13: without this second commodity,
+-- content5c's own highest desire across all 17 goods is res_gems itself (+0.65, nothing else
+-- beats the 0 baseline), so content5c ALSO registers as a BUYER of gems. Under a broken gate
+-- that then makes content5c a seller too, EX.actors's pairs() order can hand content5c its OWN
+-- seller slot - a self-match that nets to zero and passes even with the gate deleted, proving
+-- nothing. Dyes at rung 20 gives content5c a dyes desire of +1.25 (0.15*(25-20) plus the same
+-- flat term res_gems gets), which beats +0.65 and becomes ITS best pick instead - while
+-- taker5c, who owns nothing, still prefers gems at rung 10 (+2.75) over dyes at rung 20
+-- (+1.25), so the buyer side is unaffected. d5c_not_self_buyer pins this precondition rather
+-- than assuming it.
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+EX.current["res_gems"] = 10
+EX.current["res_dyes"] = 20
+EX.actors = {
+    content5c = { gold = 9000,   regions = 1 },
+    taker5c   = { gold = 900000, regions = 1 },
+}
+EX.owners = { res_gems = { content5c = 4 } }
+EX.wbook = {}
+EX.book = {}
+print("d5c_worst_desire " .. string.format("%%.4f", EX.world_desire("content5c", "res_gems")))
+print("d5c_sellable " .. tostring(EX.world_sellable("content5c", "res_gems")))
+print("d5c_not_self_buyer " .. tostring(
+    EX.world_desire("content5c", "res_dyes") > EX.world_desire("content5c", "res_gems")))
+EX.step_world()
+print("d5c_sold " .. tostring(EX.world_book_of("content5c", "res_gems")))
+EX.actors = {}
+EX.wbook = {}
+EX.book = {}
+EX.owners = {}
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+
+-- D6a: EX.world_supply's HUMAN FILTER. "player" is the harness's human throughout this run -
+-- EX.humans is overridden above to return {"player"} and never restored. Without the filter,
+-- the human player's own sellable position would be counted as WORLD supply, a number the
+-- player could then read back as if it were the AI's stock.
+EX.actors = {
+    player    = { gold = 9000, regions = 2 },
+    ai_seller = { gold = 9000, regions = 2 },
+}
+EX.owners = { res_ivory = { player = 40, ai_seller = 40 } }
+EX.wbook = {}
+print("d6a_player_sellable " .. tostring(EX.world_sellable("player", "res_ivory")))
+print("d6a_ai_sellable " .. tostring(EX.world_sellable("ai_seller", "res_ivory")))
+print("d6a_supply " .. tostring(EX.world_supply("res_ivory")))
+EX.actors = {}
+EX.wbook = {}
+EX.owners = {}
+
+-- D6b: EX.pack_world_book's SORT. Without it the same position can pack to two different
+-- strings depending on pairs() traversal order - an unreadable diff between two saves and a
+-- flaky round-trip assertion. Three keys, inserted out of alphabetical order.
+EX.wbook = {}
+EX.set_world_book("sorttest", "res_trinkets", 3)
+EX.set_world_book("sorttest", "res_animals", 5)
+EX.set_world_book("sorttest", "res_gems", 2)
+print("d6b_packed " .. EX.pack_world_book("sorttest"))
+EX.wbook = {}
+
+-- STAGE 2 TASK 1: a deal round-trips through pack/unpack unchanged.
+EX.deals = {
+  { fac = "sellr", res = "res_rom_iron",  side = "sell", lots = 3, px = 900,  turn = 12 },
+  { fac = "rich",  res = "res_rom_glass", side = "buy",  lots = 1, px = 1100, turn = 12 },
+}
+local packed = EX.pack_deals()
+-- A TRUNCATED SAVE IS NOT A DEAL WITH DEFAULTS. Six fields or none: guessing a missing price
+-- would settle real gold against a number nobody wrote. The well-formed record AFTER the
+-- short one is the other half of the claim - a parser that aborts on the first bad chunk
+-- silently drops every deal behind it.
+packed = packed .. ";short,res_dyes,sell,2,500" .. ";tailer,res_rom_wine,buy,4,700,20"
+EX.deals = {}
+EX.unpack_deals(packed)
+-- EVERY RECORD READ GUARDED. A short list must print a readable value, never crash the
+-- harness on a nil index - the harness has to be able to SEE a truncated result rather than
+-- die before Python can read it back.
+local function deal_field(i, k)
+    local d = EX.deals[i]
+    return tostring(d and d[k])
+end
+print("deal_count " .. #EX.deals)
+print("deal_one " .. deal_field(1, "fac") .. "/" .. deal_field(1, "res")
+      .. "/" .. deal_field(1, "side") .. "/" .. deal_field(1, "lots")
+      .. "/" .. deal_field(1, "px") .. "/" .. deal_field(1, "turn"))
+print("deal_two_side " .. deal_field(2, "side"))
+print("deal_three " .. deal_field(3, "fac") .. "/" .. deal_field(3, "res")
+      .. "/" .. deal_field(3, "side") .. "/" .. deal_field(3, "lots")
+      .. "/" .. deal_field(3, "px") .. "/" .. deal_field(3, "turn"))
+EX.deals = {}
+
+-- STAGE 2 TASK 1, FIX ROUND 2 (F1): the round trip through the REAL SAVE LAYER, not just
+-- pack/unpack directly. EX.save_deals writes through EX.setp into EX.store; the read-back is
+-- the exact expression EX.restore_player uses, EX.unpack_deals(EX.getp(EX.SAVE_DEALS)) - a
+-- writer with no reader (or a reader with no writer, Stage 1's SAVE_WBOOK bug) both pass every
+-- assertion above, which only ever calls pack_deals/unpack_deals directly and never touches
+-- EX.store at all.
+EX.deals = { { fac = "saver", res = "res_dyes", side = "sell", lots = 5, px = 250, turn = 7 } }
+EX.save_deals()
+EX.deals = {}
+EX.unpack_deals(EX.getp(EX.SAVE_DEALS))
+print("deal_save_roundtrip " .. tostring(#EX.deals) .. "/" .. deal_field(1, "fac")
+      .. "/" .. deal_field(1, "res") .. "/" .. deal_field(1, "side")
+      .. "/" .. deal_field(1, "lots") .. "/" .. deal_field(1, "px")
+      .. "/" .. deal_field(1, "turn"))
+EX.deals = {}
+
+-- STAGE 2 TASK 1, FIX ROUND 1 (R3): EX.deals must follow the subject the way EX.orders does.
+-- Bind subject A, seed a deal, swap to subject B and prove B starts empty, swap back to A and
+-- prove A's deal is still there - the whole of what the SLICE_TABLES fence is for.
+local prev_subject = EX.bind_player("deal_subject_a")
+EX.deals = { { fac = "x", res = "res_gems", side = "buy", lots = 1, px = 100, turn = 1 } }
+EX.bind_player("deal_subject_b")
+print("deal_fence_b_empty " .. tostring(#EX.deals))
+EX.bind_player("deal_subject_a")
+print("deal_fence_a_restored " .. tostring(#EX.deals) .. "/" .. deal_field(1, "fac"))
+EX.deals = {}
+EX.slices["deal_subject_a"] = nil
+EX.slices["deal_subject_b"] = nil
+-- BIND BACK TO WHATEVER WAS BOUND BEFORE THIS BLOCK (fix round 2, F2), NOT `EX.subject = nil`.
+-- Reviewer-measured: before this block subject="player" and #EX.LOG=7; the old `EX.subject =
+-- nil` ending left subject=nil and #EX.LOG=0 afterward. EX.bind_player(nil) does not reload
+-- the file-scope tables from any slice (see EX.bind_player's "NO LOCAL FACTION MEANS NO GAME"
+-- branch), so clearing to nil silently strands the local player's own LOG/shares/orders/deals
+-- pointed at whatever this block last bound - harmless only because this was the last block in
+-- the harness; every later task appends more probes after this one and would inherit it.
+EX.bind_player(prev_subject)
+
+-- STAGE 2 TASK 2: EX.deal_ok, the wrapper around cm:cai_evaluate_quick_deal_action - the one
+-- engine call in this mod whose answer is obeyed. Subject is "player" here (Task 1's block
+-- above binds it back rather than clearing it), so EX.who() reads "player" and the fixed
+-- test key below is "sellr" - both distinct, both real-looking faction keys. FIX ROUND 1: the
+-- captured order below is (a, b) = (mine, them) = ("player", "sellr") - the player proposes,
+-- the AI faction ("sellr") is the target whose acceptance is scored. The original (them, mine)
+-- shipped backwards; see the comment on EX.deal_ok itself and this task's report for the CA
+-- doc text that pins the direction.
+CAI_ARGS = nil
+cm.cai_evaluate_quick_deal_action = function(self, a, b, kind)
+    CAI_ARGS = { tostring(a and a.__key), tostring(b and b.__key), kind }
+    return 42, true
+end
+local ok, score = EX.deal_ok("sellr")
+print("deal_ok_can " .. tostring(ok))
+print("deal_ok_score " .. tostring(score))
+print("deal_ok_args " .. table.concat(CAI_ARGS, "/"))
+-- NOT ELIGIBLE IS NOT A LOW SCORE. CA gates on can_issue before reading score at all six of
+-- its own call sites, and this page must not report "declined" for "not eligible".
+cm.cai_evaluate_quick_deal_action = function() return 99, false end
+local ok2, score2 = EX.deal_ok("sellr")
+print("deal_noissue_can " .. tostring(ok2))
+print("deal_noissue_score " .. tostring(score2))
+-- AND AN ERRORING ENGINE CALL IS NOT AN ACCEPTANCE.
+cm.cai_evaluate_quick_deal_action = function() error("boom") end
+local ok3 = EX.deal_ok("sellr")
+print("deal_throw_can " .. tostring(ok3))
+
+-- FIX ROUND 1, F2: two of the three early guards were provably deletable - the shared
+-- cm.get_faction stub above never returns FALSE or a null interface for any key, so nothing
+-- exercised "not them or not mine" or either is_null_interface() check. A fresh "consent" stub
+-- (77, true) is live for both calls below, so a guard that gets bypassed reads as a clear yes -
+-- unmistakably different from the false/0 refusal both guards must return on their own, rather
+-- than a stub that could pass a bypassed guard through by accident.
+cm.cai_evaluate_quick_deal_action = function() return 77, true end
+local REAL_GET_FACTION_DEALOK = cm.get_faction
+cm.get_faction = function(_, k)
+    -- cm:get_faction returns FALSE, not nil, for a key it does not know.
+    if k == "unknown_deal_fac" then return false end
+    if k == "null_deal_fac" then
+        return { is_null_interface = function() return true end }
+    end
+    return REAL_GET_FACTION_DEALOK(cm, k)
+end
+local ok4, score4 = EX.deal_ok("unknown_deal_fac")
+print("deal_unknown_can " .. tostring(ok4))
+print("deal_unknown_score " .. tostring(score4))
+local ok5, score5 = EX.deal_ok("null_deal_fac")
+print("deal_null_can " .. tostring(ok5))
+print("deal_null_score " .. tostring(score5))
+cm.get_faction = REAL_GET_FACTION_DEALOK
+
+-- FIX ROUND 2, G1: the third guard, mine.is_null_interface - EX.who() is fixed at "player" for
+-- every probe above, so testing whether the PLAYER'S OWN interface reads null needs a different
+-- BOUND SUBJECT, not a different fkey argument. EX.bind_player is Task 1's own mechanism for
+-- this, established there as safe - and as something that MUST be undone before this block
+-- ends, since Tasks 3 through 7 all append after it. The consent stub from F2 above is still
+-- live, so a bypassed guard here reads as a wrongful yes exactly as it did for F2's two.
+local prev_deal_subject = EX.bind_player("null_deal_fac")
+local REAL_GET_FACTION_G1 = cm.get_faction
+cm.get_faction = function(_, k)
+    if k == "null_deal_fac" then
+        return { is_null_interface = function() return true end }
+    end
+    return REAL_GET_FACTION_G1(cm, k)
+end
+local ok6, score6 = EX.deal_ok("sellr")
+print("deal_mine_null_can " .. tostring(ok6))
+print("deal_mine_null_score " .. tostring(score6))
+cm.get_faction = REAL_GET_FACTION_G1
+EX.bind_player(prev_deal_subject)
+EX.slices["null_deal_fac"] = nil
+-- PROVING THE RESTORE, NOT ASSERTING IT HAPPENED. EX.who() falls back to EX.me() ("player" from
+-- the get_local_faction_name stub) even if EX.subject were left nil or stuck on
+-- "null_deal_fac" - it cannot tell "restored" from "leaked", the exact gap a reviewer had to
+-- close by measuring #EX.LOG in Task 1 because nothing downstream existed yet to fail louder.
+-- Reading EX.subject directly here is what actually proves this block leaves it as found.
+print("deal_subject_restored " .. tostring(EX.subject))
+-- RE-REVIEW FINDING: the first-line guard's SELF-DEAL clause was the one guard in this
+-- function no fixture reached - deleting `or fkey == me` left all nine assertions above
+-- green. Task 3's EX.post_deals iterates faction keys and the subject's own key is in that
+-- world, so this clause is what keeps a faction proposing a deal to ITSELF out of the one
+-- engine call this mod obeys - and a self-referential engine call is a known crash class
+-- here (cm:force_confederation(X, X) hard-crashes). F2's consent stub (77, true) is still
+-- live, so a bypassed guard reads as a wrongful yes rather than as a coincidental false.
+local ok7, score7 = EX.deal_ok(EX.who())
+print("deal_self_can " .. tostring(ok7))
+print("deal_self_score " .. tostring(score7))
+
+-- STAGE 2 TASK 3: EX.post_deals - the turn pass that builds the page.
+--
+-- THE SWITCH IS PROVED ON, NOT ASSUMED. It was written when `ai_deals` was in neither
+-- EX.TUNE_NUM nor EX.TUNE_BOOL - Task 7 added it - and EX.opt_default answers NIL for a key
+-- that is neither, which is falsy: without this snapshot EX.post_deals returned on its own
+-- second line and every assertion below passed over a function that did nothing.
+--
+-- IT STAYS NOW THAT THE KNOB EXISTS, and says something different. The gate reads
+-- EX.setting("ai_deals"), which fails open, so this line no longer keeps the fixture honest -
+-- what it does instead is pin the DEFAULT as ON, beside deals_switch_absent below, which posts
+-- the same page with no ai_deals value at all. A snapshot table with one key is enough: EX.opt
+-- falls through to opt_live for any key the snap does not carry, so nothing else moves.
+EX.snap = { ai_deals = true }
+print("deals_switch_on " .. tostring(EX.opt("ai_deals")))
+
+-- THE ROSTER. Six actors, each present to be refused for a different reason or to pass:
+--   adumper - the map's only producer, 9 regions of iron and 6 lots already on its book, so
+--             its conviction is far the strongest thing here and it is a SELLER.
+--   zbuyer  - a rich non-producer, the ordinary buy case.
+--   human2  - a rich non-producer that is HUMAN, and deliberately NOT the bound subject: the
+--             `fac ~= me` clause already covers the subject, so a fixture whose only human is
+--             the player leaves `not EX.is_human(fac)` provably deletable.
+--   broke   - a non-producer with no gold and no land. It wants iron exactly as much as zbuyer
+--             does and ties with it, and "broke" sorts BEFORE "zbuyer" on the tiebreak - so if
+--             the gold gate goes, broke takes a slot and deals_rows says so.
+--   mbuyer,
+--   kbuyer  - two more ordinary buyers, and they are here for the CAP. One deal per actor means
+--             the page needs more ELIGIBLE FACTIONS than slots before EX.DEAL_MAX caps anything
+--             at all; with three eligible and three slots, deleting the cap changed nothing and
+--             its mutant survived the 2026-09-16 round. Four eligible against three slots is the
+--             smallest fixture in which the cap is load-bearing.
+--
+-- BOTH GATED ACTORS ARE AT WAR AND THE UNGATED ONES ARE NOT, which is the only reason the
+-- human filter and the gold gate are load-bearing at all. Every peaceful non-producer scores
+-- the same +0.5 constant plus the same culture taste - one exact tie, settled by the turn
+-- hash - so with five buyers for two buy slots, whether `human2` or `broke` reached the page
+-- was decided by a hash bucket, and adding `kbuyer` on 2026-09-16 made BOTH their mutants
+-- survive. EX.WAR_APPETITE puts the two of them strictly above the tie instead, so each gate
+-- is the only thing holding its own actor off the page and neither assertion can be switched
+-- off again by a sixth buyer. It touches nothing else: war is a term in EX.world_desire and
+-- appears in no gate.
+EX.humans = function() return { "player", "human2" } end
+EX.actors = { adumper = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 9 },
+              zbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              human2  = { culture = "wh_main_dwf_dwarfs", war = true , gold = 50000, regions = 4 },
+              mbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              kbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              broke   = { culture = "wh_main_dwf_dwarfs", war = true , gold = 0,     regions = 1 } }
+EX.owners = { res_rom_iron = { adumper = 9 } }
+EX.wbook = {}
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+EX.set_world_book("adumper", "res_rom_iron", 6)
+-- ITS OWN turn_number, NOT ONE ADDED TO THE SHARED cm STUB ABOVE. This harness's cm has no
+-- turn_number at all, which is why EX.post_deals reads it through a pcall; adding one to the
+-- shared stub would change what EX.log_add stamps on every probe that ran before this line.
+cm.turn_number = function() return 10 end
+cm.cai_evaluate_quick_deal_action = function() return 42, true end
+
+-- PRECONDITIONS, PRINTED BEFORE ANYTHING IS ASSERTED ABOUT THE RESULT. Stage 1 lost a round to
+-- a fixture whose buyer wanted nothing; each of these three says the fixture can exercise the
+-- thing the assertions below claim it exercises.
+print("deals_pre_buy " .. tostring(EX.world_desire("zbuyer", "res_rom_iron") > 0))
+print("deals_pre_sell " .. tostring(EX.world_sellable("adumper", "res_rom_iron")))
+print("deals_pre_human " .. tostring(EX.is_human("human2")))
+
+EX.post_deals()
+print("deals_count " .. #EX.deals)
+-- EVERY FIELD OF EVERY ROW, PLUS THE MARKET PRICE THE ROW WAS PRICED OFF. The price is printed
+-- so the edge can be asserted as arithmetic on a number this run actually produced, rather than
+-- against a constant somebody has to keep in step with the ladder.
+do
+    local rows = {}
+    for i = 1, #EX.deals do
+        local d = EX.deals[i]
+        rows[#rows + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots)
+            .. "/" .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(EX.price(d.res))
+    end
+    print("deals_rows " .. table.concat(rows, ";"))
+end
+
+-- THE SAVE, THROUGH THE REAL LAYER. EX.post_deals must CALL EX.save_deals - the writer has had
+-- no runtime call site since Task 1 and the static audit stays green without one.
+do
+    local posted = EX.pack_deals()
+    EX.deals = {}
+    EX.unpack_deals(EX.getp(EX.SAVE_DEALS))
+    print("deals_saved " .. tostring(EX.pack_deals() == posted) .. "/" .. #EX.deals)
+end
+
+-- DETERMINISM. EX.actors is REBUILT with its keys in a different textual order, because pairs()
+-- order in Lua 5.1 follows the hash layout and that follows insertion. Same world, same page, or
+-- two clients resolve different deals from one save.
+EX.actors = { broke   = { culture = "wh_main_dwf_dwarfs", war = true , gold = 0,     regions = 1 },
+              human2  = { culture = "wh_main_dwf_dwarfs", war = true , gold = 50000, regions = 4 },
+              zbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              kbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              mbuyer  = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+              adumper = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 9 } }
+EX.post_deals()
+do
+    local rows = {}
+    for i = 1, #EX.deals do
+        local d = EX.deals[i]
+        rows[#rows + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots)
+            .. "/" .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(EX.price(d.res))
+    end
+    print("deals_rows_again " .. table.concat(rows, ";"))
+end
+
+-- ONE DEAL PER ACTOR. `adumper` outranks every buyer on the map by construction - it is the
+-- only producer in the fixture - so undeduplicated it takes its own sell slot AND the best
+-- buy slot, which is exactly what it did until 2026-09-16. The faction column alone.
+do
+    local who = {}
+    for i = 1, #EX.deals do who[#who + 1] = EX.deals[i].fac end
+    print("deals_faces " .. table.concat(who, ","))
+end
+
+-- THE ENGINE'S TWO REFUSALS, SEPARATELY. can_issue false is "not eligible"; can_issue true with
+-- a score of zero is "eligible and declined". Both post nothing, and a page that treated them
+-- the same would have no way to say which happened - the distinction EX.deal_ok returns two
+-- values for.
+-- THE TURN HASH ROTATES THE TIED FACTIONS. Every non-producer scores the same constant plus
+-- its culture's taste, so the buy side of the candidate list is one long exact tie - and
+-- broken on the faction KEY, the alphabetically first faction of the keenest culture held a
+-- slot every turn for the life of the campaign. Twelve turns are posted here: the pages must
+-- NOT all be identical, and each turn must still reproduce exactly, which is the second pass.
+do
+    local pages, same = {}, 0
+    local function page()
+        local r = {}
+        for i = 1, #EX.deals do r[#r + 1] = EX.deals[i].fac .. ":" .. EX.deals[i].res end
+        return table.concat(r, ";")
+    end
+    for turn = 1, 12 do
+        cm.turn_number = function() return turn end
+        EX.post_deals()
+        pages[turn] = page()
+    end
+    local distinct, n = {}, 0
+    for _, p in ipairs(pages) do distinct[p] = true end
+    for _ in pairs(distinct) do n = n + 1 end
+    print("deals_turn_variants " .. n)
+    for turn = 1, 12 do
+        cm.turn_number = function() return turn end
+        EX.post_deals()
+        if page() == pages[turn] then same = same + 1 end
+    end
+    print("deals_turn_stable " .. same)
+end
+cm.turn_number = function() return 10 end
+
+cm.cai_evaluate_quick_deal_action = function() return 42, false end
+EX.post_deals()
+print("deals_refused " .. #EX.deals)
+cm.cai_evaluate_quick_deal_action = function() return 0, true end
+EX.post_deals()
+print("deals_zero_score " .. #EX.deals)
+
+-- THE SWITCH, OFF. Seeded with a deal FIRST: a page that simply stopped adding would read 0
+-- here too, and the requirement is that the list is CLEARED before the gate is consulted, so
+-- turning the feature off empties the page rather than freezing last turn's deals on it.
+cm.cai_evaluate_quick_deal_action = function() return 42, true end
+EX.snap = { ai_deals = false }
+EX.deals = { { fac = "stale", res = "res_gems", side = "buy", lots = 1, px = 1, turn = 1 } }
+EX.post_deals()
+print("deals_switch_off " .. #EX.deals)
+
+-- AND THE PAGE ITSELF, not just the list behind it. Task 7's own step says "exactly Stage 1
+-- behaviour ... not merely that no deal posts", and #EX.deals == 0 is the weaker of the two:
+-- the row pool is fixed and outlives the page, so a page that stopped POSTING while still
+-- handing out row keys would draw last turn's deals under a footer saying the feature is off.
+-- Three things have to be true together: no rows, the footer naming the switch, and the tab
+-- still reachable - because a locked tab says only that something exists and you cannot have
+-- it, while an open page explains itself (the Task 5 ruling, and this is what pins it).
+do
+    local was = EX.mode
+    EX.mode = EX.MODE_DEALS
+    print("deals_off_rows " .. #EX.mode_instruments())
+    print("deals_off_foot " .. EX.deals_line())
+    print("deals_off_locked " .. tostring(EX.tab_locked(EX.MODE_DEALS)))
+    -- THE DRAW, TOO. A row handed a nil deal must hide rather than keep its text.
+    EX.mode = was
+end
+
+-- THE SWITCH READS THROUGH EX.setting, WHICH FAILS OPEN. A key that is not a knob at all
+-- must leave the feature RUNNING, never silently off - that is the rule every other system
+-- switch in this file follows, and it is the difference between EX.setting and EX.opt. With
+-- the snapshot carrying no ai_deals at all the page must post exactly as it does with the
+-- switch explicitly on.
+EX.snap = {}
+EX.post_deals()
+print("deals_switch_absent " .. #EX.deals)
+
+-- AND THE KEY STOPS BEING A KNOB AT ALL. This is the case the two readers actually differ on,
+-- and nothing else in this file reaches it: while `ai_deals` is in EX.TUNE_BOOL both EX.opt and
+-- EX.setting answer true, so the gate could be written either way and every probe above would
+-- pass. EX.opt is documented to answer NIL for a key that is not a knob - deliberately, so a
+-- typo'd call site is not papered over with a plausible value - and nil is falsy, so a gate
+-- written with EX.opt DELETES THE FEATURE the day the key is renamed, moved or dropped from a
+-- preset. EX.setting is the fail-open reader every other system switch in this file uses.
+do
+    local real = EX.opt
+    EX.opt = function(k) if k == "ai_deals" then return nil end return real(k) end
+    EX.post_deals()
+    print("deals_switch_notaknob " .. #EX.deals)
+    EX.opt = real
+end
+
+-- LEAVE IT AS FOUND. Three things this block bound globally, and Tasks 4 through 7 all append
+-- after it. Read back directly, for the reason the subject probe above reads EX.subject rather
+-- than EX.who(): an accessor that falls back cannot tell restored from stuck.
+EX.snap = nil
+cm.turn_number = nil
+EX.humans = function() return { "player" } end
+EX.deals = {}
+print("deals_snap_restored " .. tostring(EX.snap))
+print("deals_humans_restored " .. #EX.humans())
+
+-- STAGE 2 TASK 4: EX.accept_deal, and the two optional parameters it needs on EX.apply_trade.
+--
+-- THE FIXTURE'S POINT IS THE COUNTERPARTY. `richholder` holds far more iron than `adumper`, so
+-- EX.world_counterparty would pick IT for a player buy - and the deal names adumper. If `only`
+-- does not reach EX.settle_counterparty, the gold moves to a faction the page never mentioned
+-- and every other assertion here still passes. That is what t4_buy_walk is for.
+EX.actors = { adumper    = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 9 },
+              richholder = { culture = "wh_main_dwf_dwarfs", war = false, gold = 90000, regions = 20 } }
+EX.owners = { res_rom_iron = { adumper = 9, richholder = 20 } }
+EX.wbook = {}
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.set_world_book("adumper", "res_rom_iron", 6)
+EX.set_world_book("richholder", "res_rom_iron", 40)
+EX.holdings = { res_rom_iron = 100 }
+local REAL_GF_T4 = cm.get_faction
+local REAL_POOL_T4 = cm.faction_add_pooled_resource
+-- SAME SHAPE AS THE nobuyer FIXTURE ABOVE: a real treasury so the player can pay, and a pooled
+-- resource manager so EX.held reads something that MOVES - the base stub's
+-- faction_add_pooled_resource is a no-op, which would leave the goods probes static forever.
+cm.get_faction = function(_, k)
+    local f = REAL_GF_T4(cm, k)
+    f.treasury = function() return 100000 end
+    f.pooled_resource_manager = function()
+        return { resource = function(_, pk)
+            local v = 0
+            for res, n in pairs(EX.holdings) do
+                if EX.hold_key(res) == pk then v = n end
+            end
+            return { is_null_interface = function() return false end,
+                     value = function() return v end }
+        end }
+    end
+    return f
+end
+cm.faction_add_pooled_resource = function(_, _fac, pk, _factor, delta)
+    for res, n in pairs(EX.holdings) do
+        if EX.hold_key(res) == pk then EX.holdings[res] = n + delta end
+    end
+end
+
+-- THE PRECONDITION: the walk disagrees with the deal. Printed, not assumed.
+print("t4_walk_would_pick " .. tostring(EX.world_counterparty("res_rom_iron", true)))
+-- AND RUNG 1 DISAGREES TOO. A guild house long the book is the FIRST counterparty the walk
+-- would find - ahead of the world tier - so with the guild rung unskipped a named deal
+-- settles against the house and the actor on the page is paid nothing.
+EX.houses = { "guildhouse" }
+EX.house_set = nil
+EX.delisted = {}
+EX.book = { guildhouse = { res_rom_iron = 40 } }
+TREASURY = { guildhouse = 500000 }
+print("t4_guild_would_pick " .. tostring(EX.guild_counterparty("res_rom_iron", true)))
+print("t4_lot " .. tostring(EX.lot("res_rom_iron")))
+
+-- A DEAL THE ACTOR IS SELLING: the PLAYER BUYS. 2 lots at 940 against a market of 1000.
+PAID = {}
+EX.deals = { { fac = "adumper", res = "res_rom_iron", side = "sell", lots = 2, px = 940, turn = 10 } }
+-- THE STORE IS SEEDED WITH THIS PAGE FIRST. Without it the save key already reads "" from
+-- Task 3's last post, so t4_buy_saved would read "" whether EX.accept_deal re-saved or not
+-- - an assertion that cannot fail, which the mutation round caught.
+EX.save_deals()
+print("t4_buy_seeded " .. tostring(EX.getp(EX.SAVE_DEALS) ~= ""))
+print("t4_buy_result " .. tostring(EX.accept_deal(1)))
+print("t4_buy_player " .. tostring(PAID["player"] or 0))
+print("t4_buy_named " .. tostring(PAID["adumper"] or 0))
+print("t4_buy_walk " .. tostring(PAID["richholder"] or 0))
+print("t4_buy_left " .. #EX.deals)
+print("t4_buy_wbook " .. tostring(EX.world_book_of("adumper", "res_rom_iron")))
+print("t4_buy_held " .. tostring(EX.holdings["res_rom_iron"]))
+-- THE MARKET PRICE, so the assertion can prove the DEAL price was charged rather than this one.
+print("t4_buy_market " .. tostring(EX.buy_price("res_rom_iron")))
+print("t4_buy_rung_held " .. tostring(EX.current["res_rom_iron"] == EX.neutral_rung()))
+-- THE SAVE. EX.accept_deal must re-save the shortened list, or the deal comes back on the next
+-- load - Task 1's save key with its reader and no writer, one level up.
+print("t4_buy_guild " .. tostring(PAID["guildhouse"] or 0))
+print("t4_buy_saved " .. tostring(EX.getp(EX.SAVE_DEALS)))
+
+-- A DEAL THE ACTOR IS BUYING: the PLAYER SELLS. The gold goes the other way, and this is the
+-- probe that pins the side/is_buy inversion rather than its spelling.
+PAID = {}
+EX.deals = { { fac = "adumper", res = "res_rom_iron", side = "buy", lots = 1, px = 1060, turn = 10 } }
+print("t4_sell_result " .. tostring(EX.accept_deal(1)))
+print("t4_sell_player " .. tostring(PAID["player"] or 0))
+print("t4_sell_named " .. tostring(PAID["adumper"] or 0))
+
+-- THE COUNTERPARTY CANNOT PAY ANY MORE. Re-read at accept time: a deal is intent, not a
+-- reservation. Nothing moves and the deal STAYS on the page - it was not spent.
+PAID = {}
+EX.actors["pauper"] = { culture = "wh_main_dwf_dwarfs", war = false, gold = 0, regions = 1 }
+EX.deals = { { fac = "pauper", res = "res_rom_iron", side = "buy", lots = 1, px = 1060, turn = 10 } }
+print("t4_poor_result " .. tostring(EX.accept_deal(1)))
+print("t4_poor_moved " .. tostring((PAID["player"] or 0) + (PAID["pauper"] or 0)))
+print("t4_poor_left " .. #EX.deals)
+
+-- THE RE-READ IS ALL-OR-NOTHING, AND IT COUNTS THE LOTS. `thin` can pay for one lot of a
+-- two-lot deal. Refusing the whole deal is deliberate: a deal is one offer at one size, and
+-- half of it at the same price is a different trade the actor never proposed.
+PAID = {}
+EX.actors["thin"] = { culture = "wh_main_dwf_dwarfs", war = false, gold = 1060, regions = 2 }
+EX.deals = { { fac = "thin", res = "res_rom_iron", side = "buy", lots = 2, px = 1060, turn = 10 } }
+print("t4_thin_result " .. tostring(EX.accept_deal(1)))
+print("t4_thin_moved " .. tostring((PAID["player"] or 0) + (PAID["thin"] or 0)))
+
+-- A REFUSAL THE RE-READ CANNOT SEE: the GOODS run out mid-deal. The player sells 2 lots and
+-- holds one. Lot 1 settles, lot 2 is refused "nothold", and the loop stops there - the
+-- EX.bulk_trade contract, whatever filled stands. The deal is consumed either way.
+PAID = {}
+EX.holdings = { res_rom_iron = EX.lot("res_rom_iron") }
+EX.actors["flush"] = { culture = "wh_main_dwf_dwarfs", war = false, gold = 90000, regions = 3 }
+EX.deals = { { fac = "flush", res = "res_rom_iron", side = "buy", lots = 2, px = 1060, turn = 10 } }
+print("t4_part_result " .. tostring(EX.accept_deal(1)))
+print("t4_part_player " .. tostring(PAID["player"] or 0))
+print("t4_part_left " .. #EX.deals)
+EX.holdings = { res_rom_iron = 100 }
+
+-- AND A FACTION THAT IS NO LONGER ON THE MAP AT ALL.
+EX.deals = { { fac = "ghost_actor_zzz", res = "res_rom_iron", side = "buy", lots = 1, px = 1060, turn = 10 } }
+print("t4_gone_result " .. tostring(EX.accept_deal(1)))
+
+-- THE TWO REFUSALS A NAMED COUNTERPARTY HAS AND THE WALK DOES NOT, probed on
+-- EX.settle_counterparty DIRECTLY because EX.accept_deal's own accept-time re-read refuses
+-- both cases before they can reach it. They are not dead code: without them a declined deal
+-- falls through to EX.top_holder and settles against a faction the page never named, at a
+-- price it never offered. `richholder` is that faction here, and it must stay untouched.
+PAID = {}
+print("t4_named_broke " .. tostring(EX.settle_counterparty("res_rom_iron", false, 500, "pauper")))
+print("t4_named_capped " .. tostring(EX.settle_counterparty("res_rom_iron", false, 999999, "adumper")))
+print("t4_named_nofallback " .. tostring((PAID["richholder"] or 0) + (PAID["adumper"] or 0)))
+
+-- TWICE. The second click must settle nothing: one turn's offer, taken once.
+PAID = {}
+EX.deals = { { fac = "adumper", res = "res_rom_iron", side = "sell", lots = 1, px = 940, turn = 10 } }
+EX.accept_deal(1)
+print("t4_twice_result " .. tostring(EX.accept_deal(1)))
+print("t4_twice_player " .. tostring(PAID["player"] or 0))
+
+-- AND THE SHIPPED PATH IS UNTOUCHED. EX.apply_trade called the way every caller before this
+-- task called it - no unit_px, no only - must charge the MARKET price and settle through the
+-- ordinary walk, which here is richholder and not the deal's faction.
+PAID = {}
+EX.deals = {}
+print("t4_plain_result " .. tostring(EX.apply_trade("res_rom_iron", true)))
+print("t4_plain_player " .. tostring(PAID["player"] or 0))
+print("t4_plain_market " .. tostring(EX.buy_price("res_rom_iron")))
+print("t4_plain_walk " .. tostring(PAID["richholder"] or 0))
+print("t4_plain_guild " .. tostring(PAID["guildhouse"] or 0))
+print("t4_plain_named " .. tostring(PAID["adumper"] or 0))
+
+cm.get_faction = REAL_GF_T4
+cm.faction_add_pooled_resource = REAL_POOL_T4
+EX.houses = {}
+EX.house_set = nil
+EX.book = {}
+TREASURY = {}
+EX.holdings = nil
+EX.deals = {}
+EX.actors = {}
+EX.owners = {}
+EX.wbook = {}
+print("t4_restored " .. tostring(cm.get_faction == REAL_GF_T4))
+
+-- STAGE 2 TASK 5: the Deals page. The CELLS and the FOOTER, not the draw - EX.deal_cells and
+-- EX.deals_line exist outside EX.refresh_panel precisely so they can be run here; nothing
+-- offline renders a panel, so text computed inside the draw call ships unchecked.
+EX.current["res_rom_iron"] = EX.neutral_rung()
+EX.snap = { ai_deals = true }
+EX.deals = {
+  { fac = "adumper", res = "res_rom_iron", side = "sell", lots = 3, px = 940, turn = 10 },
+  { fac = "zbuyer",  res = "res_rom_iron", side = "buy",  lots = 1, px = 1060, turn = 10 },
+  -- EXACTLY -6.5%% AGAINST A MARKET OF 1000. The only place the two roundings disagree.
+  { fac = "halfer",  res = "res_rom_iron", side = "sell", lots = 1, px = 935, turn = 10 },
+}
+print("t5_market " .. tostring(EX.price("res_rom_iron")))
+do
+    local c = EX.deal_cells(1)
+    print("t5_sell_offer " .. c.offer)
+    print("t5_sell_price " .. c.price)
+    print("t5_sell_edge " .. c.edge)
+    print("t5_sell_total " .. c.total)
+    local b = EX.deal_cells(2)
+    print("t5_buy_offer " .. b.offer)
+    print("t5_buy_edge " .. b.edge)
+    print("t5_buy_total " .. b.total)
+end
+print("t5_half_edge " .. EX.deal_cells(3).edge)
+print("t5_past_end " .. tostring(EX.deal_cells(4)))
+
+-- STAGE 2 TASK 6: THE ACCEPT BUTTON'S LABEL AND ITS REFUSAL. Both live in EX.deal_cells and
+-- not in the draw, for the reason the five cells above do - and this one has already proved it:
+-- with the logic inside EX.refresh_panel, a mutant that asked EX.buy_refusal on BOTH sides
+-- survived every check in this file.
+--
+-- EX.buy_refusal IS STUBBED, and deliberately. What is under test is WHICH SIDE ASKS it, not
+-- what it answers - deal 1 is a "sell", meaning the counterparty sells and the PLAYER BUYS, so
+-- it is the only one of the three that may be refused. Deal 2 is a "buy": the player sells into
+-- it, and selling stays open even with the Exchange shut, exactly as the commodity and house
+-- rows already behave.
+do
+    local asked = {}
+    local real = EX.buy_refusal
+    EX.buy_refusal = function(res)
+        asked[#asked + 1] = res
+        return "the market is shut", "Closed"
+    end
+    local a, b = EX.deal_cells(1), EX.deal_cells(2)
+    print("t6_take_buyside " .. a.take .. "/" .. tostring(a.why))
+    print("t6_take_sellside " .. b.take .. "/" .. tostring(b.why))
+    print("t6_refusal_asked " .. #asked)
+    EX.buy_refusal = real
+    print("t6_take_open " .. EX.deal_cells(1).take .. "/" .. EX.deal_cells(2).take)
+end
+
+-- THE ROW POOL. One key per posted deal, keyed by POSITION - two deals on one commodity is
+-- the shipped case (the Task 3 fixture posts glass twice) and would collide on one component.
+EX.mode = EX.MODE_DEALS
+print("t5_rows " .. table.concat(EX.mode_instruments(), ","))
+print("t5_layout " .. tostring(EX.panel_layout() == EX.PANEL_LAYOUT_DEALS)
+      .. "/" .. tostring(EX.row_layout() == EX.ROW_LAYOUT_DEALS))
+print("t5_headers " .. tostring(EX.HEADERS[EX.view()] ~= nil))
+print("t5_footer_n " .. EX.deals_line())
+
+-- THE EMPTY STATES, ALL THREE, AND THEY MUST DIFFER. This is the whole reason EX.deal_ok
+-- returns can_issue and score separately - a page that renders "nobody is eligible" and
+-- "everybody declined" as the same blank list explains neither.
+EX.deals = {}
+EX.deal_why = "none"
+print("t5_foot_none " .. EX.deals_line())
+EX.deal_why = "declined"
+print("t5_foot_declined " .. EX.deals_line())
+EX.deal_why = nil
+print("t5_foot_unknown " .. EX.deals_line())
+EX.snap = { ai_deals = false }
+print("t5_foot_off " .. EX.deals_line())
+
+-- AND THE REASON IS RECORDED BY EX.post_deals ITSELF, not typed into the fixture. Two runs:
+-- one where the engine refuses everybody (nobody eligible), one where it allows them and
+-- scores them zero (everybody declined).
+EX.snap = { ai_deals = true }
+EX.actors = { adumper = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 9 } }
+EX.owners = { res_rom_iron = { adumper = 9 } }
+EX.wbook = {}
+cm.cai_evaluate_quick_deal_action = function() return 42, false end
+EX.post_deals()
+print("t5_why_none " .. tostring(EX.deal_why))
+cm.cai_evaluate_quick_deal_action = function() return 0, true end
+EX.post_deals()
+print("t5_why_declined " .. tostring(EX.deal_why))
+
+EX.mode = EX.MODE_TRADE
+EX.snap = nil
+EX.deals = {}
+EX.deal_why = nil
+EX.actors = {}
+EX.owners = {}
+print("t5_restored " .. tostring(EX.snap) .. "/" .. EX.mode)
+-- STAGE 3 TASK 1: every war-goods key is a real commodity, and the key builder is
+-- collision-free. EX.WAR_GOODS is a SET (keys, not a list) so it is read with pairs and
+-- counted rather than measured with #.
+local war_ok, war_n = true, 0
+for res, _ in pairs(EX.WAR_GOODS) do
+    war_n = war_n + 1
+    if not EX.is_commodity(res) then war_ok = false end
+end
+print("war_keys_valid " .. tostring(war_ok))
+print("war_keys_count " .. war_n)
+print("pos_key_neg " .. EX.pos_bundle_key(-2))
+print("pos_key_pos " .. EX.pos_bundle_key(1))
+-- AND IT MUST NOT COLLIDE WITH EITHER LIVE FAMILY. Both are applied every turn by a sweep
+-- that removes the whole family first, so a shared key would have one family deleting the
+-- other's bundles with every gate in this file green.
+print("pos_key_clash " .. tostring(
+    EX.pos_bundle_key(1) == EX.trade_bundle_key(10)
+    or EX.pos_bundle_key(1) == EX.stock_bundle("res_rom_iron", 1)))
+
+-- THE LADDER ITSELF. The sweep removes ONE KEY PER TIER before applying one of them, so a
+-- ladder with two tiers building the same key leaves a bundle that can never be removed -
+-- and a tier of 0 would build derpy_chd_ex_pos_pos00, a real key meaning "no bundle", which
+-- is the one state the sweep expresses by applying nothing at all.
+local tiers, keys, dupe, sym = {}, {}, false, true
+for _, tr in ipairs(EX.POS_TIERS) do
+    tiers[#tiers + 1] = tr
+    local k = EX.pos_bundle_key(tr)
+    if keys[k] then dupe = true end
+    keys[k] = true
+    if tr == 0 then sym = false end
+    local twin = false
+    for _, u in ipairs(EX.POS_TIERS) do if u == -tr then twin = true end end
+    if not twin then sym = false end
+end
+print("pos_tiers " .. table.concat(tiers, ","))
+print("pos_step_lots " .. EX.POS_STEP_LOTS)
+print("pos_keys_dupe " .. tostring(dupe))
+print("pos_tiers_symmetric " .. tostring(sym))
+
+-- STAGE 3 TASK 2: the net war-goods position. CROSSED, NOT ONE-SIDED - long 6 iron and
+-- short 2 timber nets +4, and a function that summed absolute values, or that read only the
+-- first key it found, passes a one-sided fixture and reports 8. Stage 1 Task 7 had its whole
+-- harness block rewritten for exactly this. Plus a LARGE non-war position that must not
+-- count: 40 lots of gems would drown the answer if the filter were dropped.
+--
+-- EX.wbook is written directly rather than through EX.set_world_book. That setter clamps a
+-- short to what the faction's land makes, which is its rule and not this function's, and a
+-- fixture routed through it would be measuring the floor instead of the sum.
+EX.wbook = {
+    armed = { res_rom_iron = 6, res_rom_timber = -2, res_gems = 40 },
+    sold  = { res_rom_iron = -3, res_obsidian = -5 },
+}
+print("warpos_crossed " .. EX.war_position("armed"))
+print("warpos_short " .. EX.war_position("sold"))
+-- AND A FACTION WITH NO BOOK AT ALL READS 0, NOT NIL. Every term downstream does arithmetic
+-- on this, and most factions on the map have never traded.
+print("warpos_nobook " .. tostring(EX.war_position("nobody")))
+
+-- STAGE 3 TASK 3: the tier, and the war asymmetry.
+--
+-- FOUR CASES AND THEY ARE THE WHOLE FEATURE: at war and long (best), at war and short
+-- (worst), at peace and long, at peace and short. A tier function that ignored war state
+-- entirely passes any two of them, which is why all four are here rather than a sample.
+--
+-- Every number below is exact in float32 as well as in this interpreter - 8/4, 8/4/2 and 3/4
+-- all are - so the boundary cases mean in game what they mean here. That is not true of most
+-- of this file (EX.OFFER_STEP reads back as 1.0499999523163) and it is only true here
+-- because POS_STEP_LOTS is a power of two.
+EX.wbook = {
+    warlong  = { res_rom_iron = 8 },  warshort = { res_rom_iron = -8 },
+    pealong  = { res_rom_iron = 8 },  peashort = { res_rom_iron = -8 },
+    edge_on  = { res_rom_iron = 4 },  edge_off = { res_rom_iron = 3 },
+    huge     = { res_rom_iron = 100 }, stray   = { res_rom_iron = 8 },
+}
+EX.actors = {
+    warlong = { war = true },  warshort = { war = true },
+    pealong = { war = false }, peashort = { war = false },
+    edge_on = { war = true },  edge_off = { war = true },
+    huge    = { war = true },
+}
+print("tier_war_long " .. EX.pos_tier("warlong"))
+print("tier_war_short " .. EX.pos_tier("warshort"))
+print("tier_peace_long " .. EX.pos_tier("pealong"))
+print("tier_peace_short " .. EX.pos_tier("peashort"))
+-- THE BOUNDARY, BOTH SIDES OF IT. Stage 1 Task 9 shipped a > where a >= belonged and it was
+-- caught only because a reviewer asked for the boundary directly.
+print("tier_edge_on " .. EX.pos_tier("edge_on"))
+print("tier_edge_off " .. EX.pos_tier("edge_off"))
+-- AND THE LADDER HAS A TOP. 25 steps of position is still tier 2 - there is no row beyond
+-- it, and applying a key with no effect_bundles record applies nothing and says nothing.
+print("tier_huge " .. EX.pos_tier("huge"))
+-- A FACTION IN THE BOOK AND NOT IN THE SCAN reads as at peace rather than erroring.
+-- EX.actors is rebuilt by every scan and EX.wbook is restored from the save, so the two are
+-- not guaranteed to agree on any given tick.
+print("tier_stray " .. EX.pos_tier("stray"))
+print("tier_neutral " .. EX.pos_tier("nobody"))
+-- AND THE STEP SIZE IS A CONSTANT THE FUNCTION READS, not a number written into it. This is
+-- behavioural on purpose: pinning the division by quoting the line would only confirm that
+-- nobody has edited that line, which is how EX.friendly_cap held a wrong formula in place
+-- through a check written to protect it. Move the constant and the answer must move -
+-- warlong is +8 lots, which is two steps of 4 and one step of 8.
+local real_step = EX.POS_STEP_LOTS
+EX.POS_STEP_LOTS = 8
+print("tier_step_moved " .. EX.pos_tier("warlong"))
+EX.POS_STEP_LOTS = real_step
+
+-- STAGE 3 TASK 4: the sweep.
+--
+-- The bundle calls are RECORDED IN ORDER, not counted and not set-flagged. "All four removes
+-- precede the apply", "a second sweep makes no calls at all" and "the forced sweep touches a
+-- faction whose answer is no bundle" are each questions about the SEQUENCE, and a table of
+-- key -> true (the shape LUA_WAREHOUSE_HARNESS uses) can answer none of them.
+--
+-- One faction at a time on purpose: pairs(EX.actors) order is unspecified in Lua 5.1, so two
+-- factions in one fixture interleave and no ordering assertion means anything.
+BCALLS = {}
+cm.apply_effect_bundle = function(_, key, fname, turns)
+    BCALLS[#BCALLS + 1] = "a|" .. fname .. "|" .. key .. "|" .. tostring(turns)
+end
+cm.remove_effect_bundle = function(_, key, fname)
+    BCALLS[#BCALLS + 1] = "r|" .. fname .. "|" .. key
+end
+local function sweep(tag)
+    BCALLS = {}
+    EX.apply_positions()
+    print(tag .. " " .. table.concat(BCALLS, ";"))
+end
+
+-- TIER 2, FROM COLD. Four removes in ladder order, then one apply, with the duration.
+EX.wbook = { armed = { res_rom_iron = 8 } }
+EX.actors = { armed = { war = true } }
+EX.pos_level = {}
+EX.pos_swept = false
+sweep("sweep_tier2")
+
+-- AND A SECOND SWEEP WITH NOTHING CHANGED MAKES NO CALLS AT ALL. The sweep runs every turn
+-- for every actor on the map; a bundle rewritten each turn is real work on every client.
+sweep("sweep_again")
+
+-- TIER 0: four removes and NO apply. Tier 0 is the no-bundle state and it is expressed by
+-- applying nothing, never by a derpy_chd_ex_pos_pos00 key.
+EX.wbook = { armed = { res_rom_iron = 1 } }
+sweep("sweep_tier0")
+
+-- THE FORCED SWEEP AFTER A LOAD, and this is the load-bearing one. EX.pos_level is what the
+-- session remembers; the engine carries the bundle itself. On a reload the table is empty and
+-- the faction's answer is 0, so comparing the two reads nil == 0 ... no: it reads
+-- EX.pos_level[f] (nil) ~= 0 (true) and sweeps. The real trap is the OTHER order - a faction
+-- whose remembered level is nil and whose answer is ALSO nil would compare equal and never be
+-- touched. Here the flag is what guarantees the sweep, so it is tested with the memo ALREADY
+-- AGREEING with the answer, which is the only state in which the flag is the difference.
+EX.pos_level = { armed = 0 }
+EX.pos_swept = false
+sweep("sweep_after_load")
+
+-- AN ACTOR THAT LEFT THE SCAN IS DISARMED. A faction leaves EX.actors by dying or by losing
+-- its last region; neither is a reason to keep a war-supply bundle for the rest of the
+-- campaign, and effect bundles survive every save.
+EX.wbook = { armed = { res_rom_iron = 8 } }
+EX.actors = { armed = { war = true } }
+EX.pos_level = {}
+EX.pos_swept = false
+EX.apply_positions()
+EX.actors = {}
+sweep("sweep_gone")
+
+-- THE SWITCH, BOTH WAYS.
+--
+-- OFF STILL CLEANS UP. It is not an early return: off means every answer is 0, which the
+-- sweep expresses by removing all four keys and applying none. A switch that merely stops
+-- applying would strand whatever was applied when it was last on, and effect bundles
+-- survive every save - so the stranded one outlives the campaign. This is reachable rather
+-- than theoretical: a campaign started before this feature has no world_bundles entry in
+-- its frozen snapshot, so EX.opt falls through to live MCT and the switch really is a
+-- mid-campaign toggle for those saves.
+--
+-- AND THEN IT GOES QUIET. After one cleaning pass every memo entry reads 0, so the second
+-- sweep makes no calls at all - off costs one pass per load, not work every turn.
+EX.wbook = { armed = { res_rom_iron = 8 } }
+EX.actors = { armed = { war = true } }
+EX.pos_level = { armed = 2 }
+EX.pos_swept = true
+EX.snap = { world_bundles = false }
+sweep("sweep_off")
+sweep("sweep_off_again")
+-- AND WITH NO SNAPSHOT ENTRY AT ALL, EX.setting FAILS OPEN rather than deleting the
+-- feature. A gate written with EX.opt reads nil here and shuts.
+EX.snap = nil
+EX.pos_level = {}
+EX.pos_swept = false
+sweep("sweep_failopen")
+
+EX.pos_level = {}
+EX.pos_swept = false
+EX.actors = {}
+EX.wbook = {}
 """
 
 
@@ -10906,6 +15063,63 @@ def check_lua_books():
         "step_books must sit AFTER check_delistings (a dead house must leave the guild "
         "before it trades) and BEFORE apply_prices (the book level feeds target_rung). "
         "Found delist=%d step=%d apply=%d." % (i_del, i_step, i_apply))
+
+    # THE WORLD TIER (Task 8). EX.turn_round is a closure nested inside EX.init(), unreachable
+    # at runtime by any harness that has not first run EX.init() through a full engine stub -
+    # so, like every other ordering constraint above, this is checked on the SOURCE, not by
+    # calling EX.turn_round() from Lua. step_world must sit AFTER step_books (actors trade at
+    # last turn's prices, the same rule step_books itself follows) and BEFORE apply_prices (the
+    # reprice runs on the result of both passes; a same-frame reprice would be a circular
+    # dependency where a trade reprices the good it is pricing against).
+    assert "EX.step_world()" in body, (
+        "EX.step_world was never called from EX.turn_round. It exists and does nothing, "
+        "which no other check in this file would have noticed.")
+    i_world = body.index("EX.step_world()")
+    assert i_step < i_world < i_apply, (
+        "step_world must sit AFTER step_books and BEFORE apply_prices. Found step=%d "
+        "world=%d apply=%d." % (i_step, i_world, i_apply))
+
+    # THE DEALS PAGE (Stage 2, Task 3). AFTER apply_prices, and the plan said after step_world.
+    # Its own snippet comment gave the reason - "so deals reflect the prices this turn actually
+    # set" - and step_world is BEFORE the reprice, so the two halves of the plan disagreed. A
+    # deal moves no market, so there is no circular dependency to avoid here and nothing to be
+    # gained from last turn's rung: priced before the reprice, this page would quote one number
+    # while the Trade page beside it quoted another.
+    assert "EX.post_deals()" in body, (
+        "EX.post_deals was never called from EX.turn_round. It exists and does nothing - the "
+        "Task 1 and Task 2 shape, where EX.save_deals and EX.deal_ok each passed every gate "
+        "with no runtime call site at all.")
+    i_deals = body.index("EX.post_deals()")
+    assert i_apply < i_deals, (
+        "post_deals must sit AFTER apply_prices - the deal is priced off the rung the panel "
+        "shows, not off the one the reprice is about to move. Found apply=%d deals=%d."
+        % (i_apply, i_deals))
+    # THE POSITION SWEEP (Stage 3, Task 4). Same route as every ordering rule above - read
+    # off the SOURCE, because EX.turn_round is a closure inside EX.init() and no harness here
+    # runs EX.init(). It sits immediately after EX.apply_trade_income: both are world effects
+    # landing on AI factions (spec section 11), and a fixed order between the two families is
+    # one less thing that can differ between two clients.
+    assert "EX.apply_positions()" in body, (
+        "EX.apply_positions was never called from EX.turn_round. It exists and does nothing - "
+        "the same shape as EX.save_deals and EX.deal_ok in Stage 2, each of which passed "
+        "every gate in this file with no runtime call site at all.")
+    i_trade = body.index("EX.apply_trade_income()")
+    i_pos = body.index("EX.apply_positions()")
+    assert i_trade < i_pos, (
+        "apply_positions must sit AFTER apply_trade_income. Found trade=%d pos=%d."
+        % (i_trade, i_pos))
+
+    # AND ON THE LOAD PATH TOO. Effect bundles survive a save and EX.pos_level does not, so a
+    # loaded save wears the last session's position bundles until something sweeps. Waiting
+    # for the turn start leaves that window open for as long as the player stares at the map,
+    # which is the precise window EX.apply_trade_income is called at load to close.
+    init_body = re.search(r"function EX\.init\(\).*", code, re.S).group(0)
+    load_half = init_body[:init_body.index("function EX.turn_round()")]
+    assert "EX.apply_positions()" in load_half, (
+        "EX.apply_positions is not called on the load path - only from the turn round. A "
+        "reloaded save then wears whatever position bundles the last session applied until "
+        "the next turn start, and EX.pos_level knows nothing about them.")
+
     # ANCHORED ON EX.init(), NOT the trivial cm:add_first_tick_callback(function() EX.init()
     # end) one-liner at the bottom of the file: since the call_each-has-no-pcall fix (2026-09-07)
     # split startup into a named EX.init() whose body ends with the FactionTurnStart
@@ -10915,6 +15129,12 @@ def check_lua_books():
     # check_lua_warehouse's identical anchor for the same reason.
     tick = re.search(r"function EX\.init\(\).*?\n\s*core:add_listener", code, re.S)
     assert tick, "EX.init() is gone"
+    # THE SAME RULE FOR THE DEALS PAGE. EX.restore has just unpacked the saved deals when this
+    # path runs; reposting here would overwrite them with a fresh roll on every single reload.
+    assert "EX.post_deals()" not in tick.group(0), (
+        "post_deals runs on the first tick. A load is not a turn - the page the player saved "
+        "would be replaced by a new one every time they loaded, which is also five rolls of "
+        "the engine's acceptance check for one turn's deals.")
     assert "EX.step_books()" not in tick.group(0), (
         "step_books runs on the first tick. A load is not a turn - five reloads would be "
         "five trading days, the same trap charge_carry and pay_dividends both document.")
@@ -11312,6 +15532,12 @@ def check_lua_books():
 
     # MAJOR 4: A REFUSED OR WAR-LOCKED BUY IS DISABLED AND SAYS WHY.
     assert have["why_refused"] == "true" and have["why_unavailable"] == "true", have
+    assert have["why_unavailable_label"] == "No offer", (
+        "EX.buy_refusal labelled a commodity nobody produces as %r, not 'No offer'. "
+        "'why_unavailable' above only proves buy_refusal returned SOMETHING non-nil for "
+        "res_ivory - it cannot tell whether that came from EX.unavailable's own branch or "
+        "from EX.sold_out answering in its place, and the two draw different button labels "
+        "and different sentences." % have["why_unavailable_label"])
     assert have["why_display"] == "true", (
         "EX.faction_display returned an empty name for a house whose loc is missing. It must "
         "fall back to something name-shaped - an empty cell on the Houses view is a row with "
@@ -11428,6 +15654,1573 @@ def check_lua_books():
         "where the rank test rejects the house with or without it."
         % (have["pact_cap"], HOSTILE_PACT_CAP))
 
+    # THE STANCE PROMOTION.
+    #
+    # THE CIRCULARITY GUARD IS THE POINT OF THIS BLOCK. EX.stance_score must be a function of
+    # the market and nothing else. EX.stance_of and EX.standing_of both resolve to
+    # f:diplomatic_standing_with(player) - the number a promoted stance goes on to MOVE - so
+    # folding either in makes the feature its own input: every house walks to VERY_UNFRIENDLY
+    # within a few turns under its own power and the player's book stops mattering after the
+    # first one. It reads as "the AI hates me for no reason" and there is nothing in a log to
+    # find. Cheap to write, silent forever, so it is asserted rather than commented.
+    m = re.search(r"function EX\.stance_score\((.*?)\nend", code, re.S)
+    assert m, "EX.stance_score is gone - the stance promotion has no input"
+    for bad in ("stance_of", "standing_of", "treaty_tier", "at_war"):
+        assert bad not in m.group(1), (
+            "EX.stance_score reads EX.%s. The promoted stance moves diplomatic standing, so "
+            "any diplomacy term here is a feedback loop that runs every house to "
+            "VERY_UNFRIENDLY on its own with the market contributing nothing. The inputs are "
+            "the player's shares and the player's warehouse, and only those." % bad)
+
+    assert int(have["tiny_up"]) == 0 and int(have["tiny_down"]) == 0, (
+        "a position one unit under a step moved the AI anyway (up=%s down=%s). math.floor(-0.5) "
+        "is -1 while math.floor(0.5) is 0, so a signed score has to truncate toward zero or "
+        "every trivial holding shoves a house a whole step - the same trap EX.appetite_shift "
+        "and EX.pressure_shift both carry." % (have["tiny_up"], have["tiny_down"]))
+    assert int(have["warm_one"]) == 1 and int(have["cold_one"]) == -1, (
+        "one step's worth of stake or hoard did not read as exactly one step "
+        "(warm=%s cold=%s)" % (have["warm_one"], have["cold_one"]))
+    assert int(have["warm_clamped"]) == 2 and int(have["cold_clamped"]) == -2, (
+        "the score is not clamped to the four steps EX.STANCE_STEPS defines (warm=%s cold=%s). "
+        "An unclamped step indexes nothing, which silently becomes 'clear and promote nothing' "
+        "- a maxed-out position would be the one case the feature does not fire."
+        % (have["warm_clamped"], have["cold_clamped"]))
+    assert int(have["cold_unrelated"]) == 0, (
+        "hoarding a good a house does not produce cooled it anyway (%s). The corner term is "
+        "gated on EX.owners - what the house actually sells - or every house on the board "
+        "reacts identically to one warehouse." % have["cold_unrelated"])
+    assert int(have["nets_off"]) == 0, (
+        "a stake and a hoard of equal size did not cancel (%s). They are two terms of one "
+        "score, not two independent switches." % have["nets_off"])
+
+    assert int(have["cleared_n"]) == 3, (
+        "clear_all_promotions was called %s times for 3 houses. It must run for EVERY house "
+        "every turn, including the neutral one: the promotion is not removed when the score "
+        "falls back to zero otherwise, and last turn's stance stands forever."
+        % have["cleared_n"])
+    assert have["promoted_warm"] == "CAI_STRATEGIC_STANCE_VERY_FRIENDLY", have["promoted_warm"]
+    assert have["promoted_cold"] == "CAI_STRATEGIC_STANCE_VERY_UNFRIENDLY", have["promoted_cold"]
+    assert have["promoted_neutral"] == "nil", (
+        "a house the player has no position in was promoted to %r. Zero must clear and stop - "
+        "a neutral book pushing the AI anywhere is the feature firing on nothing."
+        % have["promoted_neutral"])
+
+    assert int(have["off_cleared"]) == 0 and have["off_promoted"] == "nil", (
+        "the ai_stance switch is off and the stance manager was still called (cleared=%s "
+        "promoted=%s). clear_all_promotions is not scoped to this mod, so a disabled feature "
+        "that still clears is wiping CA's and other mods' stance promotions every turn - which "
+        "is the exact harm the switch exists to let a player avoid."
+        % (have["off_cleared"], have["off_promoted"]))
+
+    # THE WORLD BOOK. Same three accessors as the guild, mirrored 1:1; see check_lua_books'
+    # guild assertions above for the reasoning behind each shape.
+    assert int(have["wb_one"]) == 7, have
+    assert int(have["wb_sum"]) == 9, (
+        "world_book summed to %s, expected 9 (7 + 2). This is the number the pricing term "
+        "reads; if it is wrong the whole world tier prices wrong and nothing else fails."
+        % have["wb_sum"])
+    assert int(have["wb_none"]) == 0, (
+        "world_book returned %r for a commodity nobody holds; must be 0, not nil - the "
+        "pricing term does arithmetic on it" % have["wb_none"])
+    assert int(have["wb_absent"]) == 0, have
+    assert int(have["wb_ghost"]) == 14, (
+        "world_book summed to %s, expected 14 (7 + 2 + 5). fac_ghost holds lots but is "
+        "absent from EX.actors this turn (a conquered faction, a null interface, a scan "
+        "that returned early); world_book must iterate EX.wbook, the position record, and "
+        "never EX.actors, the roster - or exactly that faction's lots silently drop out of "
+        "the pricing term and jolt every price it held." % have["wb_ghost"])
+    assert int(have["wb_floor"]) == 0, (
+        "a world actor with no iron production shorted to %s. TASK 9: the floor is "
+        "(cap > 0) and -cap or 0, and a non-producer's capacity is 0 - so this is the "
+        "zero-capacity case of the SAME floor cap_small and short_floor pin for a real "
+        "producer, not a blanket 'actors do not short' rule any more." % have["wb_floor"])
+    # REVIEW FIX ROUND 2, FINDING 2. STRING-EXACT, NOT int()-CAST: Lua 5.1 has -0 and it
+    # stringifies as "-0" - the same trap EX.book_shift already guards against - and
+    # Python's int("-0") == 0 hides a negative-zero floor from the assertion above. A plain
+    # `-EX.world_capacity(...)` floor at zero capacity is -0.0, one tostring away from
+    # showing a player a book of "-0"; `(cap > 0) and -cap or 0` uses the literal 0 instead.
+    assert have["wb_floor"] == "0", (
+        "wb_floor printed %r, not the string \"0\". A raw -0.0 floor passes the int() check "
+        "above (int(\"-0\") == 0) while still printing \"-0\" to anything that formats the "
+        "book directly - this string-exact check is the one that actually catches it."
+        % have["wb_floor"])
+    assert have["wb_cleared"] == "nil", (
+        "an emptied world book kept its save key. ~80 actors over 300 turns is how a save "
+        "grows keys for factions that died 200 turns ago.")
+    assert have["wb_kept"] == "true", (
+        "clearing fac_b's key also cleared fac_a's. The clear must be scoped to the faction "
+        "whose book emptied.")
+
+    # WORLD DESIRE. Same five-term shape as EX.house_desire, minus the two house-only terms.
+    assert have["des_maker"] == "true", (
+        "a faction that PRODUCES iron scored a positive desire for it - it should be selling. "
+        "This is the production term's sign, and getting it backwards makes every producer hoard "
+        "its own output forever.")
+    assert have["des_lacker"] == "true", have
+    assert have["des_war"] == "true", (
+        "the war term did not raise iron for a faction at war. WAR_APPETITE carries the sign; the "
+        "actor's own war flag is the multiplier, not the world war index.")
+    assert have["des_damped"] == "true", (
+        "holding 6 lots did not reduce the appetite to add more. Without the position term an "
+        "actor buys the same commodity every turn forever.")
+    assert abs(float(have["des_damped_by"]) - 0.30) < 1e-4, (
+        "6 lots moved the desire by %s, expected 0.30 (6 x 0.05). The direction alone is not "
+        "enough here: this probe compares one faction against itself with only the book changed, "
+        "so the MAGNITUDE is what proves the position term is the thing doing the work and not "
+        "some other term drifting." % have["des_damped_by"])
+    assert int(have["des_calls"]) == 0, (
+        "EX.world_desire made %s engine calls in 20 scorings. It must make ZERO: it runs ~80 "
+        "factions x 17 commodities per turn, so one cm:get_faction here is 1,360 a turn."
+        % have["des_calls"])
+    assert abs(float(have["des_value_by"]) - 0.60) < 1e-4, (
+        "moving res_rom_iron 4 rungs pricier changed world_desire by %s, expected 0.6000 "
+        "(0.15 x 4). res_rom_iron sits at EX.neutral_rung() for every other probe in this "
+        "block, so the value term - the one that makes an actor sell into a rising price "
+        "instead of piling in forever - had no coverage at all: delete it, flip its sign, or "
+        "change 0.15 to anything and nothing above would move." % have["des_value_by"])
+    assert abs(float(have["des_lacker_const"]) - 0.5) < 1e-4, (
+        "a non-producer scored on a commodity with a zero taste term (res_rom_lead is absent "
+        "from wh_main_dwf_dwarfs's CULTURE_WANTS row) came to %s, expected 0.5000 - the "
+        "`or 0.5` branch's own constant. des_lacker only pins that branch's SIGN, and "
+        "CULTURE_WANTS['wh_main_dwf_dwarfs']['res_rom_iron'] = 0.8 dominates it there, so "
+        "swapping 0.5 for -0.5, 0 or anything else positive-enough would still read positive "
+        "and pass silently." % have["des_lacker_const"])
+    assert int(have["des_house"]) == 0, (
+        "world_desire scored a house-instrument key as %s, not 0 - houses are the guild's "
+        "paper, not a world commodity." % have["des_house"])
+    assert int(have["des_layer2"]) == 0, (
+        "world_desire scored a Layer 2 pooled resource as %s, not 0 - Layer 2 is priced flat "
+        "and is not traded by world actors." % have["des_layer2"])
+    assert int(have["des_unknown"]) == 0, (
+        "world_desire scored a faction absent from EX.actors as %s, not 0 - an unknown actor "
+        "must be inert, not error and not trade." % have["des_unknown"])
+
+    assert int(have["wld_net"]) == 0, (
+        "the world tier moved %s net gold in one turn. It MUST be exactly zero: at ~80 actors a "
+        "per-turn sink or source is a map-wide economic distortion, and it is the single most "
+        "likely way this feature wrecks a campaign. Buyer pays exactly what seller receives."
+        % have["wld_net"])
+    # FIX ROUND 4. wld_unmatched IS GONE. It read EX.world_book("res_rom_wine"), and wine is
+    # nobody's best desire and nobody's holding in that fixture - no wine order exists at
+    # all, matched or unmatched, so the probe read 0 for free and the one guard on "an
+    # unmatched order does not execute" was vacuous. Proven by mutation: serving unmatched
+    # buyers free lots (credit the buyer's book, move no gold, touch no seller) conjured 3
+    # lots of glass - the fixture's REAL unmatched order, poor's and sellr's shared best pick
+    # with no glass seller anywhere - and wld_unmatched stayed 0 with the whole suite green.
+    # wld_net cannot cover for it because no gold moves. Replaced by the two below: a
+    # non-vacuity pin on the trade that is meant to happen, and conservation of GOODS across
+    # every commodity, which is the goods-side twin of wld_net.
+    assert int(have["wld_first_lots"]) == 3, (
+        "the matching pass moved %s lots to the buyer, expected exactly 3 (sellr seeded 8, "
+        "world_trade_max 3, cap_lots floor(3000/1000) = 3, rich affording 50). wld_net reads "
+        "0 and wld_goods_conserved reads 8 on a block where NOTHING traded, so without this "
+        "pin both pass over a dead fixture - which is what a moved res_rom_iron rung anywhere "
+        "above this block would silently cause." % have["wld_first_lots"])
+    # TASK 9: BACK TO 8, ITS ORIGINAL VALUE. Task 8's EX.accrue_world_stock() ran as the first
+    # line of EX.step_world(), unconditionally, and this fixture's own EX.owners
+    # (`res_rom_iron = { sellr = 5 }`, needed so sellr scores a real production term in
+    # EX.world_desire) meant sellr accrued 5 fresh lots on the same call as the match: 8 seeded
+    # + 5 accrued = 13. Accrual is now withdrawn, so nothing adds to the seeded total any more.
+    # TASK 11 A1 floors the PRODUCT, not the factor, so sellr's capacity for this fixture is
+    # floor(5 * 3 / 10) = 1, not 0 - but that figure never enters this number. A match still
+    # only MOVES lots - see wld_first_lots above - so 8 is conserved whatever capacity says:
+    # any number other than 8 here means the match minted or burned a lot, or a stray write is
+    # adding to the book from somewhere that is not the matching pass. Do not re-baseline this
+    # number; see the task brief's warning.
+    assert int(have["wld_goods_conserved"]) == 8, (
+        "the world books hold %s lots across all 17 commodities after one matching pass; "
+        "expected 8, exactly the seeded total. A match still only MOVES lots - see "
+        "wld_first_lots - so any number other than 8 here means the match minted or burned a "
+        "lot, or something outside the matching pass wrote to a world book." % have["wld_goods_conserved"])
+    assert have["wld_human_paid"] == "nil", (
+        "EX.step_world moved gold on the human player's own faction. EX.actors carries every "
+        "landholding non-Chaos-Dwarf faction with no human filter (unlike EX.discover_houses, "
+        "which excludes every human explicitly) - a player faction must never be traded on, "
+        "paid, or charged.")
+    assert int(have["wld_human_book"]) == 0, (
+        "EX.step_world left %s lots in the human player's world book. Nothing can read that "
+        "back - the panel reads EX.held, not EX.wbook - so it would be silent, permanent, "
+        "unrecoverable state on a faction that never agreed to trade." % have["wld_human_book"])
+    # wld_cap / wld_cap_net retired in fix round 2 - see the harness comment: both passed
+    # over an empty table once cap_lots existed, since the block's cap (500) fell below one
+    # lot's price. Subsumed by wld_goods_lots / wld_goods_gold below.
+    assert have["wld_off_paid"] == "nil", (
+        "ai_world off still moved gold. Off must mean zero engine calls, not a quieter tier.")
+    assert int(have["wld_off_book"]) == 8, (
+        "ai_world off still moved a book. The book read %s, expected the 8 it started with."
+        % have["wld_off_book"])
+    assert have["wld_gold_off_paid"] == "nil", (
+        "ai_gold off still called cm:treasury_mod. It must move zero gold - EX.pay_actor's "
+        "own ai_gold gate returns 0 before ever reaching the engine call.")
+    assert int(have["wld_gold_off_book"]) == 3, (
+        "ai_gold off stopped the books moving too (read %s, expected 3). RULING: the books "
+        "must stay NOTIONAL and keep moving when ai_gold is off, the same rule "
+        "EX.settle_counterparty documents for the guild - gating them on the gold actually "
+        "moving froze them once already and was a real bug." % have["wld_gold_off_book"])
+
+    # FIX ROUND 1, FINDING 1. THE CAP MUST CLAMP LOTS, NOT JUST GOLD. wld_cap only checked
+    # that gold stayed under world_cash_max; a price over the cap could clamp the GOLD leg
+    # while the books still moved every lot, creating goods nobody paid for. wld_goods_lots
+    # pins the trade to a real, non-zero size first - a 0-lot trade would make the equality
+    # below pass for free.
+    #
+    # == 2, NOT > 0 - FIX ROUND 3. At cap 2500 / price 1000 the correct clamp gives exactly
+    # 2. Checked with wld_cap/wld_cap_net retired (fix round 2): deleting cap_lots ALONE is
+    # still caught by wld_goods_gold below, and deleting only EX.pay_actor's two cap lines
+    # is correctly green (cap_lots already makes cost <= cap, so those lines are
+    # unreachable from this call site) - but deleting BOTH left world_cash_max enforced
+    # nowhere at all, and wld_goods_lots > 0 did not notice: both the correct trade and the
+    # unclamped one satisfy "> 0" (the unclamped one gives 3, from world_trade_max alone).
+    # An exact value check catches it for free and keeps the non-vacuity role this was
+    # already doing.
+    assert int(have["wld_goods_lots"]) == 2, (
+        "the cap-bound trade moved %s lots, expected exactly 2 (floor(2500/1000), with "
+        "world_trade_max=3 not binding). world_cash_max must be the constraint that decides "
+        "this number - 3 is what a completely unclamped trade would give (world_trade_max "
+        "alone), which is not a coincidence to let through as merely '> 0'."
+        % have["wld_goods_lots"])
+    assert have["wld_goods_gold"] == "true", (
+        "the gold that moved does not equal the lots that moved x the price. When "
+        "world_cash_max binds, EX.pay_actor clamping the GOLD leg is not enough on its own - "
+        "the LOTS must be capped to what that gold actually buys before the books move, or "
+        "goods are created from nothing while wld_net stays green because gold still nets "
+        "to zero.")
+
+    # FIX ROUND 1, FINDING 2. wld_neg is GONE - it could never fail (see the report):
+    # "poor" never becomes a matched buyer in this scenario, and EX.pay_actor's own treasury
+    # floor is provably unreachable from EX.step_world's call site (the affordability
+    # pre-clamp already guarantees cost <= gold before pay_actor is ever called). Replaced
+    # with the thing that IS load-bearing: EX.actors[...].gold is a PER-TURN budget the
+    # pre-flight scan reads once, and it must be written back as trades execute so a second
+    # pass over the same unrefreshed snapshot cannot spend it twice.
+    assert int(have["wld_budget_spend"]) == 1000, (
+        "one actor with 1000 gold spent %s across two passes over the same unrefreshed "
+        "EX.actors snapshot; expected exactly 1000 (spent once, blocked the second time). "
+        "<= would also pass if the second pass spent NOTHING at all, which is not what this "
+        "probe is set up to prove - it is set up to prove the actor CAN spend once and "
+        "CANNOT spend twice. EX.actors[...].gold must be decremented as each trade executes - "
+        "without it, a second pass (a double-fired turn callback, or any future edit that "
+        "lets one actor trade more than once a turn) reads the ORIGINAL treasury again and "
+        "spends it a second time for free." % have["wld_budget_spend"])
+
+    # FIX ROUND 4. THE AFFORDABILITY CLAMP HAD ZERO COVERAGE. Three clamps decide n in
+    # EX.step_world - world_trade_max (wld_trade_max_lots), cap_lots (wld_goods_lots) and
+    # affordability - and deleting the affordability pair
+    # (`local afford = math.floor(gold / px); if n > afford then n = afford end`) left the
+    # ENTIRE suite green: EX.pay_actor's treasury floor still clamped the gold leg, so
+    # wld_budget_spend still read exactly 1000, while the books moved the full n and spender
+    # ended holding SIX lots of iron for its 1000 gold. This is the goods leg of the same
+    # trade wld_budget_spend already measures in gold; the two together are
+    # goods x price == gold moved.
+    assert int(have["wld_budget_lots"]) == 1, (
+        "a 1000-gold actor against a 20-lot seller at price 1000 ended up holding %s lots, "
+        "expected exactly 1. world_trade_max (3) and cap_lots (3) are both well clear here, "
+        "so affordability is the only clamp that can produce this number - and it is the only "
+        "one of the three with nothing else watching it. Gold-side probes cannot see this "
+        "break: EX.pay_actor floors the payment at the actor's treasury either way, so the "
+        "gold reads correct while the goods are created from nothing."
+        % have["wld_budget_lots"])
+
+    assert int(have["wld_flow_off_bought"]) == 0, (
+        "EX.world_flow read %s after ai_world was switched off - it must be replaced with a "
+        "fresh, empty flow, not left holding a previous turn's numbers forever."
+        % have["wld_flow_off_bought"])
+
+    assert int(have["wld_credit_buy"]) == 3, (
+        "an actor that sold res_animals for a same-turn credit ended up with %s lots of "
+        "res_rom_glass, expected 3. si.gold (the SELLER's credit) must be written back "
+        "immediately - starting gold alone (100) cannot afford even one lot at price 1000; "
+        "only the 3000 credited for selling animals earlier in EX.COMMODITIES order makes "
+        "the glass purchase possible." % have["wld_credit_buy"])
+
+    assert int(have["wld_trade_max_lots"]) == 3, (
+        "a trade with a 50-lot seller, a 1,000,000-gold buyer, and world_cash_max raised to "
+        "100000 (cap_lots = 100, well clear) moved %s lots, expected exactly 3 "
+        "(world_trade_max's default). Deleting the "
+        "`if n > EX.opt(\"world_trade_max\") then n = EX.opt(\"world_trade_max\") end` clamp "
+        "left every other wld_* probe green - n was always decided by cap_lots or "
+        "affordability elsewhere. This is one of only two settings this task lands, with a "
+        "slider, a tooltip and three preset values; it must actually bind somewhere."
+        % have["wld_trade_max_lots"])
+
+    # THE PRICING TERM. A second shift beside EX.book_shift, its own gain and clamp, wired
+    # into EX.target_rung and never into EX.book_shift's fourteen-house calibration.
+    assert have["wps_long"] == "true", (
+        "a large net world long position produced no upward shift. The term is the whole of "
+        "the world tier's effect on price.")
+    assert have["wps_clamp"] == "true", (
+        "world_book_shift exceeded ai_max_rungs. It needs its OWN clamp; an unclamped second "
+        "term can move a price further in one turn than every other term combined.")
+    assert int(have["wps_flat"]) == 0, have
+    assert have["wps_wired"] == "true", (
+        "world_book_shift did not reach the rung. The term must be summed in EX.target_rung, "
+        "which is where every other shift lands - EX.price sums nothing, it reads EX.current. "
+        "A term that is never added is a function nothing calls, and no other check would see "
+        "it.")
+    assert int(have["wps_off_shift"]) == 0, (
+        "ai_world off still shifted the price by %s rungs." % have["wps_off_shift"])
+    assert have["wps_off_same"] == "true", (
+        "with ai_world off the rung differed from the baseline while the book was full. Off "
+        "must restore the shipped pricing to the line - that is the appetite_drift precedent "
+        "and the only reason the switch is worth having.")
+
+    # THE MAGNITUDE, not merely the sign and the ceiling. wps_long and wps_clamp both pass at
+    # ANY gain from 2.5 up (net 80 clamps to ai_max_rungs either way), so neither would catch
+    # a miscalibrated constant or a rewritten divisor - measured: changing "/ 100" to "/ 50"
+    # left the whole selftest green before these two existed.
+    assert int(have["wps_sub0"]) == 0, (
+        "world_book_shift(net=12) is %s, expected exactly 0. At the shipped gain (4.0) this is "
+        "0.48 rungs - a real sub-rung magnitude, not the empty-book case wps_flat already "
+        "covers - and it must truncate away rather than round up." % have["wps_sub0"])
+    assert int(have["wps_sub1"]) == 1, (
+        "world_book_shift(net=30) is %s, expected exactly 1. At the shipped gain (4.0) this is "
+        "1.2 rungs, comfortably below ai_max_rungs, so this pins the GAIN itself - wps_long and "
+        "wps_clamp are both satisfied by the clamped value alone and cannot." % have["wps_sub1"])
+
+    # THE is_house / is_layer2 GUARD. Mirrors EX.book_shift's shift_house / shift_empty: a real
+    # nonzero book behind a house key and a Layer 2 key, so the guard - not an incidentally
+    # empty book - is what each assertion is pinned on.
+    assert int(have["wps_house"]) == 0, (
+        "world_book_shift moved a house share's price (%s). A share is paper; the world tier "
+        "does not hold a book in it any more than the guild does." % have["wps_house"])
+    assert int(have["wps_layer2"]) == 0, (
+        "world_book_shift moved a Layer 2 price (%s). EX.sell_price rails Layer 2 at one rung "
+        "on the stated premise that its rung moves by EX.pressure_shift and by nothing else - "
+        "this guard is what keeps that premise true." % have["wps_layer2"])
+
+    # THE THIRD RUNG. Crossed fixture: `holder` holds the lots and little gold, `rich` holds
+    # the gold and one lot.
+    assert have["cp_guild_iron"] == "0", (
+        "the guild holds %s lots of iron, so sold_out_iron below would return nil from the "
+        "guild-book early return and prove nothing about the world book. Clear EX.book."
+        % have["cp_guild_iron"])
+    assert have["cp_world_iron"] == "4", (
+        "the world book holds %r lots of iron, not the 4 this fixture sets (3 + 1). Every "
+        "assertion in this block is sized on that number." % have["cp_world_iron"])
+    assert have["cp_who"] == "holder", (
+        "a buy picked %r. It must pick the largest HOLDER - `holder`, with 3 lots against "
+        "rich's 1 - not the richest actor and not whichever the loop saw first."
+        % have["cp_who"])
+    assert have["cp_sell"] == "rich", (
+        "a sell picked %r. It must pick the deepest TREASURY - `rich`, 9000 against holder's "
+        "400. Picking `holder` means both branches are reading the book." % have["cp_sell"])
+    assert have["cp_none"] == "nil", (
+        "world_counterparty found a seller for a commodity nobody holds. That is the infinite "
+        "seller this task exists to remove.")
+
+    # SCARCITY.
+    # TASK 11, A2 FLIPS THIS: wine has no producer anywhere in this whole harness (EX.owners
+    # never carries a res_rom_wine entry for any actor), so EX.world_potential("res_rom_wine")
+    # is always 0. Before A2, EX.sold_out fell through to "nobody holds any -> unknown -> refuse
+    # by name" for exactly this case - which is the shipped glass bug in miniature: wine was
+    # never a participant in the world tier, and refusing it took the market away for a good
+    # nobody was ever going to sell anyway. A2's guard now answers nil (not refused) here, same
+    # as tiny_refused in section A. This is a derivation from A2's own logic, not a
+    # re-baseline: EX.sold_out(iron) two lines below (a commodity WITH a producer) is untouched.
+    assert have["sold_out_wine"] == "false", (
+        "a commodity NO producer anywhere can ever supply was reported sold out (%s). Task 11's "
+        "A2 guard exists precisely so a never-a-participant commodity is not refused the same "
+        "way a genuinely drained one is - see EX.world_potential and the drain_* assertions."
+        % have["sold_out_wine"])
+    assert have["sold_out_iron"] == "nil", (
+        "iron was reported sold out while an actor holds 3 lots of it in the world book.")
+
+    # THE SWITCH. Off must restore today's behaviour exactly: top_holder as the unbounded
+    # fallback, on both gates.
+    assert have["sold_out_off"] == "nil", (
+        "world_scarcity off still refused a buy. Off must restore today's behaviour exactly: "
+        "top_holder as the unbounded fallback.")
+    assert have["sold_out_ai_world_off"] == "nil", (
+        "ai_world off still refused a buy. With the world tier off, EX.wbook is empty by "
+        "definition, so world_scarcity alone would report every commodity the guild does not "
+        "hold as sold out - taking the market away, which is the worst failure this feature "
+        "can produce.")
+
+    # THE is_house / is_layer2 GUARD, for both new functions.
+    assert have["cp_house"] == "nil", (
+        "world_counterparty found a seller for a house's own paper (%s). A share is paper; "
+        "the world tier does not hold a book in it any more than the guild does."
+        % have["cp_house"])
+    assert have["cp_layer2"] == "nil", (
+        "world_counterparty found a seller for a Layer 2 good (%s). The Forge's output is not "
+        "a traded good the world tier holds a book in." % have["cp_layer2"])
+    assert have["so_house"] == "nil", (
+        "sold_out reported a house's own paper as sold out (%s). A share cannot run out the "
+        "way a commodity does." % have["so_house"])
+    assert have["so_layer2"] == "nil", (
+        "sold_out reported a Layer 2 good as sold out (%s). EX.unavailable already exempts "
+        "Layer 2 from the unscanned-supply case; sold_out must exempt it the same way."
+        % have["so_layer2"])
+
+    # F3, FINAL REVIEW 2026-09-13. THE GUILD-BOOK EARLY RETURN. Every sold_out fixture above
+    # pins the guild's book at zero on purpose (cp_guild_iron == 0) so the WORLD book is what
+    # answers - which means nothing anywhere tested the guild-holds-stock case until this one.
+    assert have["so_guild_iron"] == "7", (
+        "the guild book fixture read %r, not 7 - the guild-book early return in EX.sold_out "
+        "would be exercised against an incidentally empty book rather than a real holding."
+        % have["so_guild_iron"])
+    assert have["so_guild_covers"] == "nil", (
+        "EX.sold_out refused iron (%r) even though the guild holds 7 lots of it and the world "
+        "book is empty. `if EX.guild_book(res) > 0 then return nil end` is what should answer "
+        "here - the one axis the whole switch-interaction ruling is about: a commodity the "
+        "guild is long must stay in the market even when no world actor holds any."
+        % have["so_guild_covers"])
+
+    # WIRED, RUNG 2 and THE REFUSAL - the point of Step 4 and the controller's Ruling 1. Both
+    # could be perfect in isolation and never actually run: this is what proves they do.
+    assert have["rung_who"] == "holder", (
+        "settle_counterparty returned %r for a buy with an actor holding 3 lots and an empty "
+        "guild. Rung 2 is not wired in - world_counterparty can be perfect and the player "
+        "still never trades with the world tier." % have["rung_who"])
+    assert have["rung_paid"] == "100", (
+        "rung 2 moved %r gold on a 100 buy; the actor is paid the full price."
+        % have["rung_paid"])
+    assert have["rung_book"] == "2", (
+        "the actor's book is %r after selling one lot from 3. A book that does not fall makes "
+        "the world tier the same infinite seller top_holder was." % have["rung_book"])
+    assert have["blocked_market_closed"] == "false", (
+        "market_closed fired in the blocked_iron fixture (empty guild); blocked_iron would "
+        "prove nothing about sold_out.")
+    assert have["blocked_house_war"] == "false", (
+        "house_at_war fired in the blocked_iron fixture; blocked_iron would prove nothing "
+        "about sold_out.")
+    # TASK 11, A2 FLIPS THIS the same way as sold_out_wine above: wine has no producer anywhere
+    # in this harness, so it is "never a participant" and EX.blocked must not refuse it through
+    # the sold_out cause - the same distinction drain_refused in section A pins for a commodity
+    # that DOES have a producer and IS fully sold forward.
+    assert have["blocked_wine"] == "false", (
+        "EX.blocked refused a commodity NO producer anywhere can ever supply (%s). A2's "
+        "world_potential guard exists so 'never a participant' does not read as 'sold out'."
+        % have["blocked_wine"])
+    assert have["blocked_iron"] == "nil", (
+        "EX.blocked refused iron while an actor holds 3 lots of it - scarcity is firing on "
+        "stock that exists, which takes the market away.")
+
+    # THE OTHER HALF OF RULING 1'S WIRING. EX.blocked passing proves nothing about
+    # EX.buy_refusal - they are two separate insertions, and only one drives the panel.
+    #
+    # TASK 11, A2 FLIPS THIS THE SAME WAY: wine is never a participant, so EX.buy_refusal's own
+    # sold_out branch must also stand down for it and return nil, nil - a live-looking Buy
+    # button at a normal price, which is now correct for a good the world tier was never going
+    # to refuse. RESIDUAL COVERAGE NOTE (see task-11-report.md): this pair used to be the only
+    # place that proved EX.buy_refusal's fourth block actually FIRES a "Sold out" refusal
+    # end-to-end; with wine exempted by A2, that positive case is no longer exercised through
+    # EX.blocked/EX.buy_refusal specifically - only EX.sold_out itself is, via drain_refused in
+    # section A. Left as a known gap rather than patched with an unverified fixture.
+    assert have["refusal_sold_out"] == "false", (
+        "EX.buy_refusal refused a commodity NO producer anywhere can ever supply (%s). Task 11's "
+        "A2 guard means 'never a participant' must not read as 'sold out' here either."
+        % have["refusal_sold_out"])
+    assert have["label_sold_out"] == "nil", (
+        "EX.buy_refusal's fourth block returned label %r for a commodity nobody can ever supply, "
+        "expected nil - the button must not read 'Sold out' for a good that was never a "
+        "participant in the world tier." % have["label_sold_out"])
+
+    # FIX ROUND 1, B5. EX.world_counterparty had no human filter, so a buy or a sell could
+    # route to the player's own faction - both charged and credited the same price, free.
+    assert have["human_buy_cp"] == "other", (
+        "world_counterparty picked %r on a buy where the human player holds the deeper world "
+        "book (7 lots against other's 3). EX.world_counterparty must exclude EX.is_human "
+        "factions, the same rule EX.step_world already carries, or a human player is routed "
+        "to as rung 2's counterparty and both charged and credited the same price."
+        % have["human_buy_cp"])
+    assert have["human_sell_cp"] == "other", (
+        "world_counterparty picked %r on a sell where the human player is far richer than "
+        "the other actor (99999 against 500). Routing a sell to the player credits and debits "
+        "the same treasury for free." % have["human_sell_cp"])
+
+    # FIX ROUND 1, B6. Rung 2 bounded a sell by EX.actors[w].gold, which nothing decremented
+    # on the player path - a player selling repeatedly in one turn met the same full treasury
+    # every time.
+    assert have["wsell_first_moved"] == "100", (
+        "the first sell to a 150-gold actor moved %r, expected 100 - the full price, well "
+        "under the actor's starting treasury." % have["wsell_first_moved"])
+    assert have["wsell_gold_after_first"] == "50", (
+        "the actor's SCANNED gold read %r after a 100-gold sell against a starting 150, "
+        "expected 50. EX.actors[w].gold must be written back by what actually moved, the "
+        "same rule EX.step_world already follows for its own match - without it, every sell "
+        "in the same turn tests against the same, never-decremented number."
+        % have["wsell_gold_after_first"])
+    assert have["wsell_second_moved"] == "50", (
+        "a second 100-gold sell to the same actor in the same turn moved %r, expected exactly "
+        "50 - the actor's remaining treasury, clamped by EX.pay_actor's own debit floor. 100 "
+        "would mean the actor was tested against its ORIGINAL, un-decremented treasury a "
+        "second time." % have["wsell_second_moved"])
+    assert have["wsell_third_who"] == "nil", (
+        "a third sell to the now-broke actor returned %r, expected nil - rung 2 must fall "
+        "through to top_holder (nil in this fixture) once the actor's tracked gold reaches "
+        "zero. A non-nil result means the per-turn budget never actually bound anything."
+        % have["wsell_third_who"])
+
+    # FIX ROUND 2, G1. wsell_second_moved alone reads EX.pay_actor's return, not the
+    # write-back - swapping the write-back's `moved` for the asking price passes every
+    # wsell_* assertion above and still drives the scanned treasury negative.
+    assert have["wsell_gold_after_second"] == "0", (
+        "the actor's scanned gold read %r after the second sell, expected exactly 0. "
+        "EX.pay_actor's own debit clamp floors the REAL treasury at 0 - if the write-back "
+        "uses the asking price instead of what EX.pay_actor actually moved, the SCANNED "
+        "number can go negative (measured: -50) while every other wsell_* assertion still "
+        "passes." % have["wsell_gold_after_second"])
+
+    # FIX ROUND 2, G2. THE BUY DIRECTION of the same write-back was unpinned - a sell-only
+    # variant (`if wi and moved < 0 then ...`) survives every wsell_* assertion, since those
+    # only ever sell.
+    assert have["wbuy_moved"] == "150", (
+        "a buy against a 5-lot actor at price 150 moved %r, expected 150 (well under any "
+        "preset's world_cash_max floor, so the cap does not bind)." % have["wbuy_moved"])
+    assert have["wbuy_gold_after"] == "650", (
+        "the actor's scanned gold read %r after being paid 150 for a buy, expected exactly "
+        "650 (500 + 150). A sell-only write-back (`moved < 0` guarded) leaves this at 500 - "
+        "the actor's tracked budget would understate every future buy against them."
+        % have["wbuy_gold_after"])
+
+    # FIX ROUND 2, G3. EX.world_counterparty's OWN ai_world gate, distinct from EX.sold_out's
+    # (already pinned as sold_out_ai_world_off). Unpinned, deleting it left the whole selftest
+    # green - and with the switch off, a SELL is chosen on treasury alone and would still
+    # route to a real actor and move real gold through rung 2.
+    assert have["wcp_ai_world_off_buy"] == "nil", (
+        "world_counterparty picked %r on a BUY with 'The world trades' switched off."
+        % have["wcp_ai_world_off_buy"])
+    assert have["wcp_ai_world_off_sell"] == "nil", (
+        "world_counterparty picked %r on a SELL with 'The world trades' switched off. Sell "
+        "is chosen on treasury alone, never on the book, so this is the direction that keeps "
+        "moving real gold if this function's own gate - not EX.sold_out's - is ever lost."
+        % have["wcp_ai_world_off_sell"])
+
+    # F2, FINAL REVIEW 2026-09-13. RUNG 2 DECLINES RATHER THAN MINT/DESTROY GOLD ABOVE
+    # world_cash_max. EX.apply_trade always charges/credits the player the full price; rung 2
+    # used to clamp only its own leg at world_cash_max and still move the book, minting the
+    # difference on a sell and destroying it on a buy. Both directions pinned, plus the
+    # ai_gold-off path proven to still move the book notionally above the same cap.
+    assert have["rung2_cap_sell_who"] == "nil", (
+        "a sell priced above world_cash_max, with nobody for EX.top_holder to fall back to, "
+        "returned %r instead of nil. Rung 2 must decline outright when it cannot settle in "
+        "full, not silently accept a partial payment and hand the trade a counterparty anyway."
+        % have["rung2_cap_sell_who"])
+    assert have["rung2_cap_sell_paid"] == "0", (
+        "rung 2 moved %r gold to the actor on a sell priced above world_cash_max. It must move "
+        "NOTHING when it cannot settle in full - EX.apply_trade still credits the player the "
+        "full price separately, so any partial payment here is gold minted from nothing."
+        % have["rung2_cap_sell_paid"])
+    assert have["rung2_cap_sell_book"] == "5", (
+        "the actor's world book read %r after a declined rung-2 sell; it must stay at the 5 "
+        "lots it started with. A book that moves with no settled payment behind it is a lot "
+        "created or destroyed for nothing." % have["rung2_cap_sell_book"])
+    assert have["rung2_cap_buy_who"] == "nil", (
+        "a buy priced above world_cash_max, with nobody for EX.top_holder to fall back to, "
+        "returned %r instead of nil - the buy-side twin of rung2_cap_sell_who."
+        % have["rung2_cap_buy_who"])
+    assert have["rung2_cap_buy_paid"] == "0", (
+        "rung 2 moved %r gold to the actor on a buy priced above world_cash_max. The player "
+        "was already charged the full price in EX.apply_trade; crediting the actor anything "
+        "less destroys the difference." % have["rung2_cap_buy_paid"])
+    assert have["rung2_cap_buy_book"] == "5", (
+        "the actor's world book read %r after a declined rung-2 buy; it must stay at 5."
+        % have["rung2_cap_buy_book"])
+    assert have["rung2_cap_gold_off_who"] == "rich_actor", (
+        "ai_gold off must still route a sell through the world actor above world_cash_max - "
+        "got %r. The full-settlement gate must never be consulted when gold is off."
+        % have["rung2_cap_gold_off_who"])
+    assert have["rung2_cap_gold_off_paid"] == "0", (
+        "ai_gold off must move exactly 0 gold, by design - got %r."
+        % have["rung2_cap_gold_off_paid"])
+    assert have["rung2_cap_gold_off_book"] == "6", (
+        "ai_gold off must still move the book notionally above the cap (5 lots held, a sell "
+        "adds one -> 6) - got %r. Gating settlement on a full-price match must not freeze the "
+        "book the same way the old `moved ~= 0` gate used to." % have["rung2_cap_gold_off_book"])
+
+    # F1, FINAL REVIEW 2026-09-13. THE WORLD BOOK SURVIVES A SAVE/LOAD. EX.set_world_book has
+    # always written the key; nothing ever read it back before this fix - EX.restore() had no
+    # branch for it at all, so EX.wbook started empty on every load.
+    assert have["wb_restored_iron"] == "7", (
+        "EX.restore() left %r lots of iron in the restored actor's world book, not the 7 "
+        "written directly into EX.store beforehand. The world book does not survive a "
+        "save/load, and with world_scarcity on that refuses every commodity the guild does "
+        "not hold from the instant a save loads." % have["wb_restored_iron"])
+    assert have["wb_restored_gems"] == "2", (
+        "EX.restore() left %r lots of gems in the restored actor's world book, not the 2 "
+        "written beforehand - a single-commodity read would pass while a second commodity in "
+        "the same packed string is silently dropped." % have["wb_restored_gems"])
+    assert have["wb_restored_stale_gone"] == "0", (
+        "a faction seeded into EX.wbook BEFORE EX.restore() ran was still there afterwards "
+        "(%r lots). EX.restore() must REPLACE EX.wbook, the same way it replaces EX.book for "
+        "the guild, not merely add to whatever was already in memory." % have["wb_restored_stale_gone"])
+
+    # TASK 9: THE WORLD BOOK BECOMES A POSITION, NOT A WAREHOUSE. EX.accrue_world_stock is
+    # withdrawn; EX.world_capacity and EX.world_sellable replace it as the source of what an
+    # actor can sell, and the book itself may now go short by what its land can make.
+    # TASK 11, A1: THE PRODUCT IS FLOORED, NOT THE FACTOR. Every number below that depends on
+    # `big`'s (26 units/turn) or `small`'s (7 units/turn) capacity moved from its pre-A1 value:
+    # floor(mine / lot) * TURNS discarded the sub-lot remainder BEFORE multiplying by TURNS,
+    # floor(mine * TURNS / lot) discards it after accumulating three turns of production. big:
+    # floor(26/10)*3 = 6 -> floor(26*3/10) = 7. small: floor(7/10)*3 = 0 -> floor(7*3/10) = 2.
+    # Derived from the new formula, not re-baselined - see task-11-report.md for the full trace.
+    assert have["cap_big"] == "7", (
+        "a faction producing 26 units of iron a turn has capacity %r. Three turns of 26 is 78 "
+        "units, floor(78 / EX.lot 10) = 7. Flooring the FACTOR first (floor(26/10)*3 = 6) is "
+        "the output-vs-lots error this whole task exists to undo." % have["cap_big"])
+    assert have["cap_small"] == "2", (
+        "a faction producing 7 units a turn - less than one lot of 10 - has capacity %r, not 2. "
+        "Three turns of 7 is 21 units, floor(21/10) = 2: a sub-lot producer still sells "
+        "something. Flooring to 0 here is the shipped glass bug (Task 11, section A)."
+        % have["cap_small"])
+    assert have["cap_nonproducer"] == "0", (
+        "a faction owning no wine-producing land has wine capacity %r. Capacity comes out of "
+        "the ground the actor holds." % have["cap_nonproducer"])
+    assert have["sell_big"] == "7", (
+        "sellable on a flat book is %r; with no position either way it is exactly the capacity "
+        "(7, post-A1)." % have["sell_big"])
+    assert have["short_floor"] == "-7", (
+        "the book floored at %r on a -100 write. An actor may go short by what its land makes "
+        "and no further - capacity 7 post-A1, not 6 - that bound is the whole reason this is "
+        "finite." % have["short_floor"])
+    assert have["short_sellable"] == "0", (
+        "a fully short actor can still sell %r lots. Sellable is capacity plus position, and "
+        "at the floor it must be exactly 0." % have["short_sellable"])
+    assert have["short_packed"] == "res_rom_iron=-7", (
+        "a short position packed as %r. The packer filtered `v > 0`, which silently dropped "
+        "every negative entry - the position vanishes and the goods it owed are minted."
+        % have["short_packed"])
+    assert have["short_key"] == "res_rom_iron=-7", (
+        "the save key for a short-only faction holds %r. The clear in EX.set_world_book tested "
+        "`v > 0` for 'is this book empty', so a faction short in everything had its whole row "
+        "deleted." % have["short_key"])
+    assert have["short_restored"] == "-7", (
+        "a short position restored as %r. A position that cannot survive a save load is not a "
+        "position." % have["short_restored"])
+    assert have["cold_wants"] == "true", (
+        "the buyer does not prefer iron, so no pair is ever matched on it and every assertion "
+        "below would pass or fail for a reason that has nothing to do with capacity. A "
+        "non-producer scores a flat +0.5 on every commodity it does not make, so without a "
+        "price difference all seventeen tie and EX.step_world's strict `>` leaves the buyer "
+        "wanting EX.COMMODITIES[1] forever - res_rom_iron is tenth in that list.")
+    assert have["cold_maker"] == "-3", (
+        "a producer with an empty book ended the turn at %r. It sells min(sellable 7, "
+        "world_trade_max 3) = 3 lots and goes short by exactly that - world_trade_max is the "
+        "binding clamp both before and after A1, so this number does not move even though "
+        "sellable (post-A1: 7, was 6) does. 0 means it could not sell from an empty book at "
+        "all, which is the inertness this task removes." % have["cold_maker"])
+    assert have["cold_buyer"] == "3", (
+        "the buyer holds %r lots against the seller's -3. The two legs of a match are one "
+        "number." % have["cold_buyer"])
+    assert have["cold_net"] == "0", (
+        "the world's net position in iron is %r after a match. A match moves lots between "
+        "actors and creates none, so the net is exactly 0 - and that is what keeps "
+        "EX.world_book_shift off its ceiling, which is the third reason accrual was withdrawn."
+        % have["cold_net"])
+    assert have["cold_left"] == "4", (
+        "the producer can still sell %r lots after selling 3 of its 7 (post-A1 capacity). "
+        "Sellable is capacity plus position: 7 + (-3) = 4 - this moved from the pre-A1 value "
+        "of 3 (6 + (-3)) purely because EX.world_capacity is re-derived live and A1 changed "
+        "what it returns for 26 units, not because the trade itself changed. If this is 7 the "
+        "short did not register; if 0 the floor bound the wrong quantity." % have["cold_left"])
+    assert have["pos_short_same"] == "true", (
+        "being short changed the desire score. The position term must penalise being LONG and "
+        "pay nothing for being short - an actor that sold what it dug up is in its normal "
+        "state, not hungry to buy it back, and rewarding it inverts the term into a buy-back "
+        "bonus.")
+    assert have["pos_long_lower"] == "true", (
+        "being long did not reduce the appetite to add. That half of the position term is the "
+        "one that shipped and must survive this change.")
+    assert have["accrual_gone"] == "true", (
+        "EX.accrue_world_stock still exists. It is withdrawn, not deprecated: leaving it in "
+        "place leaves a second, contradictory source of stock one edit away from being called "
+        "again.")
+
+    # REVIEW FIX ROUND 2: THE FLOOR MUST NOT MINT WHEN CAPACITY SHRINKS UNDER A STANDING SHORT.
+    # A plain `if n < floor then n = floor end`, re-derived from LIVE EX.owners on every write,
+    # ambushes a write that moves an EXISTING short toward zero once the producer has since lost
+    # the land that earned it: measured through EX.step_world, a seller debited 3 while the
+    # buyer - short and just stripped of its land - was credited 6, net iron -6 to -3. The rule
+    # can only be one-sided: a write may deepen a short only within CURRENT capacity, and may
+    # always move a position toward zero, however far, however the capacity behind the floor has
+    # since moved.
+    assert int(have["shrink_before"]) == -6, (
+        "the fixture's own precondition: shorty must be established AT its (then-live) floor "
+        "of -6, not %s, or the shrink below tests nothing." % have["shrink_before"])
+    assert int(have["shrink_cap_after"]) == 0, (
+        "shorty's capacity read %s after losing every iron region, not 0 - the fixture's own "
+        "precondition that the floor has genuinely moved." % have["shrink_cap_after"])
+    assert int(have["shrink_after"]) == -3, (
+        "shorty bought 3 lots back from -6 and ended at %s, not -3. A write that moves a "
+        "position TOWARD zero must pass exactly as written, however far the actor's capacity "
+        "has since shrunk - 0 means the new, shallower floor wrongly clamped a write that was "
+        "closing the short, minting the difference for free." % have["shrink_after"])
+    assert int(have["shrink_net"]) == -6, (
+        "the world's net iron position read %s after shorty's land vanished and the match's "
+        "other leg settled, expected -6 - exactly what it was before the shrink. A match only "
+        "MOVES lots between the two legs; -3 is the measured defect this fix closes: 3 lots "
+        "minted the moment a short producer's capacity shrinks out from under a standing short."
+        % have["shrink_net"])
+
+    # TASK 11, SECTION A: A COMMODITY SMALLER THAN ONE LOT MUST NOT BE REFUSED FOREVER. A1
+    # floors the PRODUCT (mine * TURNS / lot) instead of the factor (floor(mine/lot) * TURNS),
+    # so a sub-lot producer accumulates toward a lot across turns instead of flooring to 0 every
+    # single turn. A2 adds EX.world_potential so a commodity NO producer can ever fill a lot for
+    # is "never a participant", not "sold out" - it must not veto the guild and top_holder.
+    assert have["thin_cap"] == "1", (
+        "a faction making 6 units a turn of a 10-unit lot has capacity %r. Three turns of 6 is 18 "
+        "units, which is one lot: floor(6 * 3 / 10) = 1. Flooring before multiplying gives 0 and "
+        "refuses glass for the life of the campaign." % have["thin_cap"])
+    assert have["thin_refused"] == "nil", (
+        "glass was reported sold out while a faction can supply a lot of it.")
+    assert have["tiny_pot"] == "0", (
+        "two factions making 2 units a turn each have potential %r; neither can ever fill a lot."
+        % have["tiny_pot"])
+    assert have["tiny_sup"] == "0", (
+        "supply is %r where potential is 0; supply cannot exceed potential." % have["tiny_sup"])
+    assert have["tiny_refused"] == "nil", (
+        "a commodity the world tier can never supply was refused BY the world tier. It is not a "
+        "participant in that good and must not be able to veto the guild and top_holder.")
+    assert have["drain_pot"] == "12", (
+        "a faction making 40 units a turn has potential %r: floor(40 * 3 / 10) = 12."
+        % have["drain_pot"])
+    assert have["drain_sup"] == "0", (
+        "a producer sold forward to its floor still reports %r lots of supply." % have["drain_sup"])
+    assert have["drain_refused"] == "true", (
+        "a commodity with real potential, entirely sold forward, was NOT refused. Scarcity has to "
+        "still mean something or the whole axis is cosmetic - the potential guard above must "
+        "distinguish 'never a participant' from 'drained', not switch scarcity off.")
+    assert have["drain_blocked"] == "true", (
+        "EX.blocked did not refuse a commodity with real potential that is entirely sold "
+        "forward. drain_refused above already proves EX.sold_out itself fires here, so "
+        "EX.blocked disagreeing means its own scarcity term is gone and the Buy button would "
+        "draw live for a good nobody is holding.")
+    assert have["drain_refusal"] == "true", (
+        "EX.buy_refusal returned no reason for a commodity with real potential that is "
+        "entirely sold forward. Its sold-out branch - the sixth and last cause it tests - is "
+        "missing or unreachable, so the row would show no tooltip for why the trade is dead.")
+    assert have["drain_label"] == "Sold out", (
+        "EX.buy_refusal's label for a drained commodity read %r, not \"Sold out\". It tests six "
+        "causes in order - pool_absent, unavailable, market_closed, house_at_war, refused_by, "
+        "then sold_out - and only the last is scarcity, so a wrong label here means some earlier, "
+        "unrelated cause is answering for scarcity instead." % have["drain_label"])
+
+    # TASK 10: THE PLAYER-FACING HALF OF THE POSITION MODEL. EX.world_supply, not EX.world_book,
+    # is what scarcity and the buy-side counterparty must read - a net position is zero by
+    # construction and reading it as "nobody has any" refuses the whole board.
+    assert have["sup_net"] == "0", (
+        "the world's NET position is %r, not the 0 this fixture builds (-4 and +4). Every "
+        "assertion below is about supply being visible when the net is zero." % have["sup_net"])
+    assert have["sup_total"] == "7", (
+        "world supply is %r. It is alpha's remaining capacity (7 - 4 = 3, post-A1: floor(26*3/10)) "
+        "plus beta's held 4 = 7. If this reads 0 the function is summing the book instead of what "
+        "can be sold, which is the whole distinction this task turns on." % have["sup_total"])
+    assert have["sup_none"] == "0", (
+        "a commodity nobody produces or holds reported %r lots of supply." % have["sup_none"])
+    assert have["cp_buy"] == "beta", (
+        "the buy counterparty is %r, expected 'beta'. This is a baseline wiring check on "
+        "EX.world_counterparty - beta sells 4 against alpha's 2 either way, so it does not by "
+        "itself distinguish a sellable read from a raw-book read (both agree in this fixture); "
+        "cp_buy2 and sup_cp are the assertions that do." % have["cp_buy"])
+    assert have["cp_buy2"] == "alpha", (
+        "with beta cut to 1 lot the counterparty is %r; alpha's 2 sellable now beats it. If this "
+        "still says beta the choice is not reading sellable at all." % have["cp_buy2"])
+    assert have["so_netzero"] == "nil", (
+        "scarcity refused a commodity with real supply, because the NET position is zero. "
+        "That is the bug this task exists to close: a net of zero is the normal state of a "
+        "position model, so reading it as 'nobody has any' refuses the whole board.")
+    assert have["so_drained"] == "0", (
+        "supply reads %r after both actors are drained; the refusal below is meaningless unless "
+        "this is exactly 0." % have["so_drained"])
+    assert have["so_refuses"] == "true", (
+        "nothing anywhere can sell iron and scarcity did not refuse. Supply running out has to "
+        "still mean something or axis 2 is cosmetic.")
+    assert have["so_guild"] == "nil", (
+        "the guild holds 3 lots and scarcity refused anyway. The guild-book test comes first and "
+        "must survive this change - on the 7 dearest commodities it is the only holder there is.")
+    assert have["r1_over"] == "nil", (
+        "rung 1 settled a trade one gold above house_cash_max and returned %r. EX.apply_trade "
+        "moves the player's full uncapped price while EX.pay_house clamps the house, so the "
+        "difference is minted on a sell and destroyed on a buy." % have["r1_over"])
+    assert have["r1_ok"] == "rich_house", (
+        "rung 1 declined an ordinary 100 gold trade, returning %r. The decline must bind only "
+        "above the cap." % have["r1_ok"])
+    assert have["r1_book"] == "10", (
+        "the house's book is %r after buying one lot from the player at a price it could settle. "
+        "9 means the declined trade above also moved a book; 11 means both moved one."
+        % have["r1_book"])
+    assert have["r1_at_cap"] == "edge_house", (
+        "a trade priced EXACTLY at house_cash_max was declined. The bound is `price > cap`, not "
+        "`>=`: at the cap the two legs agree exactly and nothing is minted.")
+    assert have["hd_delta"] == "-4.5", (
+        "the producing branch of EX.house_desire scored %r against a non-producer. With mine = 10 "
+        "it is -(0.4 * 10) - 0.5 = -4.5 exactly. This assertion is the point of the measurement: "
+        "the coefficient stays, but it is fed EX.owners, which is a production AMOUNT and not a "
+        "region count, and nothing has ever pinned this branch numerically." % have["hd_delta"])
+
+    # REVIEW FINDING 1, 2026-09-13: the sup_* fixture above writes BOTH alpha and beta into
+    # EX.wbook, so EX.world_supply iterating EX.wbook instead of EX.actors gives the identical
+    # answer there and the selftest stayed green with that swap in place. alpha here has land and
+    # NO wbook row at all - the exact case EX.world_supply's own header comment says it exists to
+    # cover - so this is the fixture that actually needs the roster, not the book.
+    assert have["sup_noentry"] == "true", (
+        "alpha has a wbook row, so this block cannot prove anything about a producer that has "
+        "none - which is the whole case EX.world_supply's comment claims to cover.")
+    assert have["sup_offland"] == "11", (
+        "world supply is %r. It is alpha's capacity 7 (post-A1: floor(26*3/10)), held in no book "
+        "at all, plus beta's 4 = 11. Iterating EX.wbook instead of EX.actors answers 4 and loses "
+        "every producer that has not traded yet - which on turn 1 is all of them."
+        % have["sup_offland"])
+    assert have["sup_cp"] == "alpha", (
+        "the buy counterparty is %r. alpha can sell 7 against beta's 4, while a RAW BOOK read "
+        "sees alpha as absent (no wbook row at all) and answers beta - so this is the probe that "
+        "actually distinguishes a sellable read from a raw-book read, which cp_buy's fixture "
+        "cannot (there, both readings happen to agree)." % have["sup_cp"])
+
+    # RUNG 2'S OWN BOUNDARY, mirrored from r1_over / r1_ok / r1_book / r1_at_cap. Dropped from the
+    # shipped brief by mistake; EX.pay_actor's identical flat-cap gate had no boundary test until
+    # now, and mutating rung 2's `>` to `>=` used to leave the whole selftest green.
+    assert have["r2_over"] == "nil", (
+        "rung 2 settled a trade one gold above world_cash_max and returned %r. EX.apply_trade "
+        "moves the player's full uncapped price while EX.pay_actor clamps the actor, so the "
+        "difference is minted on a sell and destroyed on a buy - the same shape r1_over pins one "
+        "tier down." % have["r2_over"])
+    assert have["r2_ok"] == "cap_actor", (
+        "rung 2 declined an ordinary 100 gold trade, returning %r. The decline must bind only "
+        "above the cap." % have["r2_ok"])
+    assert have["r2_book"] == "10", (
+        "the actor's world book is %r after the declined trade above and the settled one. 9 "
+        "means the declined trade also moved a book; 11 means both moved one." % have["r2_book"])
+    assert have["r2_at_cap"] == "edge_actor", (
+        "a trade priced EXACTLY at world_cash_max was declined. The bound is `price > cap`, not "
+        "`>=`: at the cap the two legs agree exactly and nothing is minted - the same boundary "
+        "r1_at_cap pins one tier down.")
+
+    # TASK 11, SECTION B: THE PLAYER'S LEG MUST NOT MOVE BEFORE SETTLEMENT IS CONSULTED.
+    assert have["nobuyer_precondition"] == "true", (
+        "the fixture's own precondition: EX.settle_counterparty must genuinely return nil - an "
+        "empty guild, an empty EX.actors, and EX.owners empty for res_gems so EX.top_holder "
+        "finds nobody - or the refusal below proves nothing.")
+    assert have["nobuyer_result"] == "nobuyer", (
+        "a sell with no counterparty returned %r. It must refuse: EX.apply_trade moves the "
+        "player's full price and nothing mirrors it, so the gold is minted from nothing."
+        % have["nobuyer_result"])
+    assert have["nobuyer_gold"] == "0", (
+        "the player's treasury moved %r on a refused sale. The refusal has to come BEFORE the "
+        "cm:treasury_mod, not after it - a treasury move cannot be un-rung." % have["nobuyer_gold"])
+
+    # REVIEW FINDING F1, 2026-09-13: EX.is_commodity(res), not a house-only exemption, is the
+    # actual gate. Both exemptions must settle - not merely avoid "nobuyer" by accident.
+    assert have["f1_house_is_commodity"] == "false", (
+        "the fixture's own precondition: a house key must not read as a commodity (%s), or the "
+        "exemption below is not actually the general rule." % have["f1_house_is_commodity"])
+    assert have["f1_house_precondition"] == "true", (
+        "the fixture's own precondition: EX.settle_counterparty must genuinely return nil for a "
+        "house sale (%s), same as it always has, or the exemption below proves nothing."
+        % have["f1_house_precondition"])
+    assert have["f1_house_result"] == "true", (
+        "a house sale with no counterparty (structurally, always) returned %r instead of "
+        "settling. EX.is_commodity(res) must read false for a house so this guard never "
+        "reaches it." % have["f1_house_result"])
+    assert have["f1_house_held"] == "5", (
+        "the house's own held position after selling 1 lot of EX.HOUSE_LOT_SIZE (5) out of 10 "
+        "is %r, not 5 - the sale returned true but did not actually move EX.shares_held."
+        % have["f1_house_held"])
+    assert have["f1_l2_is_commodity"] == "false", (
+        "the fixture's own precondition: a Layer 2 key must not read as a commodity (%s)."
+        % have["f1_l2_is_commodity"])
+    assert have["f1_l2_precondition"] == "true", (
+        "the fixture's own precondition: EX.settle_counterparty must genuinely return nil for a "
+        "Layer 2 sale (%s) - its own first line, `if EX.is_layer2(res) then return nil end`, "
+        "guarantees it - or the exemption below proves nothing." % have["f1_l2_precondition"])
+    assert have["f1_l2_result"] == "true", (
+        "F1, THE REGRESSION THIS ROUND EXISTS TO CLOSE: a Layer 2 sell (Armaments, Raw "
+        "Materials) returned %r instead of settling. EX.settle_counterparty's first line "
+        "always returns nil for Layer 2 - 'there is nobody to pay' - and a guard scoped to "
+        "houses alone refuses every Layer 2 sell forever, at shipped defaults."
+        % have["f1_l2_result"])
+    assert have["f1_l2_pool"] == "900", (
+        "the Layer 2 pool after selling 1 lot of EX.L2_LOT_SIZE (100) out of 1000 is %r, not "
+        "900 - the sale returned true but did not actually move the pool." % have["f1_l2_pool"])
+
+    # REVIEW FINDING F2, 2026-09-13: A CORNERED COMMODITY MUST STILL BE CLOSABLE. Rung 3 falls
+    # through to the second-largest holder when the player is the largest, rather than refusing
+    # outright - "blocking a sell traps the player's capital with no exit" is this file's own
+    # standard, and B2 turned a silent-mint nil into an outright refusal without checking it.
+    assert have["f2_top_is_player"] == "true", (
+        "the fixture's own precondition: the player must be the largest holder of res_gems "
+        "(%s), or the fallback below is not actually being tested." % have["f2_top_is_player"])
+    assert have["f2_skip_finds_second"] == "second_holder", (
+        "EX.top_holder('res_gems', EX.who()) returned %r, not 'second_holder'. Skipping the "
+        "player must find the NEXT-largest holder, not nobody and not the player again."
+        % have["f2_skip_finds_second"])
+    assert have["f2_result"] == "true", (
+        "a sell by a player who has cornered a commodity, with a second holder present, "
+        "returned %r instead of settling against that second holder. Cornering a commodity "
+        "must not trap the position with no exit." % have["f2_result"])
+    assert have["f2_second_moved"] == "-" + have["f2_sell_price"], (
+        "the second holder's treasury moved %r on the settled sale, not the sell price (%s) "
+        "debited from them, mirroring the player's credit - the trade returned true without "
+        "actually moving the counterparty's gold." % (have["f2_second_moved"], have["f2_sell_price"]))
+    assert have["f2_sole_result"] == "nobuyer", (
+        "a sell by a player who is the ONLY holder of a commodity returned %r, not 'nobuyer'. "
+        "With no second holder to fall through to, this must refuse exactly as it did before "
+        "F2 - the fallback must not manufacture a counterparty that does not exist."
+        % have["f2_sole_result"])
+
+    # TASK 11, SECTION C: DEAD FACTIONS ARE PRUNED FROM THE WORLD BOOK.
+    assert have["dead_pre"] == "5", (
+        "the fixture's own precondition: dead_faction must hold a real position (%r, expected "
+        "5) before EX.step_world runs, or the pruning below proves nothing." % have["dead_pre"])
+    assert have["dead_pruned"] == "0", (
+        "a CONFIRMED dead faction's world book position survived EX.step_world (%r lots). A "
+        "dead faction's position is not a position - it prices forever through EX.world_book "
+        "and its save key never goes." % have["dead_pruned"])
+    assert have["dead_key_gone"] == "true", (
+        "a confirmed dead faction's SAVE KEY survived EX.step_world. The book and the key must "
+        "go together, the same rule EX.set_world_book's own emptiness clear already follows.")
+    assert have["live_kept"] == "5", (
+        "a LIVE faction's world book position was dropped (%r, expected 5) by the same pass "
+        "that prunes the dead one - the confirmed-dead test must not over-match."
+        % have["live_kept"])
+    assert have["unknown_kept"] == "5", (
+        "a faction cm:get_faction does not know (returns FALSE, not nil) had its position "
+        "dropped (%r, expected 5). Confirmed dead only: a key the engine cannot resolve this "
+        "scan is not proof of death, and EX.world_book's own comment says absence from one "
+        "scan must be tolerated." % have["unknown_kept"])
+
+    # TASK 11, SECTION D: SIX GUARDS NO TEST COULD SEE.
+    assert have["wps_neg_net"] == "-40", (
+        "the fixture's own precondition: the world book must be net -40, not %r, or wps_neg "
+        "below is not actually testing a negative net." % have["wps_neg_net"])
+    assert have["wps_neg"] == "-1", (
+        "a net-SHORT world book (-40) shifted the price by %r rungs, expected exactly -1: "
+        "v = world_gain(4.0) * -40 / 100 = -1.6, floor(abs) = 1, sign preserved (D1). Every "
+        "wps_* fixture above uses a POSITIVE book, and Task 9 made a negative net the NORMAL "
+        "state (a producer selling forward) - `if v < 0 then return -q end` went from "
+        "unreachable to routine without ever gaining a test of its own." % have["wps_neg"])
+
+    assert have["d4_cap_after"] == "0", (
+        "the fixture's own precondition: shrinker's capacity must read 0 after its land is "
+        "gone (%r), or d4_sellable below tests nothing." % have["d4_cap_after"])
+    assert have["d4_book_after"] == "-60", (
+        "the fixture's own precondition: shrinker's book must still read -60 (%r) - only "
+        "EX.owners changed, not the book." % have["d4_book_after"])
+    assert have["d4_sellable"] == "0", (
+        "a faction short beyond its shrunk capacity (book -60, capacity 0) reported %r lots "
+        "sellable (D4). EX.world_sellable's floor at 0 exists exactly for this case - Task 9's "
+        "capacity shrink can leave a position deeper than the CURRENT capacity, and a negative "
+        "sellable would have the trade-matching loop try to sell lots that do not exist."
+        % have["d4_sellable"])
+
+    assert have["d5a_gold_idols_desire"] == "-2.0500", (
+        "the fixture's own precondition: faker5a's gold_idols desire must be -2.05 (%s) - more "
+        "negative than its dyes desire - or the gate below is not actually being tested."
+        % have["d5a_gold_idols_desire"])
+    assert have["d5a_dyes_desire"] == "-1.6000", (
+        "the fixture's own precondition: faker5a's dyes desire must be -1.6 (%s)."
+        % have["d5a_dyes_desire"])
+    assert have["d5a_gold_idols_sellable"] == "0", (
+        "the fixture's own precondition: faker5a must own no gold_idols capacity (%s), or the "
+        "gate below is not actually being tested." % have["d5a_gold_idols_sellable"])
+    assert have["d5a_dyes_sellable"] == "1", (
+        "the fixture's own precondition: faker5a must have 1 lot of real dyes capacity (%s)."
+        % have["d5a_dyes_sellable"])
+    assert have["d5a_traded"] == "true", (
+        "buyer5a never received dyes from faker5a (D5a). faker5a's true minimum desire is "
+        "gold_idols (-2.05), which it cannot sell at all (0 capacity) - EX.step_world's "
+        "`sellable > 0` gate on the seller pick must skip it and fall back to dyes (-1.6, 1 "
+        "lot of real capacity), or faker5a's one seller slot for the turn is wasted on a "
+        "commodity it cannot supply and the real, wanted trade in dyes never happens.")
+
+    assert have["d5b_best_desire"] == "-0.2500", (
+        "the fixture's own precondition: a non-producer at rung 30 must have a negative "
+        "desire for its own best pick (%s), or the gate below is not actually being tested."
+        % have["d5b_best_desire"])
+    assert have["d5b_bought"] == "0", (
+        "an actor whose best desire is <= 0 (%s lots bought) still bought a lot (D5b). "
+        "EX.step_world's `best_d > 0` gate is what stops an actor buying its least-bad option "
+        "when it does not actually want anything." % have["d5b_bought"])
+
+    assert have["d5c_worst_desire"] == "0.6500", (
+        "the fixture's own precondition: content5c's only sellable commodity must have a "
+        "positive desire (%s), or the gate below is not actually being tested."
+        % have["d5c_worst_desire"])
+    assert have["d5c_sellable"] == "1", (
+        "the fixture's own precondition: content5c must have 1 lot of real capacity (%s)."
+        % have["d5c_sellable"])
+    assert have["d5c_not_self_buyer"] == "true", (
+        "the fixture's own precondition: content5c's OWN best pick must be dyes, not gems "
+        "(%s), or a broken gate below can hand content5c its own seller slot back as a "
+        "self-match that nets to zero and passes regardless of the gate." % have["d5c_not_self_buyer"])
+    assert have["d5c_sold"] == "0", (
+        "content5c sold stock it did not want to sell (%s lots, D5c). Its only sellable "
+        "commodity has desire +0.65 (it would rather buy more), and EX.step_world's "
+        "`worst_d < 0` gate is what stops it becoming the seller slot by default just because "
+        "it is the only sellable thing the actor has." % have["d5c_sold"])
+
+    assert have["d6a_player_sellable"] == "12", (
+        "the fixture's own precondition: the human player's own sellable iron must read 12 "
+        "(%s), or d6a_supply below is not actually testing the filter."
+        % have["d6a_player_sellable"])
+    assert have["d6a_ai_sellable"] == "12", (
+        "the fixture's own precondition: the AI actor's sellable iron must read 12 (%s)."
+        % have["d6a_ai_sellable"])
+    assert have["d6a_supply"] == "12", (
+        "world supply counted the human player's own sellable position (%s, expected 12 - "
+        "just ai_seller's) (D6a). EX.world_supply's is_human filter exists so the player "
+        "cannot read their own stock back as if it were the AI world tier's." % have["d6a_supply"])
+
+    assert have["d6b_packed"] == "res_animals=5;res_gems=2;res_trinkets=3", (
+        "three positions inserted out of alphabetical order packed as %r (D6b), not sorted. "
+        "Without EX.pack_world_book's table.sort, the same position can pack to two different "
+        "strings depending on pairs() traversal order - an unreadable diff between two saves "
+        "and a flaky round-trip." % have["d6b_packed"])
+
+    # STAGE 2 TASK 1: EX.pack_deals / EX.unpack_deals round-trip.
+    #
+    # FIX ROUND 1 (R1): the fixture now carries a deliberately short record (5 fields, no
+    # turn) between the two well-formed packed deals and a well-formed record after it, so
+    # deal_count moved from 2 to 3 on purpose - two good, one short and dropped, one good
+    # trailing - not by re-baselining a failure.
+    assert have["deal_count"] == "3", (
+        "two well-formed deals were packed, a deliberately short 5-field record and a "
+        "well-formed trailing record were appended by hand, and %r deals came back - expected "
+        "3 (the short record dropped, both good ones and the trailer kept). A guard that keeps "
+        "too many or too few is either settling gold nobody agreed to or losing a deal that was "
+        "never wrong." % have["deal_count"])
+    assert have["deal_one"] == "sellr/res_rom_iron/sell/3/900/12", (
+        "the first deal round-tripped as %r. Every field is checked because a pack/unpack pair "
+        "that silently drops or reorders one settles real gold against the wrong number."
+        % have["deal_one"])
+    assert have["deal_two_side"] == "buy", (
+        "the second deal's side read %r. Both sides are pinned because a packer that writes the "
+        "first record correctly and the second by a different path is the ordinary shape of this "
+        "bug." % have["deal_two_side"])
+    # DELIBERATE BACKSTOP, NOT INDEPENDENT COVERAGE (fix round 2, F3): under every mutation
+    # tried, deal_count already fails before this one is reached - the count moving from 3 is
+    # what actually catches a dropped-or-kept-wrong short record. This assertion still pins the
+    # CONTENT of the record after the short one (deal_count alone would not notice a trailer
+    # whose fields got scrambled while the count stayed right), so it is kept as insurance
+    # against a future change to deal_count's arithmetic, not counted as a first-failing check
+    # in its own right.
+    assert have["deal_three"] == "tailer/res_rom_wine/buy/4/700/20", (
+        "the well-formed record AFTER the short one round-tripped as %r, expected "
+        "'tailer/res_rom_wine/buy/4/700/20'. This is the other half of the truncated-save claim: "
+        "a parser that aborts on the first bad chunk instead of skipping it silently drops every "
+        "deal behind it." % have["deal_three"])
+
+    # FIX ROUND 2 (F1): the round trip through the REAL SAVE LAYER (EX.setp/EX.getp/EX.store),
+    # not just pack_deals/unpack_deals called directly. EX.SAVE_DEALS was declared and restored
+    # in Task 1's Step 1/Step 6, but nothing ever WROTE it - EX.getp returned nil on every load
+    # and the restore branch was a permanent no-op, Stage 1's SAVE_WBOOK bug with the arrows
+    # reversed. EX.save_deals() closes that.
+    assert have["deal_save_roundtrip"] == "1/saver/res_dyes/sell/5/250/7", (
+        "EX.save_deals() then EX.unpack_deals(EX.getp(EX.SAVE_DEALS)) - the exact expression "
+        "EX.restore_player uses - read back %r, expected '1/saver/res_dyes/sell/5/250/7'. A "
+        "save key that is read and never written passes every earlier assertion in this file, "
+        "because none of them go through EX.store at all." % have["deal_save_roundtrip"])
+
+    # FIX ROUND 1 (R3): EX.deals follows the subject the same way EX.orders does. Bind A, seed
+    # a deal, swap to B and prove B starts empty, swap back to A and prove the deal is still
+    # there - the whole of what adding "deals" to EX.SLICE_TABLES buys.
+    assert have["deal_fence_b_empty"] == "0", (
+        "switching the bound subject from deal_subject_a to deal_subject_b left %r deal(s) "
+        "visible; expected 0. EX.deals is not following the subject - subject B is seeing "
+        "subject A's deal, which in multiplayer is one human reading another's private offer."
+        % have["deal_fence_b_empty"])
+    assert have["deal_fence_a_restored"] == "1/x", (
+        "switching back to deal_subject_a read %r, expected '1/x' (one deal, fac \"x\"). "
+        "EX.deals did not survive the round trip through the subject swap - the fence loses "
+        "the very state it exists to protect." % have["deal_fence_a_restored"])
+
+    # STAGE 2 TASK 2: EX.deal_ok wraps cm:cai_evaluate_quick_deal_action - the one engine call
+    # in this mod whose answer is obeyed. can_issue and score are asserted separately (CA's own
+    # order, all six call sites in wh3_narrative_shared_chains.lua read can_issue before score),
+    # both faction arguments must be INTERFACES in (mine, them) order - the player proposing,
+    # the AI faction as the target whose acceptance is scored (fix round 1, F1) - and a thrown
+    # engine call must read as a refusal, never as consent.
+    assert have["deal_ok_can"] == "true" and have["deal_ok_score"] == "42", (
+        "the engine said can_issue with score 42 and EX.deal_ok reported %r / %r."
+        % (have["deal_ok_can"], have["deal_ok_score"]))
+    # FIX ROUND 1, F1: this value moved from "sellr/player/..." to "player/sellr/...". The
+    # brief's original (them, mine) order was backwards - CA's own doc text says a positive
+    # score "means it would likely be accepted by the TARGET faction", the target being CA's
+    # SECOND argument, and CA's six call sites pass (faction, met_faction) where `faction` is
+    # the human player (the narrative trigger's default event is ScriptEventHumanFactionTurnStart)
+    # and `met_faction` is the AI being scored. So EX.deal_ok must call (mine, them): the player
+    # proposes, the AI faction is the target whose acceptance is scored - and the stub's captured
+    # order is (a.__key, b.__key) = (mine's key, them's key) = ("player", "sellr").
+    assert have["deal_ok_args"] == "player/sellr/diplomatic_option_trade_agreement", (
+        "EX.deal_ok called the engine with %r. Both faction arguments must be INTERFACES in "
+        "(mine, them) order - the player proposing, the AI faction as the target whose "
+        "acceptance is scored - and the deal type must be the string CA itself uses at "
+        "wh3_narrative_shared_chains.lua:3102 - a wrong key here fails silently forever."
+        % have["deal_ok_args"])
+    assert have["deal_noissue_can"] == "false", (
+        "can_issue was false and EX.deal_ok returned %r. CA checks can_issue BEFORE score at all "
+        "six of its own call sites." % have["deal_noissue_can"])
+    assert have["deal_noissue_score"] == "99", (
+        "the score read %r when can_issue was false. It is returned rather than zeroed so the "
+        "page can say 'not eligible' and 'declined' differently." % have["deal_noissue_score"])
+    assert have["deal_throw_can"] == "false", (
+        "the engine call threw and EX.deal_ok returned %r. An error must never read as consent "
+        "on the one call in this mod whose answer is obeyed." % have["deal_throw_can"])
+
+    # FIX ROUND 1, F2: the two guards nothing could reach before now, because the shared
+    # cm.get_faction stub used everywhere else in this harness never returns FALSE or a null
+    # interface. Both fixtures run against a live "consent" stub (77, true), so a guard that
+    # gets bypassed is observable as a wrongful yes rather than passing through as false/0 by
+    # coincidence.
+    assert have["deal_unknown_can"] == "false" and have["deal_unknown_score"] == "0", (
+        "cm:get_faction returned FALSE (not nil) for an unknown key and EX.deal_ok reported "
+        "%r / %r against a live 'yes' stub that should never have been reached. This is exactly "
+        "why the guard reads 'not them or not mine' rather than a nil check - get_faction fails "
+        "silently, not with an error." % (have["deal_unknown_can"], have["deal_unknown_score"]))
+    assert have["deal_null_can"] == "false" and have["deal_null_score"] == "0", (
+        "a faction interface answering is_null_interface() true was not refused - EX.deal_ok "
+        "reported %r / %r against a live 'yes' stub that should never have been reached."
+        % (have["deal_null_can"], have["deal_null_score"]))
+
+    # FIX ROUND 2, G1: the third guard, mine.is_null_interface - the PLAYER'S OWN interface
+    # reading null, reachable only by binding a different subject since EX.who() is fixed at
+    # "player" everywhere else in this harness. Same live "yes" stub as F2, so a bypassed guard
+    # is observable the same way.
+    assert have["deal_mine_null_can"] == "false" and have["deal_mine_null_score"] == "0", (
+        "the bound subject's OWN faction interface answered is_null_interface() true and "
+        "EX.deal_ok did not refuse it - reported %r / %r against a live 'yes' stub that should "
+        "never have been reached." % (have["deal_mine_null_can"], have["deal_mine_null_score"]))
+    # NOT CEREMONY: EX.who() cannot tell a correctly-restored subject from one left stuck or
+    # cleared to nil, because it falls back to EX.me() ("player") either way - the exact gap a
+    # reviewer had to close by measuring #EX.LOG in Task 1. Reading EX.subject directly is what
+    # actually proves this block leaves it as found, for Tasks 3 through 7 to append after.
+    assert have["deal_subject_restored"] == "player", (
+        "EX.subject read %r after this block rebound and restored it; expected 'player' - the "
+        "subject Task 1's own fence block leaves bound. A block that leaves EX.subject moved is "
+        "a trap for whichever task appends next." % have["deal_subject_restored"])
+
+    # RE-REVIEW FINDING: the self-deal clause of the first-line guard. It was the one guard in
+    # EX.deal_ok no fixture reached - deleting `or fkey == me` left every other assertion in
+    # this block green, the same provably-deletable-guard defect F2 and G1 each fixed once.
+    # Task 3 is where it starts mattering: EX.post_deals iterates faction keys.
+    assert have["deal_self_can"] == "false" and have["deal_self_score"] == "0", (
+        "EX.deal_ok was asked about the subject's OWN faction and reported %r / %r against a "
+        "live 'yes' stub that should never have been reached. A self-deal must never reach "
+        "cm:cai_evaluate_quick_deal_action." % (have["deal_self_can"], have["deal_self_score"]))
+
+    # STAGE 2 TASK 3: EX.post_deals.
+    #
+    # THE PRECONDITION FIRST, AND IT IS NOT CEREMONY. `ai_deals` is in neither EX.TUNE_NUM nor
+    # EX.TUNE_BOOL until Task 7, so EX.opt_default answers nil for it and nil is falsy: without
+    # the snapshot the fixture sets, EX.post_deals returns on its second line and every
+    # assertion below would pass over a function that did nothing. That is the vacuous-fixture
+    # failure this effort has already shipped twice, and it was predicted for this task in the
+    # ledger before the task was written.
+    assert have["deals_switch_on"] == "true", (
+        "EX.opt('ai_deals') read %r in the fixture, so EX.post_deals returned on its gate and "
+        "every assertion below this line is vacuous." % have["deals_switch_on"])
+    assert have["deals_pre_buy"] == "true" and float(have["deals_pre_sell"]) > 0 \
+            and have["deals_pre_human"] == "true", (
+        "the fixture cannot exercise what the assertions below claim: buyer wants iron %r, "
+        "dumper can sell %r, the non-subject human reads human %r."
+        % (have["deals_pre_buy"], have["deals_pre_sell"], have["deals_pre_human"]))
+
+    deal_max = int(lua_number_const(code, "DEAL_MAX"))
+    deal_edge = int(lua_number_const(code, "DEAL_EDGE"))
+    trade_max = int(lua_number_const(code, "WORLD_TRADE_MAX"))
+    # THE DEFAULT AND THE SLIDER FLOOR, BOTH. The constant alone was checked until Task 7 made
+    # it a knob, and that check then covered the one value the player cannot end up with by
+    # accident: a minimum of 0 on the slider hands them a whole page of offers priced exactly
+    # at market, which is the Trade view with extra clicks and no way to tell from a bug.
+    tune = dict((k, (lo, hi, step)) for k, _s, _l, _t, _d, lo, hi, step, _p in TUNABLES)
+    assert deal_edge > 0, "EX.DEAL_EDGE is %s - a deal priced at market is not a deal" % deal_edge
+    assert tune["deal_edge"][0] >= 1, (
+        "the deal_edge slider bottoms out at %s. A deal priced AT market is not an offer, and "
+        "the player reaching that by dragging a slider gets a page that looks broken rather "
+        "than switched off - the switch is what turns the feature off." % tune["deal_edge"][0])
+    assert tune["pos_step"][0] >= 1, (
+        "the pos_step slider bottoms out at %s. At a step of 0 every position divides to "
+        "infinity and the whole map sits on the top tier in both directions at once - and "
+        "unlike a preset value, a slider floor is somewhere the player can actually land."
+        % tune["pos_step"][0])
+    assert tune["deal_max"][0] >= 1, (
+        "the deal_max slider bottoms out at %s. Zero rows is the switch's job: off, the footer "
+        "names the setting; at zero it would say '0 deals are on the table' forever."
+        % tune["deal_max"][0])
+    assert int(have["deals_count"]) == deal_max, (
+        "the page posted %s deals against a cap of %s. Every actor in the fixture is allowed by "
+        "the engine stub and there are far more candidates than slots, so this is the cap."
+        % (have["deals_count"], deal_max))
+
+    rows = [r.split("/") for r in have["deals_rows"].split(";") if r]
+    assert len(rows) == deal_max, have["deals_rows"]
+    for fac, res, side, lots, px, turn, mkt in rows:
+        # THE HUMAN FILTER. `human2` is not the bound subject, so only EX.is_human excludes it.
+        assert fac not in ("player", "human2"), (
+            "a HUMAN faction posted a deal to the player: %s. EX.actors is built from every "
+            "landholder with no human filter on that path, and `fac ~= me` only covers the "
+            "subject - a second human needs EX.is_human." % have["deals_rows"])
+        # THE GOLD GATE. `broke` wants iron exactly as much as `zbuyer` and ties with it, and
+        # sorts first on the tiebreak - so it takes a slot the moment the gate goes.
+        assert fac != "broke", (
+            "a faction with 0 gold posted a BUY: %s. The gate is the only thing between the "
+            "page and an actor that cannot pay for what it offers to buy." % have["deals_rows"])
+        assert turn == "10", (
+            "the deal is stamped turn %r, not the 10 the fixture's cm:turn_number returns. The "
+            "stamp is read through a pcall and a broken read degrades silently to 0." % turn)
+        # THE EDGE, ARITHMETIC ON THE PRICE THIS RUN PRODUCED. A buyer pays OVER market for what
+        # the player sells it; a seller takes UNDER for what the player buys. Both are in the
+        # player's favour - that is the incentive to use the page - and the plan's own comment
+        # said the opposite, which is why this is asserted rather than read off it.
+        mult = (100 + deal_edge) if side == "buy" else (100 - deal_edge)
+        want_px = int(float(mkt) * mult // 100)
+        assert int(px) == want_px, (
+            "a %s deal on %s priced at %s against a market of %s; %s%% of market is %s. The "
+            "edge must be the player's way round on both sides."
+            % (side, res, px, mkt, mult, want_px))
+        assert (int(px) > float(mkt)) == (side == "buy"), (
+            "the %s deal on %s is on the wrong side of the market at %s against %s"
+            % (side, res, px, mkt))
+        if side == "buy":
+            assert int(lots) == 1, "a buy deal is for %s lots, not 1" % lots
+        else:
+            assert 0 < int(lots) <= trade_max, (
+                "a sell deal is for %s lots against a world trade cap of %s" % (lots, trade_max))
+
+    # THE abs() IN THE SORT, WHICH THE PLAN DID NOT HAVE. `adumper` is the fixture's only
+    # producer and its conviction is far the strongest thing in it, but a producer's desire is
+    # NEGATIVE - so a sort on the raw value ranks it below every buyer on the map, and with three
+    # slots and four actors the sell half of the feature never reaches the page at all.
+    assert rows[0][0] == "adumper" and rows[0][2] == "sell", (
+        "the strongest conviction on the map is a 9-region iron producer sitting on 6 lots, and "
+        "the page led with %r instead. Sorting on the raw desire puts every buyer above every "
+        "seller and the sell side never appears." % (rows[0],))
+
+    # ONE DEAL PER ACTOR. `adumper` is the only producer in the fixture and outranks every buyer
+    # by construction, so undeduplicated it takes its own sell slot AND the best buy slot - which
+    # is what it did until 2026-09-16. Three rows from one faction is also three times the gold
+    # into one AI treasury, and per-lot settlement means world_cash_max never sees the total.
+    faces = have["deals_faces"].split(",")
+    assert len(faces) == len(set(faces)) == deal_max, (
+        "the page posted %r - one deal per actor, so %d rows must be %d different factions."
+        % (have["deals_faces"], deal_max, deal_max))
+
+    # AND THE TURN HASH ROTATES THE TIED ONES. Every non-producer scores the same constant plus
+    # its culture's taste, so the buy side is one long exact tie; broken on the faction KEY, the
+    # alphabetically first faction of the keenest culture held a slot every turn for the life of
+    # the campaign. Two distinct pages across twelve turns is a small number because this fixture
+    # has exactly three eligible actors for three slots - only their ORDER can move - and one is
+    # what a missing hash gives.
+    assert int(have["deals_turn_variants"]) > 1, (
+        "twelve turns posted %s distinct page(s). With the tiebreak on the faction key alone the "
+        "same factions hold the same slots forever, which is what this hash exists to stop."
+        % have["deals_turn_variants"])
+    assert have["deals_turn_stable"] == "12", (
+        "only %s of 12 turns reproduced their own page on a second run. The rotation must be a "
+        "HASH and never a roll: two clients resolve the deal list independently from the same "
+        "save, and Task 6 asserts exactly that." % have["deals_turn_stable"])
+    assert have["deals_saved"] == "true/%d" % deal_max, (
+        "the posted page did not come back out of the save layer: %r. EX.post_deals must call "
+        "EX.save_deals - which had no runtime call site at all until this task, and the static "
+        "audit is green either way." % have["deals_saved"])
+
+    assert have["deals_rows_again"] == have["deals_rows"], (
+        "the same world posted a different page when EX.actors was rebuilt in another key "
+        "order. pairs() follows the hash layout, so without the sort's tiebreak a reload "
+        "reshuffles the page - and in multiplayer two clients resolve different deals from one "
+        "save.\n  first: %s\n  again: %s" % (have["deals_rows"], have["deals_rows_again"]))
+
+    assert have["deals_refused"] == "0" and have["deals_zero_score"] == "0", (
+        "the engine refused (can_issue false: %r) or declined (score 0: %r) and deals were "
+        "posted anyway. This is the one engine call in the mod whose answer is obeyed."
+        % (have["deals_refused"], have["deals_zero_score"]))
+
+    assert have["deals_switch_off"] == "0", (
+        "the switch was off and the page held %s deals. The list is cleared BEFORE the gate is "
+        "read, so switching the feature off empties the page rather than freezing the last "
+        "roll on it forever." % have["deals_switch_off"])
+
+    # AND THE PAGE, NOT JUST THE LIST. Task 7 Step 1 asks for "exactly Stage 1 behaviour ... not
+    # merely that no deal posts", so all three of the page's observable parts are pinned.
+    assert have["deals_off_rows"] == "0", (
+        "the switch was off and the Deals page still handed out %s row keys. The row pool is "
+        "fixed and outlives the page, so those rows would draw LAST TURN'S deals underneath a "
+        "footer saying the feature is switched off." % have["deals_off_rows"])
+    assert have["deals_off_foot"] == (        "Deals from the world are switched off in this campaign's settings."), (
+        "the footer read %r with the switch off. An empty page that does not say why is the "
+        "one state this footer exists for - the player cannot tell it from a turn on which "
+        "nobody wanted anything." % have["deals_off_foot"])
+
+    # THE TAB STAYS OPEN, AND THAT IS A RULING RATHER THAN AN OVERSIGHT (Task 5). The plan for
+    # this task says the page should be "absent" with the switch off; it is read as "the page
+    # draws nothing", not "the tab is removed", because a greyed tab says only that something
+    # exists and the player cannot have it, while an open page names the setting to change.
+    # Asserted so that reading is a decision somebody wrote down rather than a default.
+    assert have["deals_off_locked"] == "nil", (
+        "the Deals tab reported itself locked (%r) with the switch off. Every other locked tab "
+        "in this panel is locked because its view CANNOT be drawn for this player; this one can "
+        "be drawn and has a sentence to show." % have["deals_off_locked"])
+
+    # AND ABSENT IS NOT OFF. EX.setting fails open, which is why the gate calls it rather than
+    # EX.opt: MCT missing, a key renamed, a save from a build that predates the switch - all of
+    # those must leave the feature running.
+    assert have["deals_switch_absent"] == have["deals_count"], (
+        "with no ai_deals value at all the page posted %s deals against %s with the switch "
+        "explicitly on. A knob nothing answers for must FAIL OPEN - a player who never "
+        "installed MCT would otherwise have a feature silently deleted."
+        % (have["deals_switch_absent"], have["deals_count"]))
+    assert have["deals_switch_notaknob"] == have["deals_count"], (
+        "with EX.opt answering nil for ai_deals - a key that is not a knob at all - the page "
+        "posted %s deals against %s. This is the ONE case EX.setting and EX.opt differ on, and "
+        "it is why the gate calls EX.setting: EX.opt answers nil for an unregistered key by "
+        "design, nil is falsy, and a gate written with it deletes the whole feature the day "
+        "the key is renamed or dropped from a preset - silently, with the panel still showing "
+        "the switch." % (have["deals_switch_notaknob"], have["deals_count"]))
+
+    # LEAVES IT AS FOUND. Tasks 4 through 7 all append after this block, and a snapshot left
+    # behind would freeze ai_deals on for them while a stubbed EX.humans hid the human filter.
+    assert have["deals_snap_restored"] == "nil" and have["deals_humans_restored"] == "1", (
+        "the deals block left EX.snap %r and %r humans bound. A block that leaves globals moved "
+        "is a trap for whichever task appends next - Task 1 shipped exactly that with "
+        "EX.subject." % (have["deals_snap_restored"], have["deals_humans_restored"]))
+
+    # STAGE 2 TASK 4: EX.accept_deal, and EX.apply_trade's two optional parameters.
+    #
+    # THE FIXTURE'S PRECONDITION IS THE WHOLE POINT. `richholder` holds more iron than the deal's
+    # counterparty, so the ordinary preference walk picks IT for a player buy - and if `only` never
+    # reaches EX.settle_counterparty, the gold goes there instead while every other assertion below
+    # still passes. A page that names one faction and pays another is the same lie as a quoted
+    # price that is not the price charged.
+    assert have["t4_walk_would_pick"] == "richholder", (
+        "the fixture's preference walk picked %r, so it no longer disagrees with the deal's own "
+        "counterparty and t4_buy_walk below proves nothing." % have["t4_walk_would_pick"])
+    lot = int(have["t4_lot"])
+    market = int(have["t4_buy_market"])
+
+    # THE PLAYER BUYS 2 LOTS AT THE DEAL'S 940, NOT AT THE MARKET'S 1000.
+    assert have["t4_buy_result"] == "true", (
+        "accepting a well-formed deal returned %r" % have["t4_buy_result"])
+    assert int(have["t4_buy_player"]) == -2 * 940, (
+        "the player paid %s for 2 lots at a deal price of 940. %s is what 2 lots at the MARKET "
+        "price would have cost - an agreed price that is not the price charged is the defect "
+        "this page would exist to commit." % (have["t4_buy_player"], -2 * market))
+    assert market != 940, (
+        "the fixture's market price IS the deal price (%s), so charging either one passes "
+        "t4_buy_player and the assertion proves nothing." % market)
+    assert int(have["t4_buy_named"]) == 2 * 940, (
+        "the deal's own counterparty received %s of the 1880 the player paid"
+        % have["t4_buy_named"])
+    assert int(have["t4_buy_walk"]) == 0, (
+        "%s gold reached `richholder`, the faction the preference walk would have chosen and "
+        "the page never named. `only` did not reach EX.settle_counterparty."
+        % have["t4_buy_walk"])
+    assert have["t4_buy_left"] == "0", (
+        "the accepted deal is still on the page (%s left). A one-turn offer taken is spent."
+        % have["t4_buy_left"])
+    # GOODS CONSERVATION, BOTH SIDES. The player gained 2 lots and the counterparty's own
+    # position fell by 2 - a settlement that moves one side only mints goods, which is the leak
+    # the world tier's own fix round 2 measured at 3 lots of iron from nothing.
+    assert int(have["t4_buy_wbook"]) == 4, (
+        "the counterparty sold 2 lots from a book of 6 and its book reads %s. Goods must come "
+        "from somewhere." % have["t4_buy_wbook"])
+    assert int(have["t4_buy_held"]) == 100 + 2 * lot, (
+        "the player bought 2 lots of %s units and holds %s against a starting 100"
+        % (lot, have["t4_buy_held"]))
+    assert have["t4_buy_rung_held"] == "true", (
+        "accepting a deal moved the market rung. A deal is settled off market with one faction; "
+        "the reprice it schedules is the ordinary one and must not be a second price model.")
+
+    # THE OTHER SIDE, AND IT IS THE INVERSION THAT MATTERS. A deal whose side is "buy" is the
+    # ACTOR buying, so the player sells and the gold goes the other way. Asserted as the
+    # DIRECTION of the gold, not the spelling of the flag - Task 2 shipped an inverted argument
+    # order under a green test that pinned the inversion.
+    assert have["t4_sell_result"] == "true", have["t4_sell_result"]
+    assert int(have["t4_sell_player"]) == 1060, (
+        "the actor was BUYING, so the player sells into it and is paid 1060. The player's "
+        "treasury moved %s - a negative here means the sides are crossed."
+        % have["t4_sell_player"])
+    assert int(have["t4_sell_named"]) == -1060, (
+        "the buying actor's treasury moved %s; it must be debited what it offered to pay."
+        % have["t4_sell_named"])
+
+    # RE-READ AT ACCEPT TIME. A deal is intent and never a reservation: the counterparty's money
+    # is checked now, and a deal that cannot settle moves NO gold and stays on the page - it was
+    # never spent.
+    assert have["t4_poor_result"] == "poor", (
+        "a counterparty with 0 gold was allowed to buy: %r" % have["t4_poor_result"])
+    assert int(have["t4_poor_moved"]) == 0, (
+        "a refused acceptance moved %s gold. Nothing may move on a refusal - cm:treasury_mod "
+        "cannot be un-rung." % have["t4_poor_moved"])
+    assert have["t4_poor_left"] == "1", (
+        "a deal that settled nothing was taken off the page anyway (%s left)"
+        % have["t4_poor_left"])
+    assert have["t4_gone_result"] == "gone", (
+        "a deal from a faction no longer in EX.actors returned %r. A faction can be dead by the "
+        "time the player clicks." % have["t4_gone_result"])
+
+    assert have["t4_twice_result"] == "nodeal" and int(have["t4_twice_player"]) == -940, (
+        "accepting the same deal twice returned %r and moved %s gold - it must settle exactly "
+        "once, for one lot at 940." % (have["t4_twice_result"], have["t4_twice_player"]))
+
+    # THE SHIPPED PATH, UNCHANGED. Both new parameters are optional and every caller before this
+    # task passes neither: EX.apply_trade(res, is_buy) must still charge the MARKET price and
+    # still settle through the ordinary preference walk, which in this fixture is `richholder`.
+    # This is the assertion that protects three shipped call sites and the multiplayer path.
+    assert have["t4_plain_result"] == "true", have["t4_plain_result"]
+    assert int(have["t4_plain_player"]) == -market, (
+        "a plain EX.apply_trade charged %s against a market price of %s. The optional parameters "
+        "must default to today's behaviour exactly." % (have["t4_plain_player"], market))
+    # WHO the walk pays is rung 1, the guild house - NOT `richholder`. This value moved when the
+    # guild fixture was added above (it read the world tier before that, since there was no
+    # guild), and the new value is derived from the preference order rather than from a re-run:
+    # EX.settle_counterparty tries the guild first, and `guildhouse` is long 40 lots of iron.
+    assert int(have["t4_plain_guild"]) == market, (
+        "a plain EX.apply_trade paid the guild rung %s instead of the market price %s - the "
+        "preference order must be untouched when `only` is absent."
+        % (have["t4_plain_guild"], market))
+    assert int(have["t4_plain_named"]) == 0, (
+        "a plain EX.apply_trade paid %s to the faction the DEAL fixture names. With no `only` "
+        "argument nothing may route settlement to it." % have["t4_plain_named"])
+
+    assert have["t4_buy_saved"] == "", (
+        "the shortened deal list was not re-saved: %r is still in the store. The page would come "
+        "back on the next load with the accepted deal still on it." % have["t4_buy_saved"])
+
+    # THE TWO REFUSALS ONLY A NAMED COUNTERPARTY HAS. Probed on EX.settle_counterparty directly:
+    # EX.accept_deal's accept-time re-read refuses both before they can reach it, so they would
+    # be untested code guarding the case where the gold silently goes to the wrong faction.
+    assert have["t4_named_broke"] == "nil" and have["t4_named_capped"] == "nil", (
+        "a named counterparty that cannot pay (%r) or is over the flat cap (%r) did not refuse. "
+        "With `only` given there is nowhere to fall through TO - EX.top_holder would settle it "
+        "against a faction the page never named."
+        % (have["t4_named_broke"], have["t4_named_capped"]))
+    assert int(have["t4_named_nofallback"]) == 0, (
+        "%s gold moved on two settlements that both had to refuse."
+        % have["t4_named_nofallback"])
+    # RUNG 1 IS SKIPPED FOR A NAMED COUNTERPARTY TOO. A guild house long the book is the FIRST
+    # faction the walk finds, ahead of the world tier - so this is the same pin as t4_buy_walk
+    # one rung up, and without it the deal pays the house while the page names the actor.
+    assert have["t4_guild_would_pick"] == "guildhouse", (
+        "the guild rung no longer picks anybody (%r), so t4_buy_guild proves nothing."
+        % have["t4_guild_would_pick"])
+    assert int(have["t4_buy_guild"]) == 0, (
+        "%s gold reached the guild house on a deal settled with a named world actor."
+        % have["t4_buy_guild"])
+
+    # THE ACCEPT-TIME RE-READ COUNTS THE LOTS, and it is all-or-nothing. `thin` can pay for one
+    # lot of two. Half a deal at the same price is a trade the actor never proposed.
+    assert have["t4_thin_result"] == "poor" and int(have["t4_thin_moved"]) == 0, (
+        "a counterparty that could afford 1 lot of a 2-lot deal returned %r and moved %s gold."
+        % (have["t4_thin_result"], have["t4_thin_moved"]))
+
+    # A REFUSAL THE RE-READ CANNOT SEE. The goods run out mid-deal: lot 1 settles, lot 2 is
+    # refused, the loop stops there and the deal is consumed - EX.bulk_trade's own contract,
+    # "whatever filled before it stands".
+    assert have["t4_part_result"] == "nothold", (
+        "selling 2 lots while holding 1 returned %r; the second lot must be refused."
+        % have["t4_part_result"])
+    assert int(have["t4_part_player"]) == 1060, (
+        "a partly-filled deal paid the player %s; exactly one lot settled, at 1060."
+        % have["t4_part_player"])
+    assert have["t4_part_left"] == "0", (
+        "a partly-filled deal is still on the page. It is spent: one turn, one offer, taken.")
+
+    assert have["t4_buy_seeded"] == "true", (
+        "the save key was empty BEFORE the accept, so t4_buy_saved cannot tell a re-save from "
+        "no save at all - which is exactly what the mutation round caught.")
+    assert have["t4_restored"] == "true", (
+        "the Task 4 block left its cm.get_faction stub bound; every task that appends after it "
+        "would inherit a treasury of 100000 and a pooled resource manager.")
+
+    # STAGE 2 TASK 5: the Deals page's cells and its footer.
+    mkt5 = int(have["t5_market"])
+    # THE OFFER SENTENCE IS FROM THE ACTOR'S SIDE, and singular/plural is not decoration: "1
+    # lots of Iron" on a page whose whole job is to be read at a glance.
+    assert have["t5_sell_offer"].startswith("Sells 3 lots of "), (
+        "a deal the actor SELLS reads %r. The verb is the actor's side - the player does the "
+        "opposite - and the name beside it is that actor." % have["t5_sell_offer"])
+    assert have["t5_buy_offer"].startswith("Buys 1 lot of "), (
+        "a one-lot deal the actor BUYS reads %r; singular, and the actor's verb."
+        % have["t5_buy_offer"])
+    assert have["t5_sell_price"] == "940g", have["t5_sell_price"]
+    assert have["t5_sell_total"] == "2820g" and have["t5_buy_total"] == "1060g", (
+        "the total column reads %r and %r; it is the price times the lots, which is what the "
+        "player actually pays or gets." % (have["t5_sell_total"], have["t5_buy_total"]))
+    # THE SIGNED EDGE, BOTH DIRECTIONS AND ROUNDED SYMMETRICALLY. 940 against 1000 is exactly
+    # -6%, and math.floor(x + 0.5) on -6.0 gives -7 - the shipped edge is EXACTLY this case, so
+    # the wrong rounding would be visible on the first deal ever drawn.
+    assert have["t5_sell_edge"] == "-6%" and have["t5_buy_edge"] == "+6%", (
+        "the edge column reads %r under market and %r over, against a market of %s. It must "
+        "carry its sign and round symmetrically."
+        % (have["t5_sell_edge"], have["t5_buy_edge"], mkt5))
+    # THE EXACT HALF, which is the ONLY input where the two roundings disagree: 935 against
+    # 1000 is -6.5%, and plain math.floor(x + 0.5) gives -6 there while giving +7 for +6.5.
+    # The first version of this fixture had no half in it, and a mutant swapping the two
+    # roundings survived - the comment beside the code claimed they differed at -6.0, which
+    # they do not.
+    assert have["t5_half_edge"] == "-7%", (
+        "an exact -6.5%% off market drew %r. Rounded away from zero it is -7%%; plain "
+        "math.floor(x + 0.5) gives -6%% there and +7%% for the same distance the other "
+        "way, which is the one column this page exists for." % have["t5_half_edge"])
+    assert have["t5_past_end"] == "nil", (
+        "EX.deal_cells past the end of the list returned %r rather than nil - the draw loop "
+        "hides a row on exactly that nil." % have["t5_past_end"])
+
+    # THE ACCEPT BUTTON'S TWO STATES (Task 6). The refusal is asked on ONE SIDE ONLY - the one
+    # where the player pays - and a mutant that asked it on both survived every check in this
+    # file while the logic still lived inside EX.refresh_panel, which nothing offline can run.
+    assert have["t6_take_buyside"] == "Closed/the market is shut", (
+        "a deal the counterparty SELLS - so the player BUYS - read %r with the market shut. "
+        "The button must carry EX.buy_refusal's own label and its own tooltip, the same pair "
+        "the commodity rows show, or the player learns the market is closed by clicking."
+        % have["t6_take_buyside"])
+    assert have["t6_take_sellside"] == "Take/nil", (
+        "a deal the counterparty BUYS - so the player SELLS - read %r with the market shut. "
+        "Selling stays open: the war lock exists to stop the player buying their way out of a "
+        "war, and the commodity and house rows both already behave this way. A deal expires "
+        "at the turn end, so a wrongly greyed one is gone before anybody can ask why."
+        % have["t6_take_sellside"])
+    assert have["t6_refusal_asked"] == "1", (
+        "EX.buy_refusal was asked %s time(s) for two deals. Once, for the side the player pays "
+        "on - it is a walk over the guild and the war state, and this page draws three rows a "
+        "turn." % have["t6_refusal_asked"])
+    assert have["t6_take_open"] == "Take/Take", (
+        "with nothing refusing, the button reads %r instead of Take on both sides. That is the "
+        "label on every row of this page in the ordinary case." % have["t6_take_open"])
+    assert have["t5_rows"] == "dl1,dl2,dl3", (
+        "the deals page asked for rows %r. One per posted deal, keyed by POSITION: two deals "
+        "can name one commodity - the Task 3 fixture posts glass twice - and would collide on "
+        "a single component, which is why the ledger keys its rows the same way."
+        % have["t5_rows"])
+    assert have["t5_layout"] == "true/true", (
+        "the deals mode resolves to %s, not its own layout pair. A view in EX.MODES with no "
+        "branch here draws the trade view's columns over its own numbers." % have["t5_layout"])
+    assert have["t5_headers"] == "true", (
+        "EX.HEADERS has no entry for the deals view. refresh_panel walks "
+        "pairs(EX.HEADERS[EX.view()]) BEFORE it branches on the mode, so this is not a missing "
+        "label - it is the whole refresh taken down the first time a player's tab reaches it.")
+
+    # THE THREE EMPTY STATES MUST ALL DIFFER, and from the populated line. If any two collapse
+    # to one sentence, returning can_issue and score separately bought nothing.
+    foots = [have["t5_foot_none"], have["t5_foot_declined"], have["t5_foot_off"],
+             have["t5_foot_unknown"], have["t5_footer_n"]]
+    assert len(set(foots)) == len(foots), (
+        "two of the deals footer's five states read the same sentence:\n  " +
+        "\n  ".join(foots))
+    assert "switched off" in have["t5_foot_off"], (
+        "the switch is off and the footer says %r - the player must be told it is a setting "
+        "and not an empty market." % have["t5_foot_off"])
+    assert have["t5_footer_n"].startswith("3 deals are"), (
+        "the populated footer reads %r; it counts what is on the page." % have["t5_footer_n"])
+    for k in ("t5_foot_none", "t5_foot_declined", "t5_foot_off", "t5_footer_n"):
+        assert len(have[k]) <= 118, (
+            "%s is %d characters, over the %d-character footer budget: %r"
+            % (k, len(have[k]), 118, have[k]))
+
+    # AND EX.post_deals RECORDS THE REASON ITSELF. Typed into the fixture it would prove only
+    # that EX.deals_line can read a variable.
+    assert have["t5_why_none"] == "none", (
+        "the engine refused every faction and EX.post_deals recorded %r. 'Nobody is eligible' "
+        "is a different sentence from 'everybody declined'." % have["t5_why_none"])
+    assert have["t5_why_declined"] == "declined", (
+        "every faction was eligible and scored zero, and EX.post_deals recorded %r."
+        % have["t5_why_declined"])
+
+    assert have["t5_restored"] == "nil/trade", (
+        "the deals block left EX.snap %s and the mode bound - Tasks 6 and 7 append after it."
+        % have["t5_restored"])
+
     print("  lua books check: key_hash deterministic and bounded, budget scales with "
           "treasury, desire weighs production/value/position/front-run, step_books moves "
           "a bounded book and is wired between check_delistings and apply_prices, "
@@ -11454,6 +17247,146 @@ def check_lua_books():
           "reaches the Trade footer, and Layer 2 books, delisted books, the sell-side clamp, "
           "the character term, the war-is-not-refusal clause and the pact ceiling are each "
           "pinned on a scenario of their own" % have["memo_loose_calls"])
+
+    # ---- STAGE 3 TASK 1: the war-goods set and the position bundle key ----
+    assert have["war_keys_valid"] == "true", (
+        "a key in EX.WAR_GOODS is not in EX.COMMODITIES. An unlisted key is not a Lua "
+        "error, it is a set that silently never matches - so the whole war-goods asymmetry "
+        "would be dead with every gate green. Five of the seventeen commodity filenames "
+        "name a different good than they draw, which is exactly how a wrong key gets in.")
+    assert have["war_keys_count"] == "3", (
+        "EX.WAR_GOODS holds %r keys, expected 3. Pinned so that widening the set is a "
+        "deliberate edit with a measurement behind it, not a drift."
+        % have["war_keys_count"])
+    assert have["pos_key_neg"] == "derpy_chd_ex_pos_neg02", (
+        "the negative key built as %r. The DB rows are generated from the same formula, so "
+        "a mismatch here is a bundle key that exists in Lua and in no table - and "
+        "cm:apply_effect_bundle on a key with no effect_bundles record applies nothing and "
+        "says nothing." % have["pos_key_neg"])
+    assert have["pos_key_pos"] == "derpy_chd_ex_pos_pos01", (
+        "the positive key built as %r." % have["pos_key_pos"])
+    assert have["pos_tiers"] == "-2,-1,1,2", (
+        "EX.POS_TIERS is %r. Pinned because the DB emits one effect_bundles row per tier "
+        "and the sweep removes one key per tier: a tier with no row applies nothing and "
+        "says nothing, and a row with no tier is never applied by anything."
+        % have["pos_tiers"])
+    assert have["pos_tiers_symmetric"] == "true", (
+        "EX.POS_TIERS is not symmetric, or contains 0. Symmetry is the design - long and "
+        "short are the same ladder in two directions - and a 0 tier would build "
+        "derpy_chd_ex_pos_pos00, a real key for the one state the sweep expresses by "
+        "applying nothing at all.")
+    assert have["pos_keys_dupe"] == "false", (
+        "two tiers build the same bundle key. The sweep removes one key per tier before "
+        "applying one of them, so a duplicate leaves a bundle nothing can ever remove - "
+        "and effect bundles survive a save while this script's tables do not.")
+    assert have["pos_step_lots"] == "4", (
+        "EX.POS_STEP_LOTS is %r. It is the only thing converting a position into a tier, "
+        "so it is pinned to make a re-tune a deliberate edit." % have["pos_step_lots"])
+    assert have["pos_key_clash"] == "false", (
+        "a position bundle key collides with a trade or stock bundle key. Both of those "
+        "families are live and applied every turn by a sweep that removes the whole family "
+        "first, so a collision would have one family removing the other's bundles with "
+        "every gate green.")
+
+    # ---- STAGE 3 TASK 2: the net war-goods position ----
+    assert have["warpos_crossed"] == "4", (
+        "a faction long 6 iron and short 2 timber nets %r, expected 4. 8 means the sum takes "
+        "math.abs and reads a faction that is long one war good and short another as heavily "
+        "armed when it is neither; 44 means the war-goods filter is gone and the 40 lots of "
+        "gems in the fixture are counting as materiel." % have["warpos_crossed"])
+    assert have["warpos_short"] == "-8", (
+        "a faction short 3 iron and 5 obsidian reads %r, expected -8. The world book has had "
+        "no floor at 0 since 2026-09-13, so the negative half of the ladder is live and a "
+        "short is a real obligation rather than a missing entry." % have["warpos_short"])
+    assert have["warpos_nobook"] == "0", (
+        "a faction that has never traded reads %r, expected 0 - not nil. Most factions on "
+        "the map have never traded, and every term downstream does arithmetic on this."
+        % have["warpos_nobook"])
+
+
+    # ---- STAGE 3 TASK 3: the tier, and the war asymmetry ----
+    # All four cases, because a tier function that ignored war state entirely passes any two.
+    assert (have["tier_war_long"], have["tier_war_short"],
+            have["tier_peace_long"], have["tier_peace_short"]) == ("2", "-2", "1", "-1"), (
+        "the four cases read %r, expected (2, -2, 1, -1). Equal war and peace pairs mean the "
+        "war state is not read at all; equal long and short pairs mean the sign is lost "
+        "before the ladder sees it."
+        % ((have["tier_war_long"], have["tier_war_short"],
+            have["tier_peace_long"], have["tier_peace_short"]),))
+    assert have["tier_edge_on"] == "1" and have["tier_edge_off"] == "0", (
+        "the step boundary reads on=%r off=%r, expected 1 and 0. Exactly one step must "
+        "qualify and one lot short of it must not: Stage 1 Task 9 shipped a > where a >= "
+        "belonged and no assertion saw it."
+        % (have["tier_edge_on"], have["tier_edge_off"]))
+    assert have["tier_huge"] == "2", (
+        "25 steps of position reads tier %r, expected 2. The ladder has a top and the DB has "
+        "a row per tier - a tier beyond the ladder builds a key with no effect_bundles "
+        "record, which cm:apply_effect_bundle accepts and then does nothing about."
+        % have["tier_huge"])
+    assert have["tier_stray"] == "1", (
+        "a faction in the book but not in EX.actors reads tier %r, expected 1 - the at-peace "
+        "answer. EX.actors is rebuilt by every scan and EX.wbook comes back from the save, "
+        "so the two need not agree on a given tick, and the conservative answer is half a "
+        "tier rather than an error." % have["tier_stray"])
+    assert have["tier_step_moved"] == "1", (
+        "doubling EX.POS_STEP_LOTS left a +8 position at tier %r, expected 1 (it is 2 at a "
+        "step of 4). The tier function is not reading the constant - it has the number "
+        "written into it, so every later re-tune of the ladder moves the sliders, the "
+        "presets and the DB rows and changes nothing in the game. That is the shape of the "
+        "EX.friendly_cap fault found on 2026-09-16." % have["tier_step_moved"])
+    assert have["tier_neutral"] == "0", (
+        "a faction with no position at all reads tier %r, expected 0 - the no-bundle state."
+        % have["tier_neutral"])
+
+
+    # ---- STAGE 3 TASK 4: the sweep ----
+    # The four removes, in ladder order, as one string. Built here rather than typed so the
+    # expectation follows EX.POS_TIERS instead of restating it.
+    rem = ";".join("r|armed|derpy_chd_ex_pos_%s%02d" % ("neg" if x < 0 else "pos", abs(x))
+                   for x in (-2, -1, 1, 2))
+    apply2 = "a|armed|derpy_chd_ex_pos_pos02|0"
+    assert have["sweep_tier2"] == rem + ";" + apply2, (
+        "the first sweep made %r. It must remove all four keys, in ladder order, and only "
+        "then apply one - same-effect bundles stack additively, so a stale row left by a "
+        "previous save doubles the modifier in silence." % have["sweep_tier2"])
+    assert have.get("sweep_again", "x") == "", (
+        "a second sweep with nothing changed made %r. The sweep runs every turn for every "
+        "actor on the map, so a bundle rewritten each turn is real engine work on every "
+        "client, every turn, forever." % have.get("sweep_again"))
+    assert have["sweep_tier0"] == rem, (
+        "tier 0 produced %r. It must be four removes and NO apply: the no-bundle state is "
+        "expressed by applying nothing, never by a pos_pos00 key." % have["sweep_tier0"])
+    assert have["sweep_after_load"] == rem, (
+        "THE FORCED SWEEP AFTER A LOAD did not fire: %r. EX.pos_level is session memory and "
+        "the engine carries the bundle itself, so after a load the game wears whatever the "
+        "last session applied and this script knows nothing about it. Tested with the memo "
+        "ALREADY AGREEING with the answer, which is the only state where the flag is the "
+        "difference - that is the bug EX.trade_swept was added to fix."
+        % have["sweep_after_load"])
+    assert have["sweep_gone"] == rem, (
+        "an actor that left EX.actors kept its bundle: %r. A faction leaves the scan by dying "
+        "or by losing its last region, and neither is a reason to stay armed for the rest of "
+        "the campaign." % have["sweep_gone"])
+    assert have["sweep_off"] == rem, (
+        "world_bundles off made %r, expected the four removes and no apply. Off must CLEAN "
+        "UP, not merely stop applying: a switch that strands an applied bundle is worse "
+        "than one that never applied it, because effect bundles survive every save and "
+        "nothing in this script remembers them across one." % have["sweep_off"])
+    assert "a|" not in have["sweep_off"], (
+        "world_bundles off applied a bundle: %r" % have["sweep_off"])
+    assert have.get("sweep_off_again", "x") == "", (
+        "off swept twice: %r. One cleaning pass per load, then silence - otherwise a "
+        "switched-off feature costs four engine calls per actor per turn forever."
+        % have.get("sweep_off_again"))
+    assert have["sweep_failopen"] == rem + ";" + apply2, (
+        "with no snapshot entry at all the sweep made %r, expected the full sequence. "
+        "EX.setting fails open by design; a gate written with EX.opt would read nil here and "
+        "delete the feature with the switch still on screen." % have["sweep_failopen"])
+
+    print("  war goods: %s keys, all commodities; position bundle keys distinct from the "
+          "trade and stock families; net position crossed long/short, non-war excluded; "
+          "tier 2/-2 at war and 1/-1 at peace, boundary exact, capped at the ladder top"
+          % have["war_keys_count"])
 
 
 # The stub board check_lua_houses() runs the SHIPPED file against. Kept at module level for
@@ -12783,7 +18716,7 @@ def check_lua_log():
     # THE SHIPPED appetite_summary, run once before the harness stubs it out. build_world_log
     # calls it every turn, so it is one of the four things running inside FactionTurnStart -
     # and without this the loc counter below would be measuring a stub.
-    eq("real_appetite", "World at war: 40%.  Wanted: Gemstones.  Going begging: Furs.",
+    eq("real_appetite", "World at war: 40%.  Wanted: Gemstones.  Unwanted: Furs.",
        "the shipped EX.appetite_summary no longer produces the footer's line, which is the "
        "line the log records verbatim so the two cannot disagree about what the world wants")
 
@@ -12816,7 +18749,7 @@ def check_lua_log():
        "the count must be the houses that PAID, not the houses that exist")
     eq("div_silent", "0", "a turn that paid no dividend still wrote a line")
 
-    eq("shock_line", "Demand shock: prices +3 rung(s) (raided).",
+    eq("shock_line", "Demand shock: prices +3 step(s) (raided).",
        "a demand shock is announced only in the event feed, which the player dismisses and "
        "cannot get back - while the shock goes on moving their prices for several turns")
     eq("shock_subject", "",
@@ -13167,14 +19100,16 @@ def check_nav_cycle():
         assert counts.get(m) == "1", (
             "%s reports %s pages. It is a single-page list, so the arrows would be live "
             "controls with nothing to control" % (m, counts.get(m)))
-    # TRADE HAS EXACTLY TWO, and always - page 1 the list, page 2 the deep chart. Not "two
-    # when something is selected": the arrows are the only affordance that says the chart
-    # exists, so a count that collapsed to 1 with nothing chosen would hide the feature from
-    # every player who had not already found it.
-    assert counts.get("trade") == "2", (
-        "trade reports %s pages, want 2 - page 1 is the list and page 2 is the deep price "
-        "chart. A 1 here means EX.page_count lost its trade branch and the chart is "
-        "unreachable, with nothing on screen to say so." % counts.get("trade"))
+    # TRADE HAS THREE WITH BOTH SWITCHES ON (the shipped default here: neither harness switch
+    # is stubbed at this point in the file) - the list, the deep chart, and the orders ledger.
+    # Not "however many when something is selected": the arrows are the only affordance that
+    # says the extra pages exist, so a count that collapsed with nothing chosen would hide a
+    # feature from every player who had not already found it. All four switch combinations are
+    # covered on their own further down, under "pages_both" etc - this is just the default.
+    assert counts.get("trade") == "3", (
+        "trade reports %s pages, want 3 - the list, the deep price chart and the orders "
+        "ledger, both switches on by default. Fewer means EX.page_count lost a branch and "
+        "that page is unreachable, with nothing on screen to say so." % counts.get("trade"))
     assert int(counts["log"]) > 1 and int(counts["help"]) > 1, (
         "the log and the guide must both page - %s" % have["page_counts"])
 
@@ -13210,8 +19145,13 @@ def check_nav_cycle():
     # DERIVED FROM counts, not hardcoded to "every view but the log has one page". That form
     # was already a fiction - Houses pages on row overflow - and it broke the moment Trade
     # gained its chart page, reporting the counter as wrong when the counter was right.
-    want = ",".join("1/" + counts[m]
-                    for m in ("trade", "stats", "offer", "houses", "log"))
+    # THE VIEW LIST COMES FROM EX.MODES, NOT FROM A TUPLE HERE. The counts above are already
+    # derived rather than hardcoded, and the comment says why - but the ORDER was still a
+    # literal five-view tuple, so adding the Deals page failed this as "the counter reads
+    # 1/3,1/1,1/1,1/1,1/1,1/3" against a five-entry want. The probe walks EX.MODES; so does this.
+    nav_modes = re.findall(r'"(\w+)"', re.search(
+        r"EX\.MODES = \{(.*?)\}", io.open(LUA_SCRIPT, encoding="utf-8").read()).group(1))
+    want = ",".join("1/" + counts[m] for m in nav_modes)
     assert have["labels"] == want, (
         "the counter reads %s, not %s" % (have["labels"], want))
     assert have["log_label"] == "2/" + counts["log"], (
@@ -13351,14 +19291,14 @@ def check_nav_cycle():
         "today - 10 vanilla plus the lords pack's 10 - so an off-by-one here ships a second, "
         "empty page to the only race currently playing." % have["h_exact"])
     assert have["h_over_by_one"] == "2", have["h_over_by_one"]
-    # TWO, AND NEITHER OF THEM IS ROW OVERFLOW. The trade list is 19 rows against 20 slots
-    # and must never page for that reason - the second page is the deep price chart, a
-    # different KIND of content, the way the guide's two pages are. If this ever reads 3 the
-    # list has started overflowing and the chart is no longer the last page.
-    assert have["h_trade_pages"] == "2", (
-        "the trade view reports %s pages, want 2: the list and the deep chart. A 1 means the "
-        "chart is unreachable; a 3 means the 19-row list has started overflowing into a page "
-        "the chart used to own." % have["h_trade_pages"])
+    # THREE WITH BOTH SWITCHES ON, and none of them is row overflow. The trade list is 19 rows
+    # against 20 slots and must never page for that reason - pages 2 and 3 are the deep chart
+    # and the orders ledger, a different KIND of content each, the way the guide's pages are.
+    # If this ever reads 4 the list has started overflowing into a page a switch used to own.
+    assert have["h_trade_pages"] == "3", (
+        "the trade view reports %s pages, want 3: the list, the deep chart and orders, both "
+        "switches on by default. Fewer means a page is unreachable; a 4 means the 19-row "
+        "list has started overflowing into a page a switch used to own." % have["h_trade_pages"])
     # THE ARROWS ACTUALLY REACH THE CHART. A page COUNT is not a route: with the trade branch
     # missing from EX.step_page and EX.page_index the counter still reads 1/2 and the arrows
     # are still un-greyed, and pressing them does nothing whatever. Both shipped as surviving
@@ -13366,10 +19306,12 @@ def check_nav_cycle():
     assert have["t_fwd"] == "2,true", (
         "pressing Next on the trade list landed on %s, want page 2 with EX.on_chart() true. "
         "The chart is unreachable and the counter says otherwise." % have["t_fwd"])
-    assert have["t_wrap"] == "1,false", (
-        "Next from the chart page landed on %s, want a wrap to page 1" % have["t_wrap"])
+    assert have["t_wrap"] == "3,false", (
+        "Next again from the chart page landed on %s, want page 3 (orders) with the chart's "
+        "own flag false - three pages now, so a second Next moves forward, not a wrap"
+        % have["t_wrap"])
     assert have["t_back"] == "2,false" or have["t_back"] == "2,true", (
-        "Previous from page 1 landed on %s, want the last page" % have["t_back"])
+        "Previous from page 3 landed on %s, want page 2 (the chart)" % have["t_back"])
     assert have["t_rows"] == "0", (
         "the chart page lists %s rows. EX.layout builds its hide keep-set from this list, so "
         "any row still named is left drawing on top of the chart - the fault that once put 19 "
@@ -13382,15 +19324,125 @@ def check_nav_cycle():
         "that, and two different answers to one question on one screen is worse than either "
         "answer on its own.")
 
+    # =====================================================================================
+    # THE TRADE PAGE LIST, under all four combinations of the two switches. Since 2026-09-10
+    # this replaces fixed indices: with two optional pages there are four combinations and a
+    # literal 2 or 3 gets two of them wrong - see EX.trade_pages.
+    # =====================================================================================
+    assert have["pages_both"] == "list,chart,orders", (
+        "both switches on gives %r" % have["pages_both"])
+    assert have["pages_nodeep"] == "list,orders", (
+        "with the chart off the pages are %r - the orders page must move up to 2, not leave "
+        "a hole at 2 and sit unreachable at 3" % have["pages_nodeep"])
+    assert have["pages_noord"] == "list,chart", (
+        "with orders off the pages are %r" % have["pages_noord"])
+    assert have["pages_neither"] == "list", (
+        "with both off the pages are %r - the arrows must grey at one page"
+        % have["pages_neither"])
+
+    # PLACEMENT, NOT JUST THE PAGE COUNT. Every assertion above this one passed on
+    # 2026-09-10 while two of the four combinations could not be used at all - a count of
+    # pages says nothing about whether the player can reach the control that creates an order.
+    assert have["place_both"] == "ok,chart", (
+        "with both switches on, placing answers %r - the ticket belongs on the chart page "
+        "there and placement must work" % have["place_both"])
+    assert have["place_nodeep"] == "ok,orders", (
+        "with deep_history off, placing answers %r. There is no chart page, so the LEDGER "
+        "page has to carry the ticket - otherwise the feature is on, its page is on screen, "
+        "and there is no way to create an order at all" % have["place_nodeep"])
+    assert have["place_noord"] == "refused,chart", (
+        "with the orders switch OFF, placing answers %r. The chart page still exists and "
+        "still places the ticket, so unless the MODEL refuses here a player can go on "
+        "creating standing orders while the ledger page holding the only Cancel button is "
+        "gone - and every one of them fires the moment the switch goes back on"
+        % have["place_noord"])
+    assert have["place_neither"] == "refused,none", (
+        "with both switches off, placing answers %r" % have["place_neither"])
+
+    # THE LEDGER'S OWN LABELS AND ITS DEAD SORT.
+    # THE CONSUMER, NOT JUST THE TABLE. The three assertions below read EX.HEADERS[EX.view()]
+    # directly, which is a tautology on its own: they stay green while refresh_panel's own
+    # loop goes on keying off EX.mode and drawing Trade's labels over the ledger. This is the
+    # line that actually decides what the player sees.
+    m = re.search(r"for hid, label in pairs\(EX\.HEADERS\[(EX\.[a-z_]+(?:\(\))?)\]\) do", lua)
+    assert m, "refresh_panel no longer walks EX.HEADERS to label the columns"
+    assert m.group(1) == "EX.view()", (
+        "refresh_panel labels its columns from EX.HEADERS[%s]. The ledger is a PAGE of the "
+        "trade view, not a mode, so anything but EX.view() draws Trade's headers over it - "
+        "'Trend' above an order sentence and 'Buy' above a price on rows that are half sells"
+        % m.group(1))
+
+    assert have["view3"] == "orders", (
+        "EX.view() answers %r on the ledger page. Every per-view table keys off it, so the "
+        "ledger inherits the Trade view's four otherwise" % have["view3"])
+    assert have["hdr3_price"] == "Now" and have["hdr3_trend"] == "Standing order", (
+        "the ledger's columns are headed %r / %r. They are the Trade view's, over an order "
+        "sentence and a price on rows that are half sells"
+        % (have["hdr3_price"], have["hdr3_trend"]))
+    assert have["sort3"] == "nil", (
+        "the ledger resolved a sort function (%s). Its rows are the order list in placement "
+        "order and EX.mode_instruments early-returns them unsorted, so a sorter here can "
+        "only colour a header and lie" % have["sort3"])
+    assert have["sortclick3"] == "false", (
+        "a header click on the ledger reported %r - it must refuse outright, or the listener "
+        "stops there believing it sorted something" % have["sortclick3"])
+    assert have["sortcol3"] == "nil", (
+        "a ledger header click set EX.sort_col to %r. That field carries the green mark and "
+        "the sort onto page 1, which is where the re-sort the player never asked for happened"
+        % have["sortcol3"])
+    assert have["hdr1_price"] == "Buy" and have["sort1"] == "true", (
+        "the trade LIST lost its own header (%r) or its sorter (%s) - the ledger's entry has "
+        "been routed over the top of it" % (have["hdr1_price"], have["sort1"]))
+
+    # THE PAGE COUNTER.
+    assert have["idx_clamped"] == "2", (
+        "with the player on page 3 and the orders switch thrown off, EX.page_index answers "
+        "%r against a 2-page list. EX.trade_kind clamps and this must clamp with it, or the "
+        "counter names a page that is gone" % have["idx_clamped"])
+    assert have["nav_clamped"] == "2/2", (
+        "the nav label reads %r - it read '3/2' until 2026-09-10" % have["nav_clamped"])
+
+    assert have["kind1"] == "list" and have["kind2"] == "chart" and have["kind3"] == "orders"
+    assert have["onchart2"] == "true" and have["onorders3"] == "true"
+    assert have["nodeep_kind2"] == "orders", (
+        "with the chart off, page 2 is %r" % have["nodeep_kind2"])
+    assert have["nodeep_onchart"] == "false", (
+        "EX.on_chart is true on a page that is not the chart. It gates both the layout and "
+        "the row list, so this draws the chart's cells over the orders ledger")
+    assert have["nodeep_onorders"] == "true"
     assert re.search(r'EX\.HELP_FOOT\d = "[^"]*[Hh]elp[^"]*"', lua), (
         "no guide footer names the way out. 'Either arrow leaves the guide' was how a player "
         "escaped by accident; taking it away without saying so in text leaves a screen you "
         "can enter and not obviously leave.")
+    assert have["clamped"] == "list", (
+        "a trade_page past the end of the list returned %r instead of clamping. The switch "
+        "can be moved while the player is standing on the page it removes" % have["clamped"])
 
+    # THE ROW-NAME CLICK'S CHART JUMP. EX.chart_page_index is the dynamic lookup that replaced
+    # a literal EX.trade_page = 2 in the click handler - correct with both switches on (the
+    # chart sits at index 2 either way there), and the literal it replaced would keep passing
+    # THIS one. The switched-off case is the one that tells them apart: with no chart page to
+    # land on the click must leave EX.trade_page alone, where a restored literal 2 would still
+    # jump - to whatever page 2 happens to be under that combination.
+    assert have["chart_idx_both"] == "2", (
+        "with both switches on, the chart jump answers %r, not page 2" % have["chart_idx_both"])
+    assert have["chart_idx_nodeep"] == "nil", (
+        "the chart jump answered %r with deep_history off and no chart page to land on - it "
+        "must do nothing rather than jump to whatever page 2 happens to be. A literal "
+        "EX.trade_page = 2 restored at the click site passes every other check in this suite"
+        % have["chart_idx_nodeep"])
+    assert have["chart_idx_noord"] == "2", (
+        "with orders off, the chart jump answers %r, not page 2" % have["chart_idx_noord"])
+
+    # DERIVED, NOT RESTATED: trade used to be part of "the rest" at one page; it is now a
+    # third number of its own, and a literal list of which views are single-page goes stale
+    # exactly as fast as a page count does.
+    fixed_desc = ", ".join("%s %s" % (m, counts[m]) for m in
+                           ("trade", "stats", "offer", "houses"))
     print("  view nav: %d tabs, each view one click from every other and the current one "
-          "greyed, arrows page instead of cycling (log %s pages, guide %s, the rest 1 and "
-          "greyed), both wrap, the drawn slice really changes and clamps past the end, and "
-          "every view opens on page 1" % (n, counts["log"], counts["help"]))
+          "greyed, arrows page instead of cycling (%s, log %s, guide %s pages), both wrap, "
+          "the drawn slice really changes and clamps past the end, and every view opens on "
+          "page 1" % (n, fixed_desc, counts["log"], counts["help"]))
 
 
 def settle_src(src):
@@ -13711,6 +19763,29 @@ def check_house_row_display():
     # 583, 1851, 972, 3700). The placement loop is the one that has to follow the list; the
     # hide pass still has to walk every instrument, or a row this view drops keeps the last
     # view's coordinates.
+    # THE BUY AND SELL BUTTONS SAY WHAT THE CLICK MOVES. EX.trade moves EX.amount LOTS, so a
+    # button still reading "Buy 10" while the amount is x5 understates what pressing it does
+    # by a factor of five - and the row is the one place on the panel where the unit count is
+    # unambiguous, because it is one instrument with one lot size. (The header button can only
+    # ever say "x5": page 1 carries commodities at a lot of 10 beside Layer 2 pools at 100.)
+    #
+    # Static, for the same reason the rest of this function is: the text is assembled inside
+    # EX.refresh_panel, which needs a live panel, and a harness big enough to run it would be
+    # a second harness for one function.
+    rp = re.search(r"function EX\.refresh_panel\(.*?\n(?:end|local function)", code, re.S)
+    assert rp, "EX.refresh_panel is gone"
+    labels = re.findall(r'set_text\(row, "btn_(?:buy|sell)", [^)]*?"(?:Buy|Sell) " \.\. (\w+)',
+                        rp.group(0))
+    assert len(labels) == 4, (
+        "found %d row Buy/Sell size labels in EX.refresh_panel, expected 4 (a commodity pair "
+        "and a house pair)" % len(labels))
+    for var in set(labels):
+        assign = re.search(r"local %s = ([^\n]+)" % var, rp.group(0))
+        assert assign and "EX.amount" in assign.group(1), (
+            "the row Buy/Sell labels are built from `%s`, assigned as %r, which does not read "
+            "EX.amount. At an amount of x5 the button reads one fifth of what clicking it "
+            "actually buys" % (var, assign.group(1) if assign else None))
+
     lay = re.search(r"function EX\.layout\(.*?\n(?:end|local function)", code, re.S)
     assert lay, "EX.layout is gone"
     body = lay.group(0)
@@ -13947,6 +20022,146 @@ GOLD = 0
 EX.charge_carry()
 print("charged_empty " .. GOLD)
 """
+
+
+def check_panel_cell_shows():
+    """A set_text to a panel cell is also a SetVisible(true) - so it must be guarded.
+
+    set_text exists to write BOTH states of a two-state button, and the first thing it does is
+    c:SetVisible(true). EX.layout has already hidden every cell the current view does not name.
+    So an unguarded set_text(panel, "x", ...) on a cell that only SOME views carry quietly
+    un-hides it on all the others, at whatever coordinates the last view that owned it left it.
+
+    Shipped that way on 2026-09-11 and reported by the player the same hour: the amount button
+    drawn across the Ownership view's "Cartel premium" header, on a view with no Buy button for
+    it to govern. Nothing errors; EX.layout did its job and was overruled a few lines later.
+
+    The layout harness cannot see this - it stubs EX.refresh_panel to a no-op, which is where
+    every one of these calls lives. Fourth stub-blindness in this file after EX.feature,
+    EX.log_add and EX.log_subject, and the same lesson each time: a stub that swallows the
+    behaviour under test turns a real check green.
+
+    A cell named by EVERY panel layout needs no guard - there is no view it could leak onto.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    code = NL.join(l for l in lua.splitlines() if not l.lstrip().startswith("--"))
+
+    tables = re.findall(r"EX\.PANEL_LAYOUT[A-Z_]* = \{(.*?)\n\}", code, re.S)
+    assert len(tables) >= 6, ("found %d EX.PANEL_LAYOUT* tables, expected the full set - the "
+                              "layout tables have been restructured" % len(tables))
+    named = [set(re.findall(r'\{ "([a-z0-9_]+)"', t)) for t in tables]
+    everywhere = set.intersection(*named)
+
+    # EX.draw_ticket IS ITSELF THE GUARD, so its cells need no second one. It is reached only
+    # from EX.draw_chart - the chart and ledger pages - and its own first two lines hand back
+    # to EX.clear_ticket unless the orders feature is on AND a known instrument is selected.
+    # Every other view never calls it at all, which is the same protection EX.in_layout gives
+    # by hand. Named rather than inferred: an exemption this check cannot see through has to
+    # be a decision somebody wrote down.
+    GATED_BY_CALLER = {"EX.draw_ticket"}
+
+    lines = code.splitlines()
+    bad, fn = [], None
+    for i, line in enumerate(lines):
+        m = re.match(r"function (EX\.[a-z_]+)", line)
+        if m:
+            fn = m.group(1)
+        m = re.search(r'set_text\(panel, "([a-z0-9_]+)"', line)
+        if not m:
+            continue
+        cell = m.group(1)
+        if cell in everywhere or fn in GATED_BY_CALLER:
+            continue
+        # The guard wraps the call, so it is on this line or just above it. Comments are
+        # already stripped from `code`, so "just above" really is adjacent.
+        near = NL.join(lines[max(0, i - 4):i + 1])
+        # ONE GUARD FOR A CLUSTER IS FINE, but only when the cells are genuinely
+        # interchangeable: a guard on btn_amount covers btn_amt_down beside it because the two
+        # are named by exactly the same layouts, so no view can carry one without the other.
+        # A guard on a cell with a DIFFERENT membership is not a guard at all, and the whole
+        # point of this check is that "there is an if above it" is not the test.
+        mine = frozenset(j for j, t in enumerate(named) if cell in t)
+        if any(('EX.in_layout("%s")' % other) in near
+               for other in sorted(set().union(*named))
+               if frozenset(j for j, t in enumerate(named) if other in t) == mine):
+            continue
+        bad.append("%s in %s" % (cell, fn))
+
+    assert not bad, (
+        "set_text(panel, ...) writes %s unguarded, and %s named by only some of the panel "
+        "layouts. set_text calls SetVisible(true), so this shows the cell on every view "
+        "EX.layout just hid it on - guard it with EX.in_layout(), or give every layout the "
+        "cell" % (sorted(set(bad)), "they are" if len(set(bad)) > 1 else "it is"))
+
+    print("  panel cell shows: %d cells in every layout, %d set_text sites, the view-specific "
+          "ones guarded" % (len(everywhere),
+                            len(re.findall(r'set_text\(panel, "', code))))
+
+
+def check_click_filter():
+    """Every name EX.click_dispatch handles must also be in the ComponentLClickUp FILTER.
+
+    THE FILTER IS THE GATE, NOT THE HANDLER. core:add_listener's condition decides whether the
+    game dispatches the click to us at all; a name only the handler knows is a button that
+    draws, lights on hover, and does nothing. Nothing errors and nothing logs.
+
+    Shipped exactly that way on 2026-09-11: btn_amount was wired into EX.click_dispatch, into
+    both layout tables, into the generator and into EX.TWO_STATE_CELLS, passed the whole suite,
+    deployed - and was inert in the player's hands on the first click. The filter's own comment
+    had warned about this in those words since the ticket landed; comments are not checks.
+
+    No behavioural harness can see it. The filter is an anonymous function inside EX.init,
+    behind a real listener, so this has to be read out of the source text.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+
+    def body(start_pat, end_pat):
+        a = re.search(start_pat, lua)
+        assert a, "cannot find %r - the click wiring has been restructured" % start_pat
+        b = re.search(end_pat, lua[a.end():])
+        assert b, "cannot find the end of %r" % start_pat
+        chunk = lua[a.end():a.end() + b.start()]
+        # Comments carry example names ("ord_place", the ticket list) that are prose, not code.
+        return NL.join(l for l in chunk.splitlines() if not l.lstrip().startswith("--"))
+
+    dispatch = body(r"function EX\.click_dispatch\(context\)",
+                    r"\nfunction |\nlocal function ")
+    listener = body(r'core:add_listener\("zharr_exchange_click", "ComponentLClickUp",',
+                    r"EX\.click_dispatch, true\)")
+
+    # THE ROW WALK IS PART OF THE HANDLER. btn_buy, btn_sell and row_name are panel-filtered
+    # by name but dispatched by ROW - EX.click_dispatch falls through to EX.row_click, which
+    # is where their branches live. Reading click_dispatch alone would call all three orphans.
+    rows = body(r"function EX\.row_click\(s, row_id\)", r"\nfunction |\nlocal function ")
+
+    handled = set(re.findall(r's == "([a-z0-9_]+)"', dispatch))
+    handled |= set(re.findall(r's == "([a-z0-9_]+)"', rows))
+    filtered = set(re.findall(r's == "([a-z0-9_]+)"', listener))
+    # The names held in constants (EX.BUTTON, EX.MODE_BTN, the tab keys) are compared by
+    # VARIABLE on both sides, so they cannot drift apart the way a literal can. Literals are
+    # the whole risk and the whole subject here.
+    missing = sorted(handled - filtered)
+    assert not missing, (
+        "EX.click_dispatch handles %s, and the ComponentLClickUp filter does not let %s "
+        "through. The filter is the gate: these components draw, hover and do nothing at all, "
+        "with no error and no log line" % (missing, "them" if len(missing) > 1 else "it"))
+
+    # btn_sell IS HANDLED BY NEGATION, with no branch of its own: EX.row_click ends on
+    # EX.trade(res, s == "btn_buy"), so the sell side is simply the else. Named here rather
+    # than pattern-matched into silence - "a name the handler never mentions" is precisely
+    # what this check exists to find, so every exemption has to be deliberate and written down.
+    BY_NEGATION = {"btn_sell"}
+
+    # And the reverse, which is cheap and catches the other drift: a filter entry with no
+    # handler branch wakes this script on a click it then silently drops.
+    orphan = sorted(filtered - handled - BY_NEGATION)
+    assert not orphan, (
+        "the ComponentLClickUp filter passes %s and EX.click_dispatch has no branch for %s - "
+        "the listener fires and falls through to the row walk, which will resolve the panel "
+        "as a row" % (orphan, "them" if len(orphan) > 1 else "it"))
+
+    print("  click filter: %d literal names, the listener gate and EX.click_dispatch agree"
+          % len(handled))
 
 
 def check_lua_hover():
@@ -14997,6 +21212,12 @@ def check_lua_agrees():
         "print(table.concat(EX.TRADE_STEPS, ',')) print(EX.TRADE_GAIN)\n"
         "for _, x in ipairs(EX.TRADE_STEPS) do print(EX.trade_bundle_key(x)) end\n"
         "for _, l in ipairs({%s}) do print(tostring(EX.trade_bundle_for(l) or 'none')) end\n"
+        # STAGE 3. The position family is duplicated across the two files for the same
+        # reason the trade steps are - one ships the bundle rows, the other applies them -
+        # and a key that does not resolve is a bundle that silently never applies. The DB
+        # emits one row per tier, so the tier LIST has to agree too and not just the format.
+        "print(table.concat(EX.POS_TIERS, ',')) print(EX.POS_STEP_LOTS)\n"
+        "for _, x in ipairs(EX.POS_TIERS) do print(EX.pos_bundle_key(x)) end\n"
         % (LUA_SCRIPT.replace("\\", "\\\\"),
            ",".join("{%d,%d}" % s for s in supplies),
            ",".join(repr(m) for m in mults),
@@ -15032,6 +21253,8 @@ def check_lua_agrees():
     want += [trade_bundle(x) for x in TRADE_STEPS]
     want += [str(trade_bundle_for(l)) if trade_bundle_for(l) is not None else "none"
              for l in levels]
+    want += [",".join(str(x) for x in POS_TIERS), str(POS_STEP_LOTS)]
+    want += [pos_bundle(x) for x in POS_TIERS]
 
     if got != want:
         diff = [(i, g, w) for i, (g, w) in enumerate(zip(got, want)) if g != w]
