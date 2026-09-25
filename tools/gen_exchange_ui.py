@@ -263,8 +263,10 @@ TIP_MODE = ("Next view||Trading, ownership, offerings and houses: who produces e
 TIP_PREV = ("Previous view||Back one. The four trading views wrap, so this reaches the "
             "last of them from the first.")
 TIP_TAB = "Switch to this view."
-TIP_PAGE = ("Which view||Where you are in the four trading views. The guide is not one of "
-            "them - it has its own button, and it comes back to the view you left.")
+# A PAGE COUNTER SINCE THE TABS ARRIVED, not a view counter - it read "the four trading views"
+# for a year of six tabs. The arrows either side of it carry runtime tooltips; this one does not.
+TIP_PAGE = ("Page||Which page of this view you are on. The arrows either side of it turn the "
+            "page; the tabs below change the view.")
 TIP_CLOSE = "Close"
 TIP_HELP = ("What the panel means||Every column, symbol and view explained, with what holding "
             "goods costs and what it earns.")

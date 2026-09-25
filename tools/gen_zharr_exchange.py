@@ -4104,6 +4104,79 @@ def check_layout():
         "drawn under a shorter list, which is a row offering a price nobody agreed to."
         % have["deal_draw_pastend"])
 
+    # ONE ROW OF THE OFFERINGS VIEW, DRAWN FOR REAL. Every row starts greyed and wearing the
+    # Trade view's "shut" tooltip - what a war lock leaves on the shared btn_buy - so a draw
+    # that does not write the button's state both ways fails here. The tithe scenes are the
+    # iron row at 50 and then 120 held against a tier of 90, on turn 10 of a turn-12 deadline.
+    want_offer = {
+        "offer_tithe_short": ("90", "Need_40", "Insufficient/Insufficient", "true",
+                              "The_tithe_is_9"),
+        "offer_tithe_pay": ("90", "Due:_2_turns", "Pay_tithe/Pay_tithe", "false",
+                            "Pay_the_tithe:"),
+        "offer_ready": ("30", "Ready", "Sacrifice/Sacrifice", "false", "Burn_30_Gemsto"),
+        "offer_short": ("30", "Need_25", "Insufficient/Insufficient", "true",
+                        "An_offering_ta"),
+        "offer_active": ("30", "3_turns_left", "Active/Active", "true", "This_offering'"),
+    }
+    for tag, want in sorted(want_offer.items()):
+        o = have[tag]
+        got = (o["cost"], o["status"], o["btn"], o["off"], o["tip"])
+        assert got == want, (
+            "%s drew cost/status/button/greyed/tooltip %r, want %r. A tithe row that draws the "
+            "ordinary offering sends the player to click a button that pays something else; a "
+            "button that keeps the Trade view's greyed state shuts the altar for the whole of a "
+            "war." % (tag, got, want))
+    assert have["offer_footer_tithe"] == "true" and have["offer_footer_none_tithe"] == "false", (
+        "the offerings footer named a tithe %s with one pending and %s with none"
+        % (have["offer_footer_tithe"], have["offer_footer_none_tithe"]))
+    # THE GUIDE'S LIVE LINES: five of them, each equal to its literal at the defaults, and the
+    # rent and offering lines following a moved setting and a made offering (31 is the first
+    # escalation step past 30, float32 or not - see EX.offer_cost).
+    hl = have["help_live"]
+    assert (hl["n"], hl["same"]) == ("5", "5"), (
+        "%s of %s live guide lines equal their literal at the defaults (want 5 of 5). The "
+        "literal is what check_help_lines measures and bind_race rewrites; a builder that "
+        "drifts from it ships wording nobody checked." % (hl["same"], hl["n"]))
+    assert hl["rent"] == "1.5g" and hl["offer"] in ("Burn_34_", "Burn_35_"), (
+        "with rent at 1.5 and three offerings made, the guide read %r / %r. It is still "
+        "printing the default." % (hl["rent"], hl["offer"]))
+    # THE HELD CELL'S TOOLTIP. Iron at 40, 340 and 600 held against the 100/300/600 levels.
+    ht = have["hold_tip"]
+    assert all(ht[k] == "true" for k in ("low", "mid", "top", "boon", "rent")) and (
+            ht["norent"] == "false"), (
+        "the Held tooltip got low/mid/top/boon/rent/norent = %s. It has to say how far the "
+        "pile is from its next level, what level 2 grants, and the rent only while rent is "
+        "charged." % "/".join(ht[k] for k in ("low", "mid", "top", "boon", "rent", "norent")))
+    assert (have["sell_draw_open"], have["sell_draw_short"]) == ("false/true", "true/true"), (
+        "with the war lock on, EX.draw_sell drew open=%s short=%s (disabled/right tooltip), "
+        "want false/true and true/true. Selling is never refused; the one thing that greys "
+        "it is holding less than a lot." % (have["sell_draw_open"], have["sell_draw_short"]))
+    # THE OPENER'S NEWS: both clocks named while they run, and the plain tooltip otherwise.
+    bn = have["button_news"]
+    assert (bn["deals"], bn["tithe"], bn["quiet"]) == ("true", "true", "true"), (
+        "the opener's tooltip got deals/tithe/quiet = %s/%s/%s. It has to say when deals are "
+        "waiting and a tithe is due, and say nothing extra when neither is."
+        % (bn["deals"], bn["tithe"], bn["quiet"]))
+    assert "EX.refresh_button_tip()" in rp[:400], (
+        "EX.refresh_panel no longer rewrites the opener's tooltip, so a deal taken or a "
+        "tithe paid mid-turn leaves it announcing something that is gone")
+    trade_rows = rp[rp.rindex("local why, why_label = EX.buy_refusal(res)"):]
+    assert 'set_tip(find_uicomponent(row, "row_hold"), EX.hold_tip(res))' in trade_rows, (
+        "the Trade rows no longer give the Held cell its per-row tooltip - the scene above "
+        "passes on a function nothing calls")
+    # THE LEDGER'S CANCEL BUTTON carries its own tooltip. Read statically: the ledger rows are
+    # drawn inside EX.refresh_panel, and unwritten the button wore the row file's "Buy a lot".
+    ledger = rp.split(NL + "            elseif orders then", 1)
+    assert len(ledger) == 2 and "EX.TIP_CANCEL)" in ledger[1].split(
+            NL + "            else" + NL, 1)[0], (
+        "the ledger's Cancel button no longer gets EX.TIP_CANCEL - it shows the row file's "
+        "static 'Buy a lot' tooltip over a button that cancels an order")
+    offer_branch = rp.split(NL + "            if offer then", 1)
+    assert len(offer_branch) == 2 and "EX.draw_offer_row(" in offer_branch[1].split(
+            NL + "            elseif ", 1)[0], (
+        "EX.refresh_panel's offerings branch no longer calls EX.draw_offer_row - the scenes "
+        "above pass on a function nothing draws with.")
+
     # THE PANEL GROWS WITH THE SCREEN (2026-09-24, spec
     # docs/superpowers/specs/2026-09-24-exchange-ui-scale-design.md). The box is the largest
     # 16:9 that fits, clamped to 1600..2560; every table above is its 1600x900 end. Expected
@@ -7051,7 +7124,9 @@ FEATURE_SWITCHES = [
 # The group keys must match EX.LOCK_GROUPS in the campaign script; check_culture_locks asserts
 # both directions, including that every culture named is one EX.CULTURE_WANTS knows.
 CULTURE_LOCKS = [
-    ("uncommercial", "Let raider cultures trade",
+    # ITS OWN TITLE. Both options read "Let raider cultures trade" until 2026-09-25, so the MCT
+    # page showed two identical checkboxes and only the tooltip said which was which.
+    ("uncommercial", "Let cultures without markets trade",
      "Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons "
      "of Chaos, Beastmen and "
      "Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at "
@@ -7269,6 +7344,12 @@ def check_mct():
     assert "local mct = get_mct and get_mct()" in text and "if not mct then return end" in text, (
         "the MCT file does not guard on MCT being absent. It loads in every campaign; "
         "without the guard it errors for every player who does not have MCT.")
+    # EVERY OPTION HAS A TITLE OF ITS OWN. Two culture locks shipped under one title, so the
+    # page showed two identical checkboxes and only a hover said which was which.
+    titles = re.findall(r'^o_\w+:set_text\("([^"]*)"\)', text, re.M)
+    dup = sorted(set(t for t in titles if titles.count(t) > 1))
+    assert titles and not dup, (
+        "MCT options share a title: %s. The player sees identical checkboxes." % dup)
     code = io.open(LUA_SCRIPT, encoding="utf-8").read()
     assert "function EX.setting(" in code, "the Lua never reads an MCT setting"
     # BOTH HALVES OF EVERY TOGGLE, in one loop. Only ai_traders and ai_gold used to have their
@@ -10827,6 +10908,32 @@ EX.opt = function(k) if k == "carry_per_unit" then return 1/3 end return 1 end
 local ol1, ol2 = EX.offer_footer()
 print("OFFER1 " .. ol1)
 print("OFFER2 " .. ol2)
+
+-- AND WITH A TITHE PENDING, which takes line 2 over: the largest tier (three-figure amount,
+-- two-figure wrath), the longest display name of any commodity, and the grace period's full
+-- count of turns left, which is plural.
+local long_res = EX.COMMODITIES[1]
+for _, r in ipairs(EX.COMMODITIES) do
+    if #EX.display(r) > #EX.display(long_res) then long_res = r end
+end
+cm.turn_number = function() return 10 end
+EX.demand_res = long_res
+EX.demand_tier = EX.DEMAND_TIERS[#EX.DEMAND_TIERS][1]
+EX.demand_due = 10 + EX.DEMAND_GRACE
+local _, tl2 = EX.offer_footer()
+print("TITHE2 " .. tl2)
+EX.demand_res, EX.demand_tier, EX.demand_due = nil, nil, 0
+
+-- THE GUIDE'S LIVE LINES, WORST CASE: the longest patron (above), the offering at its ceiling
+-- (offerings_made above), and every setting at the most characters EX.num can print for it -
+-- a race profile scales these, so a 0.1234 dividend reads "12.34" where the slider never does.
+local WORST = { carry_per_unit = 2.5, div_yield = 0.1234, buyout_premium = 2.125,
+                windup = 0.125, spread = 0.375 }
+EX.opt = function(k) return WORST[k] or 1 end
+EX.help_page = 1
+for i, l in ipairs(EX.help_lines()) do
+    if EX.HELP_LIVE[l[1]] then print("HELPLIVE" .. i .. " " .. l[2]) end
+end
 """
 
 
@@ -10888,6 +10995,28 @@ def check_footer_bounds():
             "so fit() amputates its ending. Budget %d.%s  %r"
             % (which, len(got), len(got) * px_per_char, box_px, budget,
                chr(10) + "  ", got))
+    # THE GUIDE'S LIVE LINES at their worst case, against the guide's own sentence column.
+    # check_help_lines measures the literals; these are the same lines once a setting, a race
+    # profile or the offering count has lengthened the number in them.
+    lua_h = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    help_w = int(re.search(r'EX\.ROW_LAYOUT_HELP = \{.*?"row_trend"\s*,\s*-?\d+\s*,\s*-?\d+\s*,'
+                           r'\s*(\d+)', lua_h, re.S).group(1))
+    live = [v for k, v in part.items() if k.startswith("HELPLIVE")]
+    assert len(live) == 5, "the bounds harness measured %d live guide lines, want 5" % len(live)
+    for text in live:
+        assert len(text) * px_per_char <= help_w, (
+            "the guide line %r reaches ~%.0fpx in its %dpx column once its number is at the "
+            "longest it can print - it clips mid-word" % (text, len(text) * px_per_char, help_w))
+    # A PENDING TITHE REPLACES LINE 2, and names the good, the amount and the deadline - the
+    # only place after the one event-feed message that the deadline is written down.
+    tithe = part.get("TITHE2", "")
+    assert len(tithe) <= budget, (
+        "the offerings footer's tithe line reaches %d chars (~%.0fpx) in an %dpx box at worst "
+        "case. Budget %d.%s  %r" % (len(tithe), len(tithe) * px_per_char, box_px, budget,
+                                    chr(10) + "  ", tithe))
+    assert re.search(r"demands 180 .+ within %d turns" % DEMAND_GRACE, tithe), (
+        "with a tithe pending, the offerings footer's line 2 does not name the amount and the "
+        "turns left: %r" % tithe)
     # AND NO RAW FLOAT IN IT. The length check alone would pass a 0.30000001192093 that
     # happened to fit, and the number would still read as broken on screen.
     # Matched on the NUMBER, not on the wording around it - the sentence has been reworded
@@ -10969,9 +11098,9 @@ def check_footer_bounds():
         "EX.closed_banner with the Trade footer")
 
     print("  footer bounds: appetite %d chars, trade line %d, guild line %d, closure banner "
-          "%d, offerings %d/%d at worst case, budget %d"
+          "%d, offerings %d/%d (tithe %d) at worst case, budget %d"
           % (len(l2), len(l1), len(guild), len(closed),
-             len(part["OFFER1"]), len(part["OFFER2"]), budget))
+             len(part["OFFER1"]), len(part["OFFER2"]), len(tithe), budget))
 
 
 def check_help_lines():
@@ -14881,6 +15010,37 @@ print("t4_plain_walk " .. tostring(PAID["richholder"] or 0))
 print("t4_plain_guild " .. tostring(PAID["guildhouse"] or 0))
 print("t4_plain_named " .. tostring(PAID["adumper"] or 0))
 
+-- ONE LOG LINE FOR A MULTI-LOT CLICK, through the REAL EX.apply_trade. Every lot used to write
+-- its own "Bought 10 for 612g.", so one x25 click pushed a fifth of the 120-line log out.
+local REAL_LOG_ADD_BULK = EX.log_add
+local BULK_LINES = {}
+EX.log_add = function(_s, d) BULK_LINES[#BULK_LINES + 1] = d end
+EX.holdings = { res_rom_iron = 100 }
+EX.bulk_trade("res_rom_iron" .. EX.ORD_FS .. "3", true)
+print("bulk_log_n " .. #BULK_LINES)
+print("bulk_log_line " .. string.gsub(BULK_LINES[#BULK_LINES] or "", " ", "_"))
+print("bulk_log_held " .. tostring(EX.holdings.res_rom_iron))
+print("bulk_log_clear " .. tostring(EX.bulk == nil))
+-- ONE LOT STILL WRITES ITS OWN LINE, exactly as every single click always has.
+BULK_LINES = {}
+EX.bulk_trade("res_rom_iron", true)
+print("bulk_one_n " .. #BULK_LINES)
+print("bulk_one_line " .. string.gsub(BULK_LINES[1] or "", " ", "_"))
+-- A SELL WITH LESS THAN A LOT HELD SAYS SO. It reached the script log only.
+BULK_LINES = {}
+EX.holdings = { res_rom_iron = 4 }
+EX.bulk_trade("res_rom_iron" .. EX.ORD_FS .. "5", false)
+print("bulk_nothold " .. string.gsub(BULK_LINES[1] or "", " ", "_"))
+print("bulk_nothold_n " .. #BULK_LINES)
+-- AN ERROR PART WAY THROUGH MUST NOT LEAVE THE TOTALLER ON, or every later click logs nothing.
+EX.holdings = { res_rom_iron = 100 }
+local REAL_APPLY_BULK = EX.apply_trade
+EX.apply_trade = function() error("boom") end
+print("bulk_err_raised " .. tostring(not pcall(EX.bulk_trade, "res_rom_iron" .. EX.ORD_FS .. "3", true)))
+print("bulk_err_clear " .. tostring(EX.bulk == nil))
+EX.apply_trade = REAL_APPLY_BULK
+EX.log_add = REAL_LOG_ADD_BULK
+
 cm.get_faction = REAL_GF_T4
 cm.faction_add_pooled_resource = REAL_POOL_T4
 EX.houses = {}
@@ -15829,10 +15989,22 @@ def check_lua_books():
         "the exact fault the delisted branch above it condemns in its own comment.")
     assert "bb:SetDisabled(why ~= nil)" in hr, (
         "the houses row does not disable its Buy button from EX.buy_refusal")
-    assert "bs:SetDisabled(false)" in hr, (
-        "the houses row gates SELLING. Selling always stays open - that is the design's safety "
-        "valve, on paper as on commodities.")
-    comm = rp[rp.index("local why, why_label = EX.buy_refusal(res)"):]
+    # SELLING IS NEVER REFUSED - the design's safety valve, on paper as on commodities. Both
+    # rows draw Sell through EX.draw_sell, which greys it only below one lot held (the one sell
+    # EX.apply_trade cannot make) and must never ask what refuses a BUY.
+    # THE LAST buy_refusal, not the first: the Houses branch comes first in the row loop and
+    # asks the same question, so an index() slice reads the Houses row and calls it Trade.
+    comm_sell = rp[rp.rindex("local why, why_label = EX.buy_refusal(res)"):]
+    assert "EX.draw_sell(bs, res)" in hr and "EX.draw_sell(bs, res)" in comm_sell, (
+        "a Houses or Trade row no longer draws its Sell button through EX.draw_sell, so its "
+        "greyed state and tooltip are whatever the last view left")
+    ds = re.search(r"function EX\.draw_sell\(.*?" + NL + "end", code, re.S)
+    assert ds, "EX.draw_sell is gone"
+    for gate in ("buy_refusal", "blocked", "market_closed", "refused_by", "war"):
+        assert gate not in ds.group(0), (
+            "EX.draw_sell reads %s. Selling always stays open to anyone holding a lot - the "
+            "war lock and a house's refusal are buy-side only." % gate)
+    comm = rp[rp.rindex("local why, why_label = EX.buy_refusal(res)"):]
     assert "bb:SetDisabled(why ~= nil)" in comm, (
         "the commodities row does not disable its Buy button from EX.buy_refusal. It used to "
         "call SetDisabled(false) unconditionally, so a refused instrument drew a live-looking "
@@ -17316,6 +17488,28 @@ def check_lua_books():
     assert int(have["t4_plain_named"]) == 0, (
         "a plain EX.apply_trade paid %s to the faction the DEAL fixture names. With no `only` "
         "argument nothing may route settlement to it." % have["t4_plain_named"])
+
+    # ONE LOG LINE PER CLICK, through the real EX.apply_trade: three lots, one line carrying
+    # the units and the gold of all three, and the goods really moved. The per-lot line came
+    # back as 1 + 3 = 4 lines when the EX.bulk totaller was switched off.
+    assert (have["bulk_log_n"], have["bulk_log_held"], have["bulk_log_clear"]) == (
+            "1", "130", "true"), (
+        "a 3-lot buy wrote %s log line(s), left %s held (want 1 line, 130 held) and left the "
+        "totaller %s" % (have["bulk_log_n"], have["bulk_log_held"], have["bulk_log_clear"]))
+    assert re.match(r"Bought_30_for_\d+g_in_3_lots\.", have["bulk_log_line"]), (
+        "the 3-lot summary reads %r - it must name the units and gold of the whole click"
+        % have["bulk_log_line"])
+    assert have["bulk_one_n"] == "1" and re.match(r"Bought_10_for_\d+g\.", have["bulk_one_line"]), (
+        "a single lot no longer writes its own line: %s line(s), %r"
+        % (have["bulk_one_n"], have["bulk_one_line"]))
+    assert (have["bulk_nothold"], have["bulk_nothold_n"]) == (
+            "Sell_refused._You_hold_less_than_one_lot.", "1"), (
+        "a sell with less than a lot held logged %r (%s lines). It reached the script log "
+        "only, so the click did nothing on screen." % (have["bulk_nothold"],
+                                                       have["bulk_nothold_n"]))
+    assert (have["bulk_err_raised"], have["bulk_err_clear"]) == ("true", "true"), (
+        "an error inside a bulk click left EX.bulk set (%s) - every later trade would total "
+        "silently instead of logging" % have["bulk_err_clear"])
 
     assert have["t4_buy_saved"] == "", (
         "the shortened deal list was not re-saved: %r is still in the store. The page would come "
@@ -19000,6 +19194,20 @@ def check_lua_log():
        "the shock line resolved its own subject instead of deferring it. Turn-time entries "
        "pass \"\" and the key; see turn_loc_calls below")
     eq("shock_key", "res_gems", "the shock line lost the commodity it is about")
+
+    # THE PLAYER'S OWN LEDGER. Rent reached the treasury as a lump the breakdown cannot show,
+    # and the tithe lived in one event-feed message; both are now written where a player looks
+    # back. The harness binds no race, so the patron is the "The altar" fallback.
+    for key, want in (("rent_line", r"Rent\|Warehouse rent: -\d+g\."),
+                      ("offer_line", r"Offered 30 to The altar\. Favour for 5 turns; the next "
+                                     r"offering takes \d+\."),
+                      ("tithe_asked", r"res_\w+\|The altar demands \d+, within %d turns\. Pay it "
+                                      r"on the Offerings tab\." % DEMAND_GRACE),
+                      ("tithe_paid", r"Tithe paid: \d+ to The altar\. Favour for \d+ turns\."),
+                      ("tithe_wrath", r"Tithe unpaid\. The altar's wrath for \d+ turns\.")):
+        assert re.fullmatch(want, have.get(key, "")), (
+            "the Log line for %s reads %r - rent, offerings and the tithe must each leave a "
+            "line the player can read back" % (key, have.get(key)))
 
     # THE ONE THAT MATTERS. common.get_localised_string from inside a turn handler took the
     # process down at turn 1 of a FRESH campaign - no Lua error, no minidump, and pcall made no

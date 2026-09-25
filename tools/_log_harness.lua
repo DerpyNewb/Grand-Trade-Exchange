@@ -297,5 +297,39 @@ print("shock_line " .. tostring(EX.LOG[1] and EX.LOG[1][3]))
 print("shock_subject " .. tostring(EX.LOG[1] and EX.LOG[1][2]))
 print("shock_key " .. tostring(EX.LOG[1] and EX.LOG[1][4]))
 
+-- THE PLAYER'S OWN LEDGER: rent, an offering, and a tithe from demand to answer. Each wrote
+-- nothing to the Log - rent reached the treasury as an unexplained lump and the tithe lived in
+-- one event-feed message - so these are four of the writers the loc counter below must cover.
+local HELD = { res_gems = 400, res_rom_iron = 200 }
+EX.held = function(r) return HELD[r] or 0 end
+EX.is_house = function() return false end
+EX.setting = function() return true end
+EX.log_subject = function(r) return EX.display(r) end
+cm.faction_add_pooled_resource = function(_, _f, _k, _why, d) end
+cm.apply_effect_bundle = function() end
+cm.random_number = function() return 1 end
+cm.turn_number = function() return TURN end
+cm.set_saved_value = function() end
+EX.panel = function() return nil end
+is_uicomponent = is_uicomponent or function() return false end
+EX.offer_until, EX.offerings_made = {}, 0
+EX.LOG = {}
+EX.charge_carry()
+print("rent_line " .. tostring(EX.LOG[1] and EX.LOG[1][2]) .. "|" .. tostring(EX.LOG[1] and EX.LOG[1][3]))
+EX.LOG = {}
+EX.apply_offer("res_gems")
+print("offer_line " .. tostring(EX.LOG[1] and EX.LOG[1][3]))
+EX.LOG = {}
+EX.demand_res, EX.demand_tier, EX.demand_due = nil, nil, 0
+local asked = EX.fire_demand()
+print("tithe_asked " .. tostring(asked) .. "|" .. tostring(EX.LOG[1] and EX.LOG[1][3]))
+EX.pay_demand()
+print("tithe_paid " .. tostring(EX.LOG[1] and EX.LOG[1][3]))
+EX.fire_demand()
+TURN = TURN + EX.DEMAND_GRACE
+EX.LOG = {}
+EX.check_demand()
+print("tithe_wrath " .. tostring(EX.LOG[1] and EX.LOG[1][3]))
+
 -- AND THE ONE THAT MATTERS. Not one of the four asked the game to localise anything.
 print("turn_loc_calls " .. LOC)

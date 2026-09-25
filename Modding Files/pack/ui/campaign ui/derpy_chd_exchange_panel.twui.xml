@@ -477,7 +477,7 @@
 			this="DE160013-D000-4000-B000000000000013"
 			id="nav_page"
 			tooltipslocalised="true"
-			componentleveltooltip="Which view||Where you are in the four trading views. The guide is not one of them - it has its own button, and it comes back to the view you left."
+			componentleveltooltip="Page||Which page of this view you are on. The arrows either side of it turn the page; the tabs below change the view."
 			uniqueguid="DE160013-D000-4000-B000000000000013"
 			currentstate="DE160014-D000-4000-B000000000000014"
 			defaultstate="DE160014-D000-4000-B000000000000014">

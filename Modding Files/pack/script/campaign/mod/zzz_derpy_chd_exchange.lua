@@ -3439,6 +3439,9 @@ function EX.charge_carry()
     if total <= 0 then return end
     cm:treasury_mod(faction, -total)
     EX.say("turn", "warehousing charged " .. total)
+    -- THE ONE CHARGE THE TREASURY BREAKDOWN CANNOT SHOW (it lands as a lump - see below), so
+    -- the Log is where last turn's bill can be read back.
+    EX.log_add("Rent", "Warehouse rent: -" .. total .. "g.", "")
 end
 
 -- ---------------------------------------------------------------------------------------
@@ -4042,7 +4045,33 @@ EX.TIP_OPEN_BODY = "Buy and sell the world's trade goods at prices set by how sc
     .. "are on the map, and by who controls them. Closed while the other powers take their turn."
 
 function EX.button_tip()
-    return EX.the_name() .. "||" .. EX.TIP_OPEN_BODY
+    return EX.the_name() .. "||" .. EX.TIP_OPEN_BODY .. EX.button_news()
+end
+
+-- WHAT IS WAITING, on the opener's own tooltip: the two things on the panel with a clock on
+-- them. Deals expire at the end of the turn they were posted and a tithe turns to wrath, and
+-- until this the only way to learn that either existed was to open the panel and look.
+function EX.button_news()
+    local out = ""
+    local n = #(EX.deals or {})
+    if n > 0 then
+        out = out .. " " .. n .. (n == 1 and " deal is" or " deals are")
+            .. " waiting on the Deals tab, gone at the end of this turn."
+    end
+    local t = EX.tithe()
+    if t then
+        out = out .. " " .. EX.patron() .. " demands " .. t.amount .. " " .. EX.display(t.res)
+            .. " within " .. t.left .. (t.left == 1 and " turn." or " turns.")
+    end
+    return out
+end
+
+-- The opener's tooltip again, for the moments place_button does not run: a deal taken or a
+-- tithe paid mid-turn changes what it should say. Written, never read - reading a HUD
+-- button's tooltip back crashes the game.
+function EX.refresh_button_tip()
+    local b = find_uicomponent(core:get_ui_root(), EX.BUTTON)
+    if is_uicomponent(b) then b:SetTooltipText(EX.button_tip(), true) end
 end
 
 function EX.offer_footer()
@@ -4058,6 +4087,14 @@ function EX.offer_footer()
     local l2 = "Holding " .. table.concat(EX.STOCK_TIERS, " / ") .. " units instead earns a "
         .. "rising standing bonus, at a rent of " .. EX.num(EX.opt("carry_per_unit"))
         .. " gold per unit per turn."
+    -- A PENDING TITHE TAKES LINE 2. The demand was announced once, in the event feed, and this
+    -- is the only other place its deadline is written; the warehouse note is in the guide.
+    local t = EX.tithe()
+    if t then
+        l2 = EX.patron() .. " demands " .. t.amount .. " " .. EX.display(t.res) .. " within "
+            .. t.left .. (t.left == 1 and " turn" or " turns") .. ". Unpaid, the wrath lasts "
+            .. t.wrath .. " turns."
+    end
     return l1, l2
 end
 
@@ -5176,7 +5213,14 @@ end
 
 -- The Buy button's tooltip when nothing is wrong with it. Written on every refresh beside the
 -- refusal reason above, so a row that STOPS being refused stops saying that it is.
-EX.TIP_BUY = "Buy one lot at the price shown."
+-- "THE AMOUNT ON THE BUTTON", NOT "ONE LOT": the button reads "Buy 50" at x5 and moves all
+-- of it, and this tooltip said one lot beside it.
+EX.TIP_BUY = "Buy the amount on the button. Buying pushes the price up."
+-- THE SELL BUTTON'S, WRITTEN BOTH WAYS FOR THE SAME REASON: greyed with too little held, and
+-- given back its plain tooltip the moment a lot is held again.
+EX.TIP_SELL = "Sell the amount on the button, under the Buy price."
+EX.TIP_SELL_NONE = "You hold less than one lot of this."
+EX.TIP_CANCEL = "Cancel this standing order."
 -- ITS OWN TOOLTIP AND NOT EX.TIP_BUY: this button settles the whole deal at the agreed price,
 -- every lot of it, and it is gone at the next turn whether it was taken or not.
 EX.TIP_DEAL = "Settle this deal in full, at the price agreed. It expires at the end of the turn."
@@ -6515,6 +6559,8 @@ function EX.apply_offer(res)
     EX.say("trade", "offered " .. cost .. " " .. EX.hold_key(res)
         .. " to " .. EX.patron() .. " for " .. EX.OFFER_TURNS .. " turns (offering #"
         .. EX.offerings_made .. ", next costs " .. EX.offer_cost() .. ")")
+    EX.log_add(EX.log_subject(res), "Offered " .. cost .. " to " .. EX.patron() .. ". Favour for "
+        .. EX.OFFER_TURNS .. " turns; the next offering takes " .. EX.offer_cost() .. ".", res)
     -- THE NAME CARRIES THE FACTION, and so does the argument. Two players offering in the
     -- same tenth of a second would otherwise queue one cm:callback name twice, and the tier
     -- update for one of them would be the one that goes missing.
@@ -6631,6 +6677,10 @@ function EX.fire_demand()
                           true, EX.feed("call"))
     EX.say("demand", EX.patron() .. " demands " .. amount .. " " .. res .. " (" .. sfx
         .. ") by turn " .. EX.demand_due)
+    -- THE LOG KEEPS THE DEMAND, AND ITS ANSWER, beside the trades it will be paid out of. The
+    -- event feed says it once; this is where a player looks back three turns later.
+    EX.log_add(EX.log_subject(res), EX.patron() .. " demands " .. amount .. ", within "
+        .. EX.DEMAND_GRACE .. " turns. Pay it on the Offerings tab.", res)
     if is_uicomponent(EX.panel()) then EX.refresh_panel() end
     return res
 end
@@ -6671,6 +6721,8 @@ function EX.pay_demand()
                           true, EX.feed("call"))
     EX.say("demand", "tithe paid - " .. amount .. " " .. res .. " taken, favour for "
         .. turns .. " turns")
+    EX.log_add(EX.log_subject(res), "Tithe paid: " .. amount .. " to " .. EX.patron()
+        .. ". Favour for " .. turns .. " turns.", res)
     EX.clear_demand()
     cm:callback(function() EX.after_holding_change(fname) end, 0.1,
                 "zharr_after_pay_" .. tostring(fname))
@@ -6691,6 +6743,8 @@ function EX.check_demand()
     cm:show_message_event(fname, m .. "_title", m .. "_primary", m .. "_secondary",
                           true, EX.feed("wrath"))
     EX.say("demand", "the tithe went unpaid - displeasure for " .. wturns .. " turns")
+    EX.log_add(EX.log_subject(EX.demand_res), "Tithe unpaid. " .. EX.patron() .. "'s wrath for "
+        .. wturns .. " turns.", EX.demand_res)
     EX.clear_demand()
 end
 
@@ -7147,7 +7201,7 @@ EX.HELP_PAGES = {
         { "Vaults 600",   "Hold 600 and it triples. A deep position is a strategy, not a tax." },
         -- ALSO FOLDED FROM TWO LINES, same reason and same one-string rule.
         { "Offerings",    "Burn 30 units for Hashut's favour, 5 turns - the quick way. Holding is the slow one." },  -- patron-literal: rewritten by EX.bind_race
-        { "Ownership",    "The third view: who makes each good and what their grip adds to it." },
+        { "Ownership",    "The second tab: who makes each good and what their grip adds to it." },
         { "Cartel premium", "One faction holding most of a good makes it cost more than scattered." },
         { "Wanted",       "The world wants more of these than it makes, so prices are climbing." },
         { "Unwanted",     "Nobody wants these. Prices are falling." },
@@ -7187,8 +7241,45 @@ EX.HELP_GUILD_LINE = 1
 EX.help_page = 1   -- VIEW STATE ONLY, never saved: the guide always opens on page 1. See
                     -- EX.help_lines() below and the reset in the help-button click handler.
 
+-- THE GUIDE'S NUMBERS, READ LIVE. Each of these lines quotes an MCT setting - or, for the
+-- offering, a price that rises with every offering made - and the literal above is only its
+-- default: a Hard campaign read "0.5g" of rent over a board charging more, and a Bourse player
+-- read "2%" over the dividend their own race profile sets. Keyed by the line's term, so
+-- moving a line cannot rewrite the wrong one. Every builder returns its literal word for word
+-- at the defaults - check_layout holds it to that - so the wording has one source to agree with.
+EX.HELP_LIVE = {
+    ["Rent"] = function()
+        return EX.num(EX.opt("carry_per_unit")) .. "g per unit per turn, whatever it's worth - "
+            .. "cheap bulk hurts, dense goods almost free."
+    end,
+    ["Offerings"] = function()
+        return "Burn " .. EX.offer_cost() .. " units for " .. EX.patron() .. "'s favour, "
+            .. EX.OFFER_TURNS .. " turns - the quick way. Holding is the slow one."
+    end,
+    ["Div"] = function()
+        return "Houses pay " .. EX.num(EX.opt("div_yield") * 100) .. "% of their price per "
+            .. "share, every turn - it just arrives, no altar needed."
+    end,
+    ["Delisted"] = function()
+        return "A house's capital falls: taken by you pays " .. EX.num(EX.opt("buyout_premium"))
+            .. "x, by anyone else " .. EX.num(EX.opt("windup")) .. "x."
+    end,
+    ["House Sell"] = function()
+        return "Sell still pays " .. EX.num(EX.opt("spread") * 100) .. "% under Buy here too - "
+            .. "Div shows the dividend, not the sell price."
+    end,
+}
+
 function EX.help_lines()
-    return EX.HELP_PAGES[EX.help_page] or EX.HELP_PAGES[1]
+    local page = EX.HELP_PAGES[EX.help_page] or EX.HELP_PAGES[1]
+    local out = {}
+    for i, l in ipairs(page) do
+        local f = EX.HELP_LIVE[l[1]]
+        local ok, s = false, nil
+        if f then ok, s = pcall(f) end
+        out[i] = (ok and type(s) == "string") and { l[1], s } or l
+    end
+    return out
 end
 
 -- The guide's own footer. Two static lines, measured by check_help_lines() like the rest.
@@ -8223,6 +8314,36 @@ function EX.buy_tip(res)
     return t
 end
 
+-- THE HELD CELL, PER ROW: how far this pile is up the stockpile ladder and what the next
+-- level costs to reach. The cell only colours green once a level is reached, so a player at
+-- 240 Iron had no way to see they were 60 short of doubling it. Level 2 is what an offering
+-- grants (OFFER_MULT is 2), which is the one level EX.boon's figure describes exactly.
+-- The rent clause follows EX.charge_carry's own switch, not EX.carry_cost's.
+function EX.hold_tip(res)
+    local t = EX.TIPS.trade.hdr_hold
+    if EX.is_layer2(res) or EX.is_house(res) then return t end
+    local held = EX.held(res)
+    local tier = EX.stock_tier(held)
+    local n = #EX.STOCK_TIERS
+    local body
+    if tier == 0 then
+        body = "No stockpile bonus yet: " .. (EX.STOCK_TIERS[1] - held) .. " more for level 1 of "
+            .. n .. "."
+    elseif tier < n then
+        body = "Stockpile bonus, level " .. tier .. " of " .. n .. ". "
+            .. (EX.STOCK_TIERS[tier + 1] - held) .. " more for level " .. (tier + 1) .. "."
+    else
+        body = "Stockpile bonus, level " .. n .. " of " .. n .. ": the most there is."
+    end
+    local boon = EX.boon(res)
+    if boon then body = body .. " Level 2 grants " .. boon .. "." end
+    local rent = EX.carry_cost(res)
+    if rent > 0 and EX.setting("warehouse_rent") then
+        body = body .. " Rent " .. rent .. "g a turn."
+    end
+    return t .. "||" .. body
+end
+
 function EX.sell_tip(res)
     local t = EX.TIPS.trade.hdr_sell
     local h = EX.hostility(res)
@@ -9007,9 +9128,103 @@ function EX.deals_line()
     return "No deals this turn."
 end
 
+-- THE PENDING TITHE, or nil: { res, amount, boon turns, wrath turns, turns left to pay }.
+-- "Turns left" counts this one - EX.check_demand lands the wrath at the START of turn
+-- EX.demand_due, so the last turn the tithe can be paid is the one before it, and 1 means now.
+function EX.tithe()
+    if not EX.demand_pending() then return nil end
+    local tier = EX.tier_by_suffix(EX.demand_tier)
+    if not tier then return nil end
+    local left = (EX.demand_due or 0) - cm:turn_number()
+    if left < 1 then left = 1 end
+    return { res = EX.demand_res, amount = tier[2], turns = tier[3], wrath = tier[4],
+             left = left }
+end
+
+-- ONE ROW OF THE OFFERINGS VIEW, every string and the button's state. Out of the draw for the
+-- reason EX.deal_cells is: nothing offline can run EX.refresh_panel.
+--
+-- A PENDING TITHE OWNS ITS ROW. EX.apply_offer routes a click on the named good to
+-- EX.pay_demand, at the tithe's amount and past the offering cooldown - so this row drawing the
+-- ordinary offering ("Ready" at 30 held, against a tithe of 90) promised one thing and did
+-- another, and the refusal went to the script log only.
+--
+-- THE BUTTON'S DISABLED STATE AND TOOLTIP ARE DECIDED HERE, EVERY TIME. The row is shared with
+-- the Trade view, which greys btn_buy on a refused buy - so an Offerings row that never wrote
+-- the state wore the Trade view's "Closed" through every war, and a disabled button sends no
+-- click.
+function EX.offer_cells(res)
+    local held = EX.held(res)
+    local name = EX.display(res)
+    local patron = EX.patron()
+    if EX.is_layer2(res) then
+        local no = patron .. " has no use for these"
+        return { held = tostring(held), cost = "-", grants = no, status = "-", btn = "-",
+                 why = no .. "." }
+    end
+    local boon = EX.boon(res) or "-"
+    local t = EX.tithe()
+    if t and t.res == res then
+        local c = { held = tostring(held), cost = tostring(t.amount), grants = boon }
+        if held >= t.amount then
+            c.status = "Due: " .. t.left .. (t.left == 1 and " turn" or " turns")
+            c.btn = "Pay tithe"
+            c.tip = "Pay the tithe: " .. t.amount .. " " .. name .. ".||" .. patron
+                .. "'s favour, " .. t.turns .. " turns: " .. boon .. "."
+        else
+            c.status = "Need " .. (t.amount - held)
+            c.btn = "Insufficient"
+            c.why = "The tithe is " .. t.amount .. " " .. name .. ". You hold " .. held .. ".||"
+                .. "Unpaid, " .. patron .. "'s wrath lasts " .. t.wrath .. " turns."
+        end
+        return c
+    end
+    local cost = EX.offer_cost()
+    local left = EX.offer_turns_left(res)
+    local c = { held = tostring(held), cost = tostring(cost), grants = boon }
+    if left > 0 then
+        c.status = left .. (left == 1 and " turn left" or " turns left")
+        c.btn = "Active"
+        c.why = "This offering's favour is still running."
+    elseif held >= cost then
+        c.status = "Ready"
+        c.btn = "Sacrifice"
+        c.tip = "Burn " .. cost .. " " .. name .. " on the altar.||" .. patron .. "'s favour, "
+            .. EX.OFFER_TURNS .. " turns: " .. boon .. "."
+    else
+        c.status = "Need " .. (cost - held)
+        c.btn = "Insufficient"
+        c.why = "An offering takes " .. cost .. " " .. name .. ". You hold " .. held .. "."
+    end
+    return c
+end
+
+-- THE SELL BUTTON, on a Trade or Houses row. Greyed below one lot, which is the one sell
+-- EX.apply_trade refuses ("nothold") - it used to stay live and the click did nothing.
+function EX.draw_sell(bs, res)
+    if not is_uicomponent(bs) then return end
+    local short = EX.held(res) < EX.lot(res)
+    bs:SetDisabled(short)
+    set_tip(bs, short and EX.TIP_SELL_NONE or EX.TIP_SELL)
+end
+
+function EX.draw_offer_row(row, res)
+    if not is_uicomponent(row) then return end
+    local c = EX.offer_cells(res)
+    set_text(row, "row_supply", c.held)
+    set_text(row, "row_price", c.cost)
+    set_text(row, "row_trend", c.grants)
+    set_text(row, "row_hold", c.status)
+    set_text(row, "btn_buy", c.btn)
+    local bb = find_uicomponent(row, "btn_buy")
+    if is_uicomponent(bb) then bb:SetDisabled(c.why ~= nil) end
+    set_tip(bb, c.why or c.tip)
+end
+
 function EX.refresh_panel()
     local panel = EX.panel()
     if not is_uicomponent(panel) then return end
+    EX.refresh_button_tip()
     local faction = cm:get_faction(EX.me())
     local stats = (EX.mode == EX.MODE_STATS)
     local offer = (EX.mode == EX.MODE_OFFER)
@@ -9183,11 +9398,12 @@ function EX.refresh_panel()
 
     if EX.mode == EX.MODE_HELP then
         local i = 0
+        local lines = EX.help_lines()
         for _, res in ipairs(EX.mode_instruments()) do
             local row = EX.row(rows_holder, res)
             i = i + 1
             if is_uicomponent(row) then
-                local line = EX.help_lines()[i]
+                local line = lines[i]
                 -- A SPARE ROW IS HIDDEN, NOT BLANKED. EX.layout hides CELLS; the row itself
                 -- still draws its divider, so a blanked row leaves a ruled empty band under
                 -- the last line of the guide.
@@ -9234,31 +9450,10 @@ function EX.refresh_panel()
             -- Layer 2 has no map supply signal at all, so it shows a dash, not a false zero.
             local sup = (EX.supply or {})[res]
             if offer then
-                -- The offerings view reuses every cell for a different number, so nothing here
-                -- shares the trade view's meaning: row_supply is what you HOLD, row_price is
-                -- what the altar takes, row_trend is what Hashut gives back.
-                local held = EX.held(res)
-                set_text(row, "row_supply", tostring(held))
-                set_text(row, "row_name", EX.display(res))
-                if EX.is_layer2(res) then
-                    -- Armaments and Raw Materials feed the Hell-Forge, not the altar.
-                    set_text(row, "row_price", "-")
-                    set_text(row, "row_trend", EX.patron() .. " has no use for these")
-                    set_text(row, "row_hold", "-")
-                    set_text(row, "btn_buy", "-")
-                else
-                    local left = EX.offer_turns_left(res)
-                    set_text(row, "row_price", tostring(EX.offer_cost()))
-                    set_text(row, "row_trend", EX.boon(res) or "-")
-                    if left > 0 then
-                        set_text(row, "row_hold", left .. " turns left")
-                    elseif held >= EX.offer_cost() then
-                        set_text(row, "row_hold", "Ready")
-                    else
-                        set_text(row, "row_hold", "Need " .. (EX.offer_cost() - held))
-                    end
-                    set_text(row, "btn_buy", EX.can_offer(res) and "Sacrifice" or "Insufficient")
-                end
+                -- The offerings view reuses every cell for a different number: row_supply is
+                -- what you HOLD, row_price is what the altar takes, row_trend is what the patron
+                -- gives back. EX.offer_cells decides all of it, the tithe and the button too.
+                EX.draw_offer_row(row, res)
             elseif stats then
                 set_text(row, "row_supply", sup and tostring(sup) or "-")
                 local holder, held = EX.top_holder(res)
@@ -9348,8 +9543,8 @@ function EX.refresh_panel()
                     set_text(row, "btn_sell", "Sell " .. lot)
                     if is_uicomponent(bb) then bb:SetDisabled(why ~= nil) end
                     set_tip(bb, why or EX.TIP_BUY)
-                    -- SELLING STAYS OPEN, on paper as on commodities.
-                    if is_uicomponent(bs) then bs:SetDisabled(false) end
+                    -- SELLING STAYS OPEN, on paper as on commodities - to anyone holding a lot.
+                    EX.draw_sell(bs, res)
                 end
                 set_text(row, "row_trend", EX.trend_arrow(res))
             elseif orders then
@@ -9383,6 +9578,8 @@ function EX.refresh_panel()
                     -- "Buy 5" showing the instant the mouse arrived, from whichever state this
                     -- physical row was last drawn as a commodity or a house.
                     set_text(row, "btn_buy", "Cancel")
+                    -- ITS OWN TOOLTIP. Unwritten, it kept the row file's static "Buy a lot".
+                    set_tip(find_uicomponent(row, "btn_buy"), EX.TIP_CANCEL)
                 end
             else
                 set_text(row, "row_supply", sup and tostring(sup) or "-")
@@ -9415,6 +9612,7 @@ function EX.refresh_panel()
                 -- hostility markup is reflected without waiting for a mode switch.
                 set_tip(find_uicomponent(row, "row_price"), EX.buy_tip(res))
                 set_tip(find_uicomponent(row, "row_sell"), EX.sell_tip(res))
+                set_tip(find_uicomponent(row, "row_hold"), EX.hold_tip(res))
                 set_text(row, "row_trend", EX.trend_arrow(res))
                 -- HOLDING AND ITS RENT IN ONE CELL, because they are one decision. Green means
                 -- the pile is big enough to be granting a standing bonus - the bundle itself
@@ -9440,12 +9638,13 @@ function EX.refresh_panel()
                 -- WRITTEN BOTH WAYS ON EVERY REFRESH. A refusal lifts when the standing mends,
                 -- when a treaty is signed or when the house's book sells down on its own, and
                 -- a button still carrying last turn's reason is the same lie facing the other
-                -- way. SELL IS NEVER GATED: refusal and the war lock are buy-side only.
+                -- way. SELL IS NEVER REFUSED: refusal and the war lock are buy-side only, and
+                -- the one thing that greys Sell is holding less than a lot to sell.
                 if is_uicomponent(bb) then
                     bb:SetDisabled(why ~= nil)
                     set_tip(bb, why or EX.TIP_BUY)
                 end
-                if is_uicomponent(bs) then bs:SetDisabled(false) end
+                EX.draw_sell(bs, res)
             end
             if not offer then EX.draw_spark(row, res) end
         end
@@ -10219,17 +10418,64 @@ function EX.bulk_trade(arg, is_buy)
         n = EX.clamp_lots(string.sub(arg, cut + 1))
     end
     local done, last = 0, nil
-    for _ = 1, n do
-        last = EX.apply_trade(res, is_buy)
-        if last ~= true then break end
-        done = done + 1
-    end
+    -- ONE LOG LINE FOR A MULTI-LOT CLICK: EX.apply_trade totals into EX.bulk instead of logging
+    -- each lot. Cleared on every exit, an error included, or every later trade would go silent.
+    EX.bulk = (n > 1) and { gold = 0, units = 0 } or nil
+    local ok, err = pcall(function()
+        for _ = 1, n do
+            last = EX.apply_trade(res, is_buy)
+            if last ~= true then break end
+            done = done + 1
+        end
+    end)
+    local b = EX.bulk
+    EX.bulk = nil
+    if not ok then error(err, 0) end
     if n > 1 then
         EX.say("trade", (is_buy and "bulk buy " or "bulk sell ") .. done .. "/" .. n
             .. " lots of " .. tostring(res)
             .. ((last ~= true) and (" - stopped: " .. tostring(last)) or ""))
     end
+    EX.log_bulk(res, is_buy, n, done, last, b)
     return done
+end
+
+-- The guild's markup on the lot just traded, as a sentence to append to its Log line, or "".
+-- Same realised figure the cell and the tooltip use; see EX.sell_tip.
+function EX.markup_note(res, is_buy)
+    local h = EX.hostility(res)
+    if h == 0 then return "" end
+    local cp = EX.hostility_source(res)
+    return "  " .. (cp and EX.faction_display(cp) or "The guild")
+        .. (h > 0 and " dislikes you: " or " likes you: ")
+        .. EX.markup_pct(res, is_buy) .. "% "
+        .. ((h > 0) == is_buy and "more" or "less") .. "."
+end
+
+-- WHY A CLICK STOPPED, for the two refusals EX.apply_trade does not log itself. Both reached
+-- the script log only, so a Buy with too little gold or a Sell with too little held did
+-- nothing on screen at all.
+EX.TRADE_STOP = {
+    afford  = "Not enough gold.",
+    nothold = "You hold less than one lot.",
+}
+
+-- The Log's account of one click: the whole of a multi-lot one in a single line, and a refusal
+-- that stopped it if EX.apply_trade left that unsaid.
+function EX.log_bulk(res, is_buy, n, done, last, b)
+    local stop = (last ~= true) and EX.TRADE_STOP[last] or nil
+    pcall(function()
+        local nm = EX.log_subject(res)
+        if b and done > 0 then
+            local line = (is_buy and "Bought " or "Sold ") .. b.units .. " for " .. b.gold .. "g"
+                .. ((done < n) and (", " .. done .. " of " .. n .. " lots.")
+                                or (" in " .. n .. " lots."))
+            if stop then line = line .. " " .. stop end
+            EX.log_add(nm, line .. EX.markup_note(res, is_buy), res)
+        elseif done == 0 and stop then
+            EX.log_add(nm, (is_buy and "Buy refused. " or "Sell refused. ") .. stop, res)
+        end
+    end)
 end
 
 EX.MP_OPS.buy  = function(arg) EX.bulk_trade(arg, true) end
@@ -10411,24 +10657,20 @@ function EX.apply_trade_held(res, is_buy, unit_px, only)
                      .. (moved ~= price and (" (only " .. moved .. ")") or "")) or ""))
     -- AND THE FILL, with the markup spelled out. A hostile guild changes the price silently;
     -- the log is the only place a player can go back and see that it did.
-    pcall(function()
-        local nm = EX.log_subject(res)
-        local h = EX.hostility(res)
-        local extra = ""
-        -- NOT ON AN AGREED PRICE. The markup sentence explains a number the guild changed; on a
-        -- deal the guild changed nothing, and printing it would tell the player their 940 was
-        -- really something else.
-        if h ~= 0 and not unit_px then
-            local cp = EX.hostility_source(res)
-            -- Same realised figure the cell and the tooltip use; see EX.sell_tip.
-            extra = "  " .. (cp and EX.faction_display(cp) or "The guild")
-                    .. (h > 0 and " dislikes you: " or " likes you: ")
-                    .. EX.markup_pct(res, is_buy) .. "% "
-                    .. ((h > 0) == is_buy and "more" or "less") .. "."
-        end
-        EX.log_add(nm, (is_buy and "Bought " or "Sold ") .. lot .. " for " .. price .. "g."
-            .. extra, res)
-    end)
+    -- INSIDE A BULK CLICK, TOTALLED INSTEAD: EX.bulk_trade writes one line for the whole click,
+    -- because twenty-five of these pushed a fifth of the 120-line log out in one go.
+    if EX.bulk then
+        EX.bulk.gold = EX.bulk.gold + price
+        EX.bulk.units = EX.bulk.units + lot
+    else
+        pcall(function()
+            -- NOT ON AN AGREED PRICE. The markup sentence explains a number the guild changed;
+            -- on a deal the guild changed nothing, and printing it would tell the player their
+            -- 940 was really something else.
+            EX.log_add(EX.log_subject(res), (is_buy and "Bought " or "Sold ") .. lot .. " for "
+                .. price .. "g." .. (unit_px and "" or EX.markup_note(res, is_buy)), res)
+        end)
+    end
     local p = (EX.pressure[res] or 0) + (is_buy and 1 or -1)
     if p > EX.PRESSURE_MAX then p = EX.PRESSURE_MAX end
     if p < -EX.PRESSURE_MAX then p = -EX.PRESSURE_MAX end

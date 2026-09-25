@@ -41,7 +41,10 @@ local function comp(name, parent)
         c.states[c.cur] = t
         c.text = c.states.standard or ""
     end
-    c.SetTooltipText = function() end
+    -- RECORDED, not swallowed: the Offerings scene below asks which tooltip a button was left
+    -- wearing, and a button whose tooltip is never written keeps the Trade view's.
+    c.tip = nil
+    c.SetTooltipText = function(_, t) c.tip = t end
     c.SetInteractive = function() end
     -- RECORDED, not swallowed, and for the fourth time in this file the same lesson: a stub
     -- that swallows the behaviour under test turns a real check green. A greyed button is the
@@ -660,6 +663,133 @@ print("deal_draw name=" .. cell(DR1, "row_name")
     -- PAST THE END: hidden, and its stale text is irrelevant because nothing draws it.
     .. " pastend=" .. tostring(DR3.vis) .. "/" .. cell(DR3, "row_name"))
 EX.mode = EX.MODE_TRADE
+
+-- ONE ROW OF THE OFFERINGS VIEW, DRAWN FOR REAL --------------------------------------------
+-- Two faults, both on the row the Trade view shares. The Sacrifice button's disabled flag and
+-- tooltip were never written on this view, so it wore whatever the Trade view left - a war
+-- lock greys every Buy, and with it every Sacrifice. And a pending tithe drew as the ordinary
+-- offering: "Ready" at 30 held, against a tithe of 90 the click would then try to take.
+-- Every row STARTS greyed and carrying the Trade view's tooltip, which is the state a war lock
+-- leaves behind; spaces become _ so the values survive the harness's key=value parse.
+EX.mode = EX.MODE_OFFER
+local HOLD = { res_rom_iron = 50, res_gems = 200, res_spices = 5 }
+local real_held = EX.held
+EX.held = function(r) return HOLD[r] or 0 end
+EX.offer_until, EX.offerings_made = {}, 0
+EX.demand_res, EX.demand_tier, EX.demand_due = "res_rom_iron", "hunger", 12
+local function offer_row(tag, res)
+    local r = comp(tag, HOLDER)
+    for _, cn in ipairs({ "row_supply", "row_name", "row_price", "row_trend", "row_hold",
+                          "btn_buy" }) do
+        comp(cn, r)
+    end
+    local b = find_uicomponent(r, "btn_buy")
+    b:SetDisabled(true)
+    b:SetTooltipText("The Exchange is shut.")
+    EX.draw_offer_row(r, res)
+    local function u(s) return (string.gsub(tostring(s), " ", "_")) end
+    print(tag .. " cost=" .. u(cell(r, "row_price")) .. " status=" .. u(cell(r, "row_hold"))
+        .. " btn=" .. u(b.states.standard) .. "/" .. u(b.states.hover)
+        .. " off=" .. tostring(b.disabled) .. " tip=" .. u(string.sub(b.tip or "", 1, 14)))
+end
+offer_row("offer_tithe_short", "res_rom_iron")     -- tithe of 90, 50 held
+HOLD.res_rom_iron = 120
+offer_row("offer_tithe_pay", "res_rom_iron")       -- tithe of 90, 120 held, turn 10 of 12
+offer_row("offer_ready", "res_gems")               -- no tithe on gems: the ordinary offering
+offer_row("offer_short", "res_spices")
+EX.offer_until = { res_gems = 13 }
+offer_row("offer_active", "res_gems")
+local _, tf2 = EX.offer_footer()
+print("offer_footer tithe=" .. tostring(string.find(tf2, "demands 90") ~= nil))
+EX.demand_res, EX.demand_tier, EX.demand_due = nil, nil, 0
+local _, nf2 = EX.offer_footer()
+print("offer_footer_none tithe=" .. tostring(string.find(nf2, "demands") ~= nil))
+EX.held, EX.offer_until = real_held, {}
+EX.mode = EX.MODE_TRADE
+
+-- THE SELL BUTTON: greyed below one lot, and for nothing else. The war lock is ON for this
+-- scene - it refuses buys, and a Sell that listened to it would trap the player's goods.
+local real_refusal_s = EX.buy_refusal
+EX.buy_refusal = function() return "the market is shut", "Closed" end
+local SROW = comp("sell_row", HOLDER)
+local SBTN = comp("btn_sell", SROW)
+SBTN:SetDisabled(true)
+EX.held = function() return 20 end
+EX.draw_sell(SBTN, "res_rom_iron")
+local sell_open = tostring(SBTN.disabled) .. "/" .. tostring(SBTN.tip == EX.TIP_SELL)
+EX.held = function() return 4 end
+EX.draw_sell(SBTN, "res_rom_iron")
+local sell_short = tostring(SBTN.disabled) .. "/" .. tostring(SBTN.tip == EX.TIP_SELL_NONE)
+EX.held, EX.buy_refusal = real_held, real_refusal_s
+print("sell_draw open=" .. sell_open .. " short=" .. sell_short)
+
+-- THE GUIDE'S LIVE LINES. At the defaults every rebuilt line must equal its literal word for
+-- word - the literal is what check_help_lines measures and what bind_race rewrites, so a
+-- builder that drifts from it is a second wording nobody reads. Then one setting moved and one
+-- offering made, and those two lines must follow; a builder that ignores its setting passes
+-- the first half.
+EX.help_page = 1
+local real_patron = EX.patron
+EX.patron = function() return "Hashut" end
+EX.offerings_made = 0
+local live, lit, same, n_live = EX.help_lines(), EX.HELP_PAGES[1], 0, 0
+for i, l in ipairs(lit) do
+    if EX.HELP_LIVE[l[1]] then
+        n_live = n_live + 1
+        if live[i][2] == l[2] then same = same + 1 end
+    end
+end
+local real_opt = EX.opt
+EX.opt = function(k) if k == "carry_per_unit" then return 1.5 end return real_opt(k) end
+EX.offerings_made = 3
+local moved = EX.help_lines()
+local rent_moved, offer_moved = "?", "?"
+for i, l in ipairs(lit) do
+    if l[1] == "Rent" then rent_moved = string.sub(moved[i][2], 1, 4) end
+    if l[1] == "Offerings" then offer_moved = string.sub(moved[i][2], 1, 8) end
+end
+EX.opt, EX.patron, EX.offerings_made = real_opt, real_patron, 0
+print("help_live n=" .. n_live .. " same=" .. same .. " rent=" .. rent_moved
+    .. " offer=" .. string.gsub(offer_moved, " ", "_"))
+
+-- THE HELD CELL'S TOOLTIP: below the first level, part way up, and at the top - and the rent
+-- clause gone with warehouse rent switched off, since EX.charge_carry charges nothing then.
+local HELD_N = 40
+EX.held = function() return HELD_N end
+local function hold_body() return (string.gsub(EX.hold_tip("res_rom_iron"), "^.-||", "")) end
+local h_low = hold_body()
+HELD_N = 340
+local h_mid = hold_body()
+HELD_N = 600
+local h_top = hold_body()
+local real_setting = EX.setting
+EX.setting = function(k) if k == "warehouse_rent" then return false end return real_setting(k) end
+HELD_N = 40
+local h_norent = hold_body()
+EX.setting, EX.held = real_setting, real_held
+local function has(s, p) return tostring(string.find(s, p, 1) ~= nil) end
+print("hold_tip low=" .. has(h_low, "^No stockpile bonus yet: 60 more for level 1 of 3%%.")
+    .. " mid=" .. has(h_mid, "level 2 of 3%%. 260 more for level 3%%.")
+    .. " top=" .. has(h_top, "level 3 of 3: the most there is%%.")
+    .. " boon=" .. has(h_low, "Level 2 grants %%+4 armour")
+    .. " rent=" .. has(h_low, "Rent 20g a turn%%.$")
+    .. " norent=" .. has(h_norent, "Rent"))
+
+-- THE OPENER'S NEWS. Two deals and a tithe on the board, then neither: the tooltip must name
+-- both while they wait, and fall back to exactly its plain text when nothing does.
+local OPENER = ROOT.kids[EX.BUTTON]
+EX.deals = { { fac = "a", res = "res_gems", side = "sell", lots = 1, px = 900, turn = 10 },
+             { fac = "b", res = "res_gems", side = "buy", lots = 1, px = 900, turn = 10 } }
+EX.demand_res, EX.demand_tier, EX.demand_due = "res_rom_iron", "hunger", 12
+EX.refresh_button_tip()
+local busy = OPENER.tip or ""
+EX.deals = {}
+EX.demand_res, EX.demand_tier, EX.demand_due = nil, nil, 0
+EX.refresh_button_tip()
+local quiet = OPENER.tip or ""
+print("button_news deals=" .. has(busy, "2 deals are waiting on the Deals tab")
+    .. " tithe=" .. has(busy, "demands 90 .- within 2 turns%%.$")
+    .. " quiet=" .. tostring(quiet == EX.the_name() .. "||" .. EX.TIP_OPEN_BODY))
 
 -- THE PANEL GROWS WITH THE SCREEN (2026-09-24, spec
 -- docs/superpowers/specs/2026-09-24-exchange-ui-scale-design.md). Everything above runs at
