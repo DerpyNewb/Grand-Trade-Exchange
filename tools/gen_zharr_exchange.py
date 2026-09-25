@@ -4147,10 +4147,19 @@ def check_layout():
         "the Held tooltip got low/mid/top/boon/rent/norent = %s. It has to say how far the "
         "pile is from its next level, what level 2 grants, and the rent only while rent is "
         "charged." % "/".join(ht[k] for k in ("low", "mid", "top", "boon", "rent", "norent")))
-    assert (have["sell_draw_open"], have["sell_draw_short"]) == ("false/true", "true/true"), (
-        "with the war lock on, EX.draw_sell drew open=%s short=%s (disabled/right tooltip), "
-        "want false/true and true/true. Selling is never refused; the one thing that greys "
+    assert (have["sell_draw_open"], have["sell_draw_short"]) == (
+            "false/true/normal_t0", "true/true/set_greyscale_t0"), (
+        "with the war lock on, EX.draw_sell drew open=%s short=%s (disabled/right tooltip/"
+        "shader). Selling is never refused; the one thing that greys "
         "it is holding less than a lot." % (have["sell_draw_open"], have["sell_draw_short"]))
+    # GREYED MEANS DRAWN GREY. Over every component every scene above disabled or enabled:
+    # disabled wears the greyscale, enabled does not, and at least one of each was seen - an
+    # audit over nothing would pass too.
+    sa = have["shade_audit"]
+    assert int(sa["greyed"]) > 0 and int(sa["live"]) > 0 and sa["mismatch"] == "0", (
+        "%s disabled component(s) without the greyscale, or an enabled one wearing it "
+        "(greyed=%s live=%s). SetDisabled alone draws nothing: see EX.set_off."
+        % (sa["mismatch"], sa["greyed"], sa["live"]))
     # THE OPENER'S NEWS: both clocks named while they run, and the plain tooltip otherwise.
     bn = have["button_news"]
     assert (bn["deals"], bn["tithe"], bn["quiet"]) == ("true", "true", "true"), (
@@ -11706,7 +11715,7 @@ def check_ai_turn_gate():
     assert "SetVisible" not in gate.group(0), (
         "EX.gate_button hides the button instead of disabling it. It would vanish and come "
         "back every turn, and the resource strip would shuffle around the hole.")
-    assert "SetDisabled(not on)" in gate.group(0), (
+    assert "EX.set_off(b, not on)" in gate.group(0), (
         "EX.gate_button no longer greys the button from its own argument.")
 
     click = re.search(r"if s == EX\.BUTTON then(.*?)" + NL + r"\s+end", code, re.S)
@@ -15987,7 +15996,7 @@ def check_lua_books():
         "the HOUSES row never asks EX.buy_refusal, so its Buy button stays enabled and reading "
         "'Buy 5' while the war lock makes EX.trade refuse it - seven live-looking dead controls, "
         "the exact fault the delisted branch above it condemns in its own comment.")
-    assert "bb:SetDisabled(why ~= nil)" in hr, (
+    assert "EX.set_off(bb, why ~= nil)" in hr, (
         "the houses row does not disable its Buy button from EX.buy_refusal")
     # SELLING IS NEVER REFUSED - the design's safety valve, on paper as on commodities. Both
     # rows draw Sell through EX.draw_sell, which greys it only below one lot held (the one sell
@@ -16005,7 +16014,15 @@ def check_lua_books():
             "EX.draw_sell reads %s. Selling always stays open to anyone holding a lot - the "
             "war lock and a house's refusal are buy-side only." % gate)
     comm = rp[rp.rindex("local why, why_label = EX.buy_refusal(res)"):]
-    assert "bb:SetDisabled(why ~= nil)" in comm, (
+    # ONE SetDisabled IN THE FILE, INSIDE EX.set_off. SetDisabled alone stops the click and
+    # draws nothing - every greyed button in this mod looked live until 2026-09-25 - so a call
+    # that bypasses set_off is a control that is dead and looks alive.
+    raw = [ln for ln in code.split(NL) if ":SetDisabled(" in ln and not ln.lstrip().startswith("--")]
+    so = re.search(r"function EX\.set_off\(.*?" + NL + "end", code, re.S)
+    assert so and len(raw) == 1 and raw[0] in so.group(0), (
+        "SetDisabled is called outside EX.set_off (%d call(s)). A disabled button with no "
+        "greyscale draws exactly like a live one." % len(raw))
+    assert "EX.set_off(bb, why ~= nil)" in comm, (
         "the commodities row does not disable its Buy button from EX.buy_refusal. It used to "
         "call SetDisabled(false) unconditionally, so a refused instrument drew a live-looking "
         "'Buy 10' at a normal price and did nothing at all when pressed but write an out() "
@@ -19684,7 +19701,7 @@ def check_nav_cycle():
                 "panel layout table %d places no %s. EX.layout only positions what its table "
                 "names, so that tab keeps its placeholder offset on this view alone" % (i, tab))
 
-    assert re.search(r"tab:SetDisabled\(here or locked ~= nil\)", code), (
+    assert re.search(r"EX\.set_off\(tab, here or locked ~= nil\)", code), (
         "the tab strip no longer greys BOTH the current view and a view this race cannot "
         "reach. `here` alone loses the gate; `locked` alone stops the strip saying where you "
         "are, and leaves the one button guaranteed to do nothing live.")
@@ -19692,7 +19709,7 @@ def check_nav_cycle():
         "a locked tab does not get its reason as a tooltip - the file's own standard is "
         "disabled AND explained, and it is the only thing distinguishing a gated control "
         "from a broken one")
-    assert re.search(r"a:SetDisabled\(pages < 2\)", code), (
+    assert re.search(r"EX\.set_off\(a, pages < 2\)", code), (
         "the arrows stay live on a one-page view. A control that does nothing when clicked is "
         "what EX.gate_button and the refused Buy button both exist not to be")
     # ===================================================================================
@@ -20342,7 +20359,7 @@ def check_house_row_display():
         assert body.count('"Delisted"') >= 2, (
             "the %s view's delisted branch does not set both buttons to \"Delisted\" - "
             "found %d, expected 2 (btn_buy and btn_sell)" % (name, body.count('"Delisted"')))
-        assert body.count("SetDisabled(true)") >= 2, (
+        assert "EX.set_off(bb, true)" in body and "EX.set_off(bs, true)" in body, (
             "the %s view's delisted branch does not disable both buttons - a live-looking "
             "control that silently refuses is the exact fault this fixes" % name)
         assert "set_tip(bb," in body and "set_tip(bs," in body, (

@@ -52,6 +52,12 @@ local function comp(name, parent)
     -- no-op a mutant that never disabled anything survived a full round (2026-09-16).
     c.disabled = false
     c.SetDisabled = function(_, v) c.disabled = v and true or false end
+    -- AND THE SHADER, because SetDisabled on its own draws nothing: every "greyed" button in
+    -- the mod looked live in game until EX.set_off added the greyscale (2026-09-25). A stub
+    -- without these two would pcall-swallow the shader and pass a button that looks alive.
+    c.shader = nil
+    c.ShaderTechniqueSet = function(_, sh, all) c.shader, c.shader_all = sh, all end
+    c.ShaderVarsSet = function(_, a, b) c.svars = { a, b } end
     -- RECORDED, not swallowed. "the icon cell is visible" is not "the icon was
     -- painted": EX.layout SHOWS every cell its table names, so a draw_chart that never
     -- touched the icon still leaves a visible - and blank, or worse, still carrying the
@@ -717,9 +723,11 @@ SBTN:SetDisabled(true)
 EX.held = function() return 20 end
 EX.draw_sell(SBTN, "res_rom_iron")
 local sell_open = tostring(SBTN.disabled) .. "/" .. tostring(SBTN.tip == EX.TIP_SELL)
+    .. "/" .. tostring(SBTN.shader)
 EX.held = function() return 4 end
 EX.draw_sell(SBTN, "res_rom_iron")
 local sell_short = tostring(SBTN.disabled) .. "/" .. tostring(SBTN.tip == EX.TIP_SELL_NONE)
+    .. "/" .. tostring(SBTN.shader)
 EX.held, EX.buy_refusal = real_held, real_refusal_s
 print("sell_draw open=" .. sell_open .. " short=" .. sell_short)
 
@@ -842,3 +850,19 @@ EX.house_page = 1
 EX.layout()
 report("near_again", " pw=" .. tostring(PANEL.w) .. " ph=" .. tostring(PANEL.h))
 EX.mode = EX.MODE_TRADE
+
+-- GREYED MEANS DRAWN GREY, over every component any scene above touched. A component the
+-- script disabled must wear the greyscale and one it enabled must not; a scene that only
+-- preset a flag by hand and never redrew it has no shader at all and is not counted.
+local greyed, live, mismatch = 0, 0, 0
+for _, c in ipairs(ALL) do
+    if c.shader ~= nil then
+        local grey = (c.shader == "set_greyscale_t0")
+        -- ALL STATES, or hovering the button brings the colour back; and a greyscale amount,
+        -- or the technique is set and draws at its default.
+        local whole = (not grey) or (c.shader_all == true and c.svars and (c.svars[1] or 0) > 0)
+        if c.disabled ~= grey or not whole then mismatch = mismatch + 1
+        elseif grey then greyed = greyed + 1 else live = live + 1 end
+    end
+end
+print("shade_audit greyed=" .. greyed .. " live=" .. live .. " mismatch=" .. mismatch)

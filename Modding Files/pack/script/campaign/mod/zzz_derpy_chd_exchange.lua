@@ -8376,6 +8376,24 @@ local function set_tip(c, text)
     c:SetInteractive(text ~= "")
 end
 
+-- GREYED, AND SEEN TO BE. SetDisabled only stops the click - CA: "Disabled uicomponents do not
+-- respond to mouse clicks but still respond to the mouse cursor" - and the look comes from the
+-- component's states, and none of ours has an inactive one. So every disabled button in this
+-- file drew exactly like a live one: "No offer", the current tab, a Sell with nothing held
+-- (screenshot, 2026-09-25). CA's documented set_greyscale_t0 ("Greyscale & Alpha": greyscale
+-- 0 to 1, alpha 0 to 1), on ALL states and the text, so hovering does not bring the colour
+-- back. EVERY SetDisabled in this file goes through here; check_lua_books fails on any other.
+-- pcall: a shader the engine refuses must not take the refresh down with it.
+function EX.set_off(c, off)
+    if not is_uicomponent(c) then return end
+    off = off and true or false
+    c:SetDisabled(off)
+    pcall(function()
+        c:ShaderTechniqueSet(off and "set_greyscale_t0" or "normal_t0", true, true)
+        if off then c:ShaderVarsSet(1, 0.6, 0, 0, true, true) end
+    end)
+end
+
 -- Called from EX.layout, which runs on panel build and on every mode switch. NOT from
 -- refresh_panel: a tooltip describes the column, not the number in it, so nothing a trade
 -- changes can make one stale.
@@ -9106,7 +9124,7 @@ function EX.draw_deal_row(row, i)
     -- one player already pointing at it.
     set_text(row, "btn_buy", c.take)
     local bb = find_uicomponent(row, "btn_buy")
-    if is_uicomponent(bb) then bb:SetDisabled(c.why ~= nil) end
+    EX.set_off(bb, c.why ~= nil)
     set_tip(bb, c.why or EX.TIP_DEAL)
 end
 
@@ -9204,7 +9222,7 @@ end
 function EX.draw_sell(bs, res)
     if not is_uicomponent(bs) then return end
     local short = EX.held(res) < EX.lot(res)
-    bs:SetDisabled(short)
+    EX.set_off(bs, short)
     set_tip(bs, short and EX.TIP_SELL_NONE or EX.TIP_SELL)
 end
 
@@ -9217,7 +9235,7 @@ function EX.draw_offer_row(row, res)
     set_text(row, "row_hold", c.status)
     set_text(row, "btn_buy", c.btn)
     local bb = find_uicomponent(row, "btn_buy")
-    if is_uicomponent(bb) then bb:SetDisabled(c.why ~= nil) end
+    EX.set_off(bb, c.why ~= nil)
     set_tip(bb, c.why or c.tip)
 end
 
@@ -9290,7 +9308,7 @@ function EX.refresh_panel()
             set_text(panel, EX.tab_name(m), EX.TAB_LABEL[m] or m)
             local here = (m == EX.mode)
             local locked = EX.tab_locked(m)
-            tab:SetDisabled(here or locked ~= nil)
+            EX.set_off(tab, here or locked ~= nil)
             set_tip(tab, locked
                     or (here and "You are looking at this view.")
                     or ("Switch to " .. (EX.TAB_LABEL[m] or m) .. "."))
@@ -9304,7 +9322,7 @@ function EX.refresh_panel()
     for _, nm in ipairs({ EX.MODE_PREV, EX.MODE_BTN }) do
         local a = find_uicomponent(panel, nm)
         if is_uicomponent(a) then
-            a:SetDisabled(pages < 2)
+            EX.set_off(a, pages < 2)
             set_tip(a, pages < 2 and "This view has a single page."
                     or "Page through this view. The tabs below change view.")
         end
@@ -9506,8 +9524,8 @@ function EX.refresh_panel()
                     set_text(row, "row_trend", "-")
                     set_text(row, "btn_buy", "Delisted")
                     set_text(row, "btn_sell", "Delisted")
-                    if is_uicomponent(bb) then bb:SetDisabled(true) end
-                    if is_uicomponent(bs) then bs:SetDisabled(true) end
+                    EX.set_off(bb, true)
+                    EX.set_off(bs, true)
                     set_tip(bb, "This house is gone. Its book settled once and the row is frozen.")
                     set_tip(bs, "This house is gone. Its book settled once and the row is frozen.")
                 else
@@ -9541,7 +9559,7 @@ function EX.refresh_panel()
                     local why, why_label = EX.buy_refusal(res)
                     set_text(row, "btn_buy", why_label or ("Buy " .. lot))
                     set_text(row, "btn_sell", "Sell " .. lot)
-                    if is_uicomponent(bb) then bb:SetDisabled(why ~= nil) end
+                    EX.set_off(bb, why ~= nil)
                     set_tip(bb, why or EX.TIP_BUY)
                     -- SELLING STAYS OPEN, on paper as on commodities - to anyone holding a lot.
                     EX.draw_sell(bs, res)
@@ -9641,7 +9659,7 @@ function EX.refresh_panel()
                 -- way. SELL IS NEVER REFUSED: refusal and the war lock are buy-side only, and
                 -- the one thing that greys Sell is holding less than a lot to sell.
                 if is_uicomponent(bb) then
-                    bb:SetDisabled(why ~= nil)
+                    EX.set_off(bb, why ~= nil)
                     set_tip(bb, why or EX.TIP_BUY)
                 end
                 EX.draw_sell(bs, res)
@@ -10055,7 +10073,7 @@ end
 -- this is the affordance, not the guard, and the two are deliberately independent.
 function EX.gate_button(on)
     local b = find_uicomponent(core:get_ui_root(), EX.BUTTON)
-    if is_uicomponent(b) then b:SetDisabled(not on) end
+    EX.set_off(b, not on)
 end
 
 function EX.show(visible)

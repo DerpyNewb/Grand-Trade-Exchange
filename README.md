@@ -34,9 +34,9 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 25,245 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 14,011 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 4,430 |
+| Python generators (`tools/`) | 25,262 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 14,029 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 4,454 |
 | UI layouts (`.twui.xml`) | 5,249 |
 | Generated DB + localisation (TSV) | 2,425 rows |
 | Documentation | 144 KB |
@@ -82,7 +82,7 @@ py tools/gen_exchange_ui.py --selftest
 
 It asserts, among ~60 other things:
 
-- every one of the 673 `EX.*` names the script defines is read somewhere - no orphans
+- every one of the 674 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
 - every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters
