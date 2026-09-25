@@ -2194,7 +2194,7 @@ def build():
         # vanilla rows use) would eat every sale without a word.
         factors.append({"unique_id": factor_junction(res), "factor": "other", "resource": hold,
                         "minimum": -2147483647, "maximum": 2147483647,
-                        "specific_faction_set": ""})
+                        "specific_faction_set": "", "sort_order": 0})   # 9.0 column; CA's 0
         if mint:
             for g in POOL_GROUPS:
                 poolgroups.append({"campaign_group": g, "resource": hold, "initial_amount": 0})
@@ -3035,6 +3035,7 @@ def selftest():
     check_sorting()
     check_layout()
     check_chart_geometry()
+    check_scale_far_end()
     check_race_tune()
     check_no_foreign_keys(t)
     check_culture_appetites()
@@ -4103,6 +4104,54 @@ def check_layout():
         "drawn under a shorter list, which is a row offering a price nobody agreed to."
         % have["deal_draw_pastend"])
 
+    # THE PANEL GROWS WITH THE SCREEN (2026-09-24, spec
+    # docs/superpowers/specs/2026-09-24-exchange-ui-scale-design.md). The box is the largest
+    # 16:9 that fits, clamped to 1600..2560; every table above is its 1600x900 end. Expected
+    # values are sc(v) = floor((v * box + 800) / 1600) worked by hand, not read off the Lua.
+    fits = {"1280x720": "1600 920 736 20", "1600x900": "1600 920 736 20",
+            "1920x1080": "1920 1104 883 25", "1920x1200": "1920 1104 883 25",
+            "2560x1440": "2560 1472 1178 35", "3840x2160": "2560 1472 1178 35",
+            "5120x1440": "2560 1472 1178 35",
+            # 21:9 AT 1080p: HEIGHT-LED. A box read off the width alone is 2560 and a 1178px
+            # panel on a 1080px screen - the one screen shape that tells min() from sw.
+            "2560x1080": "1920 1104 883 25"}
+    for scr, want in sorted(fits.items()):
+        f = have["fit_" + scr]
+        got = "%s %s %s %s" % (f["box"], f["pw"], f["ph"], f["rows"])
+        assert got == want, (
+            "EX.fit on a %s screen gave box/panel w/panel h/rows %s, want %s" % (scr, got, want))
+    for tag in ("far_p1", "far_p2", "near_again"):
+        assert (have[tag]["clashes"], have[tag]["stale"], have[tag]["pstale"]) == (
+            "0", "0", "0"), (
+            "%s: clashes=%s stale=%s pstale=%s - the grown layout left rows or cells on top of "
+            "each other" % (tag, have[tag]["clashes"], have[tag]["stale"], have[tag]["pstale"]))
+    assert (have["far_p1"]["visible"], have["far_p2"]["visible"]) == ("35", "6"), (
+        "41 houses at 35 rows a page drew %s then %s, want 35 then 6. EX.MAX_ROWS must follow "
+        "the panel's height, and EX.house_slice pages by it"
+        % (have["far_p1"]["visible"], have["far_p2"]["visible"]))
+    # 3840x2160: box 2560, panel 1472x1178 at (3840-1472)/2, (2160-1178)/2. close_button sticks
+    # right (876 + 552), footers move down by E = 442, hdr_name (184 on the Houses view the
+    # scene is on, so 294) and the tabs widen, hdr_spark
+    # keeps the sparkline's 108, the row's name lands under its header (32 + 54), and the
+    # divider widens from its .twui.xml 868.
+    want_geo = {"pw": "1472", "ph": "1178", "px": "1184", "py": "491", "close_x": "1428",
+                "footer_y": "1078", "hdr_name_x": "86", "hdr_name_w": "294",
+                "hdr_spark_w": "108", "tab_w": "173", "row_name_x": "86",
+                "divider_w": "1389", "rows": "35",
+                # footers widen from their .twui.xml 880 (sc = 1408), and the panel, the holder
+                # and the row are resized WITHOUT their children - CA's Resize defaults to
+                # resizing them too, which would stretch every cell place() gives no width.
+                "footer_w": "1408", "kids": "false/false/false"}
+    for key, v in sorted(want_geo.items()):
+        assert have["far_geo"][key] == v, (
+            "at 3840x2160 %s is %s, want %s - see the growth rule, spec section 3"
+            % (key, have["far_geo"][key], v))
+    assert (have["near_again"]["visible"], have["near_again_pw"], have["near_again_ph"]) == (
+        "20", "920", "736"), (
+        "back at 1600x900 the panel is %sx%s with %s rows - it did not shrink back when the "
+        "screen did" % (have["near_again_pw"], have["near_again_ph"],
+                        have["near_again"]["visible"]))
+
     # DERIVED, NOT RESTATED: len(scenes), so this cannot go stale the next time a page grows
     # the tuple. Before this it was a bare "9" that happened to match 7 tuple entries plus
     # intro and after_intro - correct by coincidence, and silent about which count it meant.
@@ -4113,6 +4162,155 @@ def check_layout():
           "draws its counterparty, its icon and a Take button greyed on the side the player "
           "pays on, in both button states"
           % (len(scenes), cap, cap - 9))
+
+
+def check_scale_far_end():
+    """THE LAYOUT AT 2560x1440, from the same rule the Lua runs (EX.grow).
+
+    Since 2026-09-24 the panel grows with the screen (spec
+    docs/superpowers/specs/2026-09-24-exchange-ui-scale-design.md). The layout tables in the Lua
+    are the 1600x900 end and every other check reads them there. This re-derives the far end in
+    Python from the growth sets AS THE LUA DECLARES THEM, so an edit to those sets is what gets
+    checked, and asserts per table: every cell inside its panel or row; no two cells overlapping
+    that do not already overlap at 1600x900; the sparkline header still exactly the sparkline's
+    width; and on the chart page, everything under the plot still under it and above the
+    footers. Rows against the footers is swept over every box from 1600 to 2560, because the
+    row count is a floor and so not linear in the box.
+
+    check_layout() runs the real EX.layout at 3840x2160 against a stub and pins a dozen
+    coordinates; this is the part a stub cannot give, every cell of every table at once.
+    """
+    import gen_exchange_ui as U
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+
+    def members(var):
+        m = re.search(r"^EX\." + var + r" = \{(.*?)\}", lua, re.S | re.M)
+        assert m, "EX.%s is gone - the far-end check has no growth rule to read" % var
+        return dict(re.findall(r"(\w+)\s*=\s*(true|[\d.]+)", m.group(1)))
+
+    fixed, right, cy = members("GROW_FIXED"), members("GROW_RIGHT"), members("GROW_CHART_Y")
+    base_w = dict((k, int(v)) for k, v in members("GROW_BASE_W").items())
+    assert fixed and right and cy and base_w, "a growth set parsed empty - the regex is stale"
+    sizes = {}
+    for root in (U.build_panel(), U.build_row()):
+        for c in root.walk():
+            sizes.setdefault(c.name, (c.w, c.h))
+
+    def sc(v, box):
+        return (v * box + 800) // 1600
+
+    unwidened = set()
+
+    def grow(e, box, chart):
+        n, x, y, w = e
+        E = sc(U.PANEL_H, box) - U.PANEL_H
+        G = sc(U.CHART_H, box) - U.CHART_H
+        nx, nw = sc(x, box), w
+        if n in right:
+            nx = x + sc(U.PANEL_W, box) - U.PANEL_W
+        elif w is not None and n not in fixed:
+            nw = sc(w, box)
+        if w is None:
+            # EVERY CELL WIDENS unless it is fixed, stuck right, the holder or the plot. A cell
+            # no table gives a width can only widen through EX.GROW_BASE_W; one missing from
+            # it silently keeps its 1600x900 width - the footers did, until the review.
+            if n not in base_w and n not in fixed and n not in right \
+                    and n not in ("rows_holder", "chart") and box != 1600:
+                unwidened.add(n)
+            nw = sc(base_w[n], box) if n in base_w else sizes.get(n, (0, 0))[0]
+        f = cy.get(n) if chart else None
+        if f:
+            ny = y + int(float(f) * G + 0.5)
+        else:
+            ny = y + E if y >= 600 else y
+        # THE PLOT IS WHAT EX.draw_chart DRAWS, not the component's .twui.xml box: its bars
+        # are sc(pitch) apart and sc(CHART_H) tall. Measured at its grown size, a chart cell
+        # that stopped moving down with it lands inside the bars and reads as a new overlap.
+        if chart and n == "chart":
+            return n, nx, ny, sc(U.DEEP_BARS * U.CHART_PITCH, box), sc(U.CHART_H, box)
+        return n, nx, ny, nw, sizes.get(n, (0, 20))[1]
+
+    # THE EMPTY TABLE IS AN ALTERNATIVE, not an afterthought: EX.ROW_LAYOUT_CHART = {} has no
+    # newline before its brace, so a plain lazy match runs on through EX.PANEL_LAYOUT_ORDERS
+    # and reports the ledger's cells as ROW cells, measured against the row's width.
+    tables = re.findall(r"^EX\.((?:PANEL|ROW)_LAYOUT\w*) = \{(\}|.*?" + NL + r"\})",
+                        lua, re.S | re.M)
+    assert len(tables) == 20, (
+        "found %d layout tables, expected 20 (ten views, a panel and a row table each) - the "
+        "declaration shape changed under this regex" % len(tables))
+
+    def boxes(body, box, chart):
+        out = []
+        for m in re.finditer(r'\{\s*"(\w+)"\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*(?:,\s*(\d+))?\s*\}',
+                             body):
+            e = (m.group(1), int(m.group(2)), int(m.group(3)),
+                 int(m.group(4)) if m.group(4) else None)
+            out.append(grow(e, box, chart))
+        return out
+
+    def overlaps(bs):
+        hit = set()
+        for i, a in enumerate(bs):
+            for b in bs[i + 1:]:
+                if "rows_holder" in (a[0], b[0]):
+                    continue
+                if a[2] < b[2] + b[4] and b[2] < a[2] + a[4] \
+                        and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]:
+                    hit.add(tuple(sorted((a[0], b[0]))))
+        return hit
+
+    far = 2560
+    for name, body in tables:
+        chart = name == "PANEL_LAYOUT_CHART"
+        near_b, far_b = boxes(body, 1600, chart), boxes(body, far, chart)
+        # A ROW CELL IS BOUNDED BY THE PANEL, NOT BY THE ROW'S NOMINAL 880: rows do not clip,
+        # and ROW_LAYOUT_INTRO's 850px paragraph at x 34 already ends at 884 on today's layout
+        # - inside the panel's 900px behind the rows holder's 20px inset, which is the edge
+        # that matters.
+        limit = sc(U.PANEL_W, far) - (0 if name.startswith("PANEL") else sc(20, far))
+        for n, x, y, w, h in far_b:
+            if n == "rows_holder":
+                continue
+            assert 0 <= x and x + w <= limit, (
+                "EX.%s: %s spans x %d..%d at 2560x1440, outside the %dpx it lives in"
+                % (name, n, x, x + w, limit))
+            if n == "hdr_spark":
+                assert w == U.SPARK_BARS * 9, (
+                    "EX.%s: hdr_spark is %dpx at 2560x1440 against a %dpx sparkline. It is "
+                    "right-aligned over the bars and must stay exactly their width - it "
+                    "belongs in EX.GROW_FIXED" % (name, w, U.SPARK_BARS * 9))
+        new = overlaps(far_b) - overlaps(near_b)
+        assert not new, (
+            "EX.%s: at 2560x1440 these cells overlap and do not at 1600x900: %s. One of them is "
+            "in the wrong growth set (EX.GROW_FIXED / GROW_RIGHT / GROW_CHART_Y)"
+            % (name, sorted(new)))
+        if chart:
+            plot_bottom = U.CHART_TOP + sc(U.CHART_H, far)
+            foot = 636 + sc(U.PANEL_H, far) - U.PANEL_H
+            for n, x, y, w, h in far_b:
+                if cy.get(n) == "1" and not n.startswith(("chart_grid", "chart_y")):
+                    assert plot_bottom <= y and y + h <= foot, (
+                        "chart page: %s at y %d..%d at 2560x1440, want it between the plot's "
+                        "bottom %d and the footers at %d" % (n, y, y + h, plot_bottom, foot))
+
+    assert not unwidened, (
+        "%s have no width in any layout table and are in none of EX.GROW_FIXED, GROW_RIGHT or "
+        "GROW_BASE_W, so they keep their 1600x900 width on a grown panel. Give each a base "
+        "width in EX.GROW_BASE_W (its .twui.xml width) or declare it fixed" % sorted(unwidened))
+
+    # THE LAST ROW AGAINST THE FOOTER, at every box. 27 is the deepest a row cell reaches (the
+    # buttons, y 1 + 26). At 1600x900 it is 637 against 636 - one pixel, and today's layout -
+    # so that is the tolerance, and nothing may get worse than today as the box grows.
+    for box in range(1600, 2561, 16):
+        E = sc(U.PANEL_H, box) - U.PANEL_H
+        rows = 20 + E // 28
+        last = 78 + (rows - 1) * 28 + 27
+        assert last <= 636 + E + 1, (
+            "at a %d-wide box the %dth row ends at y %d, under the footer at %d"
+            % (box, rows, last, 636 + E))
+    print("  scale: %d layout tables re-derived at 2560x1440 - inside their panel, no new "
+          "overlap, sparkline header pinned, chart page ordered; rows clear the footers at "
+          "every box 1600..2560" % len(tables))
 
 
 def check_chart_geometry():
@@ -4517,6 +4715,7 @@ BLOC_ABSENT = (
     "wh2_dlc09_tmb_tomb_kings",
     "wh_main_vmp_vampire_counts",
     "wh2_dlc11_cst_vampire_coast",
+    "wh3_dlc29_nag_undead_legions",  # Nagash (9.0), with the Counts
 )
 
 
@@ -6853,7 +7052,8 @@ FEATURE_SWITCHES = [
 # both directions, including that every culture named is one EX.CULTURE_WANTS knows.
 CULTURE_LOCKS = [
     ("uncommercial", "Let raider cultures trade",
-     "Tomb Kings, both vampire cultures, the four Chaos gods, Daemons of Chaos, Beastmen and "
+     "Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons "
+     "of Chaos, Beastmen and "
      "Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at "
      "all: no button, no panel, no prices. Others can still buy shares in them either way. "
      "Takes effect on a restart."),
@@ -7633,7 +7833,7 @@ def check_lua_orders():
     # `unit_px` and `only` and this anchor read `(res, is_buy)` literally, so it failed as
     # "EX.apply_trade is gone" for a function that had not moved at all. What this check is
     # about is the rent floor NOT being inside the function, which no signature affects.
-    at = re.search(r"function EX\.apply_trade\([^)]*\)(.*?)" + NL + "end", body, re.S)
+    at = re.search(r"function EX\.apply_trade_held\([^)]*\)(.*?)" + NL + "end", body, re.S)
     assert at, "EX.apply_trade is gone"
     assert "EX.fill_clears_rent(" not in at.group(1), (
         "the rent floor has been pushed down into EX.apply_trade, which silently applies it "
@@ -12504,6 +12704,40 @@ print("memo_calls " .. held_calls)
 print("memo_loose_calls " .. loose_calls)
 
 -- -------------------------------------------------------------------------------------------
+-- THE BUY-CLICK HANG AND THE WRONG NAME, both reported 2026-09-23.
+--
+-- A reprice runs 0.1s after every trade, and EX.target_rung used to take EX.house_median()
+-- per house - every house walked again for each house, 11,235 cm:get_faction calls at 105.
+-- And "X dislikes you" named the counterparty, a house that may like you, while the markup
+-- came from somebody else's book: here a warring house1 is the only dislike on the board.
+-- -------------------------------------------------------------------------------------------
+EX.free_guild()
+EX.houses = {}
+EX.house_set = nil
+EX.delisted = {}
+EX.shares_held = {}
+DIPLO = {}
+for i = 1, 40 do
+    EX.houses[i] = "house" .. i
+    DIPLO["house" .. i] = 40
+end
+DIPLO.house2 = 85
+TREATY = { house1 = "war" }
+EX.book = { house1 = { res_gems = 5 }, house2 = { res_gems = 200 } }
+print("source_named " .. tostring(EX.hostility_source("res_gems")))
+local keep = { EX.house_regions, EX.supply, EX.owners, EX.med, EX.med_raw }
+EX.house_regions = {}
+EX.supply = { res_gems = 4 }
+EX.owners = {}
+local power_reads, real_power = 0, EX.house_power_of
+EX.house_power_of = function(r) power_reads = power_reads + 1; return real_power(r) end
+EX.apply_prices()
+EX.house_power_of = real_power
+print("reprice_power_reads " .. power_reads)
+EX.house_regions, EX.supply, EX.owners, EX.med, EX.med_raw = keep[1], keep[2], keep[3], keep[4], keep[5]
+TREATY = {}
+
+-- -------------------------------------------------------------------------------------------
 -- MCT ai_gold OFF MAKES THE BOOKS NOTIONAL, NOT FROZEN.
 --
 -- EX.pay_house returns 0 with the toggle off, and EX.settle_counterparty only took the guild
@@ -15251,8 +15485,9 @@ def check_lua_books():
     # EX.apply_trade, NOT EX.trade, since the multiplayer split (2026-09-09). EX.trade is now
     # three lines that hand the order to EX.mp_send; every check, every price and every gold
     # movement lives in EX.apply_trade, which is what runs on each machine. Pointing this at
-    # EX.trade would pass on an empty function forever.
-    trade = re.search(r"function EX\.apply_trade\(.*?\n(?=function )", code, re.S).group(0)
+    # EX.trade would pass on an empty function forever. And EX.apply_trade_held since
+    # 2026-09-23: EX.apply_trade is now the wrapper that holds the stance memo around it.
+    trade = re.search(r"function EX\.apply_trade_held\(.*?\n(?=function )", code, re.S).group(0)
     assert "EX.buy_price(res)" in trade, (
         "EX.apply_trade still prices a buy off EX.price. That is the world price; the player "
         "pays buy_price, and a panel that shows one while charging the other is the defect the "
@@ -15366,7 +15601,7 @@ def check_lua_books():
 
     # THE GUARD IS BUY-ONLY. Unqualified it blocks sells too, which the design explicitly
     # rules out - see the open_sell assertion above for the behavioural half of this pin.
-    trade = re.search(r"function EX\.apply_trade\(.*?\n(?=function )", code, re.S).group(0)
+    trade = re.search(r"function EX\.apply_trade_held\(.*?\n(?=function )", code, re.S).group(0)
     assert "EX.blocked(res)" in trade, "EX.apply_trade never consults the block"
     guard = re.search(r"if is_buy and EX\.blocked\(res\)", trade)
     assert guard, (
@@ -15477,6 +15712,15 @@ def check_lua_books():
         "four hostility() asks inside one EX.hold_guild() still made %s cm:get_faction calls. "
         "The whole point is that the guild is walked ONCE per refresh; %s were made without "
         "the hold." % (have["memo_calls"], have["memo_loose_calls"]))
+    # THE BUY-CLICK HANG AND THE WRONG NAME, 2026-09-23 - see the harness section.
+    assert have["source_named"] == "house1", (
+        "the markup names %s. house1 is the only house that dislikes you; house2 likes you at "
+        "+85 and is merely the biggest holder - naming it is how the Warhost of Zharr came to "
+        "'dislike' a player it was friendly with" % have["source_named"])
+    assert int(have["reprice_power_reads"]) <= 2 * 40, (
+        "one reprice read house power %s times for 40 houses. The median is taken ONCE per "
+        "EX.apply_prices and handed to EX.target_rung; per house it is O(houses^2), and a "
+        "reprice runs 0.1s after every Buy click" % have["reprice_power_reads"])
     # ...AND IT IS SCOPED, not cached. Both holders open and close their own, and the turn
     # handler frees one more time so a refresh that errored mid-hold cannot strand a stale
     # vector pricing every row for the rest of the campaign.

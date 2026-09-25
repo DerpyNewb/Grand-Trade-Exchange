@@ -483,7 +483,7 @@ o_feat_orders:set_assigned_section("features")
 
 local o_allow_uncommercial = m:add_new_option("allow_uncommercial", "checkbox")
 o_allow_uncommercial:set_text("Let raider cultures trade")
-o_allow_uncommercial:set_tooltip_text("Tomb Kings, both vampire cultures, the four Chaos gods, Daemons of Chaos, Beastmen and Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at all: no button, no panel, no prices. Others can still buy shares in them either way. Takes effect on a restart.")
+o_allow_uncommercial:set_tooltip_text("Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons of Chaos, Beastmen and Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at all: no button, no panel, no prices. Others can still buy shares in them either way. Takes effect on a restart.")
 o_allow_uncommercial:set_default_value(false)
 o_allow_uncommercial:set_assigned_section("features")
 

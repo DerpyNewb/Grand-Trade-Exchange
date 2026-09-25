@@ -1122,8 +1122,9 @@ EX.BLOC = {
     ["mixer_teb_southern_realms"] = "any",
     -- ABSENT, deliberately: wh2_main_lzd_lizardmen, wh_dlc03_bst_beastmen,
     -- wh3_main_kho_khorne, wh3_main_tze_tzeentch, wh3_main_sla_slaanesh,
-    -- wh3_main_nur_nurgle, wh3_main_dae_daemons, and THE THREE UNDEAD CULTURES -
-    -- wh2_dlc09_tmb_tomb_kings, wh_main_vmp_vampire_counts, wh2_dlc11_cst_vampire_coast.
+    -- wh3_main_nur_nurgle, wh3_main_dae_daemons, and THE FOUR UNDEAD CULTURES -
+    -- wh2_dlc09_tmb_tomb_kings, wh_main_vmp_vampire_counts, wh2_dlc11_cst_vampire_coast,
+    -- wh3_dlc29_nag_undead_legions.
     --
     -- THE UNDEAD CAME OUT ON 2026-09-11, after the first build put the Tomb Kings and the
     -- Coast in the wildcard and the Counts in Destruction. The dead are not a going concern:
@@ -1184,7 +1185,8 @@ EX.LOCK_GROUPS = {
     -- No commercial existence at all. The dead do not accumulate, daemons have no economy,
     -- Beastmen have herdstones rather than markets and the Slann have no concept of commerce.
     uncommercial = { "wh2_dlc09_tmb_tomb_kings", "wh_main_vmp_vampire_counts",
-                     "wh2_dlc11_cst_vampire_coast", "wh3_main_kho_khorne",
+                     "wh2_dlc11_cst_vampire_coast", "wh3_dlc29_nag_undead_legions",
+                     "wh3_main_kho_khorne",
                      "wh3_main_tze_tzeentch", "wh3_main_sla_slaanesh",
                      "wh3_main_nur_nurgle", "wh3_main_dae_daemons",
                      "wh_dlc03_bst_beastmen", "wh2_main_lzd_lizardmen" },
@@ -2356,6 +2358,103 @@ end
 EX.ROW_PITCH = 28
 EX.MAX_ROWS  = 20
 
+-- THE PANEL GROWS WITH THE SCREEN (2026-09-24; docs/superpowers/specs/
+-- 2026-09-24-exchange-ui-scale-design.md). 4K players reported it too small: it was 920x736 on
+-- every screen. Same model as the Iron Court - two layouts, blended. Every layout table in this
+-- file IS the 1600x900 end, unchanged; the 2560x1440 end is derived from it by the rule in
+-- EX.grow, and anything between is placed proportionally. EX.MAX_ROWS above is the 1600x900
+-- value; EX.fit rewrites it on every layout pass. Text does not grow - its size is fixed in
+-- the .twui.xml.
+--
+-- 1600 IS THE FLOOR A SCRIPT EVER SEES: the root reports the window divided by UI Scale,
+-- clamped to at least 1600x900 (HANDOFF_20260924_GUILDS_UI_SCALE.md section 1). 2560 is the
+-- cap: past it, normal-size text in columns that wide loses the eye along the line.
+--
+-- INTEGER ARITHMETIC, NOT A FACTOR. Game Lua is float32; floor((v * box + 800) / 1600) stays
+-- exact for every v * box here (all under 2^24), where v * 1.6 would not.
+EX.ROWS_BASE = EX.MAX_ROWS
+EX.BASE_W    = 920          -- PANEL_W in tools/gen_exchange_ui.py
+EX.BASE_H    = 736          -- PANEL_H
+EX.BOX_MIN   = 1600
+EX.BOX_MAX   = 2560
+EX.BOX       = 1600
+EX.GROW_E    = 0
+EX.PANEL_DW  = 0
+EX.CHART_G   = 0
+-- AT OR BELOW THIS y A CELL IS THE BOTTOM STRIP (footers 636/662, tabs 698, nav 696/701) and
+-- moves down with the panel's bottom edge. No other table cell sits below 600.
+EX.GROW_BOTTOM = 600
+
+function EX.sc(v)
+    return math.floor((v * EX.BOX + 800) / 1600)
+end
+
+-- KEEP SIZE: art with a fixed shape. Moves with its column and is never stretched. hdr_spark
+-- is here because it is right-aligned over the sparkline and pinned to its width, and the
+-- sparkline's bars are fixed.
+EX.GROW_FIXED = { icon = true, chart_icon = true, spark = true, hdr_spark = true,
+                  btn_buy = true, btn_sell = true,
+                  btn_amt_down = true, btn_amt_up = true, ord_down = true, ord_up = true,
+                  ord_qty_down = true, ord_qty_up = true }
+-- STICK RIGHT: keeps today's distance from the panel's right edge, and its size.
+EX.GROW_RIGHT = { close_button = true, btn_help = true, derpy_chd_ex_prev = true,
+                  nav_page = true, derpy_chd_ex_mode = true }
+-- THE CHART PAGE ONLY: the fraction of the plot's growth (EX.CHART_G) a cell moves down by.
+-- The mid gridline is half way down the plot; the low one and everything under the plot move
+-- with its bottom. The orders page's ticket is NOT here - it sits under at most EX.ORDER_MAX
+-- rows, which fit above it already.
+EX.GROW_CHART_Y = { chart_y_mid = 0.5, chart_grid_mid = 0.5,
+                    chart_y_lo = 1, chart_grid_lo = 1,
+                    chart_x_left = 1, chart_x_mid = 1, chart_x_right = 1,
+                    chart_axis = 1, chart_stats = 1, chart_note = 1,
+                    ord_side = 1, ord_cmp = 1, ord_down = 1, ord_price = 1, ord_up = 1,
+                    ord_place = 1, ord_qty_down = 1, ord_qty = 1, ord_qty_up = 1,
+                    ord_standing = 1, ord_cost = 1 }
+-- WIDENED FROM ITS .twui.xml WIDTH: a cell no table gives a width, which would otherwise keep
+-- its 1600x900 width on a grown panel. The footers are why this exists beyond the divider:
+-- their text is trimmed to the component's own width (local fit, below), so an unwidened
+-- footer still cut the longest lines to "..." in a panel with 500px to spare (review,
+-- 2026-09-24). check_scale_far_end refuses any widenable cell missing from here.
+EX.GROW_BASE_W = { divider = 868,       -- ROW_W - 12 in tools/gen_exchange_ui.py
+                   footer_text = 880, footer_text2 = 880, title_text = 400 }
+
+-- The box, the panel and the row ceiling for a screen. Called by EX.layout on every pass, so
+-- a player who changes UI Scale gets the new size on the next open or tab click.
+function EX.fit(sw, sh)
+    local box = math.floor(math.min(sw, sh * 16 / 9))
+    if box < EX.BOX_MIN then box = EX.BOX_MIN end
+    if box > EX.BOX_MAX then box = EX.BOX_MAX end
+    EX.BOX = box
+    local pw, ph = EX.sc(EX.BASE_W), EX.sc(EX.BASE_H)
+    EX.PANEL_DW = pw - EX.BASE_W
+    EX.GROW_E = ph - EX.BASE_H
+    EX.CHART_G = EX.sc(EX.CHART_H) - EX.CHART_H
+    EX.MAX_ROWS = EX.ROWS_BASE + math.floor(EX.GROW_E / EX.ROW_PITCH)
+    return box, pw, ph, EX.MAX_ROWS
+end
+
+-- One layout entry at the current box: x, y and width (nil = leave the width alone). `chart`
+-- is true only for EX.PANEL_LAYOUT_CHART. A widened cell grows by the same factor its x does
+-- and a fixed one only moves, so no gap between two cells can shrink as the box grows.
+function EX.grow(e, chart)
+    local id, x, y, w = e[1], e[2], e[3], e[4]
+    local nx, nw = EX.sc(x), w
+    if EX.GROW_RIGHT[id] then
+        nx = x + EX.PANEL_DW
+    elseif w and not EX.GROW_FIXED[id] then
+        nw = EX.sc(w)
+    end
+    if not w and EX.GROW_BASE_W[id] then nw = EX.sc(EX.GROW_BASE_W[id]) end
+    local ny = y
+    local f = chart and EX.GROW_CHART_Y[id]
+    if f then
+        ny = y + math.floor(f * EX.CHART_G + 0.5)
+    elseif y >= EX.GROW_BOTTOM then
+        ny = y + EX.GROW_E
+    end
+    return nx, ny, nw
+end
+
 -- Every tradeable thing, commodities first, in the same order the DB rows were generated,
 -- then layer 2, then the discovered houses. Houses come last so adding one never shifts a
 -- commodity's position in any list that indexes by number. This is the list rows_holder gets
@@ -3077,6 +3176,20 @@ function EX.hostility(res)
         return -want
     end
     return h * EX.opt("hostile_max")
+end
+
+-- WHO THE MARKUP IS FOR: the holder adding the most of EX.hostility's sum. The "dislikes you"
+-- sentences used to name EX.guild_counterparty instead - the house you BUY FROM, which skips
+-- houses at war and so is never the one charging you. Reported 2026-09-23: the Warhost of
+-- Zharr "dislikes you" at +85 standing, which EX.stance_of scores 0 - the markup on its gems
+-- came from other holders, and a house at war counts in the sum while being skipped as seller.
+function EX.hostility_source(res)
+    local best, best_w = nil, 0
+    for _, house in ipairs(EX.guild()) do
+        local w = EX.book_of(house, res) * -EX.stance_of(house)
+        if w > best_w then best, best_w = house, w end
+    end
+    return best
 end
 
 function EX.price(res)
@@ -5199,7 +5312,7 @@ end
 -- anything unnamed is 0, so a culture is described by the four or five goods that characterise
 -- it rather than by seventeen numbers nobody can defend. Values run -1 to +1.
 -- A culture key absent from this table contributes nothing (wh2_main_rogue, and any modded
--- culture). check_lua_appetite asserts every key here is one of the 26 vanilla cultures and
+-- culture). check_lua_appetite asserts every key here is one of the 27 vanilla cultures and
 -- every commodity named is real - both fail silently forever otherwise.
 EX.CULTURE_WANTS = {
     -- THE SOUTHERN REALMS: an entrepot with an army habit. Tilea, Estalia and the Border
@@ -5231,6 +5344,9 @@ EX.CULTURE_WANTS = {
         res_rom_wine = -0.9, res_rom_furs = -0.3 },
     -- Sylvania is poor land and rich crypts.
     ["wh_main_vmp_vampire_counts"] = { res_rom_marble = 0.8, res_rom_iron = 0.5, res_gems = 0.4,
+        res_medicine = -0.9, res_rom_lead = -0.7, res_rom_wine = -0.4 },
+    -- Nagash's Undead Legions (9.0) trade as the Counts do.
+    ["wh3_dlc29_nag_undead_legions"] = { res_rom_marble = 0.8, res_rom_iron = 0.5, res_gems = 0.4,
         res_medicine = -0.9, res_rom_lead = -0.7, res_rom_wine = -0.4 },
     -- Marauders arm themselves and salt what they raid.
     ["wh_main_chs_chaos"] = { res_rom_iron = 1.0, res_rom_lead = 0.6, res_rom_furs = 0.3,
@@ -5964,7 +6080,11 @@ function EX.house_median()
     return EX.median(t)
 end
 
-function EX.target_rung(res, supply, owners, med)
+-- `hmed` IS EX.house_median(), HOISTED BY EX.apply_prices. Computed here per house it walked
+-- every house again for each house - 11,130 power reads and 11,235 cm:get_faction calls per
+-- reprice at the 105 houses of a live 2026-09-23 save, and a reprice runs 0.1s after every
+-- trade: the ~1.2s hang on each Buy click. Optional so a lone caller still gets the live read.
+function EX.target_rung(res, supply, owners, med, hmed)
     local base
     if EX.is_house(res) then
         -- A DELISTED ROW FREEZES at the price it settled against. A dead house owns nothing,
@@ -5978,7 +6098,7 @@ function EX.target_rung(res, supply, owners, med)
         if EX.is_delisted(res) then return EX.current[res] or EX.neutral_rung() end
         -- The median is over HOUSES ONLY. Houses and commodities are priced on different
         -- quantities - territory held against regions producing - and share only the ladder.
-        local mult = EX.house_multiplier(EX.house_power_of(res), EX.house_median())
+        local mult = EX.house_multiplier(EX.house_power_of(res), hmed or EX.house_median())
         local f = cm:get_faction(res)
         local seat = EX.holds_capital(f)
         if seat == false then mult = mult * EX.opt("seat_lost") end   -- nil (horde) is exempt
@@ -6059,8 +6179,9 @@ function EX.apply_prices()
     -- So 798 bundle rows and two engine calls per reprice were maintaining a number nothing
     -- read. See EX.strip_legacy_bundles for the saves that still have one applied.
     local moved = 0
+    local hmed = EX.house_median()      -- once per reprice; see EX.target_rung
     for _, res in ipairs(EX.instruments()) do
-        local rung = EX.target_rung(res, supply, owners, med)
+        local rung = EX.target_rung(res, supply, owners, med, hmed)
         if EX.current[res] ~= rung then
             EX.current[res] = rung
             EX.setv(EX.SAVE_PREFIX .. res, rung)
@@ -8091,7 +8212,7 @@ function EX.buy_tip(res)
     else
         local h = EX.hostility(res)
         if h ~= 0 then
-            local cp = EX.guild_counterparty(res, true)
+            local cp = EX.hostility_source(res)
             t = t .. "||" .. (cp and EX.faction_display(cp) or "The guild")
                   .. (h > 0 and " holds this and dislikes you: +"
                              or " holds this and likes you: -")
@@ -8106,7 +8227,7 @@ function EX.sell_tip(res)
     local t = EX.TIPS.trade.hdr_sell
     local h = EX.hostility(res)
     if h ~= 0 then
-        local cp = EX.guild_counterparty(res, false)
+        local cp = EX.hostility_source(res)
         -- EX.markup_pct, NOT math.floor(h * 100 + 0.5). REPORTED FROM A SCREENSHOT
         -- 2026-09-08: the cell read -11% and this tooltip read 10%, on the same row, for the
         -- same trade. Both numbers were defensible and that is the problem - the RAW
@@ -8183,16 +8304,20 @@ end
 EX.ROW_CELLS = { "divider", "icon", "row_name", "row_price", "row_sell", "row_supply",
                  "row_trend", "spark", "row_hold", "btn_buy", "btn_sell" }
 
+-- Every entry goes through EX.grow first: the table is the 1600x900 end, and this places it
+-- at the current box.
 local function place(parent, tbl, ox, oy)
+    local chart = (tbl == EX.PANEL_LAYOUT_CHART)
     for _, e in ipairs(tbl) do
         local c = find_uicomponent(parent, e[1])
         if is_uicomponent(c) then
-            if e[4] then
+            local x, y, w = EX.grow(e, chart)
+            if w then
                 local _, ch = c:Dimensions()
                 c:SetCanResizeWidth(true)
-                c:Resize(e[4], ch)
+                c:Resize(w, ch)
             end
-            c:MoveTo(ox + e[2], oy + e[3])
+            c:MoveTo(ox + x, oy + y)
             c:SetVisible(true)
         end
     end
@@ -8205,16 +8330,28 @@ function EX.layout()
     EX.place_button(EX.PLACE_TRIES)
     local panel = EX.panel()
     if not is_uicomponent(panel) then return end
-    -- Dimensions(), NOT Bounds(), on BOTH sides of this sum - the panel's own size here, and
-    -- the screen from EX.screen() above. Every row below has been MoveTo'd to an absolute
-    -- screen position by place(), so the panel's Bounds() is the union of itself and 19 rows
-    -- at wherever they last were.
+    -- THE PANEL'S SIZE IS COMPUTED, NEVER READ BACK (2026-09-24): EX.fit sizes it for this
+    -- screen and it is centred on that number. It used to be read with Dimensions() - never
+    -- Bounds(), which is the union of the panel and every row MoveTo'd over it.
     --
     -- The screen half is the one that was actually mis-centring this panel at start: it asked
     -- root:Bounds(), which during load reports bigger than the display, so the panel centred
     -- inside a screen that does not exist and landed low and to the right. See EX.screen().
-    local pw, ph = panel:Dimensions()
+    local box, pw, ph, rows = EX.fit(sw, sh)
+    panel:SetCanResizeWidth(true)
+    panel:SetCanResizeHeight(true)
+    -- false: WITHOUT ITS CHILDREN. CA's Resize resizes them too by default, which would
+    -- stretch every cell place() gives no width - close, help, Buy/Sell, the icons - by the
+    -- same factor, and nothing would put them back (review, 2026-09-24).
+    panel:Resize(pw, ph, false)
     panel:MoveTo(math.floor((sw - pw) / 2), math.floor((sh - ph) / 2))
+    -- ONCE PER CHANGE, not per pass: EX.layout runs on every tab click.
+    local fit = "box " .. box .. " on a " .. sw .. "x" .. sh .. " screen, panel " .. pw .. "x"
+        .. ph .. ", " .. rows .. " rows a page"
+    if fit ~= EX.fit_said then
+        EX.fit_said = fit
+        EX.say("ui", fit)
+    end
     local px, py = panel:Position()
     place(panel, EX.panel_layout(), px, py)
 
@@ -8249,6 +8386,12 @@ function EX.layout()
     local holder = find_uicomponent(panel, "rows_holder")
     if not is_uicomponent(holder) then return end
     local hx, hy = holder:Position()
+    -- THE HOLDER AND EVERY ROW SPAN THE WIDENED ROW. Nothing is drawn on either, but a parent
+    -- narrower than the children placed across it is not a shape to leave the engine to
+    -- interpret. 880 and 40 are ROW_W and ROW_H in tools/gen_exchange_ui.py.
+    holder:SetCanResizeWidth(true)
+    holder:SetCanResizeHeight(true)
+    holder:Resize(EX.sc(880), EX.MAX_ROWS * EX.ROW_PITCH, false)
     local rl = EX.row_layout()
     local shown = {}
     for _, e in ipairs(rl) do shown[e[1]] = true end
@@ -8305,6 +8448,8 @@ function EX.layout()
             do
                 local rx, ry = hx, hy + i * EX.ROW_PITCH
                 row:MoveTo(rx, ry)
+                row:SetCanResizeWidth(true)
+                row:Resize(EX.sc(880), 40, false)
                 row:SetVisible(true)
                 place(row, rl, rx, ry)
                 -- ANY cell this mode does not place must be hidden, not just the buttons: an
@@ -8725,6 +8870,11 @@ function EX.draw_chart()
 
     if not is_uicomponent(chart) then return end
     local cx, cy = chart:Position()
+    -- THE PLOT GROWS WITH THE PANEL (EX.fit): its height, each bar's width and the pitch
+    -- between them are the 1600x900 constants at the current box. The gridlines and labels
+    -- move with it through EX.GROW_CHART_Y, so the low line still sits on top of the floor stub.
+    local ch = EX.sc(EX.CHART_H)
+    local bw = EX.sc(EX.CHART_BAR_W)
     for i = 0, EX.DEEP_BARS - 1 do
         local bar = find_uicomponent(chart, string.format("cbar_%02d", i))
         if is_uicomponent(bar) then
@@ -8733,10 +8883,10 @@ function EX.draw_chart()
             if v then
                 local frac = (v - lo) / (hi - lo)
                 local px = math.floor(EX.CHART_FLOOR
-                    + frac * (EX.CHART_H - EX.CHART_FLOOR))
+                    + frac * (ch - EX.CHART_FLOOR))
                 bar:SetCanResizeHeight(true)
-                bar:Resize(EX.CHART_BAR_W, px)
-                bar:MoveTo(cx + i * EX.CHART_PITCH, cy + (EX.CHART_H - px))
+                bar:Resize(bw, px)
+                bar:MoveTo(cx + EX.sc(i * EX.CHART_PITCH), cy + (ch - px))
                 bar:SetVisible(true)
             else
                 bar:SetVisible(false)
@@ -10097,12 +10247,24 @@ EX.MP_OPS.sell = function(arg) EX.bulk_trade(arg, false) end
 -- that question - "N LOTS AS N REAL TRADES, not one trade of N lots... a bulk path with its
 -- own arithmetic would be a second pricing model to keep in agreement with the first" - and
 -- that ruling predates this stage and is still right. EX.accept_deal loops the same way.
+--
+-- ONE STANCE VECTOR PER TRADE, built fresh and freed on every exit. This used to FREE the memo
+-- and run unheld, so EX.blocked, EX.buy_price and the log line each walked the guild once per
+-- holder - 2,896 cm:get_faction calls a lot at 105 houses, the ~0.6s before "bought" on every
+-- click. hold_guild drops any older hold first, so SEE EX.bind_player still holds: the memo
+-- is always the bound player's. The pcall is so an error cannot strand it - a stranded hold
+-- would price every tooltip off this trade's diplomacy until the next refresh.
 function EX.apply_trade(res, is_buy, unit_px, only)
+    EX.hold_guild()
+    local ok, r = pcall(EX.apply_trade_held, res, is_buy, unit_px, only)
+    EX.free_guild()
+    if not ok then error(r, 0) end
+    return r
+end
+
+function EX.apply_trade_held(res, is_buy, unit_px, only)
     local faction = EX.who()
     if not faction then return "nofaction" end
-    -- SEE EX.bind_player: the stance memo belongs to whoever was bound when it was built, and
-    -- a trade arriving mid-refresh on one machine only must not read the wrong one.
-    EX.free_guild()
     -- A SETTLED BOOK TAKES NO ORDERS, in either direction. The position was paid out and
     -- zeroed, so a buy here would mint paper in a house that no longer exists and a sell
     -- would find nothing to sell.
@@ -10257,7 +10419,7 @@ function EX.apply_trade(res, is_buy, unit_px, only)
         -- deal the guild changed nothing, and printing it would tell the player their 940 was
         -- really something else.
         if h ~= 0 and not unit_px then
-            local cp = EX.guild_counterparty(res, is_buy)
+            local cp = EX.hostility_source(res)
             -- Same realised figure the cell and the tooltip use; see EX.sell_tip.
             extra = "  " .. (cp and EX.faction_display(cp) or "The guild")
                     .. (h > 0 and " dislikes you: " or " likes you: ")

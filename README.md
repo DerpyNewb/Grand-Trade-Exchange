@@ -34,9 +34,9 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 24,751 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 13,597 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 3,337 |
+| Python generators (`tools/`) | 25,035 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 13,769 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 4,266 |
 | UI layouts (`.twui.xml`) | 5,249 |
 | Generated DB + localisation (TSV) | 2,425 rows |
 | Documentation | 144 KB |
@@ -54,7 +54,7 @@ curve, every table row and every localised string in one place, and generates:
 
 - the 10 DB table fragments and the loc, as TSV
 - the MCT settings Lua (a difficulty preset, 45 tunable knobs, feature switches)
-- and, via `gen_exchange_ui.py`, the three `.twui.xml` panels - 315 GUIDs, all
+- and, via `gen_exchange_ui.py`, the three `.twui.xml` panels - 360 GUIDs, all
   allocated and paired by the generator, because a duplicate or mismatched GUID in
   that format is a silent non-draw with no error anywhere
 
@@ -73,7 +73,7 @@ library, no way to import a module - and a runtime error inside a listener is
 dropped silently, with no log line. So the checks run outside the game instead.
 
 `--selftest` runs **the shipped Lua file itself** under a local Lua 5.1.5 against
-stubbed campaign interfaces, through 15 harnesses in `tools/_*_harness.lua`:
+stubbed campaign interfaces, through 16 harnesses in `tools/_*_harness.lua`:
 
 ```
 py tools/gen_zharr_exchange.py --selftest
@@ -87,7 +87,7 @@ It asserts, among ~60 other things:
 - every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters
 - multiplayer paths route through the right entry points
-- the UI generator's 315 GUIDs are unique and hierarchy-paired
+- the UI generator's 360 GUIDs are unique and hierarchy-paired
 
 This is what most of the Python line count is. The generator is smaller than the
 suite that proves it right.
@@ -130,7 +130,7 @@ tools/
   read_pack_index.py          lists the contents of any .pack offline
   check_lua_api.py            flags calls CA does not document
   check_lua_undeclared.py     flags globals nothing declares
-  _*_harness.lua              15 test harnesses, run under real Lua 5.1
+  _*_harness.lua              16 test harnesses, run under real Lua 5.1
 Modding Files/
   pack/                       1:1 mirror of the in-pack layout (generated)
   source/zharr_exchange/      the generated DB and loc, as TSV

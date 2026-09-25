@@ -140,6 +140,24 @@ NONEXISTENT = {
 }
 
 
+# AN EVENT-CONTEXT FIELD CALLED AS A METHOD. `context.string` on a campaign event is a
+# plain string field, so `context:string()` reads it (truthy), then calls it, and throws
+# "attempt to call method 'string' (a string value)". CA never writes it: across the 831
+# Lua files in reference/ca_scripts_wh3 there are 690 `context.string` FIELD reads and
+# zero `:string()` calls of any kind, so this has no legitimate spelling to spare.
+#
+# WHY ONE LINE OF IT IS SO EXPENSIVE. The throw happens inside a listener callback, and
+# CA's event_protected_callback xpcalls the callback but NOT the failure handler that runs
+# afterwards - script_error escapes event_callback and every listener still queued behind
+# the thrower is abandoned. Two such lines in zzz_derpy_iron_court_ui.lua starved 31
+# PanelOpenedCampaign and 9 PanelClosedCampaign listeners - the Zharr Exchange, the
+# commissions, the Tower of Zharr, MBXP, the Old World mod and other people's Workshop
+# mods - for as long as the Iron Court had shipped, and NOTHING reached the script log.
+# The report that finally surfaced it blamed an unrelated mod.
+# See docs/sessions/HANDOFF_20260921_PANEL_LISTENER_CHAIN_BREAK.md.
+FIELD_CALL = re.compile(r"\b(\w+)\s*:\s*(string)\s*\(\s*\)")
+
+
 def check(path, docs):
     hits = []
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -162,6 +180,11 @@ def check(path, docs):
                 elif sep != want:
                     hits.append((n, "separator", "cm:%s()%s%s() -> use '%s'"
                                  % (acc, sep, member, want)))
+            for recv, field in FIELD_CALL.findall(line):
+                hits.append((n, "field-call",
+                             "%s:%s() - .%s is a plain field, not a method; calling it "
+                             "throws and abandons every listener queued behind this one"
+                             % (recv, field, field)))
             for bad, fix in NONEXISTENT.items():
                 if bad + "(" in line:
                     hits.append((n, "nonexistent", "%s() %s" % (bad, fix)))
@@ -240,6 +263,22 @@ def selftest():
     finally:
         os.remove(tmp3)
     assert chain == [(2, "unknown"), (3, "separator")], chain
+
+    # THE FIELD CALLED AS A METHOD, and the correct spelling beside it. The clean line
+    # matters as much as the caught one: this rule fires on a bare `:string()` with no
+    # receiver whitelist, so a false positive here would refuse a pack.
+    tmp4 = os.path.join(ROOT, "_selftest_field.lua")
+    open(tmp4, "w").write(chr(10).join([
+        "if context.string ~= X then return end",                       # 1 clean, the fix
+        "if context.string and context:string() ~= X then return end",  # 2 caught
+        "local n = ctx:string()",                                       # 3 caught, any receiver
+        "local s = tostring(context.string)",                           # 4 clean
+    ]))
+    try:
+        field = [(n, k) for n, k, _ in check(tmp4, docs)]
+    finally:
+        os.remove(tmp4)
+    assert field == [(2, "field-call"), (3, "field-call")], field
 
     # The plain flag, in both spellings, and the shapes that must NOT trip it.
     tmp2 = os.path.join(ROOT, "_selftest_find.lua")

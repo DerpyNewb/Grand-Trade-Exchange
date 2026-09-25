@@ -64,7 +64,11 @@ local function comp(name, parent)
     -- carries text, and is still the width the LAST view gave it. Prose at a price
     -- column's width is 200px of an 850px paragraph and nothing raises.
     c.w, c.h = nil, nil
-    c.Resize = function(_, w, h) c.w, c.h = w, h end
+    -- THE THIRD ARGUMENT TOO: CA's Resize resizes CHILDREN by default ("optional, default
+    -- value=true"), so a container resized without an explicit false stretches every cell
+    -- placed over it - the ones place() gives no width stay stretched. Recorded, so the
+    -- far-end scene can ask which it was (review finding, 2026-09-24).
+    c.Resize = function(_, w, h, kids) c.w, c.h, c.kids_too = w, h, kids end
     c.SetState = function(_, st) c.cur = st end
     c.CurrentState = function() return c.cur end
     c.Id = function() return c.name end
@@ -148,7 +152,10 @@ end
 print("union tables=" .. MYTABLES .. " missing=" .. missing)
 comp(EX.BUTTON, ROOT)
 
-EX.screen = function() return 1920, 1080 end
+-- 1600x900, NOT 1920x1080: the panel grows with the screen since 2026-09-24 (EX.fit), and
+-- 1600x900 is the small end - today's 920x736 layout to the pixel, 20 rows a page. Every scene
+-- below is written against that. The far-end scenes at the bottom of this file change it.
+EX.screen = function() return 1600, 900 end
 EX.built = true
 EX.place_button = function() end
 EX.refresh_panel = function() end
@@ -652,4 +659,56 @@ print("deal_draw name=" .. cell(DR1, "row_name")
     .. " icon=" .. tostring(find_uicomponent(DR1, "icon").img ~= nil)
     -- PAST THE END: hidden, and its stale text is irrelevant because nothing draws it.
     .. " pastend=" .. tostring(DR3.vis) .. "/" .. cell(DR3, "row_name"))
+EX.mode = EX.MODE_TRADE
+
+-- THE PANEL GROWS WITH THE SCREEN (2026-09-24, spec
+-- docs/superpowers/specs/2026-09-24-exchange-ui-scale-design.md). Everything above runs at
+-- 1600x900, the small end, which is today's layout to the pixel. These scenes run the SAME
+-- EX.layout at the far end and back, and read back where things landed. Built with .. rather
+-- than string.format because this file is a Python format string - see the chart scene.
+local SCREENS = { { 1280, 720 }, { 1600, 900 }, { 1920, 1080 }, { 1920, 1200 },
+                  { 2560, 1440 }, { 3840, 2160 }, { 5120, 1440 }, { 2560, 1080 } }
+for _, s in ipairs(SCREENS) do
+    local box, pw, ph, rows = EX.fit(s[1], s[2])
+    print("fit_" .. s[1] .. "x" .. s[2] .. " box=" .. box .. " pw=" .. pw .. " ph=" .. ph
+        .. " rows=" .. rows)
+end
+
+EX.screen = function() return 3840, 2160 end
+EX.houses = HOUSES
+EX.mode = EX.MODE_HOUSES
+EX.house_page = 1
+EX.layout()
+report("far_p1")
+do
+    local px, py = PANEL.x, PANEL.y
+    local function rel(id)
+        local c = PANEL.kids[id]
+        return c.x - px, c.y - py, c.w or -1
+    end
+    local cx = rel("close_button")
+    local _, fy = rel("footer_text")
+    local hx, _, hw = rel("hdr_name")
+    local _, _, spw = rel("hdr_spark")
+    local _, _, tw = rel(EX.tab_name(EX.MODES[1]))
+    local row = HOLDER.kids[EX.ROW .. "_" .. EX.short(HOUSES[1])]
+    print("far_geo pw=" .. tostring(PANEL.w) .. " ph=" .. tostring(PANEL.h)
+        .. " px=" .. px .. " py=" .. py .. " close_x=" .. cx .. " footer_y=" .. fy
+        .. " hdr_name_x=" .. hx .. " hdr_name_w=" .. hw .. " hdr_spark_w=" .. spw
+        .. " tab_w=" .. tw .. " row_name_x=" .. (row.kids["row_name"].x - px)
+        .. " divider_w=" .. tostring(row.kids["divider"].w) .. " rows=" .. EX.MAX_ROWS
+        .. " footer_w=" .. tostring(PANEL.kids["footer_text"].w)
+        .. " kids=" .. tostring(PANEL.kids_too) .. "/" .. tostring(HOLDER.kids_too) .. "/"
+        .. tostring(row.kids_too))
+end
+EX.house_page = 2
+EX.layout()
+report("far_p2")
+
+-- AND BACK: a player who drops UI Scale with the panel open gets the small panel on the next
+-- tab click, not a 1472px one on a 1600px screen.
+EX.screen = function() return 1600, 900 end
+EX.house_page = 1
+EX.layout()
+report("near_again", " pw=" .. tostring(PANEL.w) .. " ph=" .. tostring(PANEL.h))
 EX.mode = EX.MODE_TRADE

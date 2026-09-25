@@ -9,7 +9,8 @@ one-key wrappers ({"StringU8": "x"} / {"Boolean": true} / ...), so unwrap them.
 """
 import io, json, os
 
-CACHE = r"G:\Modding for resources\.skilltree_cache"
+CACHE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     ".skilltree_cache")
 _cache = {}
 
 
