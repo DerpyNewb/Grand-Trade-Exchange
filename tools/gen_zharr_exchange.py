@@ -1099,7 +1099,7 @@ DEMAND_FLAVOUR = {
 # is re-derived from OFFERING_EFFECTS * OFFER_MULT by that same check.
 OFFERING_BOON = {
     "res_rom_iron": "+4 armour, all armies",
-    "res_obsidian": "+10 winds of magic cap",
+    "res_obsidian": "+10 winds of magic reserve",
     "res_rom_marble": "-6% construction cost",
     "res_rom_timber": "-6% construction cost",
     "res_rom_wine": "+4 public order",
@@ -1876,7 +1876,7 @@ HEF_FLAVOUR = {
                       "were not minuted. It is being minuted.",
     "res_ivory": "Tusk for the scrimshaw of the Sea Guard, who have been at it six hundred "
                  "years and have never once run short until now.",
-    "res_animals": "The menageries of Lothern are a diplomatic instrument. An ambassador who "
+    "res_animals": "The menageries of Lothern are a tool of diplomacy. An ambassador who "
                    "has been shown one is easier to talk to afterwards.",
     "res_medicine": "Ulthuan's healers are the finest in the world, and the finest in the "
                     "world still need the plant. Chrace's crop failed.",
@@ -6837,13 +6837,13 @@ def check_production():
 
 
 MCT_OPTIONS = [
-    ("ai_traders", "AI traders",
-     "The other Chaos Dwarf houses run books, move the price and sit across your trades. "
-     "Off, the market behaves as it did before they existed."),
-    ("ai_gold", "AI traders use real gold",
-     "Houses fund trades from their own treasuries and receive yours, which drives AI armies. "
-     "Off, no gold moves to or from a house - their books still move, so the market still "
-     "prices them."),
+    ("ai_traders", "Rival houses trade",
+     "The other houses of your people buy and sell here too. They move prices and take the "
+     "other side of your trades. Off: only you trade."),
+    ("ai_gold", "Rival houses use real gold",
+     "Houses fund trades from their own treasuries and receive yours, which helps or hurts "
+     "their armies. Off, no gold moves to or from a house - their trading still moves prices, "
+     "so the market still prices them, but neither side spends or gains treasury gold."),
     ("refusal", "Houses can refuse to sell",
      "A house that despises you and holds most of a good will not sell it. Selling is "
      "always open either way. Off, hostility is a markup only."),
@@ -6855,14 +6855,13 @@ MCT_OPTIONS = [
      "The altar periodically demands a commodity tithe."),
     ("trade_income", "Exchange prices drive trade income",
      "A commodity you produce trading high raises your trade income that turn."),
-    ("cross_bloc", "Trade shares across your bloc",
+    ("cross_bloc", "Trade shares across trading partners",
      "Houses of the cultures your people deal with are listed beside your own. Off, the "
-     "board lists your own people only, as it did before."),
-    ("ai_stance", "Houses react to your book",
+     "board lists your own people only."),
+    ("ai_stance", "Houses react to your holdings",
      "A large stake in a house warms it toward you; hoarding the goods it sells cools "
-     "it. This promotes a real AI strategic stance, so it reaches war targeting and "
-     "deal generation - and it clears any other scripted stance between that house and "
-     "you every turn. Off, your market position stays inside the Exchange."),
+     "it. This sets a real strategic stance, reaching war targeting and deals, and replaces "
+     "other scripted stances between you every turn. Off, your market position stays inside the Exchange."),
     ("ai_world", "The world trades",
      "Every landholding faction holds commodities, and buys and sells them each turn. "
      "Off: only the fourteen houses trade."),
@@ -6875,7 +6874,7 @@ MCT_OPTIONS = [
     ("world_bundles", "Positions supply armies",
      "A faction holding iron, timber and obsidian replenishes its armies faster; one that "
      "has sold them short replenishes slower, and being at war doubles it either way. "
-     "Applies to you and to the AI alike. Off: no supply effect is applied to anyone, and "
+     "Applies to you and other factions alike. Off: no supply effect is applied to anyone, and "
      "any left over from a previous save is removed."),
 ]
 
@@ -6902,7 +6901,7 @@ TUNABLES = [
     # gold. At the default step the effective ceiling is 0.909; the tooltip says so.
     ("l2_sell", "market", "Forge goods sell back at",
      "What Armaments and Raw Materials pay when sold, as a fraction of what a lot costs. 0.5 "
-     "means 500 back on a 1000 lot. Capped in play at 1 / the price step above, so a round "
+     "means 500 back on a 1000 lot. Limited in play to 1 / the price step above, so a round "
      "trip can never turn a profit.", 0.5, 0.05, 0.95, 0.05, 2),
     ("sell_floor", "market", "Sell floor",
      "However hostile the guild is, a sale never pays less than this fraction of the world "
@@ -6914,17 +6913,17 @@ TUNABLES = [
      "Gold charged each turn for every unit you hold. Needs Warehouse rent switched on.",
      0.5, 0.0, 3.0, 0.1, 1),
 
-    ("ai_gain", "houses", "AI price appetite",
-     "Price steps per unit of world appetite, before the cap. Higher means the guild moves prices "
+    ("ai_gain", "houses", "Rival price appetite",
+     "Price steps per unit of world appetite, before the limit. Higher means the guild moves prices "
      "harder on war and culture.", 6.0, 0.0, 20.0, 0.5, 1),
-    ("ai_max_rungs", "houses", "AI steps per turn",
+    ("ai_max_rungs", "houses", "Rival steps per turn",
      "The most the guild can move one price in a single turn.", 2, 0, 8, 1, 0),
-    ("book_per_rung", "houses", "Book size per step",
+    ("book_per_rung", "houses", "Holdings per price step",
      "Units a house must hold to shift a price one step. Lower means the guild's positions "
      "move the market more.", 30, 5, 100, 1, 0),
-    ("book_max", "houses", "Book step cap",
+    ("book_max", "houses", "Holdings step limit",
      "The most steps the guild's holdings can shift a price, either way.", 2, 0, 8, 1, 0),
-    ("hostile_max", "houses", "Hostility markup cap",
+    ("hostile_max", "houses", "Hostility markup limit",
      "The most a house that despises you can add to a price. 0.25 is +25%.",
      0.25, 0.00, 1.00, 0.05, 2),
     # THE CEILING, NOT THE DISCOUNT. What a friendly guild actually gives is
@@ -6934,20 +6933,20 @@ TUNABLES = [
     # DEFAULT spread of 0.10 the headroom is one percent, so this slider does nothing much
     # until the spread is raised; the description says so rather than leaving a player to
     # wonder why 0.25 is not 25%.
-    ("friendly_max", "houses", "Friendly discount cap",
+    ("friendly_max", "houses", "Friendly discount limit",
      "The most a house that likes you can take off a price - it buys cheaper AND sells "
      "higher. Bounded by the buy/sell spread: at the default spread only about 1% gets "
      "through, and raising the spread raises this with it.",
      0.25, 0.00, 1.00, 0.05, 2),
     ("guild_close", "houses", "War closes the Exchange at",
-     "Share of the guild's book at war with you before the market shuts. Lower closes it more "
+     "Share of the guild's trade at war with you before the market shuts. Lower closes it more "
      "readily.", 0.60, 0.10, 1.00, 0.05, 2),
-    ("refuse_share", "houses", "Refusal needs this book share",
+    ("refuse_share", "houses", "Refusal needs this supply share",
      "A house must hold this much of a good, and despise you, before it will not sell it.",
      0.50, 0.10, 1.00, 0.05, 2),
-    ("house_cash_max", "houses", "House gold cap per turn",
-     "The most gold that can move to or from one house in a turn. AI treasuries drive AI "
-     "armies, so this is the number that changes the wider campaign.", 20000, 0, 100000,
+    ("house_cash_max", "houses", "House gold limit per turn",
+     "The most gold that can move to or from one house in a turn. House treasuries support their "
+     "armies, so this limit stops a trading spree draining a house into poverty or making it rich overnight.", 20000, 0, 100000,
      5000, 0),
 
     ("div_yield", "shares", "Dividend per share",
@@ -6974,7 +6973,7 @@ TUNABLES = [
     ("shock_gain", "shocks", "Shock strength",
      "Price steps per unit of world supply disrupted by a sack, a raze or a siege.",
      10, 0, 40, 1, 0),
-    ("shock_max", "shocks", "Shock cap",
+    ("shock_max", "shocks", "Shock step limit",
      "The most steps one shock can move a price, either way.", 6, 0, 20, 1, 0),
     ("shock_decay", "shocks", "Shock decay per turn",
      "What survives into the next turn. 0.5 halves it; higher makes a spike linger.",
@@ -7002,7 +7001,7 @@ TUNABLES = [
     ("world_trade_max", "world", "World trade size",
      "The most lots one faction outside the guild will buy or sell in a single turn.",
      3, 1, 10, 1, 0),
-    ("world_gain", "world", "World book weight",
+    ("world_gain", "world", "World trading weight",
      "How hard the wider world's holdings push a price. 0 means the world trades but its "
      "positions never move the board.",
      4.0, 0.0, 20.0, 0.5, 1),
@@ -7016,7 +7015,7 @@ TUNABLES = [
     # clicks - and the deals check refuses a zero rather than shipping a page of non-offers.
     ("deal_edge", "world", "Deal edge, per cent",
      "How far off market an offer is priced, always in your favour: a buyer pays over, a "
-     "seller takes under. Keep it under one step of the price ladder or a deal becomes a free "
+     "seller takes under. Keep it under one price step or a deal becomes a free "
      "round trip against the market.", 6, 1, 25, 1, 0),
     # SMALLER IS STRONGER, which is the opposite of how most of these read - the step is how
     # many lots of net war goods one tier costs, so a narrow step puts a bundle on more of
@@ -7028,7 +7027,7 @@ TUNABLES = [
      "positions register.", 4, 1, 12, 1, 0),
 ]
 
-TUNE_SECTIONS = [("market", "Market"), ("houses", "AI houses"), ("shares", "Shares"),
+TUNE_SECTIONS = [("market", "Market"), ("houses", "Rival houses"), ("shares", "Shares"),
                  ("hashut", "Tithes"), ("shocks", "War shocks"), ("race", "Race profile"),
                  ("world", "The world")]
 
@@ -7042,7 +7041,7 @@ PRESET_LABEL = {
                      "moves three steps a turn, war closes the market sooner - and dividends "
                      "and buyouts rise with it."),
     "ultra": ("Ultra Capitalism", "The extreme. A quarter spread against a tenth floor, the "
-                                  "guild moving five steps a turn on books that shift twice "
+                                  "guild moving five steps a turn on holdings that shift twice "
                                   "as hard, hostility to +60%, the market shutting when under "
                                   "a third of the guild is at war, the altar demanding from "
                                   "turn 5, and shocks reaching twelve steps and lingering. "
@@ -7138,12 +7137,12 @@ CULTURE_LOCKS = [
     ("uncommercial", "Let cultures without markets trade",
      "Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons "
      "of Chaos, Beastmen and "
-     "Lizardmen. They keep no markets in lore, so off - the default - they have no Exchange at "
+     "Lizardmen. They keep no markets in lore, so when off, they have no Exchange at "
      "all: no button, no panel, no prices. Others can still buy shares in them either way. "
      "Takes effect on a restart."),
     ("raiders", "Let raider cultures trade",
-     "Greenskins, Norsca and the Warriors of Chaos. They take rather than trade, so off - the "
-     "default - they have no Exchange at all. This does NOT remove them as investments: other "
+     "Greenskins, Norsca and the Warriors of Chaos. They take rather than trade, so when off, "
+     "they have no Exchange at all. This does NOT remove them as investments: other "
      "cultures can still buy shares in them. Takes effect on a restart."),
 ]
 

@@ -416,7 +416,7 @@ EX.RACES = {
     ["wh2_main_skv_skaven"] = {
         seg = "skv_", name = "The Under-Market", offer_title = "The Council's Cut",
         patron = "The Council", house_word = "A Skaven clan",
-        intro = "You are the Skaven. The Under-Market is what that implies - thin books, savage markups, and a dead clan leaves a corpse.",
+        intro = "You are the Skaven. The Under-Market means thin stocks, savage markups, and a dead clan leaves a corpse.",
         crest = "trait_skaven",
         wrath = "derpy_chd_ex_skv_council_wrath", pleased = "derpy_chd_ex_skv_council_pleased",
         boon_over = { res_animals = "+4 public order" },
@@ -504,7 +504,7 @@ EX.RACES = {
         -- Empire's - the patron who receives the offering is a god, the institution that
         -- notices is the Court, and the tier and wrath titles still say so.
         patron = "Asuryan", house_word = "An Elven kingdom",
-        intro = "You are the Asur. The Emerald Gate is old money: the deepest books there are, no refusals, and a price for being you.",
+        intro = "You are the Asur. The Emerald Gate is old money: the deepest reserves there are, no refusals, and a price for being you.",
         crest = "trait_high_elves",
         wrath = "derpy_chd_ex_hef_phoenix_wrath",
         pleased = "derpy_chd_ex_hef_phoenix_pleased",
@@ -1040,7 +1040,7 @@ function EX.bind_race()
         "Burn " .. EX.OFFER_COST .. " units for " .. who .. "'s favour, "
         .. EX.OFFER_TURNS .. " turns - the quick way. Holding is the slow one."
     EX.HELP_PAGES[2][EX.HELP_GUILD_LINE][2] =
-        EX.house_word() .. " trades here - so do your bloc's. One is across every deal."
+        EX.house_word() .. " trades here - so do trading partners. One is across every deal."
 end
 
 -- THE SHIPPED DEFAULT, and it is Chaos Dwarf on purpose. EX.bind_race overwrites it at
@@ -1958,7 +1958,7 @@ EX.SAVE_DEMAND = "zharr_demand_turn"    -- last turn a demand was issued
 
 EX.BOON = {
     res_rom_iron     = "+4 armour, all armies",
-    res_obsidian     = "+10 winds of magic cap",
+    res_obsidian     = "+10 winds of magic reserve",
     res_rom_marble   = "-6% construction cost",
     res_rom_timber   = "-6% construction cost",
     res_rom_wine     = "+4 public order",
@@ -7188,7 +7188,7 @@ EX.HELP_PAGES = {
         { EX.TREND_UP .. " / " .. EX.TREND_DOWN,
                           "The price rose or fell since last turn. A dash means it held still." },
         { EX.TREND_CAP .. " / " .. EX.TREND_FLOOR,
-                          "The highest or lowest the ladder goes. It cannot move further that way." },
+                          "The price is at its highest or lowest limit and cannot move further that way." },
         { "Last 12 turns", "One bar per turn of this good's price. Taller costs more." },
         { "Held",         "Units you own. They are yours until you sell them." },
         -- FOLDED FROM TWO LINES, to make room for the Houses view below without breaking the
@@ -7212,11 +7212,11 @@ EX.HELP_PAGES = {
         { "House Sell",   "Sell still pays 10% under Buy here too - Div shows the dividend, not the sell price." },
     },
     { -- PAGE 2: the guild
-        { "Guild",        "A Chaos Dwarf house trades here - so do your bloc's. One is across every deal." },
-        { "Their book",   "What the guild holds moves the price, the same way your own buying does." },
+        { "Guild",        "A Chaos Dwarf house trades here - so do trading partners. One is across every deal." },
+        { "Their holdings", "What the other houses hold moves the price, the same way your own buying does." },
         { "Markup",       "A house that dislikes you charges more and pays less. Sign anything and it stops." },
         { "Refused",      "A house that despises you and holds most of a good will not sell it." },
-        { "At war",       "A house at war closes its book. Enough of them and the Exchange shuts." },
+        { "At war",       "A house at war closes its trade. Enough of them and the Exchange shuts." },
         { "Their gold",   "Your money goes to the house that sold to you. Gouging you makes it richer." },
         { "Front-run",    "A hostile house that sees you buying will buy ahead of you." },
         -- LAYER 2, and the one line that stops the fire sale reading as a bug. Page 2 because
@@ -7421,7 +7421,7 @@ function EX.intro_lines()
         { "OFFERINGS AND TITHES. " .. EX.patron() .. " takes goods rather than gold, and "
           .. "remembers whether you paid.", EX.art("effect_rite") },
         { "" },
-        { "HOUSES. Buy shares in factions - yours and your bloc's. They pay a dividend each "
+        { "HOUSES. Buy shares in factions - yours and your trading partners'. They pay a dividend each "
           .. "turn, and they can die owing you.", EX.art("office") },
     }
 end
@@ -8221,7 +8221,7 @@ EX.TIPS = {
     -- why it needs its own entry and not Trade's - and "Now" in particular is the price on
     -- THIS order's side, so the tooltip has to say which side that is.
     orders = {
-        hdr_name  = "The instrument this order stands on.",
+        hdr_name  = "The good or share this order stands on.",
         hdr_trend = "What the order does, and the price it fills at.",
         hdr_price = "What one lot is worth now, on this order's own side.",
     },
@@ -8237,7 +8237,7 @@ EX.TIPS = {
         hdr_price  = "Gold to buy one lot at today's price.",
         hdr_sell   = "What one lot pays back, always under Buy.",
         hdr_supply = "Units the whole map produces per turn.",
-        hdr_trend  = "^ up, v down, - held. Hi/Lo: at the ladder's limit.",
+        hdr_trend  = "^ up, v down, - steady. Hi/Lo: at top or bottom limit.",
         hdr_spark  = "This good's price, one bar per turn. Taller costs more.",
         hdr_hold   = "Units you hold, and the rent they cost per turn.",
     },
@@ -8271,7 +8271,7 @@ EX.TIPS = {
         hdr_price = "Gold for one lot: 5 shares at today's price.",
         hdr_sell  = "Gold per share each turn. Price above is for 5 shares.",
         hdr_supply = "Held: safe. LOST: taken. Horde: no capital to lose.",
-        hdr_trend = "^ up, v down, - held. Hi/Lo: at the ladder's limit.",
+        hdr_trend = "^ up, v down, - steady. Hi/Lo: at top or bottom limit.",
         hdr_spark = "This house's price, one bar per turn. Taller costs more.",
         hdr_hold  = "Shares you hold, and the dividend they pay this turn.",
     },
@@ -9403,8 +9403,8 @@ function EX.refresh_panel()
                 .. "The arrows page this list."))
         end
         if is_uicomponent(lf2) then
-            lf2:SetStateText(fit(lf2, "Refusal reads the guild's BOOK - who is holding the "
-                .. "goods - not the Output column, which is what the map produces."))
+            lf2:SetStateText(fit(lf2, "Refusal depends on rival holdings - who holds the goods - "
+                .. "not the Output column, which is what the map produces."))
         end
         return
     end
@@ -9526,8 +9526,8 @@ function EX.refresh_panel()
                     set_text(row, "btn_sell", "Delisted")
                     EX.set_off(bb, true)
                     EX.set_off(bs, true)
-                    set_tip(bb, "This house is gone. Its book settled once and the row is frozen.")
-                    set_tip(bs, "This house is gone. Its book settled once and the row is frozen.")
+                    set_tip(bb, "This house is gone. Its shares settled once and the row is frozen.")
+                    set_tip(bs, "This house is gone. Its shares settled once and the row is frozen.")
                 else
                     -- buy_price, NOT price - the Buy column must draw what EX.trade charges.
                     set_text(row, "row_price", tostring(EX.buy_price(res)))
@@ -11104,7 +11104,7 @@ function EX.place_order_check(res, side, cmp, rung)
         return "That is not a valid order."
     end
     if not EX.orderable(res) then
-        return "The Exchange takes no standing orders on that instrument."
+        return "The Exchange takes no standing orders on that good."
     end
     -- THE DUPLICATE IS TESTED FIRST, and the order matters. With the cap first, re-placing
     -- an order the player already holds while at twelve answered "Cancel one first" - true,
@@ -11232,7 +11232,7 @@ EX.ORDER_REASON = {
     nopool      = "This market is not open to your people.",
     nothold     = "You hold too little to sell a lot.",
     unavailable = "Nothing on this map produces it.",
-    blocked     = "The house that holds the book refuses you.",
+    blocked     = "The house holding the supply refuses you.",
     afford      = "You could not afford the fill.",
     rent        = "The fill would not have left this turn's warehousing.",
     threw       = "The trade could not be completed.",

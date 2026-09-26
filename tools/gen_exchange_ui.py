@@ -285,8 +285,8 @@ TIP_SELL = ("Sell a lot||Sold at the Sell price, which is under the Buy price. T
 TIP_ORD_SIDE = "Buy or sell||Switch this standing order between buying and selling."
 TIP_ORD_CMP = ("At or below / at or above||Whether the order fires once the price falls to "
                "this level, or once it rises to it.")
-TIP_ORD_STEP = ("Adjust the price||Move the order's target one rung up or down the same "
-                "ladder every price on this board sits on.")
+TIP_ORD_STEP = ("Adjust the price||Move the order's target price one step up or down. "
+                "Prices here always move in fixed steps.")
 TIP_ORD_PLACE = ("Place the order||Stands until the price crosses the level shown, then "
                   "fills automatically on a later turn.")
 TIP_AMOUNT = ("Amount per click||How many lots a Buy or Sell moves, and the size a new "

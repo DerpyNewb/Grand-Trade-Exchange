@@ -34,7 +34,7 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 25,262 |
+| Python generators (`tools/`) | 25,261 |
 | Campaign + settings Lua (`Modding Files/pack/script/`) | 14,029 |
 | Lua test harnesses (`tools/_*_harness.lua`) | 4,454 |
 | UI layouts (`.twui.xml`) | 5,249 |
