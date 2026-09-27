@@ -10696,11 +10696,12 @@ end
 
 LUA_BUTTON_HARNESS = """
 local BAR_Y, BAR_PRESENT, LOG = -640, true, {}
+local BAR_X, BAR_W = 1418, 48
 local QUEUE = {}
 local BTN = nil
 local BAR = {
-    Position   = function() return 1418, BAR_Y end,
-    Dimensions = function() return 48, 60 end,
+    Position   = function() return BAR_X, BAR_Y end,
+    Dimensions = function() return BAR_W, 60 end,
 }
 local ROOT = {
     CreateComponent = function()
@@ -10764,6 +10765,18 @@ BAR_Y = -4
 pump()
 print("placed " .. BTN.x .. "," .. BTN.y)
 print("visible_after " .. tostring(BTN.vis))
+
+-- THE BUTTON FOLLOWS THE STRIP'S END. resources_bar sizes to its content, so its right end
+-- moves mid-turn with no event for it; placement alone left the button where the end used
+-- to be until the next turn start, then it jumped (reported 2026-09-27).
+BAR_W = 98                                  -- an icon appears: the end moves 50 right
+EX.follow_bar()
+print("followed " .. BTN.x .. "," .. BTN.y)
+BAR_Y = -640                                -- the strip slides away for end turn
+EX.follow_bar()
+print("follow_away " .. BTN.x .. "," .. BTN.y)
+BAR_W, BAR_Y = 48, -4
+EX.follow_bar()
 
 -- ONCE PLACED, A HIDDEN STRIP MUST NOT START A SECOND CHAIN and must not move the button.
 -- EX.layout() calls place_button on every panel open, and the strip is routinely away.
@@ -12189,6 +12202,19 @@ def check_lua_button():
     assert vals["placed"] == "1470,2", (
         "settled strip placed the button at %s, expected 1470,2" % vals["placed"])
     assert vals["visible_after"] == "true", "the button never became visible"
+
+    # It follows the strip's end mid-turn, and a strip that is away leaves it alone.
+    assert vals["followed"] == "1520,2", (
+        "the strip's end moved 50 right and the button stayed at %s - it only catches up "
+        "at the next turn start" % vals["followed"])
+    assert vals["follow_away"] == "1520,2", (
+        "the strip slid away and the follow poll moved the button to %s"
+        % vals["follow_away"])
+    # ...and the poll is actually started, on the UI clock.
+    code_nc = NL.join(l for l in io.open(LUA_SCRIPT, encoding="utf-8").read().splitlines()
+                      if not l.lstrip().startswith("--"))
+    assert "EX.start_follow()" in code_nc and "repeat_real_callback" in code_nc, (
+        "nothing starts the follow poll, so the button only moves at turn start")
 
     # After the first success the guard must leave it alone, not restart the chain.
     assert vals["reschedules_after_placed"] == "0", (

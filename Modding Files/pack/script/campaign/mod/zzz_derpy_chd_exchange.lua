@@ -11624,6 +11624,53 @@ function EX.button_anchor()
     return nil, nil, nil
 end
 
+-- Within one button of the screen is clamped onto it; further out is a bad or mid-animation
+-- read and answers nil. Shared by EX.place_button and EX.follow_bar, so the two cannot
+-- disagree about what counts as a real reading. See the long note in place_button.
+function EX.fit_button(x, y)
+    local sw, sh = EX.screen()
+    local tol = EX.BUTTON_SIZE
+    if x < -tol or y < -tol or x + EX.BUTTON_SIZE > sw + tol
+       or y + EX.BUTTON_SIZE > sh + tol then
+        return nil
+    end
+    if x < 0 then x = 0 end
+    if y < 0 then y = 0 end
+    if x + EX.BUTTON_SIZE > sw then x = sw - EX.BUTTON_SIZE end
+    if y + EX.BUTTON_SIZE > sh then y = sh - EX.BUTTON_SIZE end
+    return x, y
+end
+
+-- THE BUTTON FOLLOWS THE STRIP'S END. resources_bar is docked Top Center and sizes to its
+-- content (ui3.pack hud_campaign_resource_bar_wh3), so its right end moves whenever an effect
+-- icon or faction widget appears - mid-turn, with no event for it. Placement alone ran at
+-- load, turn start and panel open, so the button sat where the end used to be and jumped
+-- later (reported 2026-09-27: "why doesnt it auto adjust"). This polls on the UI clock a few
+-- times a second: one find, two reads, and a MoveTo only when the answer changed. Nothing
+-- until the button is placed, nothing while the strip is away, and never onto the docker
+-- fallback. Local and UI-only, so it cannot desync multiplayer. The Great Guilds' button
+-- runs the same poll off the same strip, so the pair moves together.
+EX.FOLLOW_MS = 300
+
+function EX.follow_bar()
+    if not EX.button_at then return end
+    local b = find_uicomponent(core:get_ui_root(), EX.BUTTON)
+    if not is_uicomponent(b) then return end
+    local x, y, anchor = EX.button_anchor()
+    if anchor ~= "resources_bar" then return end
+    x, y = EX.fit_button(x, y)
+    if not x then return end
+    local ax, ay = b:Position()
+    if ax == x and ay == y then return end
+    b:MoveTo(x, y)
+    EX.button_at = x .. "," .. y .. " (" .. anchor .. ")"
+end
+
+function EX.start_follow()
+    cm:repeat_real_callback(function() pcall(EX.follow_bar) end, EX.FOLLOW_MS,
+                            "zharr_follow_bar")
+end
+
 function EX.place_button(attempt)
     local root = core:get_ui_root()
     local sw, sh = EX.screen()
@@ -11689,9 +11736,8 @@ function EX.place_button(attempt)
     -- out, which is a clamp. Anything further out is a bad or mid-animation read, which is a
     -- retry. The clamp can move the button by at most EX.BUTTON_SIZE, and placement is
     -- recomputed on every panel open, so a clamp taken during an animation heals itself.
-    local tol = EX.BUTTON_SIZE
-    if x < -tol or y < -tol or x + EX.BUTTON_SIZE > sw + tol
-       or y + EX.BUTTON_SIZE > sh + tol then
+    local fx, fy = EX.fit_button(x, y)
+    if not fx then
         -- NOT a failure once the button is already placed - EX.layout() calls this on
         -- every panel open and a hidden resource strip must leave the button where it is.
         local again = retry()
@@ -11730,10 +11776,7 @@ function EX.place_button(attempt)
         end
         return
     end
-    if x < 0 then x = 0 end
-    if y < 0 then y = 0 end
-    if x + EX.BUTTON_SIZE > sw then x = sw - EX.BUTTON_SIZE end
-    if y + EX.BUTTON_SIZE > sh then y = sh - EX.BUTTON_SIZE end
+    x, y = fx, fy
     b:MoveTo(x, y)
     b:SetVisible(true)
     -- WRITTEN HERE, not once at creation: place_button is re-run from EX.layout and from
@@ -12280,6 +12323,7 @@ function EX.init()
     cm:callback(function()
         EX.strip_legacy_bundles()
         EX.make_button()
+        EX.start_follow()
         -- A LOAD RESTORES NO FLAG, so the first thing after the button exists is to ask.
         EX.gate_button(EX.player_turn())
         if EX.build_panel() then
