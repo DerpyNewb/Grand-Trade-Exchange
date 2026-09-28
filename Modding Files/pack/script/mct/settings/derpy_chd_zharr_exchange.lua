@@ -7,9 +7,9 @@ local mct = get_mct and get_mct()
 if not mct then return end
 
 local m = mct:register_mod("derpy_chd_zharr_exchange")
-m:set_title("Zharr Exchange")
-m:set_author("derpy")
-m:set_description("Pick a difficulty, or Custom to set every value yourself. The Zharr Exchange's difficulty is fixed for the life of a campaign. Change it from the main menu before starting a new one. Note that the preset now owns the seven system switches as well as the numbers - if you had one of them turned off, it lives under Custom. In a multiplayer campaign these settings are ignored and every value is the shipped default on every machine - two players cannot be given different economies. The log options below still work.")
+m:set_title("Derpy's Grand Trade Exchange")
+m:set_author("_D3rpyN3wb_")
+m:set_description("Pick a difficulty, or Custom to set every value yourself. The Zharr Exchange's difficulty is fixed for the life of a campaign. Change it from the main menu before starting a new one. Note that the preset now owns the system switches as well as the numbers - if you had one of them turned off, it lives under Custom. In a multiplayer campaign these settings are ignored and every value is the shipped default on every machine - two players cannot be given different economies. The log options below still work.")
 
 -- MCT HAS NO CAMPAIGN GATING OF ITS OWN. mct_option:set_context_specific is an
 -- EMPTY function body and set_local_only is commented out end to end, so both read
@@ -99,7 +99,7 @@ o_ai_stance:set_assigned_section("systems")
 
 local o_ai_world = m:add_new_option("ai_world", "checkbox")
 o_ai_world:set_text("The world trades")
-o_ai_world:set_tooltip_text("Every landholding faction holds commodities, and buys and sells them each turn. Off: only the fourteen houses trade.")
+o_ai_world:set_tooltip_text("Every landholding faction holds commodities, and buys and sells them each turn. Off: only the rival houses trade. Deals have their own switch.")
 o_ai_world:set_default_value(true)
 o_ai_world:set_assigned_section("systems")
 
@@ -117,7 +117,7 @@ o_ai_deals:set_assigned_section("systems")
 
 local o_world_bundles = m:add_new_option("world_bundles", "checkbox")
 o_world_bundles:set_text("Positions supply armies")
-o_world_bundles:set_tooltip_text("A faction holding iron, timber and obsidian replenishes its armies faster; one that has sold them short replenishes slower, and being at war doubles it either way. Applies to you and other factions alike. Off: no supply effect is applied to anyone, and any left over from a previous save is removed.")
+o_world_bundles:set_tooltip_text("A faction holding iron, timber and obsidian replenishes its armies faster; one that has sold them short replenishes slower, and being at war doubles it either way. Applies to the other factions of the world, not to you or the rival houses. Off: no supply effect is applied to anyone, and any left over from a previous save is removed.")
 o_world_bundles:set_default_value(true)
 o_world_bundles:set_assigned_section("systems")
 
@@ -483,7 +483,7 @@ o_feat_orders:set_assigned_section("features")
 
 local o_allow_uncommercial = m:add_new_option("allow_uncommercial", "checkbox")
 o_allow_uncommercial:set_text("Let cultures without markets trade")
-o_allow_uncommercial:set_tooltip_text("Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons of Chaos, Beastmen and Lizardmen. They keep no markets in lore, so when off, they have no Exchange at all: no button, no panel, no prices. Others can still buy shares in them either way. Takes effect on a restart.")
+o_allow_uncommercial:set_tooltip_text("Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons of Chaos, Beastmen and Lizardmen. They keep no markets in lore, so when off, they have no Exchange at all: no button, no panel, no prices. Either way, other cultures cannot buy shares in them. Takes effect on a restart.")
 o_allow_uncommercial:set_default_value(false)
 o_allow_uncommercial:set_assigned_section("features")
 

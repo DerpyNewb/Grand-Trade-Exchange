@@ -1,14 +1,9 @@
 # Building a custom UI panel (WH3)
 
-> **The public copy is edited - do not overwrite it.** `zharr-exchange/` stages this doc
-> for github.com/DerpyNewb/Grand-Trade-Exchange with the `TOWER_OF_ZHARR_CUSTOM_SEATS` and
-> `check_rite_panel_ui.py` references stripped, since neither is in that repo. Copying this
-> file over it re-breaks those links. Edit here, then re-apply the strip.
-
 Traced end to end while building the Zharr Exchange panel, 2026-09-04/05. Every rule below was
 **measured in game**, most of them after shipping the wrong thing first; the screenshot that
-caught each one is named. `docs/TOWER_OF_ZHARR_CUSTOM_SEATS.md` §5 covers reading and
-re-laying out **CA's** panels — this file covers shipping **your own**.
+caught each one is named. It covers shipping **your own** panel, as opposed to re-laying
+out one of CA's.
 
 The build is `tools/gen_exchange_ui.py` (three `.twui.xml` files) plus
 `Modding Files/pack/script/campaign/mod/zzz_derpy_chd_exchange.lua` (creation, layout, text,
@@ -705,6 +700,25 @@ Deliberate insets go the other way and are safe for exactly the same reason: a *
 what every icon and button plate here uses. A positive `dw`/`dh` is always a bug, and
 `tools/gen_guilds_ui.py` `check()` now refuses one.
 
+### Its END is not fixed either
+
+`resources_bar` is docked `Top Center`, anchor 0.5, with a `HorizontalList`
+`sizetocontent="true"` (ui3.pack `hud_campaign_resource_bar_wh3.twui.xml`). It GROWS BOTH
+WAYS as effect icons and faction widgets appear. Its right end measured 1294..1452 across
+one day's logs on the same 1920x1080 screen, and a button placed off that end moved every
+few turns. **Anchor to its centre (`bx + bw/2`), which is fixed**, and place in the row
+under it (`by + bh + gap`), which it never covers. CA hangs a few widgets below the
+strip's middle (Middenland's Drakwald threat bar, the Dwarf grudge holder), so keep clear
+of the centre itself. The Guilds and Exchange buttons did this briefly on 2026-09-27. The
+player had it reverted: they want the buttons BESIDE the bar and accept that they move
+with it. Ask before moving an opener off the top row.
+
+**What they do instead is FOLLOW the end.** No event fires when a component changes size,
+so placement at load and turn start leaves the button where the end used to be, and it
+jumps later. `cm:repeat_real_callback` (the UI clock, local, MP-safe for a pure MoveTo)
+re-reads the anchor every 300ms and moves only on a change: `GGUI.follow_bar`,
+`EX.follow_bar`.
+
 ### A fallback must not resolve to different geometry
 
 The teleport that followed: the anchor fell back to the holder when the child was not yet
@@ -900,10 +914,6 @@ Two lessons about the checks themselves, from the same day:
   missing.
 - **A harness that stubs a setter away cannot tell "painted" from "left up".** Record what
   `SetImagePath` and `SetStateText` were handed and assert on that, not on `SetVisible`.
-
-`tools/check_rite_panel_ui.py` does the same job for the three commission-panel widgets, with
-the game shut: component names the Lua reaches for, CCO properties, GUID pairing, root-vs-child
-extent, and the visibility gate a list-reading widget needs.
 
 ## Reading CA's names LIVE: the context viewer
 

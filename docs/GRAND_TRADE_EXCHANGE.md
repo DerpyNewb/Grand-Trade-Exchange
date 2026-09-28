@@ -9,10 +9,11 @@ This is the **reference for what shipped**.
 | | |
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
-| Size / md5 | 1,341,862 B / `dbf6aa4d4a476ff31584198bc49c55ee` (2026-09-09, deployed and byte-verified under the new name) |
-| Rows | 641 DB across 10 tables, plus 1,768 loc = 2,409 |
-| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 9,159 lines, 262 `EX.*` functions (514 `EX.*` names in all, every one read — `check_no_orphans`) |
-| Races | 8 covered, of the game's 27 cultures |
+| Size / md5 | 1,603,113 B / `bab4f8ec3e11966cfa8f1b8069d4b881` (2026-09-28, deployed to the Workshop folder and byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
+| Rows | 649 DB across 10 tables, plus 1,776 loc = 2,425 |
+| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 12,720 lines, 357 `EX.*` functions (678 `EX.*` names in all, every one read — `check_no_orphans`) |
+| Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
+| Workshop | *Derpy's Grand Trade Exchange*, item 3798516851. In game it is still the Zharr Exchange |
 | Hard dependency | none |
 | Multiplayer | supported since 2026-09-09, **never run on two machines** — §18 |
 | Soft dependencies | MCT (settings), Cataph's Southern Realms (the eighth board; the base game covers the other seven) |
@@ -26,10 +27,10 @@ no price discovery anywhere in the game. The Exchange is that missing layer: eac
 goods gets a live price driven by what the world actually produces, who owns the production,
 who is at war, what the AI houses are holding and what you yourself have been buying.
 
-You reach it from a button on the campaign HUD. Inside are five views, a guide, and a market
+You reach it from a button on the campaign HUD. Inside are six views, a guide, and a market
 you can trade against every turn.
 
-**Five things you can do with gold in it:**
+**Seven things you can do with gold in it:**
 
 1. **Trade the 17 commodities.** Buy low, sell high, or corner a good and watch your own
    buying move the price against you.
@@ -39,9 +40,18 @@ you can trade against every turn.
 4. **Buy shares in other Chaos Dwarf houses.** They pay a dividend every turn, and settle when
    the house dies — at a premium if *you* were the one who killed it.
 5. **Pay the patron's tithe** when it is demanded, or refuse and take the wrath.
+6. **Take a deal.** Each turn a few factions outside the guild post a one-turn offer - to buy
+   over the market or to sell under it (§12, "The Deals page").
+7. **Leave a standing order** on Trade's third page - buy when a good falls to your price,
+   sell when it rises to it. Twelve can wait at once.
 
 And one thing that happens to you whether you trade or not: the price of what your own regions
 produce drives your vanilla trade income.
+
+Around the panel, since 2026-09-13, the rest of the map trades too: every landholding faction
+outside the guild holds a position and trades each turn (§9.1), a faction's net position
+in iron, timber and obsidian changes how fast its armies replenish (§10.1), and the
+houses' campaign AI is told how your holdings should make it feel about you (§7.4).
 
 ---
 
@@ -54,16 +64,16 @@ Seventeen files in the pack.
 | Table | Rows | What it carries |
 |---|---:|---|
 | `pooled_resources` | 17 | `derpy_chd_ex_hold_<good>` — where a position is held |
-| `pooled_resource_factor_junctions` | 19 | the `other` factor each pool moves through - 17 of ours plus CA's two layer-2 pools |
+| `pooled_resource_factor_junctions` | 19 | the `other` factor each pool moves through - 17 of ours plus CA's two layer-2 pools. v3 since game update 9.0, which added `sort_order` (emitted as CA's 0); `table_version()` reads the version from the cached dump, so delete `.skilltree_cache` after a patch or the old version is written again |
 | `campaign_group_pooled_resources` | 34 | 17 pools x 2 groups (CHD feature group + `wh_main_feature_all`) |
-| `effect_bundles` | 211 | 8 races x (17 offerings + pleased + wrath) = 152, plus 51 warehouse tiers, plus 8 trade-income steps |
-| `effect_bundles_to_effects_junctions` | 227 | the above, with the two patron bundles carrying two effects each |
+| `effect_bundles` | 215 | 8 races x (17 offerings + pleased + wrath) = 152, plus 51 warehouse tiers, plus 8 trade-income steps, plus 4 War Stocks position steps (`derpy_chd_ex_pos_neg02` .. `_pos02`) |
+| `effect_bundles_to_effects_junctions` | 231 | the above, with each race's two patron bundles carrying two effects each (16 bundles x 2) |
 | `campaign_groups` | 32 | 4 event-feed records per race |
 | `campaign_group_members` | 32 | " |
 | `campaign_group_member_criteria_values` | 32 | " |
 | `event_feed_message_events` | 32 | " |
 | `building_effects_junction` | 5 | the five Chaos Dwarf resource buildings that produce no trade good in vanilla — see §4.1 |
-| `text/db/…loc` | 1,768 | every title, description and bulletin — 197 rows per race |
+| `text/db/…loc` | 1,776 | every title, description and bulletin - 197 rows per race, plus 200 shared by all eight (warehouse tiers, holding pools, shocks, delistings, trade-income and War Stocks bundles) |
 
 `building_effects_junction` is the **only** table here that edits a vanilla row's subject rather than minting a key of this mod's own, and so the only one that can collide with another mod: anything else touching those five buildings' effects wins or loses by load order, with no crash and no warning either way.
 
@@ -75,7 +85,7 @@ deleted on 2026-09-05 once the price stopped being an effect at all.
 
 ```
 script/campaign/mod/zzz_derpy_chd_exchange.lua        the whole runtime
-script/campaign/mod/zzz_derpy_chd_exchange_prod.lua   779 buildings -> what each produces
+script/campaign/mod/zzz_derpy_chd_exchange_prod.lua   789 buildings -> what each produces
 script/mct/settings/derpy_chd_zharr_exchange.lua      MCT registration
 ui/campaign ui/derpy_chd_exchange_panel.twui.xml      the panel
 ui/campaign ui/derpy_chd_exchange_row.twui.xml        one row
@@ -114,6 +124,11 @@ prefix gives three wrong names and fourteen ugly ones. Names come from
 icons from `resources_tables.icon_filepath`. Regenerate with `tools/read_vanilla_loc.py`.
 
 A position is held in a pooled resource, `derpy_chd_ex_hold_<short>`, one per good. Lot size 10.
+
+Every Layer 1 trade settles against a real faction - a guild house, a world-tier actor or the
+largest producer (§5, "Who is on the other side"). Layer 1 is the only layer that has one:
+Armaments and Raw Materials come out of the Forge and a share is paper, which is the rule the
+`nobuyer` sell refusal rests on.
 
 ### Layer 2: the two Chaos Dwarf pooled resources
 
@@ -197,7 +212,7 @@ base rung       = ladder_index(multiplier)
 The concentration term is the cartel premium: a good produced in quantity but by one faction
 prices as if it were scarce. The exponent softens the curve — 1.0 would be strictly inverse.
 
-`zzz_derpy_chd_exchange_prod.lua` is the production map, 779 buildings and what each makes per
+`zzz_derpy_chd_exchange_prod.lua` is the production map, 789 buildings and what each makes per
 turn, generated by `gen_zharr_exchange.write_production_lua`. It is a separate file because it
 is data, and read lazily because mod scripts autoload in no set order.
 
@@ -279,7 +294,7 @@ medians are separate.
 
 **For layer 2** — the neutral rung, flat.
 
-### 4.2 The five shifts
+### 4.2 The six shifts
 
 The base rung is then moved by five independent terms, summed and clamped to [1, 42]:
 
@@ -288,11 +303,23 @@ The base rung is then moved by five independent terms, summed and clamped to [1,
 | **Pressure** | your own net lots bought, `PRESSURE_PER_RUNG` = 4 per rung | +/-6 (`PRESSURE_MAX` 24) |
 | **Appetite** | world culture demand + war, see §9 | +/-`AI_MAX_RUNGS` = 2 |
 | **Shock** | sacks, razes, sieges and raids, see §8 | +/-`SHOCK_MAX` = 6 |
-| **Book** | what the AI houses are holding, `BOOK_PER_RUNG` = 30 units per rung | +/-`BOOK_MAX` = 2 |
+| **Book** | what the AI houses are holding, `BOOK_PER_RUNG` = 30 lots a step | +/-`BOOK_MAX` = 2 |
+| **World book** | every other landholder's net position (§9.1), `world_gain` (4.0) x net lots / 100 - 25 net lots a step at default | +/-`AI_MAX_RUNGS` = 2, clamped on its own |
 | — | a delisted house freezes instead: its rung never moves again | — |
 
 Every one of these truncates **toward zero**, never `math.floor` — flooring a signed value would
 move a price *down* on a demand too small to move it up, and Lua 5.1 stringifies `-0`.
+
+**`AI_MAX_RUNGS` clamps two terms, each on its own** - appetite and the world book, with no
+shared budget - so the AI half's combined reach on one price is double what one term gives:
++46% / -32% at default (1.10 ladder, 2 steps each), +17% / -14% on easy, +108% / -52% on hard,
++423% / -81% on ultra, with both terms pinned the same way. A separate world-tier clamp was
+considered and rejected: the tier has its own off switch (`ai_world`, which zeroes the term), and
+a number nobody has measured does not earn another settings place.
+
+The world book term is a second term rather than a change to `EX.book_shift`, whose 30-lot
+calibration against the guild is what holds the measured spread floor. What moves it is narrow -
+see §9.1, "What moves the world book's price, and what does not".
 
 ### 4.3 What you actually pay
 
@@ -309,7 +336,7 @@ guild a stance on the Forge's output cannot stack a markup on a fire sale that i
 discounted. The `min()` is the round-trip rail — see §3, Layer 2.
 
 `hostility` is the guild's stance as a signed factor: positive is a markup from houses that
-despise you, negative a discount from houses that like you. The two halves are asymmetric on
+despise you, negative a discount from houses that like you (a half no real game reaches - see below). The two halves are asymmetric on
 purpose — hostility runs to `HOSTILE_MAX` (0.25) because charging more can never mint gold,
 while the discount is bounded by
 
@@ -318,19 +345,39 @@ friendly_cap = (1 - LADDER_STEP * (1 - spread)) / (1 + LADDER_STEP)
 ```
 
 because a discount **can**. At the default spread of 0.10 that headroom is about one per cent,
-so the Friendly discount slider does nothing much until the spread is raised. The tooltip says
-so rather than leaving the player to wonder.
+so the *Friendly discount limit* slider would do little until the spread is raised - and in play it
+does nothing at all, because the discount half never fires (below). Its tooltip explains the
+spread bound and not that.
 
 This is the round-trip algebra `check_spread()` guards, and it is why `spread`, `ladder_step`,
 `sell_floor` and `friendly_max` are the four knobs a race profile is **forbidden** to touch.
 The `easy` preset minted gold for months on a four per cent spread against a 1.08 step: selling
 one rung up paid 1.0368x what you bought at, with no friendly discount involved at all.
 
+**The discount half never fires in a real game** (found 2026-09-23, left as is).
+`EX.stance_of` answers -1..0 only. It gives -1 at war, 0 for a vassal, ally or trade partner and
+for any house whose standing with you is zero or better, and it ranks a house with no treaty and
+a negative standing against the guild's deepest negative (a non-aggression pact caps that).
+So every term of `EX.hostility`'s sum is zero or positive and the result is never below zero.
+The friendly branch, the Friendly discount limit slider and every "likes you" sentence (Buy and
+Sell tooltips, the Log's trade line) are unreachable. Only `_friendly_harness.lua` exercises
+them, by stubbing `stance_of` to +1. If a positive stance is ever wired in, `EX.friendly_cap`
+above is the bound that still has to hold.
+
+**The house a markup is blamed on is `EX.hostility_source(res)`**: the holder with the largest
+`book x -stance`, houses at war with you included, which are the same terms `EX.hostility` sums.
+Three sentences read it: the Buy tooltip ("X holds this and dislikes you: +N%."), the Sell
+tooltip ("... pays you N% less.") and the Log's trade line ("X dislikes you: N% more.").
+Until 2026-09-23 they named `EX.guild_counterparty`, the house you buy FROM, which skips houses
+at war. So the biggest peaceful holder took the blame for other houses' dislike: the Warhost of
+Zharr "disliked" a player at +85, a standing `EX.stance_of` scores 0. The fill still pays the
+counterparty; only the sentence changed. `check_lua_books` pins it (`source_named`).
+
 ---
 
 ## 5. Trading
 
-`EX.trade(res, is_buy)` — and it is **two calls and nothing else**:
+`EX.apply_trade_held(res, is_buy, ...)` - reached from `EX.trade` (the network sender) through the `buy`/`sell` op, `EX.bulk_trade` and the `EX.apply_trade` wrapper - and it is **two calls and nothing else**:
 
 ```lua
 cm:treasury_mod(faction, is_buy and -price or price)
@@ -346,7 +393,7 @@ The factor argument must be the `pooled_resource_factors` **key** (`"other"`), n
 `pooled_resource_factor_junctions` unique id. Passing the junction id succeeds and moves nothing
 at all, with no error.
 
-**Six ways a buy is refused**, each with the reason on the button, in its tooltip and in the log:
+**Seven ways a buy is refused**, each with the reason on the button, in its tooltip and in the log:
 
 | | |
 |---|---|
@@ -356,9 +403,68 @@ at all, with no error.
 | A house is at war | you cannot buy its own paper while fighting it |
 | The house is delisted or dead | see §7.3 |
 | The pool is not registered on your faction | charging for it would take the gold and grant nothing |
+| Nobody is holding any ("Sold out") | `EX.sold_out`, only with `world_scarcity` **and** `ai_world` on: the guild holds none of it, the world tier could supply it (`EX.world_potential` > 0) and no actor can right now (`EX.world_supply` = 0). Names the largest producer. Tested last, because it is the weakest claim. Off on easy; on at default, hard and ultra |
 
-Selling is **always** open. A house that despises you is delighted to take your goods cheap, and
-blocking a sale traps the player's capital with no exit — the lockout that actually hurts.
+Selling is open against all seven. A house that despises you is delighted to take your goods
+cheap, and blocking a sale traps the player's capital with no exit - the lockout that actually
+hurts. The one sell refusal is not about anybody's mood: a Layer 1 sale that no faction on the
+map can pay for is refused (`nobuyer`) rather than minting the price out of nothing - see "Who is
+on the other side" below.
+
+**Sell greys for one reason only: holding less than one lot** (`EX.draw_sell`, on Trade and
+Houses rows, since 2026-09-25). That is the one sell `EX.apply_trade` refuses (`nothold`).
+Before, the button stayed live and the click did nothing on screen. A war, a closed market or a
+hostile house never greys it. Its tooltip is `EX.TIP_SELL`, or `EX.TIP_SELL_NONE` ("You hold
+less than one lot of this.") while greyed.
+
+**The two refusals `EX.apply_trade` does not log itself now reach the Log**: `afford` and
+`nothold`, worded by `EX.TRADE_STOP` and written by `EX.log_bulk` as "Buy refused. Not enough
+gold." and "Sell refused. You hold less than one lot." Both used to reach the script log only.
+
+**What one click costs.** Since 2026-09-23, `EX.apply_trade` is a wrapper: `EX.hold_guild()`,
+then `pcall(EX.apply_trade_held, ...)`, then `EX.free_guild()`, then the error re-raised.
+Holding one stance vector for the whole trade stops `EX.blocked`, `EX.buy_price` and the Log
+line each walking the guild once per holder. That walk cost 2,896 `cm:get_faction` calls a lot
+at the 105 houses of a live save, about 0.6s before "bought".
+
+The reprice 0.1s later had the second walk: `EX.target_rung` took the house median once per
+house. `EX.apply_prices` now computes `EX.house_median()` once and passes it as the optional
+fifth argument `hmed`, which took the reprice from 11,130 power reads to one pass. A caller that
+omits it still gets the live read, so keep passing it. `check_lua_books` fails if a 40-house
+reprice makes more than 80 power reads. Confirmed live the same day: click, "bought" and
+"repriced" arrived inside 0.1s on a 227-instrument board, where they had taken about 1.8s.
+
+### Who is on the other side
+
+Every commodity trade settles against a real faction through
+`EX.settle_counterparty(res, is_buy, price, only)`, and `EX.apply_trade` consults it **before**
+the player's own `cm:treasury_mod`, because a treasury move cannot be taken back. Three steps, in
+order:
+
+| Step | Who | On your buy (they sell) | On your sell (they buy) | Declines when |
+|---|---|---|---|---|
+| 1. Guild | `EX.guild_counterparty` - a house not at war with you | the house with the largest book in the good | the richest house | price > `house_cash_max` (with `ai_gold` on) |
+| 2. World | `EX.world_counterparty` - a non-human actor, only with `ai_world` on | the actor with the most to sell (`EX.world_sellable`) | the actor with the largest scanned treasury | price > `world_cash_max` (with `ai_gold` on) |
+| 3. Land | `EX.top_holder(res, you)` - the largest producer that is not you | paid the full price | pays out of its treasury, capped at what it has | you are the only producer, or its treasury is empty |
+
+Steps 1 and 2 move the counterparty's book by one lot; step 3 moves only gold. The two declines
+are tested against the price before anything is paid: the player's leg is never capped, so a
+flat cap tighter than the price minted gold on a sell and destroyed it on a buy - and the ladder
+passes `world_cash_max` around step 37 of 42 at default. A declined step falls through to the
+next. With a guild in the game, step 1 takes almost every sell (it needs only one house with
+gold), so step 2 is mostly reached by buys.
+
+**`only` names the counterparty and skips the walk** - the Deals page's route. With it the guild
+step is skipped and there is no fallback: if the named faction cannot settle, the answer is nil,
+never somebody else. A panel that names one faction and pays another is the same lie as a quoted
+price that is not the price charged.
+
+**A sell nobody can pay for is refused** (`nobuyer`), and only for a commodity. Layer 2 and house
+paper have no counterparty by construction, and refusing them here once took every Layer 2 sale
+out of the game. A **buy** with no counterparty is not refused - it destroys gold rather than
+minting it - and step 3 skips the player, so cornering a good never traps the position: the
+sale goes to the second-largest producer. Before 2026-09-13 the player was credited before
+settlement was asked, and a sell into nothing minted the whole price.
 
 ---
 
@@ -392,7 +498,7 @@ long as you keep paying the carry.
 | Good | Grants | Good | Grants |
 |---|---|---|---|
 | Iron | +4 armour, all armies | Golden Idols | +2 hero capacity |
-| Carved Obsidian | +10 winds of magic cap | Tusks | +4 research points |
+| Carved Obsidian | +10 winds of magic reserve | Tusks | +4 research points |
 | Marble, Timber | -6% construction cost | Exotic Animals | +10% Labour per battle * |
 | Wine, Spices, Dwarf Beer | +4 public order | Medicinal Plants, Salt | +6% replenishment |
 | Gemstones, Dyes, Elven Trinkets | +6% trade tariffs | Furs | +6% movement range |
@@ -401,6 +507,19 @@ long as you keep paying the carry.
 \* Chaos Dwarfs only. The other seven races have no Labour pool, so `boon_over` swaps Exotic
 Animals to +4 public order for them — otherwise the bundle applies, the effect moves nothing,
 and the panel advertises a number that never arrives.
+
+**The Held cell says how far the next level is** (`EX.hold_tip`, 2026-09-25). Each Trade row's
+`row_hold` carries its own tooltip under the column's. The body is one of "No stockpile bonus
+yet: N more for level 1 of 3.", "Stockpile bonus, level N of 3. M more for level N+1." or
+"Stockpile bonus, level 3 of 3: the most there is." It goes on with "Level 2 grants <boon>."
+and, only while rent is charged, "Rent Ng a turn." Level 2 is quoted and no other level,
+because it is exactly what an offering grants (`OFFER_MULT` 2). Layer 2 rows and houses get the
+column tooltip alone. The rent clause follows `EX.charge_carry`'s own switch
+(`warehouse_rent`), and the rest of the panel does not - see §17.
+
+**Rent is in the Log.** `EX.charge_carry` writes one line a turn, subject "Rent": "Warehouse
+rent: -Ng." The engine files a scripted `cm:treasury_mod` as a one-off outcome, so the treasury
+breakdown never shows the charge, and the Log is the one place last turn's bill can be read back.
 
 ---
 
@@ -421,6 +540,24 @@ single-precision: `OFFER_STEP` reads back in game as 1.0499999523163, so `30 * 1
 rounding differently — the price shown and the price charged both come from that one function,
 so they agree whatever the float does.
 
+**The Offerings row decides its own button on every draw** (`EX.offer_cells`, 2026-09-25). The
+row component is the Trade view's, one per commodity, so any state this view does not write is
+the last view's. That is how a war lock, greying every Buy on Trade, greyed every Sacrifice
+with it and shut the altar for the length of a war. `EX.offer_cells` returns exactly one of a
+tooltip (`tip`) or a reason (`why`), and `why` greys the button through `EX.set_off`:
+
+| State | Status | Button | Greyed, and the tooltip |
+|---|---|---|---|
+| Can offer | Ready | Sacrifice | no - "Burn N <good> on the altar." and the favour it buys |
+| Offering running | N turns left | Active | yes - "This offering's favour is still running." |
+| Too few held | Need N | Insufficient | yes - what it takes and what you hold |
+| Tithe pending on this good | Due: N turns, or Need N | Pay tithe, or Insufficient | only when short - see §7.2 |
+| Armaments, Raw Materials | - | - | yes - "<patron> has no use for these." |
+
+Keep the one-of rule. A row that writes both, or neither, inherits the other view's state.
+Each offering writes a Log line under the good: "Offered N to <patron>. Favour for 5 turns;
+the next offering takes M."
+
 ### 7.2 The patron's tithe
 
 From turn `DEMAND_FIRST_TURN` (15), on a `DEMAND_COOLDOWN` (15) cycle, at `DEMAND_CHANCE`
@@ -435,10 +572,32 @@ From turn `DEMAND_FIRST_TURN` (15), on a `DEMAND_COOLDOWN` (15) cycle, at `DEMAN
 The amounts are 1x / 3x / 6x the base offering cost — a tithe is exactly what you would have
 given freely. Only commodities you can actually pay out of are ever named.
 
-Pay with the same Buy button on the Offerings view (the pending demand takes precedence over the
-ordinary offering price and ignores the cooldown). Paying grants the commodity's boon **plus**
+Pay from the demanded good's own row on the Offerings view: its button reads **Pay tithe** while the
+demand is pending, and the click pays the tithe's amount, ignoring the ordinary offering price and
+the cooldown (see below). Paying grants the commodity's boon **plus**
 `<patron>_pleased`: +3 public order and +5 leadership. Refusing — or letting `DEMAND_GRACE` = 3
 turns lapse — applies `<patron>_wrath`.
+
+**A pending tithe owns its row** (2026-09-25). Until then the demanded good drew as an ordinary
+offering - "Ready / Sacrifice" at 30 held against a tithe of 90 - while the click went to
+`EX.pay_demand` and failed into the script log. The row now shows the tithe's amount as Cost.
+With enough held, Status reads "Due: N turns" beside a live **Pay tithe** button, whose tooltip
+is "Pay the tithe: N <good>." and the favour it buys. With too little, Status reads "Need N"
+beside a greyed Insufficient, whose tooltip names the wrath's length. While a tithe is pending,
+Offerings footer line 2 drops the warehouse note for "<patron> demands N <good> within N turns.
+Unpaid, the wrath lasts N turns." The HUD opener's tooltip carries the same demand (§12).
+
+**"Turns left" counts the current turn.** `EX.check_demand` lands the wrath at the START of turn
+`demand_due`, so `demand_due - turn` is the number of turns still payable, and 1 means this one.
+`EX.tithe()` floors it at 1.
+
+**The Log keeps the demand and its answer**, under the good:
+
+- `EX.fire_demand` writes "<patron> demands N, within 3 turns. Pay it on the Offerings tab."
+- `EX.pay_demand` writes "Tithe paid: N to <patron>. Favour for T turns."
+- `EX.check_demand` writes "Tithe unpaid. <patron>'s wrath for W turns."
+
+The event feed says it once. The Log is where it can be read back three turns later.
 
 **It is an event-feed message, not a dilemma.** A `DilemmaChoiceMadeEvent` listener that matches
 a custom dilemma hard-crashes the game and bricks the save. `cm:show_message_event`'s last
@@ -450,7 +609,8 @@ Disrupted bulletin — the picture is a column on the record and nothing can swa
 
 ```
 ""    7401-7404      emp_  7411-7414      cth_  7421-7424
-skv_  7431-7434      teb_  7441-7444
+skv_  7431-7434      teb_  7441-7444      dwf_  7451-7454
+hef_  7461-7464      def_  7471-7474
                      slots: call, wrath, shock, delist
 ```
 
@@ -500,6 +660,68 @@ Two ordering rules make the payout worth what the house was:
 turn and it stays `is_delisted == false` until you end it, while its price still reads the last
 living one: buy every lot the treasury can carry, end turn, collect 25%. Repeatable per house
 killed, and it inverts the hook exactly.
+
+**A stake also warms the house.** Every `STANCE_SHARES` (25) shares you hold in a house is a step
+toward it being told to feel `FRIENDLY`, then `VERY_FRIENDLY`, toward you; hoarding the goods it
+produces pulls the other way. See §7.4.
+
+### 7.4 The houses notice your book - the AI stance hook
+
+Not a fourth long game: a consequence of two of them. `EX.promote_stances`, turn step 15b, is the
+one wire from the market into CA's campaign AI.
+`cm:cai_strategic_stance_manager_promote_specified_stance_towards_target_faction` makes a
+strategic stance "much more likely" (CA's words), and a stance reaches war targeting and deal
+generation - parts of the AI no DB row and no other script call can touch. There is no "AI,
+consider a trade" hook; `EX.step_books` and `EX.step_world` remain the only things that move a
+book. What the AI can be told is how to feel.
+
+**The score is market state and nothing else** - `EX.stance_score(house, mine)`:
+
+    n    = shares you hold in the house / STANCE_SHARES (25)
+         - sum, over goods the house produces, of units you hold / STANCE_CORNER (150)
+    step = n truncated toward zero, clamped to -2..+2
+
+| Step | Promoted stance |
+|---:|---|
+| +2 | `CAI_STRATEGIC_STANCE_VERY_FRIENDLY` |
+| +1 | `CAI_STRATEGIC_STANCE_FRIENDLY` |
+| 0 | none - cleared only |
+| -1 | `CAI_STRATEGIC_STANCE_UNFRIENDLY` |
+| -2 | `CAI_STRATEGIC_STANCE_VERY_UNFRIENDLY` |
+
+`BEST_FRIENDS` and `BITTER_ENEMIES` are deliberately unused: a commodity position colours a
+relationship, it does not force an alliance or a blood feud. "Produces" is
+`EX.owners[res][house] > 0` - the same table the prices come from - so a pile of gems means
+nothing to a house with no gem output. 25 shares is five lots; 150 units sits just above the
+first `STOCK_TIERS` step. Both numbers are guesses.
+
+**`EX.stance_of` must never be an input**, and `check_lua_books` greps `EX.stance_score`'s body
+for `stance_of`, `standing_of`, `treaty_tier` and `at_war` to keep it out. `standing_of` reads
+`diplomatic_standing_with(player)`, which is the number a promoted stance goes on to move: fed
+back in, every house walks itself to `VERY_UNFRIENDLY` within a few turns and the market stops
+mattering after the first. The inputs are your shares and your warehouse, which the AI cannot
+move. This is also not the markup's stance - `EX.hostility` (§4.3) reads diplomatic
+standing; this writes the CAI stance, and the two are independent.
+
+**Clear, then promote, every turn, no memo** - the `EX.apply_trade_income` idiom. For every human
+(bound through `EX.with_player`) and every house in `EX.guild()`, the pair's promotions are
+cleared and a non-zero step is promoted, each pair in its own `pcall`. Both calls take faction
+**key strings**. `EX.held` is read once per commodity before the house loop, not once per house.
+
+**`cai_strategic_stance_manager_clear_all_promotions_between_factions` is not mod-scoped.** It
+removes any scripted promotion between that house and that player - a CA narrative script's or
+another mod's - every turn, for every house, step zero included. That is what the `ai_stance`
+switch ("Houses react to your holdings", Systems, on in every preset) is for, and why off makes
+**zero** engine calls rather than clearing without promoting. The cost of that: switched off,
+whatever was promoted last is left standing, because nothing clears it.
+
+The guild is not fourteen houses once trading blocs are on - a 2026-09-23 save listed 105 - and
+the hook reaches every one of them: two engine calls per house, per human, per turn.
+
+**The only trace is a log line**, `N house(s) warmer, M colder on your book`, in the `house`
+debug category (off by default), printed when any score is non-zero. No panel element shows a
+stance. Seen in play 2026-09-17 ("0 house(s) warmer, 2 colder"); what the AI then did with it
+has not been observed.
 
 ---
 
@@ -593,7 +815,7 @@ Two independent terms, summed and multiplied by `AI_GAIN` (6.0), then truncated 
 culture = sum over cultures of  CULTURE_WANTS[c][res] * share[c]
 ```
 
-Positive is demand, negative is supply. 26 entries cover all 25 land-holding vanilla cultures
+Positive is demand, negative is supply. 27 entries cover all 26 land-holding vanilla cultures
 plus the Southern Realms. Two vanilla keys are exempt and the exemption is pinned in two places
 so growing the list is a deliberate edit with a reason: `*` is a wildcard row in
 `cultures_tables` rather than a culture, and `wh2_main_rogue` holds no regions so its share is
@@ -652,7 +874,7 @@ commissions a marble frieze during a siege. Dwarf Beer is 0 on purpose.
 
 **Scale, in practice.** A culture holding a tenth of the map with a 0.7 appetite contributes
 `6.0 * 0.07 = 0.42` rungs — under one, so no single culture moves a price by itself. What moves
-the board is the sum across all 26, and a large swing in one culture's share. An Empire collapse
+the board is the sum across all 27, and a large swing in one culture's share. An Empire collapse
 or a runaway Empire shows up in your prices; an ordinary war between them and Bretonnia mostly
 does not.
 
@@ -674,6 +896,85 @@ it contributes nothing to any price. Add it to EX.CULTURE_WANTS.
 The threshold is not zero because a single region changing hands mid-war would otherwise
 announce a rounding error.
 
+### 9.1 The world tier - every other landholder trades
+
+Since 2026-09-13. The guild is untouched; beside it, every other landholding faction is an
+**actor** with a book, a budget and a desire score - and nothing else: no shares, no dividend, no
+stance promotion, no guild row. Widening `EX.guild()` instead was rejected: `EX.refused_by` and
+`EX.market_closed` are share-of-the-guild's-book thresholds, and across the whole map no share
+ever reaches them, so both would stop firing with no error.
+
+**The roster costs nothing.** `EX.scan_supply` already caches culture and war per owning faction
+in its region walk; the treasury is one more read, in its own `pcall` (a faction whose treasury
+cannot be read is an actor with 0 gold, not a missing one). `EX.actors` is that cache minus every
+faction whose culture `EX.is_house_culture` accepts - every human's culture and, with `cross_bloc`
+on, their trading blocs - so no faction is both a house and an actor, and no human is ever an
+actor. Rebuilt every scan; a failed scan keeps last turn's roster. Every consumer still filters
+`EX.is_human` itself. One campaign's load-time sweep counted 73 actors.
+
+**The book is a position, not a warehouse.** `EX.wbook[faction][res]`, in lots, and it may be
+**negative**: a producer selling its output is short. What an actor can sell comes from its land,
+re-derived on every call and never banked:
+
+    capacity(f, res) = floor(output x WORLD_STOCK_TURNS (3) / lot(res))    output = EX.owners[res][f], in units
+    sellable(f, res) = max(0, capacity + book)
+
+**Floor the product, not the factor**: `floor(output / lot) x 3` gave every producer under a lot a
+turn capacity 0 forever, and the whole world makes 6 units of Dwarf Beer a turn. `EX.owners` is an
+output **amount**, not a region count - the `add()` helper in `EX.scan_supply` is the authority,
+and five comments once said otherwise. `EX.set_world_book` lets a write deepen a short only down
+to `-capacity`, but always lets a position move toward zero, however far capacity has since
+shrunk: a faction that loses the land behind its short is never quietly forgiven part of it. An
+accrual step, `EX.accrue_world_stock`, was built first and **withdrawn** - it read output as a
+region count, pinned the price term at its ceiling within turns, and only ever added.
+
+**Desire** - `EX.world_desire(faction, res)`, five terms and zero engine calls, since it runs
+actors x 17 times a turn:
+
+| Term | Value |
+|---|---|
+| Production | `-(0.4 x output)` if it produces the good, else `+0.5` |
+| Taste | `EX.CULTURE_WANTS[culture][res]` - §9's table, promoted from an aggregate price shift to this faction's personality. Drift is not applied |
+| War | `+WAR_APPETITE[res]` if this faction is at war - its own war, not the world index |
+| Value | `0.15 x (neutral step - current step)`, as for a house |
+| Position | `-0.05 x book` when long only. A short is an actor's normal state, not an appetite to buy back; two-sided, a fully short producer became the keenest buyer on the map for its own good |
+
+No front-run term and no `house_bias`: watching the player's book is a house behaviour.
+
+**The matching pass** - `EX.step_world`, turn step 9a. Each actor names one good to buy (its
+highest desire, if above 0) and one to sell (its lowest desire among goods it can sell, if below
+0). Per commodity, the i-th buyer is paired with the i-th seller; the longer side's remainder
+does not trade this turn. A pair moves `n` lots, capped by the seller's `sellable`, by
+`world_trade_max`, by what the buyer's scanned treasury affords, and by
+`floor(world_cash_max / price)` - without that last cap `EX.pay_actor` clamped the gold while the
+books moved in full, creating goods. **Gold is conserved by construction**: the seller receives
+exactly what `EX.pay_actor` took from the buyer, where the guild's `EX.pay_house` is a sink that
+would drain eighty treasuries a turn. Both scanned treasuries are spent down as a per-turn
+budget, so one treasury cannot pay once per commodity. Trades are at last turn's price, before
+the reprice. A **confirmed**-dead faction's book and save key are pruned first -
+`cm:get_faction` returning `false`, or a faction merely absent from this scan, leaves the entry
+alone. `ai_world` off makes the whole pass a no-op.
+
+**What moves the world book's price, and what does not.** `EX.world_book_shift` reads
+`EX.world_book(res)`, the sum over `EX.wbook` - the book, not the roster, so a faction missing
+from one scan cannot jolt a price. A matched trade moves `n` lots from one book to another and
+leaves that sum unchanged, so **world-to-world trading never moves a price.** The sum changes
+only when a player trades against an actor (step 2 of §5's walk, or a deal) and when a dead
+faction's position is pruned. It is the negative of the humans' cumulative net trade with the
+tier: buy 25 net lots from actors at default settings and this term reads one step *down* for as
+long as the position stands, while your own pressure (§4.2) pushes up and decays. What the
+matching pass does move is treasuries, `sellable` (hence §5's Sold out), the war-goods
+positions of §10.1 and next turn's desire.
+
+**Nothing on the panel shows it.** `EX.world_flow` (lots bought and sold, actors that moved) is
+built every turn and read by nothing but the harness: no Log line, no footer, no `EX.say`. The
+tier is visible only through prices, the Sold out refusal, the Deals page and the War Stocks
+bundles.
+
+Switches and knobs, all in §13: `ai_world` ("The world trades"), `world_scarcity` ("Supply
+can run out"), `world_cash_max` 3,000, `world_trade_max` 3, `world_gain` 4.0.
+`EX.WORLD_STOCK_TURNS` (3) is a constant, not a knob.
+
 ---
 
 ## 10. Trade income
@@ -691,6 +992,55 @@ carrying CA's own `wh_main_effect_economy_trade_good_commodity_mod`.
 
 A faction with ten cheap iron regions and one dear gem region is an iron economy, and the number
 says so. Switchable off (`trade_income`).
+
+### 10.1 Position bundles - war materiel
+
+Since 2026-09-16. A third bundle family beside trade income and the warehouse: an actor's net
+position in war materiel, crossed with its war state, becomes a replenishment bundle on that
+faction and so on every one of its forces.
+
+    war goods = res_rom_iron, res_rom_timber, res_obsidian             EX.WAR_GOODS
+    position  = the actor's world book summed over those three, NET    long iron and short timber cancel
+    steps     = position / pos_step (4 lots), halved if it is not at war
+    tier      = the largest of -2, -1, +1, +2 that steps reaches, else none
+
+| Bundle | `wh_main_effect_force_all_campaign_replenishment_rate`, `faction_to_force_own` |
+|---|---:|
+| `derpy_chd_ex_pos_pos02` | +6% |
+| `derpy_chd_ex_pos_pos01` | +3% |
+| `derpy_chd_ex_pos_neg01` | -3% |
+| `derpy_chd_ex_pos_neg02` | -6% |
+
+`3.0 x tier`, titled "War Stocks". The three goods were chosen by **display** name - `res_rom_lead`
+is Salt and `res_rom_glass` Dwarf Beer, so a set picked off the keys would be the wrong three with
+every gate green - and `check_lua_books` pins the set at three keys, all in `EX.COMMODITIES`. The
+effect/scope pair is the one `WRATH_EFFECTS` already ships; an effect on a scope it does not
+support is a row the game accepts and ignores. The `pos_` stem is deliberate: `trade_` and
+`stock_` are live families whose sweeps delete their whole family.
+
+**Peace halves the tier, it does not zero it.** A bundle that came and went on every declaration
+of war would flicker across the map, and every flicker is a real engine write on every client. A
+faction in the book but missing from this scan reads as at peace - the conservative half.
+
+**Who wears one: the world tier, and only the world tier.** The sweep walks `EX.actors`. A human
+is never an actor (its culture is a house culture) and has no world book - a player trade moves
+the counterparty's book, not the player's - so **the player never wears a War Stocks bundle**,
+and neither does a guild house. Selling iron to an actor at war visibly arms it; buying it off
+one strips it. A producer that sells its war goods forward carries a negative tier for as long
+as the short stands, which is indefinitely (§17). The `world_bundles` MCT tooltip said
+"Applies to you and other factions alike" until 2026-09-28, and the 2026-09-17 patch note said the
+same; the code never did.
+
+**The sweep** - `EX.apply_positions`, turn step 15a and on the load path: remove all four keys,
+then apply one, duration 0, the `EX.apply_trade_income` idiom, because same-effect bundles stack.
+`EX.pos_level` is memory only while the engine holds the bundle across a save, so the sweep is
+forced once per load (`EX.pos_swept`), and a faction that dropped out of the scan wearing a
+bundle has it removed. **Off is a level, not a return**: with `world_bundles` off every answer is
+0, so switching it off strips what was applied rather than stranding it - reachable, because a
+campaign whose settings snapshot predates the switch reads it live from MCT.
+
+`pos_step` reads backwards from most knobs here: smaller is stronger. 6 / 4 / 3 / 2 on easy /
+default / hard / ultra. None of the magnitudes is measured.
 
 ---
 
@@ -710,8 +1060,9 @@ Everything race-shaped in the file derives from `EX.RACES`. Eight rows.
 | `wh2_main_def_dark_elves` | The Black Ark Market | Khaine | `def_` | none |
 
 **The patron is a grammatical subject, and two ceilings police it.** It is substituted into
-"`<patron>` grants" as the Offerings column header and into "`<patron>` demands 8 Iron" in the
-log, so a plural collective reads as *"The Ancestors grants"* with nothing anywhere to notice:
+"`<patron>` grants" as the Offerings column header and into "`<patron>` demands 90 Iron within 3
+turns" on the Offerings footer, the opener's tooltip and (as "`<patron>` demands 90, within 3
+turns") the Log, so a plural collective reads as *"The Ancestors grants"* with nothing anywhere to notice:
 the Dwarf patron is **Grungni**, not the Ancestors, for that reason and no other. And
 `check_help_lines` substitutes the LONGEST patron name into the guide's offering line and
 measures it — at 17 characters *"The Phoenix Court"* reached ~636px in a 620px column and would
@@ -725,7 +1076,11 @@ live campaign holds those inside applied effect bundles; renaming one orphans it
 nothing on screen to say why. `wrath` and `pleased` are carried literally for the same reason:
 the patron's name is already inside the Chaos Dwarf key.
 
-The other 19 cultures are **uncovered**, which is still the majority case. They get the commodities
+The other 20 cultures (19 until game update 9.0 added Nagash's Undead Legions) are **uncovered**,
+which is still the majority case. By default 14 of them get no Exchange at all: the culture lock
+(`EX.LOCK_GROUPS` - 11 cultures without markets and 3 raider cultures, MCT `allow_uncommercial` /
+`allow_raiders`, both off, and always off in multiplayer). The other six, and any the player
+unlocks, get the commodities
 market — layer 1 was never Chaos Dwarf — with the Offerings tab greyed (no altar, and no
 patron written for them), the board titled plainly "Exchange", and their appetite still priced
 into every commodity through `EX.CULTURE_WANTS`.
@@ -734,6 +1089,24 @@ into every commodity through `EX.CULTURE_WANTS`.
 `EX.HOUSE_CULTURE` follows the local player whatever their culture, so shares in an uncovered
 culture's own factions are discovered, priced, traded and settled exactly as for a covered one.
 `EX.tab_locked` greys Houses only when the walk found nothing to list — see its comment.
+
+**Nagash (game update 9.0) sits with the Vampire Counts, not on a ninth board.**
+`wh3_dlc29_nag_undead_legions` ("Undead Legions"; one playable faction,
+`wh3_dlc29_nag_host_of_nagash`) is in the three places the Counts are:
+
+- its `EX.CULTURE_WANTS` entry is the Counts' appetite, copied exactly;
+- it is left out of `EX.BLOC`, like the other three undead cultures, so no other culture can
+  buy its shares. The generator's `BLOC_ABSENT` names it, and `check_culture_locks` holds that
+  list equal to the uncommercial lock group;
+- it is in `EX.LOCK_GROUPS.uncommercial`, so by default a Nagash player gets no Exchange at
+  all - no button, no panel, no prices - until the MCT switch "Let cultures without markets
+  trade" (`allow_uncommercial`) is on. That takes effect on a restart.
+
+Its 16 `wh3_dlc29_nag_resource_*_1` buildings carry no `..._resource_*_production` effect in
+9.0 (army buffs and trade income instead). So the derived production map gives them nothing,
+and Nagash land adds demand but no supply. Nothing was invented for them.
+`check_culture_appetites` is what caught the gap: 9.0's `cultures_tables` added the key, and the
+selftest failed until the entry existed.
 
 ### 11.1 Race profiles
 
@@ -760,7 +1133,7 @@ it. A race that set absolute values would flatten every preset but `default`.
 - **Empire — institutional.** Slow, deep, civil. Shocks damped, half again as much volume to
   move a price, polite even when they dislike you, open through wars that would shut a rougher
   market, orderly wind-ups — and the best paper in the game. Dull, and the best yield.
-- **Cathay — regulated.** The calmest board of the five, with books so thick that cornering
+- **Cathay — regulated.** The calmest board of the eight, with books so thick that cornering
   anything takes real money. What you pay for it is the Assessment: more often and on a shorter
   cycle, because a regulated market is a taxed one.
 - **Skaven — predatory.** Every dial that can cost you up, every dial that pays you down. A clan
@@ -802,6 +1175,13 @@ at the top. The Southern Realms and Skaven profiles have always clamped the same
 each with a bounds pair. `spread`, `ladder_step`, `sell_floor` and `friendly_max` are
 deliberately absent — see §4.3. A key not in the table is inert, and `check_race_tune()` refuses
 to build if a profile names one, so "inert" never has to be discovered in play.
+
+**No race profile touches the world tier.** None of its six knobs - `world_cash_max`,
+`world_trade_max`, `world_gain`, `deal_max`, `deal_edge`, `pos_step` - is in `EX.RACE_TUNABLE`,
+so every board runs the world tier, the Deals page and the position bundles on the preset's
+numbers alone. The roster does depend on the player's race: `EX.actors` excludes every house
+culture, so a Chaos Dwarf's world tier and an Empire player's are different sets of factions
+(§9.1).
 
 The bounds are not decoration. Multiplying compounds: `ultra` already sets `hostile_max` 0.60,
 and Skaven's 2.2 on top is 1.32 — a buy at 2.32x the world price, which is not a market, it is a
@@ -853,8 +1233,70 @@ Its own `.twui.xml`, created at runtime with `CreateComponent` — CA's files ar
 See `docs/CUSTOM_UI.md` for the GUID rules, why `dockpoint` is ignored and `MoveTo` is the only
 thing that positions a runtime component, and the texture traps that fail silently.
 
-Twenty rows per page, 28px pitch. Row 21 would land below the panel: drawn, interactive and off
-screen.
+### Size: the panel grows with the screen
+
+Since 2026-09-24. It was 920x736 on every screen, and 4K players found it too small. **Every
+layout table in the Lua is the 1600x900 end, unchanged, and every coordinate this section quotes
+is at that end**; `EX.grow` derives the rest.
+
+`EX.fit(sw, sh)` runs on every `EX.layout()` pass. The box is the largest 16:9 width that fits,
+`min(sw, sh * 16 / 9)`, clamped to 1600..2560. 1600 is the floor a script ever sees: the root
+reports the window divided by UI Scale, floored at 1600x900. 2560 is the cap, because
+normal-size text in columns any wider loses the eye along the line. The arithmetic is integer,
+`EX.sc(v) = floor((v * box + 800) / 1600)`, because game Lua is float32 and `v * 1.6` would not
+stay exact.
+
+| Screen the script sees | Box | Panel | Houses rows a page |
+|---|---|---|---|
+| 1600x900, or any window at 1280x720 at 100% | 1600 | 920x736 | 20 |
+| 1920x1080, 1920x1200, 2560x1080 | 1920 | 1104x883 | 25 |
+| 2560x1440, 3840x2160 at 100%, 5120x1440 | 2560 | 1472x1178 | 35 |
+
+`EX.grow(e, chart)` moves each table entry:
+
+- x always scales.
+- A width scales unless the cell is in `EX.GROW_FIXED` or `EX.GROW_RIGHT`. `EX.GROW_FIXED` is
+  art with a fixed shape (the icons, the sparkline and its header, Buy/Sell, every stepper): it
+  moves and never stretches. `EX.GROW_RIGHT` (close, help, the page arrows and counter) keeps
+  its distance from the right edge.
+- Anything at or below `EX.GROW_BOTTOM` (y 600: the footers, tabs and nav) moves down with the
+  panel's bottom edge.
+- On the chart page, `EX.GROW_CHART_Y` moves the middle gridline by half the plot's growth and
+  everything under the plot by all of it.
+
+A cell no table gives a width widens from its `.twui.xml` width through `EX.GROW_BASE_W`: the
+divider (868), both footers (880) and the title (400). The chart's bar height, width and pitch
+go through `EX.sc`. Text never grows, because its size is set in the `.twui.xml`. Neither does a
+row's height (40) or pitch (28), so rows only widen.
+
+**`Resize` resizes children by default** (CA: "optional, default value=true"). The panel,
+`rows_holder` and every row are resized with `false` as the third argument. Without it, every
+cell that `place()` gives no width (close, help, Buy/Sell, the icons) would stretch by the same
+factor, and nothing would put it back.
+
+**`EX.MAX_ROWS` is the rows a page, and only the Houses list pages by it.** `EX.fit` rewrites it
+as `20 + floor(growth / 28)`. The Trade list draws its 17-19 commodities at any size. The Log,
+the Guide and the introduction borrow those rows, so on a bigger screen they gain width, not
+lines. A row past the last slot would land below the panel: drawn, interactive and off screen.
+
+The panel's size is computed, never read back, and the panel is centred on that number. The HUD
+opener is not scaled. A size change is logged once per change, not once per pass: `box B on a
+WxH screen, panel PWxPH, R rows a page` (`ui` category). The de-dup field is `EX.fit_said`,
+because `check_trend_snapshot` bans the substring `EX.last` anywhere in the file.
+
+**Checks.**
+
+- `check_scale_far_end` re-derives all 20 layout tables at 2560x1440 in Python, from the growth
+  sets as the Lua declares them. It requires every cell inside its panel or row, no overlap
+  that is not already there at 1600x900, `hdr_spark` still exactly the sparkline's width, and
+  the chart page ordered under a plot measured at its grown size. It checks that the last row
+  clears the footers at every box from 1600 to 2560, since the row count is a floor and so not
+  linear in the box. It refuses any cell that is neither widened, fixed nor stuck right.
+- `_layout_harness.lua` runs the real `EX.layout` at eight screens, 1280x720 and 2560x1080
+  (height-led) among them. At 3840x2160 it draws 35 and then 6 of 41 houses, with no clash.
+
+**Not cross-checked:** `EX.BASE_W` / `EX.BASE_H` (920, 736), 868, 880, 40 and 600 are copies of
+`gen_exchange_ui.py`'s numbers, and nothing asserts that the two agree.
 
 ### The first-run introduction
 
@@ -902,7 +1344,7 @@ paragraphs would have drawn perfectly for the race being looked at and silently 
 the other six. Nothing errors when a line runs past the end — `EX.draw_intro` walks the rows,
 not the lines. `check_layout` holds the count to `len(COMMODITIES)`.
 
-**There is no dismiss button.** The five tabs the player is about to use are already on screen
+**There is no dismiss button.** The six tabs the player is about to use are already on screen
 and the footer points at them; leaving IS the dismissal, and `set_mode` records it on the
 way out rather than on the way in — marking it on arrival would spend the one showing on a
 player who opened the panel and shut it again without reading a line. The flag is
@@ -910,7 +1352,7 @@ player who opened the panel and shut it again without reading a line. The flag i
 closing instruction lives in the two **footer** strings rather than in a row, which is what
 bought back the two rows the paragraph breaks needed.
 
-### Five views plus a guide, a log and the introduction
+### Six views plus a guide and the introduction
 
 | View | Columns |
 |---|---|
@@ -918,8 +1360,9 @@ bought back the two rows the paragraph breaks needed.
 | **Stats** | Commodity, Output, Largest producer, Share, Cartel premium, Last 12 turns |
 | **Offerings** | Commodity, Held, Cost, `<patron>` grants, Status |
 | **Houses** | House, Price, Div, Seat, Trend, Last 12 turns, Held |
+| **Deals** | Faction, Offer, Per lot, vs market, Total, and a Take button - see "The Deals page" below |
 | **Log** | Turn, What happened |
-| **Guide** | Term, What it means (2 pages, 28 lines; page 1 is at the 19-row ceiling, so the Worth line went on page 2). The Forge-goods line carries no number, because `l2_sell` is a difficulty knob and these lines are static text |
+| **Guide** | Term, What it means (2 pages, 28 lines; page 1 is at the 19-row ceiling, so the Worth line went on page 2). Five lines print the live settings - Rent, Offerings, Div, Delisted and House Sell, rebuilt at draw time by `EX.HELP_LIVE` from `carry_per_unit`, the offering cost and patron, `div_yield`, `buyout_premium` / `windup` and `spread`. The Forge-goods line still carries no number: `l2_sell` has no builder |
 
 "Output", not "Supply" and not "Regions". Reported from play 2026-09-05: *"i always thought
 supply is the amount of stocks that you can buy not the region"*. It is units produced across
@@ -928,18 +1371,65 @@ the whole map per turn; buying never consumes it. What moves the price against y
 "Buy" and "Sell", not "Price" and "Sell" — with both numbers on screen, one column called
 "Price" leaves the player working out which side of the spread it is.
 
+**The five live Guide lines have to equal their literals at the defaults, word for word.** The
+literal in `EX.HELP_PAGES` is what `check_help_lines` measures and what `EX.bind_race` rewrites
+for the patron. `EX.HELP_LIVE`'s builder is what draws, falling back to the literal if it
+errors. So edit both or neither: the layout harness holds each builder to its literal at the
+defaults, and to a moved setting and a made offering otherwise. `LUA_BOUNDS_HARNESS` measures
+all five at their worst case - the longest patron, the offering at its 5x ceiling, and a
+race-scaled "12.34" dividend - against the 620px column. The Guide also says "Ownership: the
+second tab", not "the third view", since 2026-09-25.
+
+### Trade's pager is a list, not an index
+
+Until 2026-09-10 `EX.on_chart` tested `trade_page == 2` outright and the page counter returned
+`deep_history and 2 or 1` — fine while there was exactly one optional page. Limit and stop
+orders added a second one, which turns that arithmetic into four switch combinations, and a
+fixed index gets two of them wrong: with the chart off, a hardcoded "orders is page 3" either
+sits behind a counter reading 1/2 with nothing to page to, or a hardcoded "page 2" means the
+chart on one save and the ledger on another, decided by a switch nothing at the call site can
+see.
+
+`EX.trade_pages()` returns the enabled page **kinds**, in order, built fresh on every call
+because both switches are live-read and unsnapshotted by design:
+
+```lua
+function EX.trade_pages()
+    local t = { "list" }
+    if EX.feature("deep_history") then t[#t + 1] = "chart" end
+    if EX.feature("orders") then t[#t + 1] = "orders" end
+    return t
+end
+```
+
+So the ledger is page 2 when the chart is switched off, and page 3 only when both are on — it is
+never pinned to a number. `EX.trade_kind()` **clamps** rather than returning nil: a kill-switch
+can be thrown while the player is standing on the page it removes, and every caller here would
+otherwise index a nil. `EX.on_chart()` and the new `EX.on_orders()` both read `EX.trade_kind()`,
+and the page counter is `#EX.trade_pages()` rather than a constant.
+
+The chart's own buffer keeps recording regardless of which page is reachable — `EX.remember_all`
+is not gated, so switching the chart back on after ten turns off shows the turns you were away
+rather than a flat line. A feature switch removes a page from the panel; it does not touch what
+is recorded underneath it, and `orders`' own model-side switch (`EX.fill_orders`, §14) works the
+same way: cancelling a standing order takes it off the list, turning the switch back off does not.
+
 ### What the Log records, and what it does not
 
-**Ten kinds of entry, from six writers.** Three are the player's own actions; the other seven
-are the world's. Until 2026-09-09 only three of the world's were recorded and the AI houses
+**Entries from the player's own actions and from the world's.** Rent, offerings and the tithe
+wrote nothing here until 2026-09-25. Until 2026-09-09 only three of the world's were recorded and the AI houses
 traded every turn with nothing anywhere saying so — asked for from play as *"add all logging
 to ai so that player can see there is interaction between the mechanics and the ai"*.
 
 | Entry | Written by | Driven by |
 |---|---|---|
-| Bought / Sold, with the markup and who set it | `EX.trade` | you |
-| Buy refused, with the reason | `EX.trade` | you (one of the six refusals) |
+| Bought / Sold, one line per single-lot click, with the markup and the house that set it (`EX.hostility_source`) | `EX.apply_trade_held` | you |
+| **One line for a multi-lot click**: "Bought N for Gg in M lots." or, stopped early, "..., K of M lots." plus the reason | `EX.log_bulk` | you |
+| Buy / Sell refused - "Not enough gold." or "You hold less than one lot." | `EX.log_bulk` (`EX.TRADE_STOP`) | you |
+| Buy refused, with the reason - a house refuses, the market is shut | `EX.apply_trade_held` | you |
 | Trade refused — market not open to your people | `EX.trade` | you, uncovered culture |
+| Sale refused - no buyer on this map can pay for it | `EX.apply_trade_held` | you, a commodity sale with no counterparty (`nobuyer`) |
+| Bought / Sold *n*/*m* lots from / to a faction, at the agreed price | `EX.accept_deal` | you, taking a deal |
 | **The guild** — *n* houses traded, lots bought and sold, and the good most moved each way | `EX.build_world_log` | **the AI** — `step_books` at turn step 9 |
 | **World appetite** — the footer's line, recorded when it *changes* | `EX.build_world_log` | **the world** — culture wants and the war index |
 | **Dividends** — how many houses paid, and how much | `EX.pay_dividends` | **the AI** — turn step 18 |
@@ -947,6 +1437,10 @@ to ai so that player can see there is interaction between the mechanics and the 
 | Market **CLOSED** / **Reopened**, naming the chief belligerent | `EX.log_scan` | **the world** — guild war state |
 | A house **refuses to sell** / **will deal again**, with its share of the guild book | `EX.log_scan` | **the AI** — its attitude and its book |
 | **Delisted** — a house died, and what your shares settled for | `EX.log_settlement` | **the world** — via `check_delistings` at turn step 7 |
+| **Rent** - "Warehouse rent: -Ng.", once a turn while rent is charged | `EX.charge_carry` | you - turn step 17 |
+| **Offered** N to the patron, and what the next offering will take | `EX.apply_offer` | you |
+| The patron **demands** N, within 3 turns | `EX.fire_demand` | the patron - turn step 19 |
+| **Tithe paid** / **Tithe unpaid**, with the favour or the wrath's length | `EX.pay_demand` / `EX.check_demand` | you / the patron - turn step 3 |
 
 **One line per topic, never one per house.** Twenty houses across seventeen goods would fill the
 whole buffer inside two turns and push out the trades the log exists to explain. `EX.book_flow`
@@ -963,6 +1457,8 @@ are safe (`EX.display` reads the generated `EX.INFO` table, which is plain Lua);
 is loc. So a line that needs one passes subject `""` and the **key** in field 4, which
 `EX.log_lines` resolves when the row is drawn — and the harness installs a counting `common`
 and asserts the count is **zero** across all four writers.
+The rent, offering and tithe lines added 2026-09-25 are inside the same count. They name the
+patron through `EX.patron()` and the good through `EX.display`, both plain Lua.
 
 **Built once, written per player.** The books and the appetite are world state, so the decision
 *"is this worth a line"* is made once and the lines are then flushed into each human's log. A
@@ -970,7 +1466,9 @@ per-player version would log an appetite change for the first human and swallow 
 after, because the first comparison is what stops it being a change.
 
 **What is still silent:** the per-turn price move itself (the Trend column and the chart are its
-record), and appetite drift too small to change the summary line.
+record), appetite drift too small to change the summary line, the world tier's own trading
+(`EX.world_flow` is built every turn and read by nothing - §9.1), and the CAI stances the houses
+are promoted to (one `house` debug line, off by default - §7.4).
 
 **And `log_scan` still runs at DRAW time, not at turn start.** It is called from the Log branch
 of `refresh_panel` and nowhere else, so its two edge-detected entries — the closure and the
@@ -981,9 +1479,11 @@ first. That is the next thing to do here.
 
 ### Trade page 2: the deep chart
 
-Trade has a second page, and it is the only page that is not a list. Clicking a commodity's
-**name** cell on page 1 selects it (`EX.selected`); page 2 draws that one instrument full width
-over forty turns.
+Trade can run to three pages now, and page 1 is the only one that is a list of rows — see
+"Trade's pager is a list, not an index" above for how a page's number stops being fixed the
+moment either optional page can be switched off. Clicking a commodity's **name** cell on page 1
+selects it (`EX.selected`); page 2, when `deep_history` is on, draws that one instrument full
+width over forty turns.
 
 `EX.deep` is its own buffer — `zharr_deep_<res>`, 40 bars, written by `EX.remember_all` beside
 the 12-bar sparkline and seeded from `zharr_hist_` on a save from before it existed. The
@@ -1054,14 +1554,16 @@ the end of the plot in silence.
 
 **Tooltips are set at runtime, not as `componentleveltooltip` in the XML**, because cells are
 reused between modes: `row_price` is a gold price in Trade, a percentage in Stats and an
-offering cost in Offerings, so one static attribute cannot be true in all three. Every string is
-under 60 characters so none needs CA's `Title||Body` split, which has only ever been proven to
-work as literal XML and never through `SetTooltipText`.
+offering cost (or a pending tithe's amount) in Offerings, so one static attribute cannot be true in
+all three. The column tooltips in `EX.TIPS` stay under 60 characters (`EX.TIP_MAX`). CA's
+`Title||Body` split does work through `SetTooltipText`: the Buy refusal, the Offerings button,
+the Held cell and the HUD opener all set one at runtime, and they render. The rule that bites is the
+one `EX.apply_tips` keeps: there must be literal text in front of `||`, or the pipes are drawn.
 
 **Footers.** Two lines each, split by meaning rather than by length: line 1 is your position,
 line 2 is the world. Trade's line 2 carries the appetite readout —
-`World at war: N%. Wanted: … Going begging: …` — and Houses' carries the guild line. Both cap
-their clause lists at two names: the footer is one 880px component and the engine does not wrap,
+`World at war: N%. Wanted: … Unwanted: …` — and Houses' carries the guild line. Both cap
+their clause lists at two names: the footer is one 880px component at the 1600x900 size (it widens with the panel, so that size stays the binding case) and the engine does not wrap,
 so three of the longest display names overruns the box and the fitter amputates mid-list.
 `check_footer_bounds()` measures the real worst case.
 
@@ -1097,14 +1599,282 @@ Line 1's worst case is 115 characters against a budget of 118.
 Sorting: click any header. The panel closes at `FactionTurnEnd` and the button is gated to the
 player's own turn.
 
+**Greyed means drawn grey** (2026-09-25). `SetDisabled` only stops the click. CA: "Disabled
+uicomponents do not respond to mouse clicks but still respond to the mouse cursor". The look
+comes from a component's states, and none of this mod's buttons has an inactive one. So every
+disabled button drew exactly like a live one: "No offer", the tab you are on, the page arrows,
+a Sell with nothing held, and the opener during other factions' turns.
+
+`EX.set_off(c, off)` disables the button and applies CA's documented `set_greyscale_t0` shader
+("Greyscale & Alpha") to all states and the text, with `ShaderVarsSet(1, 0.6, 0, 0, true,
+true)`, so hovering does not bring the colour back. `normal_t0` clears it. The shader calls are
+`pcall`'d, so a refusal cannot take a refresh down.
+
+**It is the only `SetDisabled` in the file.** A static check fails on any other call, and the
+layout harness's shade audit asserts that every disabled component wears the greyscale on all
+states and no enabled one does. The route not taken is CA's own, `SetState("inactive")` against
+an authored inactive state (46 sites in CA's scripts), which needs a new state per button in
+`gen_exchange_ui.py`.
+
+**Unconfirmed in play.** No CA script uses `set_greyscale_t0`, and a pcall'd shader leaves no
+log line either way. If it draws nothing, the inactive-state route is next.
+
+The standing-order ledger's Cancel carries its own tooltip, `EX.TIP_CANCEL`, rather than the
+Buy button's.
+
+### Trade page 2's ticket
+
+Under the chart, in the dead space between `chart_note` (y 480) and the footers, sit the eleven
+`EX.TICKET_CELLS`: `ord_side`, `ord_cmp`, `ord_down`, `ord_price`, `ord_up`, `ord_place`,
+`ord_qty_down`, `ord_qty`, `ord_qty_up`, `ord_cost`, `ord_standing`. Eight are interactive — the
+two toggles, the two rung steppers, the two amount steppers, the amount and Place — and three
+are read-only: the rung's resolved price, the cost line, and a line of this instrument's own
+standing orders.
+
+`EX.ord_side`, `EX.ord_cmp` and `EX.ord_rung` are **session state, never saved**, the same rule
+`EX.selected` and `EX.trade_page` already follow — a half-composed ticket need not survive a
+reload. `ord_rung` re-seeds from the instrument's own current rung every time a row is selected
+for the chart, so switching commodities never carries yesterday's target onto today's good. All
+eleven blank and hide together with nothing selected, for the same reason the chart's own icon
+does: the previous commodity's ticket is a claim about the wrong instrument.
+
+Placing runs `EX.place_order_check` first — the same four-check dry run `EX.place_order` itself
+makes — so the ticket can print "You hold 12 orders. Cancel one first." locally, instead of
+sending an order over the network for the op to refuse right back for the identical reason. The
+target is always a rung, 1..42, never the gold `EX.price_at` displays next to it — comparing
+resolved gold would compare float32s, and `30 * 1.05` reading back as 31.4999985 (§7.1) is
+what a .5 rounding boundary does to one of those. Scope is `EX.orderable`:
+the 17 commodities plus the two Layer 2 rows, because the ticket is only ever reached by
+selecting a row for the chart and the chart never selects a house.
+
+### The amount
+
+`EX.amount` is one number reached from two clusters. `[-] Amount x5 [+]` sits in the Trade
+list's header band at x676..866, in the 232px right of `hdr_hold` and directly above the rows'
+own Buy and Sell columns (which start at x654); `[-] Amount 50 [+]` sits on the ticket right of
+Place, with the cost line under it. The middle button cycles the `EX.AMOUNTS` ladder — **1, 5,
+10, 25** — and the two steppers move **one lot per click**, so a size the ladder does not carry
+(20 was the one the player asked for) is still reachable. Both surfaces read and write the same
+`EX.amount`, so the size a Buy click moves and the size Place bakes into a new standing order
+can never disagree.
+
+**A LOT IS NOT A UNIT, AND THE TWO LABELS DIFFER ON PURPOSE.** `EX.LOT_SIZE` is 10 for a
+commodity, `EX.L2_LOT_SIZE` is 100 for Armaments and Raw Materials, and `EX.HOUSE_LOT_SIZE` is
+5 for a house share — so "x5" means 50 of one thing and 500 of another, and the multiplier
+alone never says how much of anything is being bought. Reported from a screenshot 2026-09-11:
+an `Amount x5` on Marble that moved 50 Marble for 2,565 gold with neither number anywhere on
+the panel.
+
+Where the units can be stated, they are:
+
+| Surface | Label | Why |
+|---|---|---|
+| Trade list header | `Amount x5` | It governs 19 instruments at three different lot sizes at once. A unit count here would be wrong on the two Layer 2 rows. |
+| Each row's Buy / Sell | `Buy 50`, `Buy 500` | One row is one instrument with one lot size, so this is the one place the count is never ambiguous — and it is the button that does the thing. |
+| The ticket's amount | `Amount 50` | `EX.selected` is known, so `EX.amount_units` can multiply by that instrument's own lot. |
+| The ticket's cost line | `50 Marble - 2565g` | `EX.amount_line`: the **side's** price (`EX.order_price`, never the mid) at the rung the ticket is set to, times the lots. |
+
+The cost line is a straight multiply rather than a walk of the counterparty book, so it is a
+**floor on a buy and a ceiling on a sell** — the honest direction for a number shown before the
+money moves. The 25th lot really does cost more than the first.
+
+Measured need, 2026-09-11, one campaign turn: 25 separate Buy clicks on Salt at 3,797 gold,
+plus four at 3,452 and four at 3,138. A market whose only size control is the mouse is not a
+market.
+
+**A ladder, not a stepper.** The stepper idiom already on the ticket (`ord_down` / `ord_up`)
+takes two components and one click per step; twenty-five lots would be twenty-four clicks to
+set up, which is the problem rather than the fix. Four rungs cycle on a single button, and
+`EX.cycle_amount` reads the *current value* out of the ladder rather than tracking an index, so
+a hand-set or stale amount that is not on the ladder lands back on the first rung instead of
+sticking.
+
+**N lots is N real trades**, never one trade of N lots. `EX.bulk_trade` calls `EX.apply_trade`
+in a loop, so the price walk, the hostility markup, the counterparty selection and the book
+drawdown are the ones twenty-five clicks would have produced — a bulk path with its own
+arithmetic would be a second pricing model to keep in agreement with the first. It **stops at
+the first refusal**: twenty-five attempts against an empty treasury is twenty-five identical
+"cannot afford" lines and twenty-five counterparty walks for nothing. Whatever filled before
+the refusal stands. The consequence a stub cannot show is that the 25th lot does not cost what
+the first one did.
+
+**One Log line per click, not per lot** (2026-09-25). Twenty-five per-lot lines pushed a fifth
+of the 120-line Log out in one click. For a click of more than one lot, `EX.bulk_trade` sets
+`EX.bulk = { gold, units }`. `EX.apply_trade_held` then adds each fill to it instead of
+logging, and `EX.log_bulk` writes the whole click once: "Bought N for Gg in 25 lots." or,
+stopped early, "Bought N for Gg, 7 of 25 lots. Not enough gold.", with the markup sentence
+after. A click that filled nothing writes the refusal alone.
+
+`EX.bulk` is cleared on every exit, an error included. Left set, every later trade would go
+silent. It is **not** per-player state and must never be saved: it lives inside one synchronous
+`EX.bulk_trade` call. Deals (`EX.accept_deal`) and standing-order fills (`EX.fill_orders`) do
+not set it and still log per lot.
+
+**TWO WAYS IT SHIPPED BROKEN, 2026-09-11, and both are now checked.** First, `btn_amount` was
+wired into `EX.click_dispatch` and *not* into the `ComponentLClickUp` listener's condition. That
+condition is a name whitelist and it is the real wiring: the button drew, lit on hover, carried
+its tooltip and did nothing at all, with no error and no log line, because the click was never
+dispatched to us. `check_click_filter` now asserts every literal name the dispatch handles is
+also in the filter. Second, `refresh_panel` wrote the label unconditionally — and `set_text`
+calls `SetVisible(true)`, so it re-showed the button on every view `EX.layout` had just hidden
+it on, drawn across the Ownership view's Cartel premium header. `EX.in_layout` guards the write
+now, and `check_panel_cell_shows` refuses an unguarded `set_text` to any cell that is not in
+every panel layout. Neither fault was reachable from a harness: the filter is an anonymous
+function behind a real listener, and the layout harness stubs `EX.refresh_panel` to a no-op.
+
+`EX.amount` itself is **session state, never saved**, like `EX.ord_side` and `EX.selected`. The
+size a standing ORDER carries is different: that one is saved, on the order, as a fifth field.
+`EX.clamp_lots` guards every way in — it is reached from a network payload and from a save —
+flooring fractions, rejecting zero, negatives and non-numbers to 1, and capping at the ladder's
+top. A **four-field record is a pre-amount save** and loads as one lot; refusing it would empty
+a live campaign's ledger on the first load after this build, and defaulting it high would
+silently resize every order the player already holds.
+
+A fill that runs out of gold part way **shrinks and stands**: `o.qty` becomes the remainder and
+the Log reads "Order part-filled. 3 of 5 lots." Dropping the order would discard a size the
+player chose; keeping it whole would buy more than they asked for next turn.
+
+### Trade's ledger
+
+The ledger is `EX.trade_pages()`'s `"orders"` entry — page 3 when the chart is also on, page 2
+when the chart alone is switched off (see above). One row per **standing order**, not per
+instrument: a ladder puts two orders on one commodity, and every other row pool in this file is
+one component per instrument (`EX.row` keys on `EX.short(res)`), which would collide the moment
+a ladder existed. So the ledger gets its own fixed pool instead — `EX.ORDER_MAX` (12) row
+components, created once at `EX.build_panel` time as `..._ord1` through `..._ord12` — and
+`EX.mode_instruments`'s `EX.on_orders()` branch hands out synthetic `"ord1".."ordN"` keys, one
+per **list position** rather than per resource, so a three-rung ladder draws three distinct rows
+instead of colliding on one. `EX.order_of_row` turns a component id back into the order it names
+by parsing the trailing digits off `..._ordN` — a full match, not a prefix, so no real
+instrument's row component can take this path by coincidence.
+
+Columns: `icon` and `row_name` are the instrument's; `row_trend` prints the order sentence ("Buy
+at or below 1,240"); `row_price` is the price now; `btn_buy` is relabelled **Cancel**, and
+`btn_sell` is deliberately not placed. Same idiom the Offerings view already established
+(`btn_buy` reused as "Sacrifice"), and for the same reason: the click handler branches on which
+view it is in, so a placed Sell button over a Cancel column is exactly the fault
+`gen_exchange_ui.py`'s existing Offerings-view assertion exists to catch — extending it to this
+view is owed, not yet done.
+
+Cancelling sends the packed order over the network (`zx1|ordx|<packed>`), never a list index —
+see §18. A fill never draws through this row at all: it happens inside the turn round, and the
+ledger simply stops showing a row that is no longer in `EX.orders` the next time the panel opens.
+
+### The Deals page
+
+The sixth tab, since 2026-09-16. Each turn a few world-tier actors post a one-turn offer to the
+player, and it is the one place this mod asks the engine's own AI a question and obeys the
+answer.
+
+**Posting** - `EX.post_deals`, turn step 10a, after the reprice, so a deal is quoted off the
+price the Trade view shows (a deal moves no market, so there is no circularity to avoid). For
+every non-human actor and commodity: a **buy** candidate if its desire is above 0 and its scanned
+treasury covers one lot, always for one lot; otherwise a **sell** candidate if it has anything
+sellable, for `min(sellable, world_trade_max)` lots. Candidates sort by the **strength** of
+desire (`math.abs` - on the raw value every buyer outranks every producer, whose desire for its
+own good is negative, and the sell side never appears), then by
+`EX.key_hash(faction .. res .. turn)`, so tied buyers rotate between turns instead of the
+alphabetically first faction taking a slot for the whole campaign, then by `faction/res` as a
+collision backstop. One deal per actor, and each faction is asked once:
+
+    score, can_issue = cm:cai_evaluate_quick_deal_action(mine, them, "diplomatic_option_trade_agreement")
+
+**`(mine, them)`: the player proposes; the AI is the target whose acceptance is scored.** CA's doc
+text ("accepted by the target faction") and all six of CA's call sites agree. Both arguments are
+faction **interfaces**, and the return order is `score, can_issue`. It shipped backwards first,
+and the first mutation round "confirmed" the inverted order because a mutation table only pins
+whatever baseline it is given. A deal posts on `can_issue and score > 0`, up to `deal_max` (3);
+a thrown error is a refusal, never consent.
+
+**Priced in the player's favour both ways.** A buyer pays `floor(price x (100 + deal_edge) / 100)`
+for what you sell it; a seller takes `floor(price x (100 - deal_edge) / 100)` for what you buy.
+`deal_edge` is 6 at default. "Buys" and "Sells" on a row are the actor's verbs; you do the
+opposite.
+
+**The list is rebuilt every turn, which IS the expiry.** Saved per player (`zharr_deals`) only so
+a reload mid-turn shows the page it showed; never reposted on the load path, which would re-roll
+it.
+
+**Taking one** - `EX.accept_deal(i)`, sent as the list index (`zx1|deal|<i>`, §18). It
+settles lot by lot through `EX.apply_trade(res, is_buy, px, faction)`: `unit_px` fixes the agreed
+price and `only` makes the named faction the counterparty (§5). No hostility markup applies
+and the Log line carries no markup sentence. The actor's scanned treasury is re-read (`poor` if it
+can no longer pay for every lot); the price is not. It stops at the first refusal, and any
+settlement consumes the deal.
+
+**The row**: Faction, Offer (a sentence - "Buys 3 lots of Iron"), Per lot, vs market (signed,
+rounded away from zero on a half), Total, and Take (`btn_buy` reused, as Cancel and Sacrifice
+are). On a sell deal the button asks `EX.buy_refusal` and shows its label and reason; selling into
+a deal stays open with the market shut, the same asymmetry as every other row. All five strings
+and the button state come from `EX.deal_cells`, and the row from the top-level
+`EX.draw_deal_row`, because nothing offline can run `EX.refresh_panel`. The row pool is
+`deal_max` components (`..._dl1`, ...) created once at `EX.build_panel`, keyed by position, since
+two deals can name one good.
+
+**The footer says why a page is empty**: switched off; "Every faction in a position to deal
+turned you down this turn" (something could issue, nothing scored above 0); or "No faction on the
+map is in a position to deal with you this turn" (nothing could issue) - which is the whole reason
+`EX.deal_ok` returns the two values separately. The switch is read live. The tab is never locked;
+with `ai_deals` off it draws nothing and says so. The HUD opener's tooltip counts waiting deals.
+
+**Independent of `ai_world`.** `EX.post_deals` never reads it and a named counterparty skips
+`EX.world_counterparty`'s gate, so with the world tier switched off the page still posts and a
+taken deal still moves the actor's book. The `ai_world` MCT tooltip says so since 2026-09-28.
+
+### The HUD opener
+
+`derpy_chd_exchange_button.twui.xml`, 48px. It is created on the **UI root** and is never
+parented to anything CA lays out. Two earlier anchors lost that fight: a `RadialList` owns its
+children's positions, and `MoveTo` never wins against a layout engine. `EX.button_anchor` reads
+`resources_bar`, the top resource strip's art, as a **ruler**: the button sits `EX.BUTTON_GAP`
+(4px) off its right end, centred on it vertically. A HUD component's position and bounds are
+safe to read. Its tooltip and image are not: both hard-crash.
+
+**Placement** starts 1s after the first tick and retries every 2s until it has succeeded once,
+up to `EX.PLACE_TRIES` (150, five minutes). The strip slides off the top of the screen for the
+intro, cutscenes and end-turn, and reports a real but useless y while it is away. `EX.layout`
+(every panel open) and turn start each make one more attempt that never reschedules.
+
+`EX.fit_button(x, y)` is the one refuse-or-clamp rule. A reading within one button of the screen
+edge is clamped on. One further out is a bad or mid-animation read and is refused. The
+bottom-right `faction_buttons_docker` is a last resort for a CA rename only: a fallback that
+resolves to other geometry while the strip is merely still loading is what made the button
+teleport.
+
+**It follows the strip's end** (2026-09-27). `resources_bar` is docked Top Center and sizes to
+its content, so its right end moves whenever an effect icon or faction widget appears, mid-turn,
+with no event for it. Middenland's Drakwald threat bar alone moved it from x 1306 to 1441.
+`EX.start_follow` runs `EX.follow_bar` every `EX.FOLLOW_MS` (300ms) on the UI clock
+(`cm:repeat_real_callback`, named `zharr_follow_bar`). Each pass is one find, two reads, and a
+`MoveTo` only when the answer changed. It does nothing until the button is placed, nothing while
+the strip is away, and never follows onto the docker fallback. The Great Guilds' opener runs the
+same poll off the same strip, so the pair moves together.
+
+**A second-row placement was built and reverted the same day** at the player's request ("put it
+besides the top bar"). It fixed the button under the strip's centre, which does not move. Do
+not re-apply it without asking.
+
+**Its tooltip is built at runtime**: `EX.the_name() .. "||" .. EX.TIP_OPEN_BODY`, then
+`EX.button_news()`. While either clock is running, the news adds "N deals are waiting on the
+Deals tab, gone at the end of this turn." and "<patron> demands N <good> within N turns."
+Every placement attempt rewrites it, so it is fresh at turn start and on panel open.
+`EX.refresh_panel` also rewrites it through `EX.refresh_button_tip`, so a deal taken or a tithe
+paid mid-turn does not leave it announcing something already gone. It is written and never read
+back. The XML keeps a race-neutral copy of the body as the fallback before the race binds, and
+`check_button_tip` holds the two sentences equal.
+
+It is greyed through `EX.set_off` on every turn but the player's own (`EX.gate_button`: off at
+`FactionTurnEnd`, on at turn start). Everything in this subsection is local UI and never crosses
+the network.
+
 ---
 
 ## 13. Settings
 
 ### 13.1 Presets
 
-Five: **Easy**, **Default**, **Hard**, **Ultra Capitalism**, **Custom**. The preset owns all 26
-numeric knobs *and* the seven system switches.
+Five: **Easy**, **Default**, **Hard**, **Ultra Capitalism**, **Custom**. The preset owns all 32
+numeric knobs *and* the thirteen system switches.
 
 | | easy | default | hard | ultra |
 |---|---:|---:|---:|---:|
@@ -1123,7 +1893,14 @@ numeric knobs *and* the seven system switches.
 | `demand_first_turn` | 30 | 15 | 10 | 5 |
 | `shock_max` | 3 | 6 | 8 | 12 |
 | `race_strength` | 0.5 | 1.0 | 1.0 | 1.25 |
+| `world_cash_max` | 1,500 | 3,000 | 4,000 | 8,000 |
+| `world_trade_max` | 2 | 3 | 3 | 4 |
+| `world_gain` | 2.0 | 4.0 | 6.0 | 9.0 |
+| `deal_max` | 4 | 3 | 3 | 2 |
+| `deal_edge` | 7 | 6 | 4 | 2 |
+| `pos_step` | 6 | 4 | 3 | 2 |
 | rent / tithe | **off** | on | on | on |
+| `world_scarcity` | **off** | on | on | on |
 
 Easy is low **risk**, not low reward: a thin spread, most of a bad stake returned, cheap
 storage, a slow and forgiving guild — and shares still paying double the default dividend.
@@ -1134,18 +1911,53 @@ storage, a slow and forgiving guild — and shares still paying double the defau
 `script/mct/settings/`, so the file only ever runs when MCT is installed and the mod is
 functional without it.
 
-Seven system switches, 26 sliders across six sections (Market, AI houses, Shares, Tithes, War
-shocks, Race profile), a difficulty picker, **a Features section** and a debug section — ten
-sections in all.
+The page is titled *Derpy's Grand Trade Exchange* with author `_D3rpyN3wb_` since 2026-09-28
+(`m:set_title` / `m:set_author`), matching the Workshop title. The key,
+`mct:register_mod("derpy_chd_zharr_exchange")`, is deliberately unchanged: every player's saved
+settings are stored under it - see the rename note after §16. The same day's build also stopped
+the description counting "seven" system switches, and corrected three tooltips that described
+behaviour the code does not have: "Let cultures without markets trade" said other cultures could
+still buy their shares (they are absent from `EX.BLOC`, so none can), `ai_world` said only
+"fourteen houses" trade when it is off (the guild can be far larger, and Deals keep running), and
+`world_bundles` said the War Stocks bundles apply to you (§10.1 - they never do).
 
-**The Features section holds the three kill-switches** (`feat_deep_history`,
-`feat_demand_shocks`, `feat_appetite_drift`) and is the one economic-looking thing that is
-**not** in `ECONOMIC` and so not locked in a campaign. That is deliberate and it is the whole
-difference between these and the seven system switches above: a system switch is snapshotted so
-a price you were quoted stays the price you are charged, while a kill-switch exists to be moved
-*while* a bug is happening — the same argument the debug options carry. In multiplayer all three
-are forced on, because reconciling a live model switch across machines is the MCT race
-`EX.mp_ignores_mct` already refuses to run.
+Thirteen system switches, 32 sliders across seven sections (Market, Rival houses, Shares, Tithes,
+War shocks, Race profile, The world), a difficulty picker, **a Features section** and a debug
+section - eleven sections in all.
+
+**The world section and five of the Systems switches came with the World Book.** Sliders:
+`world_cash_max` "World trader purse", `world_trade_max` "World trade size", `world_gain`
+"World trading weight", `deal_max` "Deals offered per turn", `deal_edge` "Deal edge, per cent",
+`pos_step` "War-goods position step". Switches: `ai_stance` "Houses react to your holdings",
+`ai_world` "The world trades", `world_scarcity` "Supply can run out", `ai_deals` "Factions offer
+you deals", `world_bundles` "Positions supply armies". All eleven are in `ECONOMIC` and frozen
+like every economic value, and every gate on them uses `EX.setting`, which fails open -
+`EX.opt` answers nil for a key in neither `EX.TUNE_NUM` nor `EX.TUNE_BOOL`, and a feature gated
+on nil is silently dead. **A campaign whose snapshot predates a key has no entry for it**, so
+`EX.opt` falls through to the live MCT value and that switch is a real mid-campaign toggle for
+exactly those saves - which is why `world_bundles` off strips bundles instead of returning early
+(§10.1). `deal_max` is also the Deals page's row pool, and `deal_edge` and `pos_step`
+bottom out at 1, not 0 - all asserted.
+
+**The Features section holds four kill-switches and two permissions** (`feat_deep_history`,
+`feat_demand_shocks`, `feat_appetite_drift`, `feat_orders`, plus `allow_uncommercial` and
+`allow_raiders`, which open the Exchange to a culture the lock in §11 keeps out - the permissions
+default off and stay off in multiplayer, the opposite of the kill-switches, which is why they
+read `EX.lock_allowed` rather than `EX.feature`) and is the one economic-looking thing
+that is **not** in `ECONOMIC` and so not locked in a campaign. That is deliberate and it is the
+whole difference between these and the thirteen system switches above: a system switch is
+snapshotted so a price you were quoted stays the price you are charged, while a kill-switch
+exists to be moved *while* a bug is happening — the same argument the debug options carry. In
+multiplayer all four are forced on, because reconciling a live model switch across machines is
+the MCT race `EX.mp_ignores_mct` already refuses to run.
+
+`feat_orders` came back 2026-09-10 with the feature it gates, in the same commit as its first
+real call site — the condition set on 2026-09-09 for `orders`' return after it was
+**deleted** rather than shipped disabled (a checkbox for a system that does not exist yet is
+worse than no checkbox). It has the same two-reader shape `deep_history` already has, and for the
+same reason: `EX.trade_pages` stops the ledger page being *reached*, `EX.fill_orders` stops the
+model *running* — a kill-switch thrown mid-bug has to stop both halves, not just the one on
+screen. See §12 and §14.
 
 `check_features` derives its key set from `EX.FEATURE_DEFAULT` — the table `EX.feature` actually
 reads — so a switch the script knows about that MCT never registers is a build failure, and so
@@ -1155,6 +1967,23 @@ is exactly how `orders` and `deep_history` read as wired for a week. And `check_
 that every `set_assigned_section` names a section `add_new_section` creates, in both directions
 — an option assigned to a section that was never made is registered, defaulted, and nowhere the
 player can reach it.
+
+**Every option has a title of its own, and no option key has moved.** Two culture-lock
+checkboxes shipped under one title, "Let raider cultures trade", so the page showed two
+identical boxes. The uncommercial one has been "Let cultures without markets trade" since
+2026-09-25, and `check_mct` now refuses two options that share a title.
+
+The 2026-09-26 plain-language pass renamed labels and tooltips only:
+
+- "AI traders" is now "Rival houses trade";
+- "Trade shares across your bloc" is now "Trade shares across trading partners";
+- "Houses react to your book" is now "Houses react to your holdings";
+- "Book size per step" is now "Holdings per price step";
+- each "... cap" slider is now "... limit" ("Shock cap" is "Shock step limit");
+- the "AI houses" section is now "Rival houses".
+
+The first field of each `MCT_OPTIONS` / `TUNABLES` / `CULTURE_LOCKS` tuple is the key every
+player's saved settings are stored under, so a rename is label-only by construction.
 
 **Every economic value is frozen into the save at the first `FactionTurnStart`.** MCT's own
 campaign gating (`mct_option:set_context_specific`) is dead code, so the snapshot is the lock.
@@ -1173,16 +2002,20 @@ reproduce by hand.
 ### 13.3 Debug
 
 Four log levels (off / errors only / normal / verbose) across seven categories: turn, trade,
-price, house, demand, shock, ui. Plus two buttons, `Dump state` and `Dump supply`, fired as
+price, house, demand, shock, ui. Plus two buttons, *Dump state to log* and *Re-run supply scan* (`dump_state` / `dump_supply`), fired as
 custom events from the MCT file because it cannot see `EX` directly.
 
 ---
 
 ## 14. Turn order
 
-`FactionTurnStart`, and the order is load-bearing at four points:
+`FactionTurnStart`, and the order is load-bearing at more points than it used to be. The World
+Book added three, each asserted off `EX.turn_round`'s source by `check_lua_books`: `step_world`
+between `step_books` and `apply_prices`, `post_deals` after `apply_prices`, and `apply_positions`
+after `apply_trade_income`:
 
 ```
+ 0  forget_humans()     a new round is a new human list: a player can drop, resume or be confederated away
  1  snapshot()          FIRST - everything below reads a knob
  2  free_guild()        a new turn is new diplomacy; no stance memo outlives a turn
  3  check_demand()      punish an unpaid tithe before the altar asks again
@@ -1192,13 +2025,28 @@ custom events from the MCT file because it cannot see `EX` directly.
  7  check_delistings()  BEFORE apply_prices - a dead house must settle at its living price
  8  check_standing_sign()
  9  step_books()        AFTER delisting (dead houses have left the guild), BEFORE pricing
+ 9a step_world()        the world tier (§9.1). AFTER step_books, BEFORE apply_prices -
+                        actors trade at last turn's prices and the reprice runs on the result.
+                        Outside with_player: the world has no reference human. Prunes each
+                        confirmed-dead faction's book, then pairs every commodity's buyers with
+                        its sellers. No accrual step: what an actor can sell is re-derived from
+                        its land on every call (EX.world_capacity); EX.accrue_world_stock is
+                        withdrawn, not merely unused.
 10  apply_prices()
+10a post_deals()        the Deals page. AFTER apply_prices, so a deal is quoted off the price step the
+                        Trade view shows. Called once, unbound - see §18
+ 9b fill_orders()       PER HUMAN. AFTER apply_prices, so a limit tests the number the panel
+                        shows; BEFORE remember_all, so the bar this turn records is the price
+                        the fill got rather than the price the fill caused
 11  remember_all()      AFTER pricing - one sparkline and one chart bar per TURN, not per reprice
 11b build_world_log()   AFTER step_books, which fills EX.book_flow. BUILDS only, writes nothing
 12  announce_shocks()   at full strength, before the decay - and logs the shock
 13  decay_shocks()      AFTER pricing - a raze during the AI round prices at full strength
 14  save_shocked()
 15  apply_trade_income()
+15a apply_positions()   WORLD, the sibling bundle family, beside it on purpose; also runs on the
+                        load path
+15b promote_stances()   PER HUMAN, through its own with_player loop; ai_stance off = no calls
 16  apply_stockpiles()  a tithe or raid may have crossed a tier boundary
 17  charge_carry()      on the same holding the tier was just read from
 18  pay_dividends()     AFTER delisting - a house dying this turn must not also be paid
@@ -1206,6 +2054,38 @@ custom events from the MCT file because it cannot see `EX` directly.
 19b flush_world_log()   LAST in the player block, so the world's lines sit above this
                         player's own rent and dividends once the log reverses them
 ```
+
+The label is the shipped code's own — `EX.turn_round`'s comment calls this step "9b" rather than
+renumbering everything from `apply_prices` down, and it is placed here, after row 10, because the
+table is in **execution order** and that is where it actually runs.
+`0`, `10a`, `15a` and `15b` are this doc's labels; the code numbers nothing after 9b.
+
+**Where the turn round writes the Log** (since 2026-09-25). Step 3 `check_demand` writes "Tithe
+unpaid." when the wrath lands. Step 17 `charge_carry` writes the rent line. Step 19
+`maybe_demand` -> `fire_demand` writes a new demand. All three run inside the per-player block,
+so each human's Log gets its own lines. In the local block, turn start re-runs
+`EX.place_button` as a one-shot, which also rewrites the opener's tooltip with this turn's deals
+and tithe, and then calls `EX.gate_button(true)`.
+
+**One reprice for the whole round, not one per fill.** `EX.apply_trade_held` (the body the `EX.apply_trade` wrapper runs since 2026-09-23) ends with
+`cm:callback(EX.apply_prices, 0.1, "zharr_after_trade_"..faction)` so a manual Buy or Sell click
+sees its own price move a moment later. CA's `timer_manager` docs are explicit that a callback
+name exists only so `remove_callback` can cancel every callback sharing it — names need not be
+unique — so twelve fills in one pass would queue twelve repricings and all twelve would fire.
+`EX.filling` is `true` for the whole of `EX.fill_orders` and suppresses that per-trade callback;
+`EX.turn_round` schedules exactly one reprice itself, keyed `"zharr_after_fills"`, **after**
+`EX.remember_all()` — so the recorded bar is the price the fill got, and the panel still shows
+the post-fill price the next time the player looks. `EX.fill_factions` is the set of humans any
+fill actually touched this turn; the reprice callback also calls `EX.after_holding_change` for
+each of them once pricing is redone, and the whole block is skipped outright when nothing filled.
+
+`EX.fill_orders` itself is not defensive: `EX.apply_trade` is called through a bare `pcall`,
+because letting an engine throw escape would skip both the `EX.filling = false` reset and the
+`EX.orders = keep` commit that follows it — the flag stuck `true` would silently stop every later
+manual trade repricing, and the missing commit would leave an order that already filled sitting
+in the list to fire a **second** real trade next turn. An error is therefore folded into an
+ordinary transient token (`"threw"`, logged as an error line) rather than being allowed to corrupt
+either piece of state — see §17 for how untested that path still is.
 
 Step 11 was a real bug: `remember_all` used to live inside `apply_prices`, which also runs 0.1s
 after every buy and sell. A column headed "Last 12 turns" was showing the last 12 *reprices*,
@@ -1217,16 +2097,23 @@ Nothing runs at script root. `EX.init` is reached from both
 **before** the first scan — otherwise turn one's house-region tally is counted against the Chaos
 Dwarf default whatever the player actually is.
 
-A load is not a turn: `charge_carry`, `remember_all`, `share_shocks` and `check_delistings`
-are deliberately absent from the first-tick path. Five reloads would otherwise be five rent days, one turn
-filling the whole sparkline, and a second settlement payout.
+A load is not a turn: `charge_carry`, `remember_all`, `share_shocks`, `check_delistings`,
+`step_books`, `step_world`, `post_deals` and `promote_stances` are deliberately absent from the
+first-tick path. Five reloads would otherwise be five rent days, one turn filling the whole
+sparkline, a second settlement payout, five trading days and five re-rolled Deals pages.
+`apply_trade_income` and `apply_positions` are the opposite and run on the load path too:
+effect bundles survive a save and this script's memo of them does not, so a load re-sweeps.
 
 ---
 
 ## 15. Save state
 
-All through `cm:set_saved_value` / `get_saved_value`, which store scalars only — so anything
-list-shaped is a delimited string.
+All through `EX.setv` / `EX.getv` (and `EX.setp` / `EX.getp` for per-player keys, §18) into
+`EX.store`, one table saved as its own named value `zharr_state` with `cm:save_named_value` - off
+CA's shared saved-value string since 2026-09-07. `EX.getv` still falls back to
+`cm:get_saved_value`, so an older save restores. Most values are packed strings, so anything
+list-shaped is delimited; `zharr_opts` is a table. Twenty-six keys now: `zharr_deals` (the Deals
+page) is the newest, after `zharr_wb_<faction>`, one per actor holding a world-tier position.
 
 | Key | Holds |
 |---|---|
@@ -1248,6 +2135,9 @@ list-shaped is a delimited string.
 | `zharr_cshare` | last turn's culture shares — read by drift AND by the demand shocks |
 | `zharr_intro` | has this player read the introduction — per-player |
 | `zharr_bundles_stripped` | the one-time legacy-ladder migration flag |
+| `zharr_ord` | standing orders, `;`/`,`-delimited (`res,side,cmp,rung` per record) — **per-player**, joins `EX.SLICE_TABLES`; see §12 and §18 |
+| `zharr_wb_<faction>` | that actor's world book, `res=n;...` sorted, in lots and signed. Cleared when every commodity in it is exactly 0 (`v ~= 0`, not `v > 0` - a short is a real, non-empty book) and when `EX.step_world` confirms the faction dead. Restored by scanning `EX.store` for the prefix (`EX.restore_world_books`), since no actor roster exists that early - until 2026-09-13 it was written and never read, so every load emptied the world book |
+| `zharr_deals` | this turn's Deals page, `;`/`,`-delimited (`fac,res,side,lots,px,turn` per deal) - **per-player**, joins `EX.SLICE_TABLES`. Only so a reload mid-turn shows the same page; the next turn start replaces it. A record without all six fields is dropped, never defaulted |
 
 `EX.strip_legacy_bundles` sweeps any `derpy_chd_ex_ladder_*` bundle left applied by a build
 before 2026-09-05. Its `cm:remove_effect_bundle` calls are individually pcall-wrapped, so a save
@@ -1258,26 +2148,51 @@ from an older build is swept whether or not the key still resolves.
 ## 16. The toolchain
 
 ```powershell
-py tools\gen_zharr_exchange.py --check      # write TSVs, no RPFM needed
-py tools\gen_zharr_exchange.py --selftest   # 70 checks
+py tools\gen_zharr_exchange.py              # write the TSVs, no RPFM needed
+py tools\gen_zharr_exchange.py --check      # build and check against vanilla, write nothing
+py tools\gen_zharr_exchange.py --selftest   # 77 checks; also rewrites the MCT file and production map
 py tools\gen_exchange_ui.py --selftest      # the three .twui.xml
 py tools\import_zharr_exchange.py           # build the pack (needs RPFM open)
 ```
 
 | Tool | Does |
 |---|---|
-| `gen_zharr_exchange.py` | 641 DB rows, 1,768 loc, the MCT file, the production map. 70 `check_*` functions |
+| `gen_zharr_exchange.py` | 649 DB rows, 1,776 loc, the MCT file, the production map. 77 `check_*` functions |
 | `gen_exchange_ui.py` | the panel, row and button `.twui.xml`; GUIDs by counter, every imagepath checked against the game's packs |
 | `import_zharr_exchange.py` | packs it; runs **both** selftests first and refuses on a TSV-vs-`build()` row mismatch |
+| `preview_exchange.py` | renders the Offerings, Trade and Log views to PNG with the game shut, by running the shipped `EX.build_panel` / `EX.layout` / `EX.refresh_panel` under Lua 5.1 against components built from the three `.twui.xml` files; `--selftest` |
 
-**Fifteen Lua harnesses** in `tools/_*_harness.lua`, plus a dozen more inlined in the
+**Sixteen Lua harnesses** in `tools/_*_harness.lua`, plus a dozen more inlined in the
 generator, run the shipped script under Lua 5.1.5 against stubbed campaign interfaces and read
 back what it actually did. Discovery, prices, books, houses, layout, nav, sorting, tips, log,
 store, MCT, multiplayer, race binding, race tuning, warehouse, shocks, footer bounds, header
 widths, chart geometry, and the position total.
 
-**One of the seventy is not about this mod's rules at all.** `check_no_orphans` scans every
-`EX.*` the runtime defines and fails if nothing anywhere reads it — the runtime, the fifteen
+**Added 2026-09-23..27, each watched to fail first:**
+
+- `check_lua_books` pins who a markup names (`source_named`) and caps a 40-house reprice at 80
+  power reads.
+- `check_scale_far_end` (§12, Size).
+- The layout harness records `Resize`'s third argument, `SetTooltipText`, `ShaderTechniqueSet`
+  and `ShaderVarsSet`. Its shade audit holds "disabled" to "greyscale" on every component the
+  scenes touched.
+- A static check allows exactly one `:SetDisabled(` in the file, inside `EX.set_off`.
+- `LUA_BOUNDS_HARNESS` measures the five live Guide lines and the tithe footer at their worst
+  case.
+- The log harness covers the rent, offering and tithe lines, and still counts zero localisation
+  calls at turn time.
+- `check_mct` refuses duplicate titles.
+- The opener's `followed` / `follow_away` asserts prove the poll follows a wider strip and
+  ignores one that has slid away.
+
+Mutation runs: 6 for scaling, 34 for the QoL pass and 6 for the grey fix, all caught.
+
+**A static slice of `EX.refresh_panel` must use `rindex` for the Trade branch.** The Houses
+branch comes first and asks the same `EX.buy_refusal` question, so a slice cut with `index()`
+is satisfied by the wrong row. One QoL mutant survived on exactly that.
+
+**One of the seventy-seven is not about this mod's rules at all.** `check_no_orphans` scans every
+`EX.*` the runtime defines and fails if nothing anywhere reads it — the runtime, the sixteen
 harnesses, the tools, the production script and the MCT file. It is the opposite direction from
 `check_lua_undeclared.py`, which finds names that are *read* and never declared: this finds
 names that are *declared* and never read, which is silent in a worse way, because the code
@@ -1346,8 +2261,10 @@ stopped being true. **Only the pack basename moved**, and two lookalikes deliber
   (`db/<table>_tables/derpy_chd_zharr_exchange`) and the loc file. It only has to be unique
   across installed mods, which it is. Renaming it rewrites eleven table paths and buys nothing.
 - `mct:register_mod("derpy_chd_zharr_exchange")` is the key every player's MCT settings are
-  **stored under**. Changing it silently resets the difficulty, all 26 sliders and all seven
-  switches for anyone who had configured them.
+  **stored under**. Changing it silently resets the difficulty, all 32 sliders, all thirteen system
+  switches and the Features and Debug settings for anyone who had configured them. The page's
+  title and author are free to change and did on 2026-09-28 (*Derpy's Grand Trade Exchange*,
+  `_D3rpyN3wb_`); the key did not.
 
 `import_zharr_exchange.py` now refuses to build while a pack under the old name is still live
 in the game's `data/` — both would load, both carry byte-identical internal paths, and which
@@ -1368,6 +2285,17 @@ tithe, shares and dividends, the panel and all five views, Trade page 2's chart 
 its turn numbers and the commodity icon (2026-09-09, turn 2, one bar and one stub), the race profiles binding correctly
 (measured: `covered=true`, race "Merchant Compact", patron Myrmidia, `seg=teb_`, feed 7441, all
 five tabs open, seven houses, every profiled knob on its intended value, `spread` at ×1).
+
+**Verified in play since 2026-09-23:**
+
+- The Buy-lag fix: click, "bought" and "repriced" arrived
+  inside 0.1s on all 8 trades, a 227-instrument board included, where they had taken about
+  1.8s.
+- The scaled panel at the 1600 and 1920 boxes: 9 sessions on 2026-09-24, with no Exchange
+  error. Every click the engine reported matched `EX.sc` to the pixel - panel 408,98 at
+  1104x883, the close button still 30x30, Sell still 100x26.
+- The grey-fix build loading clean: the panel built and the opener
+  was placed.
 
 **Not yet run in a campaign:**
 
@@ -1425,6 +2353,138 @@ five tabs open, seven houses, every profiled knob on its intended value, `spread
   back on shows the turns you were away rather than a flat line. The three are in the *Features*
   section and **not** in `ECONOMIC`, so unlike the seven system switches they stay movable
   inside a campaign, which is the only thing a kill-switch is for
+- **CLOSED 2026-09-10 — `orders` came back, taking Features to four, and two bugs came with the
+  check that proved it.** `EX.fill_orders` was genuinely dead for part of this build, and it was
+  its own harness that could not see it: the function read `EX.feature("orders")` before
+  `orders` was back in `EX.FEATURE_DEFAULT`, and `EX.feature` returns `false` for any key
+  `FEATURE_DEFAULT` does not carry — so the fully-written fill step no-opped every turn, silently,
+  as if the switch had been thrown deliberately. Its harness stubbed `EX.feature` to `true`
+  outright, so every check passed the whole time this was true. Registering `feat_orders` in MCT
+  and adding `orders = true` to `FEATURE_DEFAULT`, in the same commit as the first real call site,
+  is what revived it — see §13.2. Separately, and unrelated to orders as a feature,
+  **`EX.PANEL_LAYOUT_INTRO` was missing from `EX.panel_cells()`'s union in shipped code** — a real
+  pre-existing bug found only because building the orders ledger meant generalising that union's
+  own check past naming `EX.PANEL_LAYOUT_ORDERS` alone (§16). Every cell `PANEL_LAYOUT_INTRO`
+  names is also named by `EX.PANEL_LAYOUT` itself, so no behavioural check could ever have told
+  the two apart — the introduction always drew correctly regardless of the omission. The check is
+  now general (every `PANEL_LAYOUT*` table found by pattern must appear in the union), which is
+  what would have caught this the day it shipped and catches the next one shaped like it
+
+**Limit and stop orders: built 2026-09-10, and PARTLY played the same day.** The half that
+draws and accepts input is proven in a live campaign; the half that moves gold is not.
+
+**Proven in play (2026-09-10, `cr_chd_warfleet_of_uzkulak`, the script log plus a
+live `wh3_mcp` eval against the running game):**
+
+- The deployed build is the one running — `EX.rent_delta` and `EX.fill_clears_rent` both answer
+  `type() == "function"` at runtime, which is what makes every line below a statement about the
+  shipped pack rather than about the working copy.
+- `panel built with 26 rows`, opener button at 1439,2 on the `resources_bar`, no Exchange error
+  anywhere in the log.
+- **The ticket has been clicked**: three standing orders exist in a live campaign
+  (`res_rom_textiles` b/le 26, `res_spices` b/le 21, `res_rom_iron` b/le 18). Nothing but the
+  ticket can create one, so placement, `EX.place_order_check` and the save write all ran.
+- **The ledger has drawn its rows in game**, with a Cancel button on each and the ticket beneath
+  them — screenshotted on page 3/3 the same day.
+- Both switches read `true` at runtime, so the shipped default is what was on screen.
+- **A live board really does separate `EX.buy_price` from `EX.price`:** Iron's mid measured 513
+  while a buy on it charged 599, a hostile guild's ~17% markup. That is the exact gap the rent
+  floor's mutant 8 exists for — reserving against the mid would have spent the markup out of
+  the rent — and on a calm board no check could have told the two apart.
+
+**Still unplayed, and this is the half that matters:**
+
+- **No order has filled.** Every fill so far ran against a stubbed `EX.apply_trade` under
+  `lua.exe`. Three orders are standing and all three are in the money, so the next turn crossed
+  is the first real pass.
+- **The rent floor has never bitten.** `EX.fill_clears_rent` returns true for all three standing
+  orders (reserve 5, 10 and 15 gold against a treasury of 5,003), so the branch that refuses a
+  fill has run only under the harness.
+- **Cancel has never been proven in game.** The button draws; nothing has confirmed a click
+  removes the row it names, as opposed to a reload doing it.
+- **The save round trip is unproven in game.** `zharr_state` loads, but nothing has established
+  that it carried orders across a save rather than the orders being placed after the load.
+- The fatal/transient split (`EX.ORDER_FATAL`) has never seen a real refusal token from the real
+  `EX.apply_trade` — only from the harness's stand-in.
+- The two ops, `zx1|ord|<packed>` and `zx1|ordx|<packed>`, have never crossed a network.
+- Only one of the four Trade-page feature-switch combinations (both `deep_history` and `orders`
+  on, the shipped default) has ever been on screen.
+- The `pcall` around `EX.apply_trade` inside `EX.fill_orders` has never caught a real engine
+  throw — `"threw"` is a token nothing has forced yet.
+
+**OPEN, and the mod reports it itself:** the 2026-09-10 log carries
+`ovn_araby holds 1.2% of the world's regions and this mod has no appetite for it - it
+contributes nothing to any price. Add it to EX.CULTURE_WANTS.` That diagnostic is working as
+designed — it is the only self-reported gap in a whole session's log — but closing it is a
+**design** task rather than a mechanical one. `EX.CULTURE_WANTS` is 27 entries whose appetites
+are argued against each other (the Southern Realms block exists so that wine, glass and spices
+have a supplier at all). `check_culture_appetites` will hold you to two rules once the entry
+exists — every covered race needs an appetite, and no culture may be a **pump** (only positives
+demands and never supplies, which pushes every price it touches one way all campaign) — but
+neither of those picks the numbers, and nothing enforces agreement with the culture's flavour
+text. Decide what Araby wants and supplies first; the check only stops you shipping a
+half-answer.
+
+**Six defects found by the whole-feature review, 2026-09-10, all fixed before any deploy.**
+None was a Critical: the order model, the FIFO pass, the save round trip, the fatal/transient
+split and the multiplayer story all came back sound. What the eleven per-task reviews could
+not see is that **six of the seven sat exactly on a task boundary**, each half correct on its
+own:
+
+| Was | Now | Check that would have caught it |
+|---|---|---|
+| With `orders` **off** the ticket stayed live on the chart page (that page answers to `deep_history`), so a player could place orders while the ledger holding the only Cancel button was gone — and all of them fired when the switch came back on | `EX.place_order_check` reads the switch, so `EX.place_order` and `EX.MP_OPS.ord` are both gated by one line; `EX.draw_ticket` reads it too, so the dead button is off screen | `check_features` now asserts the **third** reader; `check_nav_cycle` asserts *placement*, not page count, in all four combinations |
+| With `deep_history` **off** there was no chart page, so no ticket, so no order could be created at all — on a ledger page whose own empty-state line said "set one under its chart" | The ticket is named by `PANEL_LAYOUT_ORDERS` as well as `PANEL_LAYOUT_CHART`, at identical coordinates, and drawn by the extracted top-level `EX.draw_ticket`. `EX.selection_page_index` sends a name click to the chart if there is one and the ledger otherwise | `check_chart_geometry` asserts both tables carry all seven at the same coordinates and that they clear 12 ledger rows; the layout harness draws the ledger's ticket |
+| Every Place refusal was `EX.say` only — `out()` behind `log_level >= 2` **and** the `log_trade` debug toggle, so a duplicate click did nothing, silently, forever | `EX.ord_refusal` prints in `ord_standing` and the reason goes to `EX.log_add`; cleared by any edit to the ticket or change of instrument | the orders harness counts `log_add` calls — **its stub used to be a bare no-op**, which is the same shape as the `EX.feature` stub that hid the dead `fill_orders` |
+| Every order surface quoted `EX.price_at`, the **mid**: "Sell at or above 621g" over a fill paying 559, or **310** on a Layer 2 instrument where `l2_sell` applies | `EX.order_price(res, side, rung)` routes the rung's mid through `EX.buy_price`/`EX.sell_price`, which now take an optional base. The ticket, the order sentence and the ledger's price column all use it | the orders harness measures 559 against a mid of 621 and asserts the sentence carries the side's price |
+| The ledger drew the Trade view's headers — "Trend" over an order sentence, "Buy" over a price on rows that are half sells | `EX.view()` returns `"orders"` on the ledger, and `EX.HEADERS`, `EX.TIPS`, `EX.TIP_CELL_TEXT` and `EX.SORT_VALUE` all key off it | the nav harness reads the labels, and a **static** assertion pins `refresh_panel`'s own loop — reading the table alone was a tautology that stayed green while the consumer regressed |
+| A header click on the ledger resolved through the trade sorter: header coloured, ledger unmoved, page 1 silently re-sorted | no `orders` entry in `EX.SORT_VALUE`, so `sort_click` refuses outright and leaves `EX.sort_col` alone | the nav harness asserts the refusal and that `sort_col` stays nil |
+
+Also fixed: the page counter read `3/2` when a switch was thrown while standing on the page it
+removed (`EX.page_index` now clamps exactly as `EX.trade_kind` does).
+
+**All ten mutants of these fixes are caught by the suite — zero survivors.** Two of the ten
+survived the first run and both were failures of the *check*, not the fix: one read the header
+table instead of `refresh_panel`'s use of it, and one had no assertion at all.
+
+**CLOSED 2026-09-10 — the rent seam, floored.** A fill spends at turn step 9b and
+`EX.charge_carry` debited warehouse rent about six steps later in the same turn round **with no
+floor** (`EX.apply_trade`'s affordability test is `treasury() < price`, so the last fill could
+leave the treasury anywhere in `0 .. price-1`). Treasury 1,500, one limit buy fills at 1,400,
+600 Tusks at `CARRY_PER_UNIT` 0.5 is 300g of rent — the turn ended at **−200** on two
+movements of gold the player clicked neither of. Of the three ways out — a floor on the fill,
+reserving the rent before the pass, or accepting it — the **floor** was chosen: reserving
+would have been a second escrow concept in a design deliberately built with none.
+
+`EX.fill_orders` now refuses a **buy** fill that would not leave this turn's warehousing, with a
+transient `rent` token, so the order stands and the Log says why. Three things make it exact:
+
+- **The reserve is `EX.carry_total()` snapshotted once before the loop, plus each fill's own
+  delta accumulated as the pass runs.** `EX.held` reads back out of the pooled resource manager
+  and whether that reflects a `cm:faction_add_pooled_resource` made earlier in the *same pass*
+  is not measured; building the number this way is correct either way. One fill per instrument
+  per pass is what makes it exact — an instrument's own delta is always read before it fills.
+- **`EX.rent_delta` is a difference of two floors**, not `floor(lot * rate)`. `EX.carry_cost`
+  floors the whole holding, so the two disagree by a gold whenever the holding's own fraction
+  carries — and this number is compared against a treasury.
+- **It predicts `EX.buy_price`, the same call `EX.apply_trade` charges on.** On a calm board
+  that equals `EX.price`, so nothing distinguishes them; a hostile guild's markup is real gold
+  and does.
+
+**A MANUAL buy is deliberately still unfloored, and that distinction is the whole fix.** The
+player is looking at the treasury when they press Buy, so both the purchase and the decision to
+be that thin are theirs. A standing order is the one case where neither was — which is why the
+floor lives in `EX.fill_orders` and a check asserts it is **absent** from `EX.apply_trade`.
+Sells are never floored either: a sell credits gold and lowers the holding, and floored, a
+player short of the rent could not sell to raise it. Layer 2 is exempt, the same exemption and
+the same reason as `EX.carry_cost` — Armaments and Raw Materials come out of buildings.
+
+**12 mutants, 12 caught.** Three survived the first run and all three were **bad checks**: the
+rent-off case reserved 300 against a treasury of exactly 300 and so passed whether the switch
+was read or not; `EX.buy_price` and `EX.price` were the same number on a calm board; and no
+scene ever ordered a Layer 2 instrument, so its exemption was never executed. A twelfth mutant
+was written specifically for the static assertion — it duplicates the floor into
+`EX.apply_trade` in a form that changes no behaviour at all, so only that assertion can see it.
 
 **Multiplayer: built 2026-09-09, never run on two machines.** §18. The 27 unforced
 `cm:get_local_faction_name` calls are gone — they *threw* in multiplayer, so the mod died at
@@ -1437,6 +2497,99 @@ someone has run it.
 **Watch in play:** the Merchant Compact's `guild_close` at ×1.5 (0.90 effective). It is meant to
 keep the Compact trading through wars that would shut a rougher market, but at that value the
 war lock is close to off for that race.
+
+**The World Book, the Deals page, position bundles and the stance hook** (2026-09-13 to
+2026-09-16).
+
+**Seen in play, 2026-09-17**: three deals taken, three lots each - Exotic
+Animals at 642 a lot from Hexoatl, Wine at 1,034 from Carcassonne, Spices at 1,514 from Aislinn -
+every lot at the deal's own price against the faction the page named; the stance pass logging
+"0 house(s) warmer, 2 colder on your book"; the load-time position sweep touching 73 factions.
+
+**Never seen:** a world-to-world trade (the pass writes no log line at all), any faction wearing a
+War Stocks bundle, a Sold out refusal, a `nobuyer` refusal, and a promoted stance in the
+diplomacy screen - the log line proves the score and the call ran, not what the AI did with it.
+Every constant is a guess: `WORLD_STOCK_TURNS`, `world_gain`, `world_cash_max`, `world_trade_max`,
+`deal_max`, `deal_edge`, `pos_step`, `POS_PER_TIER`, `STANCE_SHARES`, `STANCE_CORNER`.
+
+**Limits read off the code:**
+
+- **A short never unwinds.** Nothing credits an actor's output back into its book, so a producer
+  that has sold `WORLD_STOCK_TURNS` turns of output forward has nothing more to sell until its
+  land grows or it buys the good back - and its desire for its own good is negative, so it will
+  not. The comments say "short until it digs it up"; no step digs anything up. The tier's supply
+  of a good over the whole campaign is therefore roughly its producers' capacity less what
+  players have net bought from it, and with `world_scarcity` on a good the guild is not long in
+  reaches Sold out once that is spent.
+- **The world book's price term reads only the players.** Matched trades conserve
+  `EX.world_book`, so `world_book_shift` moves only on player trades with actors and on a dead
+  faction's pruning - and net buying from the world makes the good cheaper through it (§9.1).
+- **Production drowns the other four desire terms.** `-(0.4 x output)` is in units: a 26-unit
+  producer scores -10.4 against a taste term inside -1..1. Every producer sells what it makes and
+  every non-producer buys; taste, war and value decide little. Inherited from `EX.house_desire`,
+  where the error was measured to cost nothing because `book_shift` absorbs it - not measured
+  for the world tier.
+- **`world_cash_max` is also a price ceiling on the tier.** A good priced above it never trades
+  world-to-world (`cap_lots` floors to 0), is never sold to the player through step 2, and a deal
+  on it cannot pay the faction it names: a sell deal then charges the player and pays nobody
+  while the Log still reads "Bought ... from <faction>", and a buy deal is refused `nobuyer`.
+  `EX.post_deals` does not filter on it. On easy (1,500 against a 1.08 ladder) that is anything
+  from about step 31 up; at default about step 37.
+- **A Take the model refuses says nothing on screen.** `EX.accept_deal`'s own refusals (`poor`,
+  `gone`, `nodeal`) reach only `EX.say`, behind the `trade` debug toggle, and the Take button is
+  not greyed for any of them - only a sell deal's `EX.buy_refusal` greys it.
+- **A buy deal is a riskless edge.** Buy one lot on the Trade view at `buy_price` and sell it into
+  the deal at `price x (1 + deal_edge)`: whenever the hostility markup is under `deal_edge` that
+  is profit, one lot per buy deal, up to `deal_max` a turn. Bounded, and the constant's comment
+  calls the edge a deliberate transfer - recorded so nobody widens `deal_edge` or the one-lot
+  size without seeing it. The `deal_edge` tooltip's "keep it under one price step" does not
+  guard this case, and nothing bounds the slider below its maximum of 25.
+- **`EX.step_world` pairs buyers to sellers in `pairs()` order** and does not sort - the order
+  `EX.post_deals` sorts away rather than trust. Deterministic while every machine builds
+  `EX.actors` in the same insertion order, which the scan does; unmeasured across a reload in
+  multiplayer.
+- **Settings are read live between a load and the next turn start.** `EX.snap` is read from the
+  save only inside `EX.snapshot()`, which only `EX.turn_round` calls. So the load path
+  (`apply_prices`, `apply_trade_income`, `apply_positions`, the Deals row pool off `deal_max`) and
+  the rest of that loaded turn read live MCT: a campaign frozen on one preset and reloaded while
+  MCT says another plays its first turn on the other. Not tested in game.
+- **The guide says nothing** about the Deals page, world trading, Sold out, War Stocks or
+  stances. Page 1 is at the 19-row ceiling; page 2 has room.
+- **The Deals page is not multiplayer-safe as shipped** - §18.
+
+**Not yet seen in play (the 2026-09-23..28 builds):**
+
+- the 2560 box (4K at 100%, or 1080p at 50% UI Scale), and whether the art fills a grown frame
+  at any box;
+- whether `set_greyscale_t0` draws grey at all (§12);
+- the "dislikes you" sentence naming the right house. It is panel text only and never reaches
+  the script log;
+- the tithe row and paying from it, an x25 click that runs out of gold part way, Sell greying
+  below a lot, the Held tooltip, and the opener's news, including how `||` plus a long body
+  wraps in CA's tooltip box;
+- the text-pass wording on screen. The 2026-09-27 morning logs ran the old build, because Steam
+  had restored the published pack. Look for " ..." or a word cut mid-way: that is the only real
+  test of fit;
+- the opener following the strip mid-turn;
+- the MCT page's new title and author (2026-09-28);
+- a Nagash campaign of any kind.
+
+**Found 2026-09-23..27, not fixed:**
+
+- **With warehouse rent switched off, rent is still displayed.** `EX.carry_cost` ignores the
+  `warehouse_rent` switch. So the Held cell's "-Ng", the Trade footer's "Rent: -Ng" and the HUD
+  income override (`net_income() - EX.carry_total()`) all show a charge `EX.charge_carry` never
+  makes. Only the Held tooltip follows the switch. Fixing it at `carry_cost` changes the
+  rent-floor harness's premise ("rent off, `carry_total` still answers 300"), so it is its own
+  change.
+- **The friendly discount is unreachable** (§4.3).
+- **The page counter can read "3/2" after the panel grows or shrinks**, until the next arrow or
+  tab click. `EX.layout` writes the label before `EX.house_slice` clamps `EX.house_page`: the
+  prune case again.
+- **Multiplayer: another player's standing order resets your amount button** (§18).
+- **The Offerings Status column tooltip** ("Ready, turns of favour left, or units still
+  needed.") does not mention the tithe row's "Due: N turns".
+- No harness scene runs the scaled chart in Lua. Only Python's copy of the rule checks it.
 
 ---
 
@@ -1462,7 +2615,16 @@ Exchange.
 
 `CampaignUI.TriggerCampaignScriptEvent(faction_cqi, event_id)` raises `UITrigger` on every
 machine; both arguments or neither. The op rides in the id as `zx1|<op>|<arg>`, the faction on
-the cqi. Three ops: `buy`, `sell`, `offer`. The cqi is resolved by walking the human list —
+the cqi. Six ops now: `buy`, `sell`, `offer`; `ord` (place) and `ordx` (cancel), added 2026-09-10 for
+limit and stop orders; and `deal`, added with the Deals page, which carries only the deal's list
+index - see "The Deals page is not safe here yet" below. All well inside MCT's 100-character
+convention. `ordx` sends
+the whole packed order (`res,side,cmp,rung`) rather than a list index: the list is per-player and
+every machine holds the same one, so an index would *usually* land on the right row — and
+"usually" is how one machine deletes a different row from its neighbours and the two saves
+diverge from there on. **A fill sends nothing over the network at all** — it runs inside the turn
+round, which every machine already executes identically over `cm:get_human_factions()`, so there
+is nothing to broadcast. The cqi is resolved by walking the human list —
 `faction_for_command_queue_index` is in CA's interface index with no signature documented
 anywhere.
 
@@ -1474,7 +2636,7 @@ process cannot test.
 ### The subject
 
 Per-player state is not threaded through sixty call sites; it is **swapped**. `EX.bind_player`
-points `EX.shares_held`, `EX.LOG`, `EX.offer_until` and the five demand values at another
+points `EX.shares_held`, `EX.LOG`, `EX.offer_until`, `EX.orders`, `EX.deals` and the five demand values at another
 faction's slice, and `EX.who()` answers whoever is bound (defaulting to `EX.me()`).
 `EX.with_player(faction, fn)` is the only sanctioned way in, and its `pcall` is what stops an
 error stranding the wrong subject for the rest of the campaign.
@@ -1493,13 +2655,23 @@ Two non-obvious requirements, both of which cost a debug cycle:
 
 | | Keys | Accessor |
 |---|---|---|
-| Per player | `SAVE_SHARES`, `SAVE_OFFER`, `SAVE_OFFERINGS`, `SAVE_DEMAND`, `SAVE_DEM_RES/TIER/DUE`, `SAVE_LOG` | `EX.setp` / `EX.getp` — appends `@<faction>` |
-| World | rungs, history, pressure, shocks, books, house list, delisted, the settings snapshot | `EX.setv` / `EX.getv` |
+| Per player | `SAVE_SHARES`, `SAVE_OFFER`, `SAVE_OFFERINGS`, `SAVE_DEMAND`, `SAVE_DEM_RES/TIER/DUE`, `SAVE_LOG`, `SAVE_INTRO`, `SAVE_ORDERS`, `SAVE_DEALS` | `EX.setp` / `EX.getp` — appends `@<faction>` |
+| World | price steps, history, the deep chart, pressure, shocks and the shock guard, house books and world books (`SAVE_WBOOK`), house list, capitals, delisted, culture shares, the legacy-strip flag, the settings snapshot, and the store itself | `EX.setv` / `EX.getv` |
+
+`SAVE_ORDERS` (`zharr_ord`) joined the per-player set 2026-09-10 for the same reason every other
+row in it exists: a standing order is a position, and two players sharing one ladder would be two
+players cancelling and filling each other's orders. `orders` joined `EX.SLICE_TABLES` alongside
+`shares_held`, `offer_until` and `LOG`, so `EX.bind_player` swaps it in and out with everything
+else a subject carries — see "The subject" below.
+`deals` joined them with the Deals page, and `SAVE_DEALS` the per-player column: a deal is posted
+to one player, and a world-scoped key would show every human the page rolled for whoever was
+bound last.
 
 Both wrong answers are silent: an unscoped per-player key is two players robbing each other
 *and* a divergent save; a scoped world key forks the price ladder and the market stops being one
 market. `check_lua_mp()` asserts the split in both directions and that the declared `SAVE_*` set
-is exactly those 21.
+is exactly those - 27: eleven per player, sixteen world, since `SAVE_WBOOK` joined the world
+column and `SAVE_DEALS` the per-player one.
 
 `EX.getp` falls back to the unscoped key **only when there is exactly one human** — every save
 written before this build is such a save, and with two humans the fallback would hand player B
@@ -1525,13 +2697,13 @@ is detected in the lobby, its faction key is distributed at `pre_first_tick` as 
 option values follow as `MctMpInitialLoad`, clients' panels are locked with
 `mct_lock_reason_mp_client`, and a mid-campaign Finalize re-broadcasts to everyone. **But that
 distribution is two asynchronous network round trips starting at `pre_first_tick`, and nothing
-orders them against the first `FactionTurnStart`** — which is where `EX.snapshot()` freezes 30
-values into the save. A client that has not received the host's settings yet would freeze the
+orders them against the first `FactionTurnStart`** — which is where `EX.snapshot()` freezes 45
+values into the save, plus the preset name. A client that has not received the host's settings yet would freeze the
 defaults while the host freezes its own, permanently, with a correct-looking panel on both. So
 in a multiplayer campaign every economic value is the shipped default on every machine, and the
 MCT panel says so. The log options are *not* gated — they touch nothing in the model.
 
-Lifting this is a real option and is written up in the handoff: gate the snapshot on
+Lifting this is a real option: gate the snapshot on
 `cm:get_saved_value("mct_mp_init")` plus `cm:progress_on_all_clients_ui_triggered`, or read MCT
 on one machine and broadcast the **preset name** over our own transport — one word, because the
 four presets are baked identically into every copy of the Lua.
@@ -1540,6 +2712,32 @@ four presets are baked identically into every copy of the Lua.
 `EX.check_standing_sign` both ask "how does this house feel about the player", which has no
 single answer with four humans; both run bound to `EX.humans()[1]`. In singleplayer that is the
 player, so the shipped behaviour is unchanged. Upgrade path is noted at the call site.
+
+**Found 2026-09-25, not fixed: one player's order resets another's amount button.**
+`EX.place_order` runs on every machine through `EX.MP_OPS.ord`, and it writes
+`EX.amount = EX.clamp_lots(qty)` - the placer's size - into what is otherwise local session
+state. The order itself is correct. But the next Buy on the other machine moves the placer's
+size, until that player touches the amount button.
+
+**Local on purpose:** the opener's placement, its 300ms follow poll, its greying and its
+tooltip, and the panel's size (`EX.fit` reads this client's screen) are all UI-only. None of
+them crosses the network, so none can desync. `EX.bulk` is the one piece of trade-path state that
+is not per-player, and it does not need to be: it is set and cleared inside a single synchronous
+`EX.bulk_trade`, which every machine runs the same way from the same op.
+
+### The Deals page is not safe here yet
+
+**`EX.post_deals` builds the page for `EX.who()`, and `EX.turn_round` calls it once, unbound.**
+Unbound means the adopted local subject, so each machine rebuilds only its own player's page and
+every other human's slice keeps whatever the last load restored. The Take op carries only a list
+index, applied as the sender on every machine: the sender's machine resolves this turn's deal,
+the others a stale one or none (`nodeal`), and gold and books diverge from there. The save
+diverges too - `EX.save_deals` writes only the local player's key. `_mp_harness.lua` section 8
+proves the pages agree *when `EX.post_deals` runs inside `EX.with_player` for each human*, which
+the harness does and the turn round does not, and no ordering check asserts the wrapper. The fix
+is the turn round's own idiom - a per-human `EX.with_player` loop around the call. Singleplayer is
+unaffected. The world tier, the positions sweep (world, unbound, identical everywhere) and the
+stance pass (per human, bound) follow the rules.
 
 ### What is checked
 
@@ -1578,6 +2776,36 @@ that should care. `check_lua_appetite()` asserts `WAR_APPETITE` is complete.
 
 **Never** add a knob to `EX.RACE_TUNABLE` without checking §4.3 first. The four excluded ones
 are the round-trip algebra, and a race factor on any of them can mint gold.
+
+**A new order kind** — the shape is `{res, side, cmp, rung}` and limit/stop is derived from
+`side`/`cmp`, never stored, so a genuinely new kind needs a fifth field
+threaded through `EX.pack_orders`/`EX.unpack_orders`/`EX.valid_order`, a new branch in
+`EX.order_hits`, and a sentence in `EX.order_text`. Classify every new `EX.apply_trade` refusal
+token it can hit into `EX.ORDER_FATAL` or leave it to the transient default before shipping it —
+an unclassified token is safe by construction, but a token that is actually fatal and left
+unclassified is a standing order that silently never leaves the ledger.
+
+**A new war good** - add the key to `EX.WAR_GOODS`, chosen by display name, and move
+`check_lua_books`' pinned count (`war_keys_count == 3`) with it; the pin exists so widening the set
+is deliberate. `POS_TEXT_UP` / `POS_TEXT_DOWN` in the generator name the three goods.
+
+**A new position tier** - `EX.POS_TIERS` in the Lua and `POS_TIERS` in the generator must match:
+the DB emits one bundle per tier and the sweep removes one key per tier, so a tier on one side
+only is a bundle that applies nothing or one that nothing can remove. Keep it symmetric and
+without 0 (both asserted), and keep the `pos_` stem.
+
+**A new world-tier knob or switch** - the constant, `EX.TUNE_NUM` (or `EX.TUNE_BOOL`), all three
+non-default presets (`default` stays empty), and `TUNABLES` (or `MCT_OPTIONS`) in the generator.
+Gate the feature with `EX.setting`, never `EX.opt`, and make a harness prove the switch reads on
+before asserting anything: a switch that does not exist yet reads nil, the feature is silently
+dead, and every test of it passes.
+
+**A seventh view** - does not fit. The strip is six tabs, 108 wide on a 116 pitch, ending at 708
+against `derpy_chd_ex_prev` at 774, and it is written out in all ten `EX.PANEL_LAYOUT*` tables;
+`gen_exchange_ui.py` measures each tab's right edge against the arrow. A view keyed by `EX.mode`
+also needs `EX.HEADERS` (a missing entry takes the whole refresh down), `EX.TIPS`,
+`EX.SORT_VALUE`, a `PANEL_LAYOUT_*` / `ROW_LAYOUT_*` pair and both `EX.panel_layout` /
+`EX.row_layout` branches, plus `TAB_MODES` and a `check_mode` call in `gen_exchange_ui.py`.
 
 ---
 

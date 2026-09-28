@@ -34,12 +34,12 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 25,261 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 14,029 |
+| Python generators (`tools/`) | 25,289 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 14,073 |
 | Lua test harnesses (`tools/_*_harness.lua`) | 4,454 |
 | UI layouts (`.twui.xml`) | 5,249 |
 | Generated DB + localisation (TSV) | 2,425 rows |
-| Documentation | 144 KB |
+| Documentation | 238 KB |
 
 The mod itself is 10 DB tables, 649 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
@@ -48,7 +48,7 @@ readable without running anything.
 
 ## The interesting part: nothing here is hand-authored
 
-A 3,000-line XML UI file is not something you edit by hand twice. The whole mod is
+A 4,200-line XML UI file is not something you edit by hand twice. The whole mod is
 emitted by `tools/gen_zharr_exchange.py`, which owns every constant, every price
 curve, every table row and every localised string in one place, and generates:
 
@@ -61,7 +61,8 @@ curve, every table row and every localised string in one place, and generates:
 Which means the committed artefacts can be checked against their source:
 
 ```
-py tools/gen_zharr_exchange.py --check     # regenerate the TSVs and settings Lua
+py tools/gen_zharr_exchange.py             # regenerate the TSVs
+py tools/gen_zharr_exchange.py --selftest  # also rewrites the settings Lua and production map
 py tools/gen_exchange_ui.py                # regenerate the three .twui.xml panels
 git diff                                   # empty, or the generator and the repo disagree
 ```
@@ -80,9 +81,9 @@ py tools/gen_zharr_exchange.py --selftest
 py tools/gen_exchange_ui.py --selftest
 ```
 
-It asserts, among ~60 other things:
+It asserts, among ~70 other things:
 
-- every one of the 674 `EX.*` names the script defines is read somewhere - no orphans
+- every one of the 678 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
 - every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters
@@ -103,7 +104,7 @@ files that build the live mod, not a re-pathed copy that drifts.
 installed copy of the game to resolve icon paths against - it caches those into a
 gitignored `.skilltree_cache/`. `import_zharr_exchange.py` additionally needs
 [RPFM](https://github.com/Frodo45127/rpfm) running, since a `.pack` is a binary
-container that only RPFM writes. The `--selftest` and `--check` paths above need
+container that only RPFM writes. The generator runs above need
 neither RPFM nor a running game.
 
 **Some things here are deliberately load-bearing weirdness.** `read_vanilla_loc.py`

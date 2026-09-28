@@ -6864,7 +6864,7 @@ MCT_OPTIONS = [
      "other scripted stances between you every turn. Off, your market position stays inside the Exchange."),
     ("ai_world", "The world trades",
      "Every landholding faction holds commodities, and buys and sells them each turn. "
-     "Off: only the fourteen houses trade."),
+     "Off: only the rival houses trade. Deals have their own switch."),
     ("world_scarcity", "Supply can run out",
      "A purchase fails when no faction anywhere is holding that good. "
      "Off: you can always buy."),
@@ -6874,7 +6874,8 @@ MCT_OPTIONS = [
     ("world_bundles", "Positions supply armies",
      "A faction holding iron, timber and obsidian replenishes its armies faster; one that "
      "has sold them short replenishes slower, and being at war doubles it either way. "
-     "Applies to you and other factions alike. Off: no supply effect is applied to anyone, and "
+     "Applies to the other factions of the world, not to you or the rival houses. Off: no "
+     "supply effect is applied to anyone, and "
      "any left over from a previous save is removed."),
 ]
 
@@ -7093,7 +7094,7 @@ DEBUG_CATS = [
 # THE FEATURE KILL-SWITCHES. Four, and every one of them gates real code - check_features
 # refuses to generate otherwise, which is the whole reason this table exists.
 #
-# NOT LOCKED IN A CAMPAIGN, and that is the difference between these and the seven system
+# NOT LOCKED IN A CAMPAIGN, and that is the difference between these and the system
 # switches above. A system switch is snapshotted into the save at the first turn start so a
 # price you were quoted stays the price you are charged; a kill-switch exists to be moved
 # WHILE a bug is happening, which is the same argument the debug options already carry.
@@ -7138,7 +7139,7 @@ CULTURE_LOCKS = [
      "Tomb Kings, both vampire cultures, Nagash's Undead Legions, the four Chaos gods, Daemons "
      "of Chaos, Beastmen and "
      "Lizardmen. They keep no markets in lore, so when off, they have no Exchange at "
-     "all: no button, no panel, no prices. Others can still buy shares in them either way. "
+     "all: no button, no panel, no prices. Either way, other cultures cannot buy shares in them. "
      "Takes effect on a restart."),
     ("raiders", "Let raider cultures trade",
      "Greenskins, Norsca and the Warriors of Chaos. They take rather than trade, so when off, "
@@ -7157,11 +7158,13 @@ def build_mct():
            "if not mct then return end",
            "",
            'local m = mct:register_mod("derpy_chd_zharr_exchange")',
-           'm:set_title("Zharr Exchange")',
-           'm:set_author("derpy")',
+           # The Workshop title, not the in-game "Zharr Exchange". Only the title moves: the
+           # register_mod key above is what every player's saved settings are stored under.
+           'm:set_title("%s")' % lua_q("Derpy's Grand Trade Exchange"),
+           'm:set_author("_D3rpyN3wb_")',
            'm:set_description("%s")' % lua_q(
                "Pick a difficulty, or Custom to set every value yourself. " + LOCK_REASON
-               + " Note that the preset now owns the seven system switches as well as the "
+               + " Note that the preset now owns the system switches as well as the "
                  "numbers - if you had one of them turned off, it lives under Custom."
                + " " + MP_MCT_NOTICE),
            "",
@@ -7194,7 +7197,7 @@ def build_mct():
                       "true" if key == "default" else "false"))
     out += ['o_preset:set_default_value("default")', ""]
 
-    # THE SEVEN SYSTEM SWITCHES, then the numeric knobs. Both are "custom only", both are
+    # THE SYSTEM SWITCHES (MCT_OPTIONS), then the numeric knobs. Both are "custom only", both are
     # locked outright in a campaign.
     economic = []
     for key, label, tip in MCT_OPTIONS:
