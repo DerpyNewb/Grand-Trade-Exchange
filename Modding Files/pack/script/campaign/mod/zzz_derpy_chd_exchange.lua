@@ -1521,12 +1521,13 @@ function EX.mp_ignores_mct()
     return EX.is_mp()
 end
 
--- Resolve one key live. Only ever reached before the snapshot exists.
-function EX.opt_live(key)
+-- Resolve one key live. Only ever reached before the snapshot exists. `preset` overrides MCT's
+-- choice - EX.snapshot passes the one a damaged snapshot still names.
+function EX.opt_live(key, preset)
     local def = EX.opt_default(key)
     if def == nil then return nil end
     if EX.mp_ignores_mct() then return def end
-    local preset = EX.mct_raw("preset")
+    preset = preset or EX.mct_raw("preset")
     if type(preset) ~= "string" or preset == "" then preset = EX.PRESET_DEFAULT end
     if preset ~= EX.PRESET_CUSTOM then
         local p = EX.PRESETS[preset]
@@ -1610,14 +1611,24 @@ end
 function EX.snapshot()
     if EX.snap then return false end
     local saved = EX.getv(EX.SAVE_SNAP)
+    local preset
     if type(saved) == "table" and next(saved) ~= nil then
-        EX.snap = saved
-        return false
+        if saved[1] == nil then
+            EX.snap = saved
+            return false
+        end
+        -- A LIST ENTRY MEANS A DECIMAL-COMMA LOCALE ALREADY BROKE THIS SAVE (see EX.FLOAT_TAG):
+        -- every fraction was split into its integer part and a stray entry. The preset's name
+        -- is a string and survived, so rebuild from it - exact for a named preset, and for
+        -- Custom the sliders as MCT holds them now, which is the closest record left.
+        preset = type(saved.preset) == "string" and saved.preset or nil
+        EX.say("turn", "settings snapshot was damaged by a decimal-comma save - rebuilt from preset "
+               .. tostring(preset))
     end
     local t = {}
-    for key in pairs(EX.TUNE_NUM) do t[key] = EX.opt_live(key) end
-    for _, key in ipairs(EX.TUNE_BOOL) do t[key] = EX.opt_live(key) end
-    t.preset = EX.opt_live_preset()
+    for key in pairs(EX.TUNE_NUM) do t[key] = EX.opt_live(key, preset) end
+    for _, key in ipairs(EX.TUNE_BOOL) do t[key] = EX.opt_live(key, preset) end
+    t.preset = preset or EX.opt_live_preset()
     EX.snap = t
     EX.setv(EX.SAVE_SNAP, t)
     return true
@@ -5563,8 +5574,10 @@ end
 -- an empty world with no trend anywhere, which is indistinguishable from a quiet turn.
 function EX.unpack_cshare(str)
     local out = {}
-    for c, v in string.gmatch(tostring(str or ""), "([%w_]+)=([%d%.%-]+)") do
-        out[c] = tonumber(v) or 0
+    -- "," AS WELL AS ".": EX.pack_cshare's %.4f writes the locale's decimal separator, and in a
+    -- decimal-comma locale [%d%.%-]+ stopped at it and read every share as 0.
+    for c, v in string.gmatch(tostring(str or ""), "([%w_]+)=([%d%.,%-]+)") do
+        out[c] = EX.parse_num(v) or 0
     end
     return out
 end
@@ -11990,15 +12003,54 @@ end
 -- add_loading_game_callback), and EX.restore runs IN the first tick, so the store is always
 -- populated before anything reads it. Registered at script root because by first tick the
 -- LoadingGame event has already been and gone.
+-- A FRACTION CANNOT CROSS CA'S TABLE SAVE UNDER A DECIMAL-COMMA LOCALE. Reported 2026-09-28:
+-- "every time I load prices are fine, but right after end of turn every buy/sell are fixed to
+-- 1000". cm:save_named_value writes a table as Lua source, "return " .. table.tostring(t), and
+-- table.tostring writes a number with plain tostring() - which formats with the process's
+-- numeric locale. Under one that uses a comma, ["ladder_step"]=1.1 is written 1,1, and
+-- loadstring reads that back as ladder_step = 1 plus a stray list entry: no error anywhere. A
+-- ladder step of 1 prices every step at BASE_COST and a spread of 0 sells at the buy price.
+-- A load looked fine only because it prices off live settings until the turn round's
+-- EX.snapshot adopts the frozen table out of the save.
+--
+-- So every non-integer number crosses the save as a tagged string, and EX.parse_num reads it
+-- back whichever separator either end used. Integers need nothing: tostring gives them no
+-- decimal point at all. _store_harness.lua runs this in a real comma locale.
+EX.FLOAT_TAG = "#f:"
+
+-- tonumber reads only the running locale's separator, so a save written under one locale and
+-- loaded under another would read nil without the two fallbacks.
+function EX.parse_num(s)
+    return tonumber(s) or tonumber((string.gsub(s, ",", "."))) or tonumber((string.gsub(s, "%.", ",")))
+end
+
+function EX.enc_store(v)
+    if type(v) == "number" and v % 1 ~= 0 then return EX.FLOAT_TAG .. tostring(v) end
+    if type(v) ~= "table" then return v end
+    local t = {}
+    for k, x in pairs(v) do t[k] = EX.enc_store(x) end
+    return t
+end
+
+function EX.dec_store(v)
+    if type(v) == "table" then
+        for k, x in pairs(v) do v[k] = EX.dec_store(x) end
+        return v
+    end
+    local s = type(v) == "string" and string.match(v, "^" .. EX.FLOAT_TAG .. "(.+)$")
+    if s then return EX.parse_num(s) end
+    return v
+end
+
 cm:add_loading_game_callback(function(context)
     local ok, t = pcall(function()
-        return cm:load_named_value(EX.SAVE_STORE, {}, context)
+        return EX.dec_store(cm:load_named_value(EX.SAVE_STORE, {}, context))
     end)
     EX.store = (ok and type(t) == "table") and t or {}
 end)
 
 cm:add_saving_game_callback(function(context)
-    pcall(function() cm:save_named_value(EX.SAVE_STORE, EX.store, context) end)
+    pcall(function() cm:save_named_value(EX.SAVE_STORE, EX.enc_store(EX.store), context) end)
 end)
 
 -- THE TICKET-CLICK TAIL, LIFTED OUT OF THE LISTENER for the same reason EX.row_click is

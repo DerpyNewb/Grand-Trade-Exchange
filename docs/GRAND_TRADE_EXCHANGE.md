@@ -9,9 +9,9 @@ This is the **reference for what shipped**.
 | | |
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
-| Size / md5 | 1,603,113 B / `bab4f8ec3e11966cfa8f1b8069d4b881` (2026-09-28, deployed to the Workshop folder and byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
+| Size / md5 | 1,606,064 B / `9348dfbc680c42ecc2dcbc3c587dc616` (2026-09-28, the decimal-comma save fix - §15; deployed to the Workshop folder and byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
 | Rows | 649 DB across 10 tables, plus 1,776 loc = 2,425 |
-| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 12,720 lines, 357 `EX.*` functions (678 `EX.*` names in all, every one read — `check_no_orphans`) |
+| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 12,772 lines, 360 `EX.*` functions (682 `EX.*` names in all, every one read — `check_no_orphans`) |
 | Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
 | Workshop | *Derpy's Grand Trade Exchange*, item 3798516851. In game it is still the Zharr Exchange |
 | Hard dependency | none |
@@ -2115,6 +2115,29 @@ CA's shared saved-value string since 2026-09-07. `EX.getv` still falls back to
 list-shaped is delimited; `zharr_opts` is a table. Twenty-six keys now: `zharr_deals` (the Deals
 page) is the newest, after `zharr_wb_<faction>`, one per actor holding a world-tier position.
 
+**Fractions are tagged on the way through the save** (2026-09-28). CA's table save
+(`campaign_manager:process_table_save`) writes a number with plain `tostring`, which follows the
+process's numeric locale, and reads the table back through `loadstring`. Under a decimal-comma
+locale `1.1` is written `1,1` and loads as `1` plus a stray list entry, with no error anywhere.
+Reported as "every time I load prices are fine, but right after end of turn every buy/sell are
+fixed to 1000": a load prices off live settings, the turn round's `EX.snapshot` then adopted the
+frozen table with `ladder_step` 1 (every step at `BASE_COST`) and `spread` 0 (sell = buy). War
+shocks lost their fractions the same way. So:
+
+- `EX.enc_store` writes every non-integer number as `"#f:" .. tostring(v)` at the save callback,
+  and `EX.dec_store` turns it back at the load callback through `EX.parse_num`, which reads either
+  separator whatever the running locale - a multiplayer save is loaded on every machine, and two
+  players need not share one. Integers are untouched: `tostring` gives them no separator.
+- `EX.snapshot` treats a saved snapshot with a list entry as one an older build already broke,
+  and rebuilds it from the preset name it still holds (a string, so it survived): exact for a
+  named preset; Custom takes MCT's sliders as they are now.
+- `EX.unpack_cshare` accepts a comma as well, because `EX.pack_cshare`'s `%.4f` writes the
+  locale's separator and the old pattern read every culture share as 0.
+
+`_store_harness.lua` serialises the way the engine does, and runs a save, a turn end, a legacy
+broken save and a cross-locale load in a real comma locale (`German_Germany.1252`, or a POSIX
+equivalent; the selftest says so when none exists). Five mutants, one per piece, all caught.
+
 | Key | Holds |
 |---|---|
 | `zharr_rung_<res>` | current ladder rung |
@@ -2590,6 +2613,12 @@ Every constant is a guess: `WORLD_STOCK_TURNS`, `world_gain`, `world_cash_max`, 
 - **The Offerings Status column tooltip** ("Ready, turns of favour left, or units still
   needed.") does not mention the tithe row's "Due: N turns".
 - No harness scene runs the scaled chart in Lua. Only Python's copy of the rule checks it.
+- **The decimal-comma trigger is inferred, not observed.** The save fix is proven offline in a
+  real comma locale, but nothing shows WH3's process running Lua under the player's regional
+  format: `Warhammer3.exe` does not import `setlocale` by name (its one `setlocale` string is Lua's
+  own `os` library). Another DLL or mod could set it. The fix is harmless either way.
+- **`EX.num` (display) writes a whole number as "1," under a comma locale**: `%.3f` gives "1,000",
+  the zeros are trimmed and the `%.$` strip only knows ".". Cosmetic; `[%.,]$` would fix it.
 
 ---
 

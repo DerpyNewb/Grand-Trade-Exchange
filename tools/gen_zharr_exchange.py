@@ -18959,8 +18959,34 @@ def check_save_store():
         "on a NEW campaign the store came back a %s, not a table - the first EX.setv indexes "
         "a nil value and kills the script at turn one" % have.get("fresh_type"))
     assert have.get("fresh_write") == "1", "the store is unusable on a new campaign"
+    # A DECIMAL-COMMA LOCALE (reported 2026-09-28: every price 1000 after the first turn end).
+    # CA's table save formats numbers with the process locale and loads them through
+    # loadstring, so ladder_step 1.1 came back as 1 and spread 0.1 as 0. The harness runs
+    # this in a real comma locale; see _store_harness.lua.
+    if have.get("comma_locale") != "true":
+        print("  (decimal-comma case skipped: no comma locale on this machine)")
+    else:
+        assert have.get("comma_prices") == "1611/1450 1611/1450", (
+            "a save and a turn end in a decimal-comma locale moved the prices [%s] - the frozen "
+            "settings lost their fractions on the way through the save"
+            % have.get("comma_prices"))
+        assert have.get("comma_shock") == "1.5", (
+            "a war shock of 1.5 came back as [%s] in a decimal-comma locale"
+            % have.get("comma_shock"))
+        assert have.get("comma_cshare") == "0.1234", (
+            "a culture share of 0.1234 came back as [%s] in a decimal-comma locale"
+            % have.get("comma_cshare"))
+        assert have.get("legacy_prices") == "1611/1450", (
+            "a save an earlier build already broke still prices [%s] - EX.snapshot must "
+            "rebuild a snapshot that carries list entries from the preset it names"
+            % have.get("legacy_prices"))
+        assert have.get("cross_shock") == "2.5", (
+            "a war shock saved under a decimal-comma locale read back as [%s] under another - "
+            "a multiplayer save is loaded on every machine, and EX.parse_num must read either "
+            "separator" % have.get("cross_shock"))
     print("  save store: own named value, round-trips shares and history, empty table on a "
-          "new campaign, nothing left on CA's shared blob")
+          "new campaign, nothing left on CA's shared blob, fractions survive a decimal-comma "
+          "locale")
 
 
 def lua_of_script():
