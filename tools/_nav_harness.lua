@@ -272,7 +272,26 @@ EX.nav_click(EX.MODE_BTN)
 print("h_fwd " .. EX.house_page .. "," .. tostring(EX.mode))
 EX.house_page = 1
 EX.nav_click(EX.MODE_PREV)
-print("h_back_wrap " .. EX.house_page)
+print("h_back_wrap " .. EX.page_index() .. "," .. EX.view())
+-- AFTER THE LIST, THE INDEX, THEN THE BONDS PAGE (2026-09-29): Next from the last list page
+-- lands on the index, Next again on bonds, and Next again wraps to page 1 of the list.
+EX.house_page = EX.house_pages()
+EX.nav_click(EX.MODE_BTN)
+print("h_to_index " .. EX.page_index() .. "," .. EX.view() .. "," .. EX.nav_label())
+EX.nav_click(EX.MODE_BTN)
+print("h_to_bonds " .. EX.page_index() .. "," .. EX.view() .. "," .. EX.nav_label())
+EX.nav_click(EX.MODE_BTN)
+print("h_index_wrap " .. EX.page_index() .. "," .. EX.view())
+-- THE LIST SHRINKING UNDER THE INDEX PAGE KEEPS THE PLAYER ON IT.
+EX.house_page = EX.HOUSE_INDEX_PAGE
+houses(4)
+print("h_index_shrunk " .. EX.nav_label() .. "," .. tostring(EX.on_index()))
+-- AND RE-ENTERING THE VIEW LEAVES IT.
+EX.set_mode(EX.MODE_TRADE)
+EX.set_mode(EX.MODE_HOUSES)
+print("h_index_reset " .. tostring(EX.on_index()))
+houses(41)
+EX.house_page = 1
 
 -- EXACTLY AT THE LIMIT IS ONE PAGE. 20 houses in 20 slots must not produce a second, empty
 -- page - the off-by-one this ceiling invites, and the number Chaos Dwarfs sit on today.

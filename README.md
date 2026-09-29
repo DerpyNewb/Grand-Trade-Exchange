@@ -20,6 +20,9 @@ What you can do with gold in it:
 - **Pay a patron's tithe**, or refuse it and take the consequences.
 - **Take a deal.** Each turn a few factions with real money and a real need post an offer - over the market for what they lack, under it for what they are dumping.
 - **Leave a standing order** - buy when a good falls to your price, sell when it rises to it. Twelve can wait at once.
+- **Sign a contract** - a price agreed now for goods delivered turns later. Lots nobody can deliver settle in gold at the gap to the market, and war does not cancel one.
+- **Buy the index** - one lot of every trading house of your own people, at the sum of their prices, paying all their dividends. A house that dies leaves it at the wind-up rate.
+- **Lend and borrow** - houses at war sell you bonds, houses at peace offer you loans; a payment every turn, the whole amount at the end, and real gold on both sides.
 
 And two things that happen whether you trade or not:
 
@@ -34,12 +37,12 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 25,316 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 14,125 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 4,530 |
+| Python generators (`tools/`) | 26,842 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 15,842 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 5,175 |
 | UI layouts (`.twui.xml`) | 5,249 |
 | Generated DB + localisation (TSV) | 2,425 rows |
-| Documentation | 240 KB |
+| Documentation | 264 KB |
 
 The mod itself is 10 DB tables, 649 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
@@ -53,7 +56,7 @@ emitted by `tools/gen_zharr_exchange.py`, which owns every constant, every price
 curve, every table row and every localised string in one place, and generates:
 
 - the 10 DB table fragments and the loc, as TSV
-- the MCT settings Lua (a difficulty preset, 45 tunable knobs, feature switches)
+- the MCT settings Lua (a difficulty preset, 52 tunable knobs, feature switches)
 - and, via `gen_exchange_ui.py`, the three `.twui.xml` panels - 360 GUIDs, all
   allocated and paired by the generator, because a duplicate or mismatched GUID in
   that format is a silent non-draw with no error anywhere
@@ -83,7 +86,7 @@ py tools/gen_exchange_ui.py --selftest
 
 It asserts, among ~70 other things:
 
-- every one of the 682 `EX.*` names the script defines is read somewhere - no orphans
+- every one of the 790 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
 - every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters

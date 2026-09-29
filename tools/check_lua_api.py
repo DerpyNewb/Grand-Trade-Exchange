@@ -124,6 +124,36 @@ def _has_init(call_args, dotted):
     return parts[want - 1].strip() not in ("", "nil")
 
 
+def _anchored(call_args, dotted):
+    """True when the pattern is a literal that starts with ^.
+
+    WH3's string.find returns NOTHING AT ALL for an anchored pattern - not nil, no
+    values: string.find("abc", "^a") gave select("#") == 0 in game on 2026-09-28,
+    through the wh3 bridge, while string.match and string.gsub honoured the same ^
+    and stock lua.exe matches it. The Iron Court's edict lock walked the HUD for
+    string.find(id, "^button_") and found none of the five buttons on screen.
+
+    Use string.match(s, "^...") or string.sub(s, 1, n) == "..." instead.
+    """
+    depth, parts, cur = 0, [], []
+    for ch in call_args:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+    at = 1 if dotted else 0
+    if len(parts) <= at:
+        return False
+    pat = parts[at].strip()
+    return pat[:2] in ('"^', "'^") or pat[:3] == "[[^"
+
+
 # CALLS THAT DO NOT EXIST, but read as if they should. CA's own docs are the trap
 # here: each of these appears ONLY inside a code EXAMPLE for a differently-named
 # function, so grepping the docs "finds" it. Nothing in data_script.pack defines
@@ -195,6 +225,10 @@ def check(path, docs):
                                  "string.find plain flag - corrupts the string subsystem "
                                  "process-wide for the whole game; drop it and escape the "
                                  "pattern instead"))
+                elif _anchored(args, dotted):
+                    hits.append((n, "find-anchor",
+                                 "string.find with a ^ pattern - WH3's find returns no "
+                                 "values at all for it; use string.match or string.sub"))
                 elif _has_init(args, dotted):
                     hits.append((n, "find-init",
                                  "string.find init argument - WH3's find silently returns "
@@ -291,6 +325,10 @@ def selftest():
         'local f = string.find(s, p, 1, false)\n'         # 6 caught, init
         'local g = string.find(s, "%%(%%d+,%%d+%%)", 1)\n'  # 7 caught, commas in the pattern
         'local h = string.find(s, "%%|")\n'               # 8 clean, no init
+        'local i = string.find(s, "^button_")\n'         # 9 caught, anchored
+        'local j = s:find("^a")\n'                       # 10 caught, anchored
+        'local k = string.match(s, "^a")\n'              # 11 clean, match honours ^
+        'local l = string.find(s, "a^")\n'               # 12 clean, ^ not first
     )
     try:
         found = [(n, k) for n, k, _ in check(tmp2, docs)]
@@ -300,7 +338,8 @@ def selftest():
     # walk was case 7 exactly - a pattern and an offset - and it found nothing in
     # game for every load the mod ever did.
     assert found == [(1, "string-corruption"), (2, "string-corruption"),
-                     (5, "find-init"), (6, "find-init"), (7, "find-init")], found
+                     (5, "find-init"), (6, "find-init"), (7, "find-init"),
+                     (9, "find-anchor"), (10, "find-anchor")], found
 
     # explain() must reach BOTH doc shapes, and must carry the parameter text -
     # the half a signature-only read drops.

@@ -3633,6 +3633,11 @@ def check_intro_art():
           % (len(set(concept)) + 1, len(crests)))
 
 
+def _eq_layout(have, key, want, why):
+    assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+        why, key, want, have.get(key))
+
+
 def check_layout():
     """RUN the shipped EX.layout against a stubbed panel and read every row's y back.
 
@@ -3693,7 +3698,8 @@ def check_layout():
     # than a literal for exactly this reason.
     scenes = ("houses_p1", "houses_p2", "after_prune", "after_discover", "trade_after",
               "chart_p2", "trade_p1_back", "orders_p3", "trade_p1_orders_back", "ticket_p2",
-              "orders_ladder_cancel1", "orders_ladder_cancel2")
+              "orders_ladder_cancel1", "orders_ladder_cancel2", "contracts_p2", "index_p",
+              "bonds_p")
     for tag in scenes:
         assert tag in have, "the layout harness never reported %s: %s" % (tag, got)
 
@@ -4103,6 +4109,151 @@ def check_layout():
         "page, so it must be HIDDEN rather than skipped - skipping leaves last turn's deal "
         "drawn under a shorter list, which is a row offering a price nobody agreed to."
         % have["deal_draw_pastend"])
+
+    # THE CONTRACTS PAGE (2026-09-29): page 2 of the Deals tab, reached by the arrow. Two
+    # offers then three open contracts on one pool; each contract's button a greyed status.
+    eq_l = lambda key, want, why: _eq_layout(have, key, want, why)
+    eq_l("fwd_nav_pages", "2/1/2",
+         "the Deals tab's page list is wrong: two pages with contracts on, one with them off "
+         "and nothing open, and still two while a contract is open - a contract that is going "
+         "to settle gold must never be invisible")
+    eq_l("fwd_nav_view1", "deals", "page 1 of the Deals tab is not the deals view")
+    eq_l("fwd_nav_view2", "contracts",
+         "the arrow did not reach the contracts view - headers and tips are keyed by EX.view()")
+    eq_l("fwd_nav_nav", "2/2", "the page counter does not count the contracts page")
+    eq_l("fwd_nav_pointer", "true",
+         "page 1's footer does not point at page 2 while contract offers are waiting there")
+    eq_l("contracts_p2_visible", "5",
+         "the contracts page did not show its two offers and three open contracts")
+    eq_l("fwd_draw_o1", "Buys_1_lot_of_Iron/in_7_turns/Take/Take/false",
+         "an offer row: the faction's verb, the length, and a live Take in both states")
+    eq_l("fwd_draw_o2", "Sells_2_lots_of_Iron/in_5_turns/Take/Take/false",
+         "the second offer row")
+    eq_l("fwd_draw_c1", "Sell_1_lot_of_Iron/next_turn/Ready/Ready/true",
+         "a contract the player can deliver today: the PLAYER's verb, 'next turn', Ready, "
+         "greyed - it is a status, not a button")
+    eq_l("fwd_draw_c2", "Buy_1_lot_of_Iron/in_4_turns/Short/Short/true",
+         "a contract the player cannot cover today must say Short")
+    eq_l("fwd_draw_c3", "Sell_1_lot_of_Iron/in_2_turns/At_war/At_war/true",
+         "a contract with a faction at war must say so: every lot will settle in gold")
+    eq_l("fwd_draw_name", "house_c", "the offer row does not name its counterparty")
+    eq_l("fwd_draw_pastend", "false", "a pool row past the end of the page stayed visible")
+    eq_l("fwd_foot_l1", "2_contract_offers_this_turn;_3_of_6_contracts_open.",
+         "the contracts footer does not count the offers and the open contracts")
+    eq_l("fwd_foot_l2", "Lots_you_cannot_deliver_settle_in_gold_at_the_market_price.",
+         "the contracts footer does not say what happens to a lot nobody delivers")
+    eq_l("fwd_full_o1", "Buys_1_lot_of_Iron/in_7_turns/Full/Full/true",
+         "at six open contracts an offer's button must read Full and be greyed")
+    eq_l("fwd_click_sent", "fwd/2",
+         "a Take on offer 2 must send fwd/2, and a click on a contract row or a name must "
+         "send nothing - a contract row's index is not an offer's")
+    eq_l("fwd_news_due", "true", "the opener's tooltip does not say a contract delivers next turn")
+    eq_l("fwd_news_quiet", "true", "the opener's tooltip mentions contracts when none are open")
+
+    # THE INDEX PAGE (2026-09-29): the last page of the Houses tab. 21 members at 1010..1210,
+    # so the level is 1110 and two members do not fit under the index row.
+    eq_l("idx_nav_view", "index", "two arrows back from page 1 did not land on the index view")
+    eq_l("idx_nav_nav", "4/5", "the counter does not put the index after the list and before "
+         "the bonds page")
+    eq_l("idx_nav_rows", str(have["index_p_visible"]),
+         "the index page's row list and what EX.layout showed disagree")
+    eq_l("index_p_visible", "20",
+         "the index page must show the index row and as many members as fit - 19 - no more")
+    eq_l("idx_nav_first", "idx", "row 1 of the index page is not the index")
+    eq_l("idx_nav_second", "skv_clan_21",
+         "the members are not heaviest first. The largest house belongs at the top")
+    eq_l("idx_row_name", "Index_of_21_houses", "the index row does not say how many houses it holds")
+    eq_l("idx_row_price", "1110", "the index row does not show the level as its lot price")
+    eq_l("idx_row_div", have.get("idx_row_divmodel"),
+         "the index row's Div is not the model's dividend per lot")
+    eq_l("idx_row_div", "+20", "21 houses at 1010..1210 pay 4 a share each: 5 x 84 / 21 = 20 a lot")
+    eq_l("idx_row_held", "10__+40g",
+         "ten units are two lots at +20: the Held cell must show the units and +40g. Less is "
+         "the per-member floor paying about half what the Div column promises")
+    eq_l("idx_row_buy", "Buy_5/Buy_5/false", "the index Buy must be live and read the lot in both states")
+    eq_l("idx_row_sell", "Sell_5/Sell_5/false", "with ten units held the index Sell must be live")
+    eq_l("idx_row_spark", "false", "the index row drew a sparkline it has no history for")
+    eq_l("idx_row_icon", "false", "the index row kept another row's icon")
+    eq_l("idx_member_name", "skv_clan_21", "the first member row is not named")
+    eq_l("idx_member_price", "1210", "a member row does not show the house's own lot price")
+    eq_l("idx_member_share", "5%", "a member row does not show its share of the index")
+    eq_l("idx_member_buttons", "0",
+         "a member row's Buy or Sell is on screen. Members trade on the list pages; a button "
+         "here reads as buying the index")
+    assert have.get("idx_foot_l2", "").startswith("2_smaller_houses_not_shown."), (
+        "the footer does not say two members were cut: %r" % have.get("idx_foot_l2"))
+    assert have.get("idx_foot_l1", "").startswith("Index_1110_a_lot,_21_houses."), (
+        "footer line 1 does not give the level and the member count: %r"
+        % have.get("idx_foot_l1"))
+    eq_l("idx_shut_buy", "Closed/Closed/true", "under the war lock the index Buy must grey and say Closed")
+    eq_l("idx_shut_sell", "Sell_5/Sell_5/true", "with no units held the index Sell must grey")
+    eq_l("idx_click_sent", "idx/b5,idx/s5",
+         "the index row's buttons must send idx with the amount, and a member row must send "
+         "nothing")
+    eq_l("idx_click_selected", "nil", "a name click on the index page picked a commodity")
+    eq_l("idx_none_buy", "No_index/No_index/true", "one house of your culture is not an index")
+    eq_l("idx_none_rows", "1", "with no index the page must still draw its one row")
+    eq_l("idx_none_l1", "No_index:_fewer_than_two_houses_of_your_people_are_listed.",
+         "with no index the footer must say why")
+
+    # THE BONDS PAGE (2026-09-29): after the index. Turn 10, 4000g in the treasury, three
+    # offers and three positions - a loan due next turn, a bond at war with you, a matured bond
+    # 500g behind. Rows are the offers, then bonds, then loans, whatever order they were taken in.
+    eq_l("bd_nav_pages", "5/4/5", "the bonds page must be there with the switch on, gone with "
+         "it off and nothing open, and there again while a bond or loan is open")
+    eq_l("bd_nav_gone", "bonds/index/4/4/false", "standing on the bonds page when it goes must "
+         "show the index, the last page left, count it as that, and stop being the bonds page - "
+         "EX.panel_layout and EX.refresh_panel both ask EX.on_bonds before EX.on_index")
+    eq_l("bd_nav_lay", "true/true", "the bonds page must use the Deals tab's layouts: its offer "
+         "sentence and its one button have no place on the Houses row")
+    eq_l("bd_nav_view", "bonds", "the arrow back from page 1 did not land on the bonds page")
+    eq_l("bd_nav_nav", "5/5", "the counter does not count the bonds page as the last one")
+    eq_l("bd_nav_rows", "6", "the bonds page must list three offers and three positions")
+    eq_l("bonds_p_visible", "6", "EX.layout did not show the six bond rows")
+    eq_l("bd_draw_o1", "Borrows_3000g_for_8_turns/+60g/2.0%/in_8_turns/Lend/Lend/false",
+         "a bond issue you can pay for must read Lend and be live")
+    eq_l("bd_draw_o2", "Borrows_5000g_for_6_turns/+150g/3.0%/in_6_turns/No_gold/No_gold/true",
+         "a bond issue over your treasury must read No gold and be greyed")
+    eq_l("bd_draw_o3", "Lends_2000g_for_5_turns/-40g/2.0%/in_5_turns/Borrow/Borrow/false",
+         "a loan offer must read Borrow and be live, whatever your treasury")
+    eq_l("bd_draw_pos_p1", "Owes_you_3000g/+60g/2.0%/in_4_turns/At_war/At_war/true",
+         "a bond with a house at war with you must say At war, greyed, and bonds come before "
+         "loans")
+    eq_l("bd_draw_pos_p2", "Owes_you_500g/-/-/overdue/Behind/Behind/true",
+         "a matured bond still owed must show the arrears, no payment, overdue and Behind")
+    eq_l("bd_draw_pos_p3", "You_owe_2000g/-40g/2.0%/next_turn/Paying/Paying/true",
+         "a loan due next turn must say so, Paying, greyed, and sit after the bonds")
+    eq_l("bd_draw_pos_pastend", "false", "a bond row past the list must be hidden")
+    eq_l("bd_foot_l1", "3_offers_this_turn;_2_of_6_bonds_and_1_of_6_loans_open.",
+         "the bonds footer does not count the offers and the two sides open")
+    eq_l("bd_foot_l2", "Net_-40g_a_turn._If_a_house_dies,_its_bond_pays_the_wind-up_rate_and_"
+         "its_loan_falls_due.", "the net a turn must leave out the bond at war and the matured "
+         "one, and the footer must give the death rule")
+    eq_l("bd_full_o1", "Borrows_3000g_for_8_turns/+60g/2.0%/in_8_turns/Full/Full/true",
+         "at six bonds open an issue must read Full and be greyed")
+    eq_l("bd_full_o3", "Lends_2000g_for_5_turns/-40g/2.0%/in_5_turns/Borrow/Borrow/false",
+         "six bonds open must not close the loan side")
+    eq_l("bd_off_l1", "New_bonds_and_loans_are_switched_off;_the_ones_you_hold_still_pay.",
+         "with the switch off the footer must say the positions still pay")
+    eq_l("bd_off_view", "bonds", "with the switch off and a position open the page must stay")
+    # THE POOL IS MEASURED, not copied: the harness mirrors EX.build_panel's loop, so a pool
+    # cut short there is invisible to every scene above. Read the loop's bound out of the
+    # shipped source and compare it with the most rows the page asked for.
+    src = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    m = re.search(r'for i = 1, ([^\n]+?) do\s*\n\s*holder:CreateComponent\(EX\.ROW \.\. "_bd" \.\. i',
+                  src)
+    assert m, "EX.build_panel no longer creates the _bd row pool"
+    expr = (m.group(1).replace('EX.opt("bond_max")', have["bd_pool_bond_max"])
+            .replace("EX.BOND_OPEN_MAX", have["bd_pool_open_max"]))
+    assert re.fullmatch(r"[0-9 +*()]+", expr), "cannot evaluate the pool bound %r" % m.group(1)
+    pool = eval(expr)
+    assert pool >= int(have["bd_pool_rows"]), (
+        "EX.build_panel creates %d bond rows and the page can ask for %s - the rows past the "
+        "pool have no component and never draw" % (pool, have["bd_pool_rows"]))
+    eq_l("bd_click_sent", "bond/1,bond/3", "an offer's button must send bond/<its index>; a "
+         "position's button and a name click must send nothing")
+    eq_l("bd_news_due", "true", "the opener's tooltip does not say a loan falls due next turn")
+    eq_l("bd_news_quiet", "true", "the opener's tooltip mentions loans when none falls due")
 
     # ONE ROW OF THE OFFERINGS VIEW, DRAWN FOR REAL. Every row starts greyed and wearing the
     # Trade view's "shut" tooltip - what a war lock leaves on the shared btn_buy - so a draw
@@ -5947,7 +6098,16 @@ def check_lua_mp():
                   # standing and treasury, so a world-scoped key would show every human the
                   # deals rolled for whichever player was bound last, and accepting one would
                   # settle against a price the viewer never actually saw offered.
-                  "SAVE_DEALS"}
+                  "SAVE_DEALS",
+                  # Forward contracts and this turn's contract offers (2026-09-29). PER
+                  # PLAYER for SAVE_DEALS' reason, and more so: a contract settles gold out of
+                  # one player's treasury on its delivery turn.
+                  "SAVE_FWD", "SAVE_FWD_OFFERS",
+                  # Index units (2026-09-29). PER PLAYER: they are one player's position.
+                  "SAVE_INDEX_UNITS",
+                  # Bonds and loans, open and offered (2026-09-29). PER PLAYER: each moves one
+                  # player's gold, and the offers are posted to one player.
+                  "SAVE_BONDS", "SAVE_BOND_OFFERS"}
     WORLD = {"SAVE_PREFIX", "SAVE_HIST", "SAVE_PRESS", "SAVE_STRIPPED", "SAVE_HOUSES",
              "SAVE_HOME", "SAVE_BOOK", "SAVE_DELISTED", "SAVE_SHOCK", "SAVE_SHOCK_WHY",
              "SAVE_SHOCKED", "SAVE_SNAP", "SAVE_STORE",
@@ -5962,7 +6122,11 @@ def check_lua_mp():
              # The deep price history. WORLD for the same reason SAVE_HIST is: one
              # market has one price record, and forking it per player would give two
              # players two different charts of the same commodity.
-             "SAVE_DEEP"}
+             "SAVE_DEEP",
+             # The index's divisor and members, per culture (2026-09-29). WORLD: every
+             # machine computes it from the same houses, and a per-player divisor would give
+             # two players of one culture two prices for one index.
+             "SAVE_INDEX"}
 
     declared = set(re.findall(r"^EX\.(SAVE_[A-Z_]+)", code, re.M))
     assert declared == PER_PLAYER | WORLD, (
@@ -6069,6 +6233,18 @@ def check_lua_mp():
     assert "EX.unpack_deals(" in rp.group(0), (
         "EX.restore_player no longer restores deals")
     assigned.add("deals")
+    # AND FOR BOTH FORWARD LISTS (2026-09-29), for the same reason.
+    assert "EX.unpack_forwards(" in rp.group(0), (
+        "EX.restore_player no longer restores open contracts")
+    assert "EX.unpack_fwd_offers(" in rp.group(0), (
+        "EX.restore_player no longer restores this turn's contract offers")
+    assigned |= {"forwards", "fwd_offers"}
+    # AND BOTH BOND LISTS (2026-09-29).
+    assert "EX.unpack_bonds(" in rp.group(0), (
+        "EX.restore_player no longer restores open bonds and loans")
+    assert "EX.unpack_bond_offers(" in rp.group(0), (
+        "EX.restore_player no longer restores this turn's bond and loan offers")
+    assigned |= {"bonds", "bond_offers"}
     assert assigned == slice_names, (
         "EX.restore_player restores %s but the slice lists carry %s. A value in one and not "
         "the other is a value that does not follow the subject - it belongs to whichever "
@@ -6094,7 +6270,7 @@ def check_lua_mp():
     # 4. THE TRANSPORT. Every op has a handler, and the two clickable paths go through it.
     # ---------------------------------------------------------------------------------------
     ops = set(re.findall(r"EX\.MP_OPS\.(\w+)\s*=", code))
-    assert ops == {"buy", "sell", "offer", "ord", "ordx", "deal"}, (
+    assert ops == {"buy", "sell", "offer", "ord", "ordx", "deal", "fwd", "idx", "bond"}, (
         "EX.MP_OPS carries %s. Every model change reachable from a click needs one, and "
         "nothing else belongs in it." % sorted(ops))
     # EVERY LITERAL IN THE ARGUMENT, not just one at the front: EX.trade picks its op with
@@ -6294,6 +6470,100 @@ def check_lua_mp():
     eq("deal_subject_after", "alpha_player",
        "the deal op left somebody else bound. Every payout after it would be credited to the "
        "wrong faction, silently, on this machine only")
+
+    # THE TURN ROUND'S PASS BUILDS EVERY HUMAN'S PAGE, EACH WITH ITS OWN REASON (2026-09-29).
+    # EX.post_all_deals is what EX.turn_round calls; before it existed the round called
+    # EX.post_deals once, unbound, so each machine rebuilt only its own player's page and a
+    # Take - which carries a list index - settled a different deal on every machine.
+    # zeta_player is refused outright and is last in the walk, so a reason held in one shared
+    # value ends the pass as zeta's and the local panel explains a page it never had.
+    eq("deal_all_pages",
+       "alpha_player=3/declined mid_player=3/declined omega_player=3/declined "
+       "zeta_player=0/none",
+       "EX.post_all_deals did not build every human's page with that human's own reason. "
+       "Either the pass is not bound per human (so one slice gets every page) or "
+       "EX.deal_why is not in EX.SLICE_SCALARS (so every reason is the last human's)")
+    eq("deal_why_local", "declined",
+       "after the pass the LOCAL player's empty-page reason is somebody else's. The panel "
+       "footer reads EX.deal_why, so it would explain another player's page")
+    eq("deal_all_subject_after", "alpha_player",
+       "EX.post_all_deals left another player bound")
+
+    # FORWARD CONTRACTS, PER HUMAN (2026-09-29). One deal slot and three houses, so two spill
+    # onto each contract list; house_b refuses mid_player, so mid alone has one offer and no
+    # house_b anywhere. The Take carries an index, so the offer lists must be the bound
+    # player's, the op must settle as the sender, and delivery must touch only that treasury.
+    eq("fwd_pages",
+       "alpha_player=house_c,house_b,d:house_a mid_player=house_c,d:house_a "
+       "omega_player=house_c,house_b,d:house_a zeta_player=house_c,house_b,d:house_a",
+       "the contract offers were not built per human by the round's own pass, or a contract "
+       "took a deal's slot, or a faction appeared on both lists")
+    eq("fwd_taken", "alpha_player=0 mid_player=1 omega_player=0 zeta_player=0",
+       "the fwd op took the contract for the wrong player - applied as the local one, it is a "
+       "desync that looks right on the clicker's screen")
+    eq("fwd_subject_after", "alpha_player", "the fwd op left another player bound")
+    eq("fwd_delivered_moved", "mid_player",
+       "delivery moved the wrong human's treasury, or none. It must run bound per human")
+    eq("fwd_left", "alpha_player=0 mid_player=0 omega_player=0 zeta_player=0",
+       "a delivered contract stayed in its list, to settle again next turn")
+    eq("fwd_deliver_subject_after", "alpha_player",
+       "EX.deliver_all_forwards left another player bound")
+
+    # THE INDEX FUND, PER CULTURE AND PER PLAYER (2026-09-29).
+    eq("idx_mp_states",
+       "wh2_main_skv_skaven=none wh3_dlc23_chd_chaos_dwarfs=house_a,house_b "
+       "wh_main_brt_bretonnia=none wh_main_emp_empire=none",
+       "the index was not built once per culture with a human, over that culture's houses")
+    eq("idx_mp_units", "alpha_player=5 mid_player=0 omega_player=0 zeta_player=0",
+       "the idx op bought for the wrong player, or let the Empire player buy the Chaos Dwarf "
+       "index - the index must be the SENDER's culture, never the local machine's")
+    eq("idx_mp_subject_after", "alpha_player", "the idx op left another player bound")
+    eq("idx_mp_div_moved", "alpha_player",
+       "the index dividend went to the wrong human, or to none")
+    eq("idx_mp_death_told", "mid_player",
+       "an Empire member's death was logged to the wrong humans. It belongs in the log of every "
+       "human of that index's culture and nobody else's - written unbound, it lands in the "
+       "local player's")
+    eq("idx_mp_death_subject_after", "alpha_player", "the removal pass left another player bound")
+
+    # WAR BONDS AND LOANS, PER PLAYER (2026-09-29).
+    eq("bd_mp_offers", "alpha_player=l:house_a,b:house_b mid_player=b:house_d,b:house_c "
+       "omega_player= zeta_player=",
+       "the bond offers were not built per human from that human's own culture's houses - a "
+       "house at war issues, one at peace lends, richest first")
+    eq("bd_mp_post_subject_after", "alpha_player", "EX.post_all_bonds left another player bound")
+    eq("bd_mp_taken", "alpha_player=l:house_a/1 mid_player=b:house_d/1 omega_player=/0 "
+       "zeta_player=/0",
+       "the bond op took the wrong offer or for the wrong player - it must be the SENDER's "
+       "offer 1, and the taken offer must leave only that player's list")
+    eq("bd_mp_take_moved", "alpha=-4000|4000 mid=2000|-2000",
+       "taking a bond or loan did not move exactly the amount between the player and the house")
+    eq("bd_mp_take_subject_after", "alpha_player", "the bond op left another player bound")
+    eq("bd_mp_paid_moved", "alpha_player,mid_player",
+       "bond payments moved the wrong humans' treasuries. They must run bound per human")
+    eq("bd_mp_paid_sum", "true",
+       "a bond payment was not gold from the house to the lender, or a loan payment from the "
+       "borrower to the house, exactly")
+    eq("bd_mp_pay_subject_after", "alpha_player", "EX.pay_bonds left another player bound")
+
+    # ONE MARKET ON EVERY MACHINE (logic sweep, 2026-09-29).
+    eq("mp_world_same", "true",
+       "in multiplayer the shared market's knobs followed the LOCAL race: a Chaos Dwarf machine "
+       "and a Skaven machine price the same book differently and the prices never agree again")
+    eq("mp_world_sp_moved", "true",
+       "in singleplayer the local race must still shape the market - the fix is multiplayer only")
+    eq("mp_index_windup_differs", "true", "the fixture no longer tells the Empire's wind-up apart")
+    eq("mp_index_windup_same", "true",
+       "the index's dead-member weight followed the local race, so one culture's index level "
+       "differs between machines")
+    eq("mp_index_windup_empire", "true",
+       "the Empire index did not weigh a dead member at the Empire's own wind-up rate")
+    eq("mp_index_removal_same", "true",
+       "the index's removal pass re-cut the divisor at the local race's wind-up, so the same "
+       "death leaves one culture's index at different levels on different machines")
+    eq("mp_own_knobs", have["race_factors"],
+       "in multiplayer a player's own knobs must still follow that player's race, exactly as "
+       "they do in singleplayer")
 
     # MCT IS A LOCAL REGISTRY AND MULTIPLAYER IGNORES IT. Two players can hold different
     # presets and nothing reconciles them, so a snapshot taken from MCT freezes a DIFFERENT
@@ -6871,6 +7141,15 @@ MCT_OPTIONS = [
     ("ai_deals", "Factions offer you deals",
      "Factions with something to buy or sell put a one-turn offer to you each turn, priced "
      "off market in your favour. Off: no offers are posted and the Deals page says so."),
+    ("ai_forwards", "Factions offer you contracts",
+     "Some factions offer to buy or sell a commodity at a fixed price, delivered in a few "
+     "turns. On the day, the goods trade at that price, and any lots that cannot be delivered "
+     "are paid off in gold at the market price. Off: no new contracts are offered; contracts "
+     "you already hold still deliver."),
+    ("ai_bonds", "Houses offer bonds and loans",
+     "Houses at war sell you bonds: you lend them gold and they pay you back a little each "
+     "turn, then the whole amount. Houses at peace lend to you on the same terms. Off: no new "
+     "offers; bonds and loans you already hold still pay."),
     ("world_bundles", "Positions supply armies",
      "A faction holding iron, timber and obsidian replenishes its armies faster; one that "
      "has sold them short replenishes slower, and being at war doubles it either way. "
@@ -7017,7 +7296,27 @@ TUNABLES = [
     ("deal_edge", "world", "Deal edge, per cent",
      "How far off market an offer is priced, always in your favour: a buyer pays over, a "
      "seller takes under. Keep it under one price step or a deal becomes a free "
-     "round trip against the market.", 6, 1, 25, 1, 0),
+     "round trip against the market.", 6, 1, 10, 1, 0),
+    # THE CEILING IS THE ROW POOL again: EX.build_panel makes fwd_max offer rows plus
+    # EX.FWD_OPEN_MAX contract rows, once. 0 is allowed here, unlike deal_max, because it is a
+    # second list and the page still has the deals on it.
+    ("fwd_max", "world", "Contracts offered per turn",
+     "How many contract offers the world puts to you each turn, after the one-turn deals. "
+     "Needs the contracts switch on.", 2, 0, 3, 1, 0),
+    ("fwd_turns", "world", "Longest contract, in turns",
+     "A contract is delivered between half this many turns and this many turns after it is "
+     "offered.", 10, 4, 20, 1, 0),
+    # THE CEILING IS THE ROW POOL, as fwd_max's: EX.build_panel makes 2 x bond_max offer rows
+    # plus 2 x EX.BOND_OPEN_MAX position rows, once.
+    ("bond_max", "shares", "Bond and loan offers per turn",
+     "How many bonds, and how many loans, the houses offer you each turn. Needs the bonds "
+     "switch on.", 2, 0, 3, 1, 0),
+    ("bond_turns", "shares", "Longest bond, in turns",
+     "A bond or loan is repaid between half this many turns and this many turns after it is "
+     "taken.", 10, 4, 20, 1, 0),
+    ("bond_rate", "shares", "Bond payment per turn",
+     "What a bond or loan pays each turn, as a fraction of the amount. 0.02 is 2%. A weak "
+     "house pays up to double on its bonds.", 0.02, 0.01, 0.05, 0.01, 2),
     # SMALLER IS STRONGER, which is the opposite of how most of these read - the step is how
     # many lots of net war goods one tier costs, so a narrow step puts a bundle on more of
     # the map. The floor is 1 and not 0: at 0 every position divides to infinity and the
@@ -12430,6 +12729,43 @@ TREASURY = { baal = 100000, azeros = 0 }
 EX.current["res_rom_iron"] = EX.neutral_rung()
 print("budget_rich " .. EX.house_budget("baal", "res_rom_iron"))
 print("budget_broke " .. EX.house_budget("azeros", "res_rom_iron"))
+-- AND BY THE HOUSE GOLD LIMIT: no more lots than the gold that can move in a turn pays for,
+-- buying or selling (logic sweep, 2026-09-29). With ai_gold off the house's gold is notional
+-- and only the treasury and the four-lot step bound it.
+do
+    local snap0 = EX.snap
+    local px = EX.price("res_rom_iron")
+    local credit = px * (1 - EX.opt("spread"))
+    EX.snap = {}
+    for k, v in pairs(snap0 or {}) do EX.snap[k] = v end
+    EX.snap.house_cash_max = 2 * px + 1
+    EX.book = { baal = { res_rom_iron = 10 } }
+    print("budget_capped " .. EX.house_budget("baal", "res_rom_iron"))
+    EX.snap.house_cash_max = math.floor(credit) + 1
+    print("sell_capped " .. EX.house_sell_lots("baal", "res_rom_iron"))
+    EX.snap.ai_gold = false
+    print("budget_capped_off " .. EX.house_budget("baal", "res_rom_iron")
+        .. "/" .. EX.house_sell_lots("baal", "res_rom_iron"))
+    EX.snap = snap0
+    EX.book = {}
+end
+-- AND THE TURN STEP ITSELF SELLS NO MORE than the limit's proceeds: every desire negative, so
+-- baal only sells, and it holds ten lots of iron against a limit of one lot's proceeds.
+do
+    local snap0, desire0 = EX.snap, EX.house_desire
+    local credit = EX.price("res_rom_iron") * (1 - EX.opt("spread"))
+    EX.snap = {}
+    for k, v in pairs(snap0 or {}) do EX.snap[k] = v end
+    EX.snap.house_cash_max = math.floor(credit) + 1
+    EX.house_desire = function() return -1 end
+    EX.book = { baal = { res_rom_iron = 10 } }
+    TREASURY = { baal = 100000, azeros = 100000 }
+    EX.step_books()
+    print("step_sell_capped " .. EX.book_of("baal", "res_rom_iron"))
+    EX.snap, EX.house_desire = snap0, desire0
+    EX.book = {}
+    TREASURY = { baal = 100000, azeros = 0 }
+end
 
 -- PRODUCTION SIGN. A house that owns regions making a good sells it; one that owns none
 -- imports it. This is the term that differentiates houses of an identical culture.
@@ -15381,7 +15717,1035 @@ EX.pos_level = {}
 EX.pos_swept = false
 EX.actors = {}
 EX.wbook = {}
+
+-- ===========================================================================================
+-- FORWARD CONTRACTS (2026-09-29). docs/superpowers/specs/
+-- 2026-09-29-zharr-exchange-forward-contracts-design.md. Every settlement prints BOTH legs,
+-- the player's and the faction's, so conservation is arithmetic on numbers this run produced
+-- rather than a claim. NO PERCENT SIGN ANYWHERE IN THIS BLOCK: the harness is a Python
+-- %%-format string.
+-- ===========================================================================================
+EX.humans = function() return { "player" } end
+EX.houses = {}
+EX.house_set = nil
+EX.delisted = {}
+EX.book = {}
+TREATY = {}
+TREASURY = {}
+EX.pressure = {}
+cm.turn_number = function() return 10 end
+cm.cai_evaluate_quick_deal_action = function() return 42, true end
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = EX.neutral_rung() end
+EX.snap = { ai_deals = true, ai_forwards = true }
+
+-- POSTING. Six eligible factions against three deal slots and two contract slots, so BOTH caps
+-- are load-bearing: with five or fewer, deleting either cap changes nothing. One producer so
+-- the sell side is in the candidate list at all.
+local FWD_ORDER_A = { "adumper", "fb1", "fb2", "fb3", "fb4", "fb5" }
+local FWD_ORDER_B = { "fb5", "fb3", "adumper", "fb1", "fb4", "fb2" }
+local function fwd_world(order)
+    EX.actors = {}
+    for _, f in ipairs(order) do
+        EX.actors[f] = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000,
+                         regions = (f == "adumper") and 9 or 4 }
+    end
+    EX.owners = { res_rom_iron = { adumper = 9 } }
+    EX.wbook = {}
+    EX.set_world_book("adumper", "res_rom_iron", 6)
+end
+local function fwd_rows()
+    local r = {}
+    for i = 1, #EX.fwd_offers do
+        local d = EX.fwd_offers[i]
+        r[#r + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots) .. "/"
+            .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(d.due) .. "/"
+            .. tostring(EX.price(d.res))
+    end
+    return table.concat(r, ";")
+end
+
+fwd_world(FWD_ORDER_A)
+EX.post_deals()
+print("fwd_deals_n " .. #EX.deals)
+print("fwd_offers_n " .. #EX.fwd_offers)
+print("fwd_rows " .. fwd_rows())
+do
+    -- NO FACTION ON BOTH LISTS. One offer per faction per turn, whichever list it lands on.
+    local used, clash = {}, false
+    for i = 1, #EX.deals do used[EX.deals[i].fac] = true end
+    for i = 1, #EX.fwd_offers do if used[EX.fwd_offers[i].fac] then clash = true end end
+    print("fwd_disjoint " .. tostring(not clash))
+    -- EVERY LENGTH INSIDE [ceil(fwd_turns / 2), fwd_turns].
+    local lo, hi = 999, -1
+    for i = 1, #EX.fwd_offers do
+        local d = EX.fwd_offers[i].due
+        if d < lo then lo = d end
+        if d > hi then hi = d end
+    end
+    print("fwd_due_range " .. lo .. "/" .. hi)
+end
+-- THE SAVE, THROUGH THE REAL LAYER.
+do
+    local posted = EX.pack_fwd_offers()
+    EX.fwd_offers = {}
+    EX.unpack_fwd_offers(EX.getp(EX.SAVE_FWD_OFFERS))
+    print("fwd_offers_saved " .. tostring(EX.pack_fwd_offers() == posted and posted ~= "")
+          .. "/" .. #EX.fwd_offers)
+end
+-- DETERMINISM: another insertion order, the same page.
+fwd_world(FWD_ORDER_B)
+EX.post_deals()
+print("fwd_rows_again " .. fwd_rows())
+
+-- THE SWITCH, AND THE SLIDER AT ZERO. Deals must be untouched by either.
+EX.snap = { ai_deals = true, ai_forwards = false }
+EX.post_deals()
+print("fwd_off " .. #EX.fwd_offers .. "/" .. #EX.deals)
+EX.snap = { ai_deals = true, ai_forwards = true, fwd_max = 0 }
+EX.post_deals()
+print("fwd_max0 " .. #EX.fwd_offers .. "/" .. #EX.deals)
+
+-- AT WAR WITH THE PLAYER: no contract, and the deals are untouched (they have no such filter).
+EX.snap = { ai_deals = true, ai_forwards = true }
+for f, _ in pairs(EX.actors) do TREATY[f] = "war" end
+EX.post_deals()
+print("fwd_war " .. #EX.fwd_offers .. "/" .. #EX.deals)
+TREATY = {}
+
+-- PRICED ABOVE world_cash_max: the faction could never settle it, so it is never offered.
+EX.snap = { ai_deals = true, ai_forwards = true, world_cash_max = 500 }
+EX.post_deals()
+print("fwd_cap " .. #EX.fwd_offers .. "/" .. #EX.deals)
+EX.snap = { ai_deals = true, ai_forwards = true }
+
+-- TAKING. Nothing moves on the day the contract is taken.
+PAID = {}
+EX.forwards = {}
+EX.fwd_offers = { { fac = "fb1", res = "res_rom_iron", side = "buy", lots = 1, px = 1060,
+                    turn = 10, due = 7 } }
+EX.save_fwd_offers()
+print("fwd_take_result " .. tostring(EX.accept_forward(1)))
+print("fwd_take_n " .. #EX.forwards .. "/" .. #EX.fwd_offers)
+print("fwd_take_at " .. tostring(EX.forwards[1] and EX.forwards[1].at))
+print("fwd_take_paid " .. tostring((PAID["player"] or 0)) .. "/" .. tostring(PAID["fb1"] or 0))
+print("fwd_take_offers_saved " .. tostring(EX.getp(EX.SAVE_FWD_OFFERS)))
+do
+    local packed = EX.pack_forwards()
+    EX.forwards = {}
+    EX.unpack_forwards(EX.getp(EX.SAVE_FWD))
+    print("fwd_take_saved " .. tostring(EX.pack_forwards() == packed and packed ~= "")
+          .. "/" .. #EX.forwards)
+end
+-- AT THE LIMIT, AND ONE BELOW IT - the off-by-one needs both sides.
+EX.forwards = {}
+for i = 1, EX.FWD_OPEN_MAX do
+    EX.forwards[i] = { fac = "fb1", res = "res_rom_iron", side = "buy", lots = 1, px = 1, at = 99 }
+end
+EX.fwd_offers = { { fac = "fb2", res = "res_rom_iron", side = "buy", lots = 1, px = 1060,
+                    turn = 10, due = 6 } }
+print("fwd_full " .. tostring(EX.accept_forward(1)) .. "/" .. #EX.forwards .. "/" .. #EX.fwd_offers)
+EX.forwards[EX.FWD_OPEN_MAX] = nil
+print("fwd_below " .. tostring(EX.accept_forward(1)) .. "/" .. #EX.forwards .. "/" .. #EX.fwd_offers)
+EX.fwd_offers = { { fac = "nobody_zz", res = "res_rom_iron", side = "buy", lots = 1, px = 1060,
+                    turn = 10, due = 6 } }
+print("fwd_gone " .. tostring(EX.accept_forward(1)))
+print("fwd_nodeal " .. tostring(EX.accept_forward(9)))
+
+-- DELIVERY. The t4 fixture's shape: a pooled resource manager so EX.held reads a holding that
+-- MOVES, and a player treasury the test controls. fdead is a faction the map no longer has.
+FWD_PLAYER_GOLD = 100000
+local REAL_GF_FWD = cm.get_faction
+local REAL_POOL_FWD = cm.faction_add_pooled_resource
+cm.get_faction = function(_, k)
+    if k == "fdead" then return false end
+    local f = REAL_GF_FWD(cm, k)
+    f.treasury = function() if k == "player" then return FWD_PLAYER_GOLD end return 100000 end
+    f.is_dead = function() return false end
+    f.pooled_resource_manager = function()
+        return { resource = function(_, pk)
+            local v = 0
+            for res, n in pairs(EX.holdings) do
+                if EX.hold_key(res) == pk then v = n end
+            end
+            return { is_null_interface = function() return false end,
+                     value = function() return v end }
+        end }
+    end
+    return f
+end
+cm.faction_add_pooled_resource = function(_, _fac, pk, _factor, delta)
+    for res, n in pairs(EX.holdings) do
+        if EX.hold_key(res) == pk then EX.holdings[res] = n + delta end
+    end
+end
+-- world_scarcity OFF: a contract buy must not meet the Sold out refusal, which has its own tests.
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false }
+EX.owners = { res_rom_iron = { adumper = 9 } }
+EX.wbook = {}
+local function fwd_actors()
+    EX.actors = { fb    = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 4 },
+                  fpoor = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50,    regions = 1 },
+                  fdead = { culture = "wh_main_dwf_dwarfs", war = false, gold = 50000, regions = 1 } }
+end
+print("fwd_market " .. tostring(EX.price("res_rom_iron")))
+print("fwd_lot " .. tostring(EX.lot("res_rom_iron")))
+local function deliver(tag, contract, held)
+    PAID = {}
+    fwd_actors()
+    EX.fill_factions = {}
+    EX.holdings = { res_rom_iron = held }
+    EX.forwards = { contract }
+    EX.deliver_forwards()
+    print(tag .. " " .. tostring(PAID["player"] or 0) .. "/" .. tostring(PAID[contract.fac] or 0)
+          .. "/" .. tostring(EX.holdings.res_rom_iron) .. "/" .. #EX.forwards)
+end
+local function K(fac, side, lots, px, at)
+    return { fac = fac, res = "res_rom_iron", side = side, lots = lots, px = px, at = at }
+end
+-- The faction BUYS, so the player SELLS: 2 lots at 1100, 100 units held.
+deliver("fwd_d_sell", K("fb", "buy", 2, 1100, 10), 100)
+print("fwd_d_sell_fill " .. tostring(EX.fill_factions["player"] == true))
+print("fwd_d_sell_saved " .. tostring(EX.getp(EX.SAVE_FWD)))
+deliver("fwd_d_early", K("fb", "buy", 2, 1100, 11), 100)
+-- SHORT OF GOODS, both ways the market can have moved.
+deliver("fwd_d_short_up", K("fb", "buy", 2, 1100, 10), 0)
+deliver("fwd_d_short_down", K("fb", "buy", 2, 900, 10), 0)
+-- ONE LOT DELIVERED, THE SECOND SETTLED IN GOLD.
+deliver("fwd_d_part", K("fb", "buy", 2, 1100, 10), 10)
+-- The faction SELLS, so the player BUYS.
+deliver("fwd_d_buy", K("fb", "sell", 2, 900, 10), 0)
+FWD_PLAYER_GOLD = 0
+deliver("fwd_d_broke_cheap", K("fb", "sell", 2, 900, 10), 0)
+deliver("fwd_d_broke_dear", K("fb", "sell", 2, 1100, 10), 0)
+FWD_PLAYER_GOLD = 100000
+-- A FACTION THAT CANNOT PAY pays what it has; the player is credited exactly that.
+deliver("fwd_d_poor", K("fpoor", "buy", 2, 1100, 10), 0)
+-- A GAP PAST THE WORLD TIER'S PER-PAYMENT LIMIT, owed by the player: the faction can take 50 a
+-- lot, and the player pays exactly what it took - no gold leaves one side that the other did
+-- not receive (logic sweep, 2026-09-29).
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false, world_cash_max = 50 }
+deliver("fwd_d_capped", K("fb", "buy", 2, 900, 10), 0)
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false }
+-- WAR: no goods move although the player holds plenty; every lot settles in gold.
+TREATY = { fb = "war" }
+deliver("fwd_d_war", K("fb", "buy", 2, 1100, 10), 100)
+TREATY = {}
+-- DESTROYED: cancelled, and no gold moves either way.
+deliver("fwd_d_dead", K("fdead", "buy", 2, 1100, 10), 100)
+-- ai_gold OFF: the faction's leg is notional; the player's moves in full.
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false, ai_gold = false }
+deliver("fwd_d_aigold_off", K("fb", "buy", 2, 1100, 10), 0)
+-- AND OWED BY THE PLAYER: the player's leg moves in full, the faction's is notional.
+deliver("fwd_d_aigold_off_owe", K("fb", "buy", 2, 900, 10), 0)
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false }
+-- ai_forwards OFF DOES NOT CANCEL AN OPEN CONTRACT - it is an obligation, whatever the switch
+-- now says. Same trade as fwd_d_sell.
+EX.snap = { ai_deals = true, ai_forwards = false, world_scarcity = false }
+deliver("fwd_d_switch_off", K("fb", "buy", 2, 1100, 10), 100)
+EX.snap = { ai_deals = true, ai_forwards = true, world_scarcity = false }
+-- AN ENGINE ERROR MID-DELIVERY: the contract still leaves the list (delivered at most once),
+-- the filling flag is released, and nothing is settled in gold for a trade in an unknown state.
+do
+    local real = EX.apply_trade
+    EX.apply_trade = function() error("boom") end
+    deliver("fwd_d_err", K("fb", "buy", 2, 1100, 10), 100)
+    print("fwd_d_err_filling " .. tostring(EX.filling))
+    EX.apply_trade = real
+end
+-- ORDER KEPT: a due contract leaves, a later one stays, and in its place.
+PAID = {}
+fwd_actors()
+EX.holdings = { res_rom_iron = 100 }
+EX.forwards = { K("fb", "buy", 1, 1100, 12), K("fb", "buy", 1, 1100, 10), K("fb", "buy", 1, 1000, 13) }
+EX.deliver_forwards()
+do
+    local r = {}
+    for i = 1, #EX.forwards do r[#r + 1] = tostring(EX.forwards[i].at) end
+    print("fwd_d_keep " .. table.concat(r, ","))
+end
+
+cm.get_faction = REAL_GF_FWD
+cm.faction_add_pooled_resource = REAL_POOL_FWD
+EX.snap = nil
+EX.forwards = {}
+EX.fwd_offers = {}
+EX.deals = {}
+EX.actors = {}
+EX.owners = {}
+EX.wbook = {}
+TREATY = {}
+
+-- ===========================================================================================
+-- THE INDEX FUND (2026-09-29). docs/superpowers/specs/2026-09-29-zharr-exchange-index-fund-design.md.
+-- House prices, deaths and wars are stubbed per house, so every expected number is arithmetic
+-- on figures written here. Levels print in thousandths to keep float noise out of the strings.
+-- NO PERCENT SIGN ANYWHERE IN THIS BLOCK: the harness is a Python format string.
+-- ===========================================================================================
+EX.human_list = nil
+local REAL_PRICE_IDX, REAL_GONE_IDX, REAL_TIER_IDX = EX.price, EX.house_gone, EX.treaty_tier
+local REAL_CLOSED_IDX, REAL_CULT_IDX = EX.market_closed, EX.culture_cache
+local PXI, GONEI, WARI = {}, {}, {}
+EX.price = function(r) if PXI[r] then return PXI[r] end return REAL_PRICE_IDX(r) end
+EX.house_gone = function(h) return GONEI[h] == true end
+EX.treaty_tier = function(h) return WARI[h] and "war" or "free" end
+EX.market_closed = function() return nil end
+EX.culture_cache = { player = "cc", h1 = "cc", h2 = "cc", h3 = "cc", h4 = "cc", x1 = "zz",
+                     solo = "yy" }
+local function reset_idx()
+    for _, c in ipairs({ "cc", "yy", "zz" }) do EX.store[EX.SAVE_INDEX .. c] = nil end
+end
+local function lv(c) local l = EX.index_level(c or "cc") return l and math.floor(l * 1000 + 0.5) end
+local function st(c)
+    local s = EX.index_state(c or "cc")
+    if not s then return "none" end
+    return #s.m .. "/" .. table.concat(s.m, ",") .. "/" .. tostring(lv(c))
+end
+
+-- CREATION, JOINS, A PRICE MOVE.
+reset_idx()
+EX.delisted = {}
+EX.snap = { windup = 0.5 }
+EX.houses = { "x1", "h3", "h1", "h2" }
+PXI = { h1 = 1000, h2 = 2000, h3 = 3000, h4 = 4000, x1 = 9000 }
+EX.index_sync(false)
+print("idx_pre " .. st())
+EX.index_sync(true)
+print("idx_init " .. st())
+print("idx_init_d " .. tostring(EX.index_state("cc").d))
+EX.houses = { "x1", "h4", "h3", "h1", "h2" }
+EX.index_sync(true)
+print("idx_join " .. st())
+print("idx_join_d " .. tostring(EX.index_state("cc").d))
+PXI.h1 = 1500
+print("idx_move " .. tostring(lv()))
+-- A DEATH. Live, before the round, the dead member already reads at the wind-up rate; the
+-- removal pass then keeps the level exactly where it is.
+GONEI.h2 = true
+print("idx_dead_live " .. tostring(lv()))
+EX.delisted.h2 = true
+EX.LOG = {}
+EX.index_sync(false)
+print("idx_dead_sync " .. st())
+do
+    local e = EX.LOG[1]
+    print("idx_dead_log " .. tostring(e ~= nil and e[2] == "" and e[4] == "h2"
+        and string.find(tostring(e[3]), "2100 to 1900") ~= nil))
+end
+-- THE SAVE: what the sync wrote comes back through the store's own encode/decode.
+do
+    local before = st() .. "/" .. tostring(EX.index_state("cc").d)
+    local k = EX.SAVE_INDEX .. "cc"
+    EX.store[k] = EX.dec_store(EX.enc_store(EX.store[k]))
+    print("idx_saved " .. tostring(st() .. "/" .. tostring(EX.index_state("cc").d) == before))
+end
+-- A MEMBER LEAVING ALIVE (no longer of this culture) leaves at full value: the level holds.
+do
+    local was = lv()
+    EX.culture_cache.h4 = "zz"
+    EX.index_sync(false)
+    print("idx_leave " .. st() .. "/" .. tostring(was))
+    EX.culture_cache.h4 = "cc"
+end
+-- THE TREND: last round against the one before.
+reset_idx()
+EX.houses = { "h1", "h2", "h3", "h4" }
+GONEI, EX.delisted = {}, {}
+PXI = { h1 = 1000, h2 = 2000, h3 = 3000, h4 = 4000 }
+EX.index_sync(true)
+PXI.h4 = 6000
+EX.index_sync(true)
+print("idx_trend_up " .. tostring(EX.index_trend("cc") == EX.TREND_UP))
+PXI.h4 = 2000
+EX.index_sync(true)
+print("idx_trend_down " .. tostring(EX.index_trend("cc") == EX.TREND_DOWN))
+-- WIND-UP 0: the dead member's whole weight goes.
+reset_idx()
+EX.snap = { windup = 0 }
+PXI = { h1 = 1500, h2 = 2000, h3 = 3000, h4 = 4000 }
+EX.index_sync(true)
+local w0a = lv()
+GONEI.h2 = true
+local w0b = lv()
+EX.delisted.h2 = true
+EX.index_sync(false)
+print("idx_w0 " .. tostring(w0a) .. "/" .. tostring(w0b) .. "/" .. tostring(lv()))
+EX.snap = { windup = 0.5 }
+-- EVERY MEMBER DIES: the index ends, its holders are settled at the level the dead left
+-- (0.5 x (1000 + 3000) / 2 = 1000 a lot, two lots), and a new one opens fresh at the
+-- average of whoever is left.
+reset_idx()
+GONEI, EX.delisted = {}, {}
+EX.houses = { "h1", "h2" }
+PXI = { h1 = 1000, h2 = 3000 }
+EX.index_sync(true)
+EX.set_index_units(10)
+PAID = {}
+GONEI.h1, GONEI.h2, EX.delisted.h1, EX.delisted.h2 = true, true, true, true
+EX.index_sync(false)
+print("idx_all_dead " .. st() .. "/" .. tostring(EX.index_refusal("cc") ~= nil) .. "/"
+      .. EX.index_units .. "/" .. tostring(PAID.player))
+EX.houses = { "h1", "h2", "h3", "h4" }
+PXI.h3, PXI.h4 = 5000, 7000
+EX.index_sync(true)
+print("idx_reborn " .. st())
+-- DETERMINISM: two insertion orders, one state.
+local function built(order)
+    reset_idx()
+    GONEI, EX.delisted = {}, {}
+    PXI = { h1 = 1000, h2 = 2000, h3 = 3000, h4 = 4000 }
+    EX.houses = { order[1], order[2] }
+    EX.index_sync(true)
+    EX.houses = order
+    EX.index_sync(true)
+    return st() .. "/" .. tostring(EX.index_state("cc").d)
+end
+print("idx_order " .. tostring(built({ "h4", "h1", "h3", "h2" }) == built({ "h2", "h3", "h1", "h4" })))
+-- ONE HOUSE OF YOUR CULTURE: no index, and the buy says so.
+reset_idx()
+EX.culture_cache.player = "yy"
+EX.houses = { "solo", "h1" }
+EX.index_sync(true)
+local _why, lab = EX.index_refusal(EX.index_culture())
+print("idx_solo " .. st("yy") .. "/" .. tostring(lab))
+EX.culture_cache.player = "cc"
+
+-- TRADING. Level 2500 over four houses; buy 2500 a lot, sell 2250.
+reset_idx()
+GONEI, EX.delisted, WARI = {}, {}, {}
+EX.houses = { "h1", "h2", "h3", "h4" }
+PXI = { h1 = 1000, h2 = 2000, h3 = 3000, h4 = 4000 }
+EX.index_sync(true)
+PAID = {}
+TREASURY = { player = 100000, h1 = 100000, h2 = 100000, h3 = 100000, h4 = 100000 }
+EX.set_index_units(0)
+print("idx_prices " .. tostring(EX.index_buy_price("cc")) .. "/" .. tostring(EX.index_sell_price("cc")))
+print("idx_buy " .. tostring(EX.index_trade(true, 2)) .. "/" .. EX.index_units .. "/" .. tostring(PAID.player))
+print("idx_sell " .. tostring(EX.index_trade(false, 1)) .. "/" .. EX.index_units .. "/" .. tostring(PAID.player))
+print("idx_oversell " .. tostring(EX.index_trade(false, 3)) .. "/" .. EX.index_units .. "/" .. tostring(PAID.player))
+TREASURY.player = 6000
+PAID = {}
+print("idx_afford " .. tostring(EX.index_trade(true, 3)) .. "/" .. EX.index_units .. "/" .. tostring(PAID.player))
+EX.market_closed = function() return "h1" end
+PAID = {}
+print("idx_closed " .. tostring(EX.index_trade(true, 1)) .. "/" .. EX.index_units .. "/" .. tostring(PAID.player or 0))
+print("idx_closed_sell " .. tostring(EX.index_trade(false, 1)) .. "/" .. EX.index_units)
+EX.market_closed = function() return nil end
+print("idx_houses_paid " .. tostring((PAID.h1 or 0) + (PAID.h2 or 0) + (PAID.h3 or 0) + (PAID.h4 or 0)))
+print("idx_units_saved " .. tostring(EX.getp(EX.SAVE_INDEX_UNITS)))
+-- WORTH: five units are one lot at the sell price, 2250, on top of whatever else is held.
+do
+    local w5 = EX.holdings_value()
+    EX.set_index_units(0)
+    local w0 = EX.holdings_value()
+    EX.set_index_units(5)
+    print("idx_worth " .. tostring(w5 - w0))
+end
+TREASURY.player = 100000
+PAID = {}
+do
+    local ui, pn = is_uicomponent, EX.panel
+    is_uicomponent, EX.panel = function() return false end, function() return nil end
+    EX.MP_OPS.idx("b2")
+    is_uicomponent, EX.panel = ui, pn
+end
+print("idx_op " .. EX.index_units .. "/" .. tostring(PAID.player))
+
+-- DIVIDENDS. 10 units over four houses, divisor 4. h2 can pay only 7; h3 is at war.
+EX.set_index_units(10)
+TREASURY.h2 = 7
+WARI.h3 = true
+print("idx_divs " .. EX.dividend("h1") .. "," .. EX.dividend("h2") .. "," .. EX.dividend("h3")
+      .. "," .. EX.dividend("h4"))
+print("idx_div_lot " .. tostring(EX.index_dividend_lot("cc")))
+print("idx_div_due " .. tostring(EX.index_due("cc", 10)))
+do
+    local r = {}
+    for _, x in ipairs(EX.index_dues("cc", 10)) do r[#r + 1] = x[1] .. "=" .. x[2] end
+    print("idx_div_parts " .. table.concat(r, ","))
+end
+-- A DEAD MEMBER PAYS NOTHING, even before the round has removed it.
+GONEI.h4 = true
+do
+    local r = {}
+    for _, x in ipairs(EX.index_dues("cc", 10)) do r[#r + 1] = x[1] end
+    print("idx_div_dead " .. table.concat(r, ","))
+end
+GONEI.h4 = nil
+PAID = {}
+EX.pay_index_dividends()
+print("idx_div_paid " .. tostring(PAID.player or 0) .. "/" .. tostring(PAID.h1 or 0) .. "/"
+      .. tostring(PAID.h2 or 0) .. "/" .. tostring(PAID.h3 or 0) .. "/" .. tostring(PAID.h4 or 0))
+EX.snap = { windup = 0.5, ai_gold = false }
+PAID = {}
+EX.pay_index_dividends()
+print("idx_div_off " .. tostring(PAID.player or 0) .. "/" .. tostring((PAID.h1 or 0) + (PAID.h2 or 0)
+      + (PAID.h4 or 0)))
+EX.snap = { windup = 0.5 }
+EX.set_index_units(0)
+PAID = {}
+EX.pay_index_dividends()
+print("idx_div_none " .. tostring(PAID.player or 0))
+
+EX.price, EX.house_gone, EX.treaty_tier = REAL_PRICE_IDX, REAL_GONE_IDX, REAL_TIER_IDX
+EX.market_closed, EX.culture_cache = REAL_CLOSED_IDX, REAL_CULT_IDX
+reset_idx()
+EX.set_index_units(0)
+EX.snap = nil
+EX.houses = {}
+EX.delisted = {}
+TREASURY = {}
+PAID = {}
+
+-- ===========================================================================================
+-- WAR BONDS AND LOANS (2026-09-29). docs/superpowers/specs/2026-09-29-zharr-exchange-war-bonds-design.md.
+-- b1..b3 are at war with somebody else (issuers), b4..b6 at war with nobody (lenders), b7 at war
+-- with the player, x1 another culture. Amounts come from EX.key_hash: at turn 10, b1 draws 3 lots,
+-- b3 1, b4 and b5 5 - and b5's treasury of 9000 lowers its 5000 to 4000. b6's 1500 is too poor.
+-- NO PERCENT SIGN ANYWHERE IN THIS BLOCK: the harness is a Python format string.
+-- ===========================================================================================
+local REAL_GF_BD = cm.get_faction
+local REAL_PRICE_BD, REAL_GONE_BD, REAL_CULT_BD = EX.price, EX.house_gone, EX.culture_cache
+local ATWAR, PXB, GONEB = {}, {}, {}
+cm.get_faction = function(_, k)
+    local f = REAL_GF_BD(cm, k)
+    f.at_war = function() return ATWAR[k] == true end
+    return f
+end
+EX.price = function(r) if PXB[r] then return PXB[r] end return REAL_PRICE_BD(r) end
+EX.house_gone = function(h) return GONEB[h] == true end
+EX.culture_cache = { player = "cc", b1 = "cc", b2 = "cc", b3 = "cc", b4 = "cc", b5 = "cc",
+                     b6 = "cc", b7 = "cc", x1 = "zz" }
+local function bd_world()
+    EX.houses = { "x1", "b7", "b6", "b5", "b4", "b3", "b2", "b1" }
+    EX.house_set = nil
+    EX.delisted = {}
+    TREATY = { b7 = "war" }
+    TREASURY = { player = 100000, b1 = 5000, b2 = 5000, b3 = 5000, b4 = 50000, b5 = 9000,
+                 b6 = 1500, b7 = 50000, x1 = 50000 }
+    ATWAR = { b1 = true, b2 = true, b3 = true, b7 = true, x1 = true }
+    -- b7 IS THE WEAKEST of the culture's houses at war, so the war-with-you filter is the only
+    -- thing that keeps it off the page - at a tie it lost to b3 on key and hid the filter.
+    PXB = { b1 = 250, b2 = 4000, b3 = 1000, b4 = 1000, b5 = 1000, b6 = 1000, b7 = 100, x1 = 100 }
+    GONEB = {}
+end
+local function bd_offers()
+    local r = {}
+    for _, o in ipairs(EX.bond_offers) do
+        r[#r + 1] = o.side .. ":" .. o.fac .. ":" .. o.amt .. ":" .. o.pay .. ":" .. o.term .. ":" .. o.turn
+    end
+    return table.concat(r, ",")
+end
+local function bd_pos()
+    local r = {}
+    for _, x in ipairs(EX.bonds) do
+        r[#r + 1] = x.side .. ":" .. x.fac .. ":" .. x.p .. ":" .. x.c .. ":" .. x.at .. ":" .. x.late
+    end
+    return table.concat(r, ",")
+end
+local function P(side, fac, p, c, at, late)
+    return { side = side, fac = fac, p = p, c = c, at = at, late = late or 0 }
+end
+bd_world()
+cm.turn_number = function() return 10 end
+EX.snap = { ai_bonds = true, bond_max = 2, bond_turns = 10, bond_rate = 0.02 }
+EX.bonds, EX.bond_offers = {}, {}
+
+-- POSTING.
+EX.post_bonds()
+print("bd_neutral " .. tostring(EX.price_at(EX.neutral_rung())))
+print("bd_offers " .. bd_offers())
+local bd_first = bd_offers()
+EX.houses = { "b1", "b2", "b3", "b4", "b5", "b6", "b7", "x1" }
+EX.post_bonds()
+print("bd_order " .. tostring(bd_offers() == bd_first))
+print("bd_risk " .. EX.bond_risk("b1") .. "/" .. EX.bond_risk("b2") .. "/" .. EX.bond_risk("b3"))
+do
+    local saved = EX.getp(EX.SAVE_BOND_OFFERS)
+    EX.bond_offers = {}
+    EX.unpack_bond_offers(saved)
+    print("bd_offers_saved " .. tostring(bd_offers() == bd_first))
+end
+EX.snap.ai_bonds = false
+EX.post_bonds()
+print("bd_off " .. #EX.bond_offers)
+EX.snap.ai_bonds, EX.snap.bond_max = true, 0
+EX.post_bonds()
+print("bd_max0 " .. #EX.bond_offers)
+EX.snap.bond_max = 2
+-- THE HOUSE GOLD LIMIT caps an offer: no more can move to or from a house in a turn.
+EX.snap.house_cash_max = 2000
+EX.post_bonds()
+local capmax = 0
+for _, o in ipairs(EX.bond_offers) do if o.amt > capmax then capmax = o.amt end end
+print("bd_cashcap " .. capmax .. "/" .. #EX.bond_offers)
+EX.snap.house_cash_max = nil
+
+-- TAKING. Offers are l:b1, l:b3, b:b4, b:b5.
+EX.post_bonds()
+PAID = {}
+print("bd_take_l " .. tostring(EX.accept_bond(1)) .. "/" .. tostring(PAID.player) .. "/"
+      .. tostring(PAID.b1) .. "/" .. bd_pos() .. "/" .. #EX.bond_offers)
+PAID = {}
+print("bd_take_b " .. tostring(EX.accept_bond(2)) .. "/" .. tostring(PAID.player) .. "/"
+      .. tostring(PAID.b4) .. "/" .. bd_pos() .. "/" .. #EX.bond_offers)
+do
+    local want = bd_pos()
+    EX.bonds = {}
+    EX.unpack_bonds(EX.getp(EX.SAVE_BONDS))
+    print("bd_saved " .. tostring(bd_pos() == want))
+    print("bd_offers_left " .. bd_offers())
+end
+-- REFUSALS, each leaving the offer where it was. Left: l:b3, b:b5.
+PAID = {}
+print("bd_nodeal " .. tostring(EX.accept_bond(9)))
+GONEB.b3 = true
+print("bd_gone " .. tostring(EX.accept_bond(1)) .. "/" .. #EX.bond_offers)
+GONEB.b3 = nil
+TREATY.b5 = "war"
+print("bd_war " .. tostring(EX.accept_bond(2)) .. "/" .. #EX.bond_offers)
+TREATY.b5 = nil
+TREASURY.b5 = 10
+print("bd_poor " .. tostring(EX.accept_bond(2)) .. "/" .. #EX.bond_offers)
+TREASURY.b5 = 9000
+TREASURY.player = 100
+print("bd_afford " .. tostring(EX.accept_bond(1)) .. "/" .. #EX.bond_offers)
+TREASURY.player = 100000
+print("bd_refused_paid " .. tostring(next(PAID) == nil))
+do
+    local keep = EX.bonds
+    EX.bonds = {}
+    for i = 1, EX.BOND_OPEN_MAX do EX.bonds[i] = P("l", "b2", 1000, 20, 20) end
+    print("bd_full " .. tostring(EX.accept_bond(1)) .. "/" .. #EX.bond_offers)
+    print("bd_full_other_side " .. tostring(EX.accept_bond(2)))
+    EX.bonds = keep
+end
+-- THE OP, as the sender, with the offer's index.
+do
+    EX.post_bonds()
+    EX.bonds = {}
+    local ui, pn = is_uicomponent, EX.panel
+    is_uicomponent, EX.panel = function() return false end, function() return nil end
+    PAID = {}
+    EX.MP_OPS.bond("3")
+    is_uicomponent, EX.panel = ui, pn
+    print("bd_op " .. bd_pos() .. "/" .. tostring(PAID.player))
+end
+-- ai_gold OFF: the house's side is notional, the player's moves in full.
+EX.snap.ai_gold = false
+EX.post_bonds()
+EX.bonds = {}
+PAID = {}
+EX.accept_bond(1)
+EX.accept_bond(2)
+print("bd_take_off " .. tostring(PAID.player) .. "/" .. tostring(PAID.b1 or 0) .. "/"
+      .. tostring(PAID.b4 or 0) .. "/" .. bd_pos())
+EX.snap.ai_gold = nil
+
+-- PAYING. Positions written directly so every number is one written here.
+local function bd_pay(tag, list, turn)
+    PAID = {}
+    EX.bonds = list
+    cm.turn_number = function() return turn end
+    EX.pay_bonds()
+    local h = {}
+    for _, k in ipairs({ "b1", "b3", "b4" }) do h[#h + 1] = tostring(PAID[k] or 0) end
+    print(tag .. " " .. tostring(PAID.player or 0) .. "/" .. table.concat(h, ",") .. "/" .. bd_pos())
+end
+bd_world()
+bd_pay("bd_p_coupon", { P("l", "b1", 1000, 40, 12) }, 11)
+TREASURY.b3 = 25
+bd_pay("bd_p_short", { P("l", "b3", 1000, 40, 12) }, 11)
+TREASURY.b3 = 5000
+bd_pay("bd_p_catchup", { P("l", "b3", 1000, 40, 12, 15) }, 11)
+bd_pay("bd_p_mature", { P("l", "b1", 1000, 40, 12) }, 12)
+TREASURY.b1 = 500
+bd_pay("bd_p_mature_short", { P("l", "b1", 1000, 40, 12) }, 12)
+TREASURY.b1 = 5000
+bd_pay("bd_p_after", { P("l", "b1", 0, 40, 12, 540) }, 13)
+TREATY.b1 = "war"
+bd_pay("bd_p_war", { P("l", "b1", 1000, 40, 12, 15) }, 11)
+bd_pay("bd_p_war_mature", { P("l", "b1", 1000, 40, 12) }, 14)
+TREATY.b1 = nil
+bd_pay("bd_p_peace", { P("l", "b1", 1000, 40, 12) }, 15)
+GONEB.b1 = true
+bd_pay("bd_p_dead", { P("l", "b1", 1000, 40, 12, 300) }, 11)
+GONEB.b1 = nil
+EX.delisted.b1 = true
+bd_pay("bd_p_delisted", { P("l", "b1", 1000, 40, 12) }, 11)
+EX.delisted.b1 = nil
+print("bd_windup " .. tostring(EX.opt("windup")))
+bd_pay("bd_p_loan", { P("b", "b4", 2000, 40, 12) }, 11)
+bd_pay("bd_p_loan_mature", { P("b", "b4", 2000, 40, 12) }, 12)
+TREASURY.player = 0
+bd_pay("bd_p_loan_broke", { P("b", "b4", 2000, 40, 12) }, 11)
+TREASURY.player = 100000
+TREATY.b4 = "war"
+bd_pay("bd_p_loan_war", { P("b", "b4", 2000, 40, 12) }, 11)
+TREATY.b4 = nil
+GONEB.b4 = true
+bd_pay("bd_p_loan_dead", { P("b", "b4", 2000, 40, 12) }, 11)
+GONEB.b4 = nil
+-- A LOAN PAYMENT PAST THE HOUSE GOLD LIMIT: the house can take 1500 a turn, so the player pays
+-- 1500 and the rest waits as arrears - never charged and destroyed (logic sweep, 2026-09-29).
+EX.snap.house_cash_max = 1500
+bd_pay("bd_p_loan_cap", { P("b", "b4", 2000, 40, 12) }, 12)
+bd_pay("bd_p_loan_cap2", EX.bonds, 13)
+EX.snap.house_cash_max = nil
+-- TOGETHER, IN ORDER, AND CONSERVED: what the player gained is what the houses lost.
+bd_pay("bd_p_mixed", { P("l", "b3", 1000, 40, 12), P("b", "b4", 2000, 30, 12),
+                       P("l", "b1", 1000, 20, 12) }, 11)
+do
+    local sum = 0
+    for _, v in pairs(PAID) do sum = sum + v end
+    print("bd_conserved " .. tostring(sum))
+    local e = EX.LOG[1]
+    print("bd_log " .. tostring(e ~= nil and string.find(tostring(e[3]), "60g") ~= nil
+        and string.find(tostring(e[3]), "30g") ~= nil))
+end
+EX.snap.ai_gold = false
+bd_pay("bd_p_off", { P("l", "b1", 1000, 40, 12), P("b", "b4", 2000, 30, 12) }, 11)
+EX.snap.ai_gold = nil
+-- AN ERROR IN ONE POSITION STOPS NOTHING ELSE, and keeps the position.
+do
+    local real = EX.pay_house
+    EX.pay_house = function(h, a) if h == "b3" then error("boom") end return real(h, a) end
+    bd_pay("bd_p_err", { P("l", "b3", 1000, 40, 12), P("l", "b1", 1000, 40, 12) }, 11)
+    EX.pay_house = real
+end
+bd_pay("bd_p_none", {}, 11)
+
+cm.get_faction = REAL_GF_BD
+EX.price, EX.house_gone, EX.culture_cache = REAL_PRICE_BD, REAL_GONE_BD, REAL_CULT_BD
+cm.turn_number = function() return 10 end
+EX.bonds, EX.bond_offers = {}, {}
+EX.snap = nil
+EX.houses = {}
+EX.delisted = {}
+TREASURY = {}
+TREATY = {}
+PAID = {}
 """
+
+
+def check_bonds(have):
+    """War bonds and loans (2026-09-29): posting, taking, paying, deaths, war and ai_gold.
+
+    Spec: docs/superpowers/specs/2026-09-29-zharr-exchange-war-bonds-design.md. Amounts and terms
+    come from EX.key_hash and are checked against their rules, not restated; payments are
+    checked against the neutral lot price this run printed."""
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+            why, key, want, have.get(key))
+
+    neutral = float(have["bd_neutral"])
+    offers = [o.split(":") for o in have["bd_offers"].split(",") if o]
+    assert [(o[0], o[1]) for o in offers] == [("l", "b1"), ("l", "b3"), ("b", "b4"), ("b", "b5")], (
+        "the offers must be the two weakest houses at war with somebody else as bonds, then the "
+        "two richest at war with nobody as loans - never a house at war with you, never another "
+        "culture's, never more than bond_max a side: %s" % have["bd_offers"])
+    price = {"b1": 250, "b3": 1000}
+    for side, fac, amt, pay, term, turn in offers:
+        amt, pay, term = int(amt), int(pay), int(term)
+        assert amt % 1000 == 0 and 1000 <= amt <= 5000, "amount %d for %s" % (amt, fac)
+        assert 5 <= term <= 10, "a term outside [ceil(10 / 2), 10]: %d for %s" % (term, fac)
+        assert turn == "10", turn
+        if side == "l":
+            risk = min(2.0, max(0.5, neutral / price[fac]))
+            assert pay == int(amt * 0.02 * risk + 0.5), (
+                "%s's bond pays %d; amount x rate x risk clamped to [0.5, 2], rounded, is %d"
+                % (fac, pay, int(amt * 0.02 * risk + 0.5)))
+        else:
+            assert pay == int(amt * 0.02 + 0.5), "%s's loan costs %d, want %d" % (fac, pay, int(amt * 0.02 + 0.5))
+    amts = {o[1]: int(o[2]) for o in offers}
+    assert amts["b5"] == 4000, (
+        "b5 drew five lots against a treasury of 9000: a loan must be cut to the largest whole "
+        "thousand at most half the treasury, 4000 - got %d" % amts["b5"])
+    eq("bd_risk", "2/0.5/1", "the risk factor must be neutral price / house price, kept to [0.5, 2]")
+    eq("bd_order", "true", "two insertion orders of the house list posted different offers")
+    eq("bd_offers_saved", "true", "the offers did not survive their own save")
+    eq("bd_off", "0", "ai_bonds off still posted an offer")
+    eq("bd_max0", "0", "bond_max 0 still posted an offer")
+    eq("bd_cashcap", "2000/4", "an offer above the house gold limit was posted - the limit caps "
+       "what can move to or from a house in a turn, and the four houses must all still post")
+
+    a1, a4 = amts["b1"], amts["b4"]
+    eq("bd_take_l", "true/%d/%d/l:b1:%d:%d:%d:0/3" % (
+        -a1, a1, a1, int(offers[0][3]), 10 + int(offers[0][4])),
+       "lending must move the amount from you to the house, open the bond with its maturity "
+       "turn, and take the offer off the page")
+    eq("bd_take_b", "true/%d/%d/l:b1:%d:%d:%d:0,b:b4:%d:%d:%d:0/2" % (
+        a4, -a4, a1, int(offers[0][3]), 10 + int(offers[0][4]),
+        a4, int(offers[2][3]), 10 + int(offers[2][4])),
+       "borrowing must move the amount from the house to you and open the loan")
+    eq("bd_saved", "true", "the open bonds did not survive their own save")
+    eq("bd_nodeal", "nodeal", "a bad index was not refused")
+    eq("bd_gone", "gone/2", "a dead house's offer was taken, or the refusal consumed it")
+    eq("bd_war", "war/2", "an offer from a house now at war with you was taken")
+    eq("bd_poor", "poor/2", "a loan the house can no longer fund was taken")
+    eq("bd_afford", "afford/2", "a bond you cannot pay for was taken")
+    eq("bd_refused_paid", "true", "a refused take moved gold")
+    eq("bd_full", "full/2", "a seventh bond was taken")
+    eq("bd_full_other_side", "true", "six open bonds refused a loan - the limit is per side")
+    assert have["bd_op"].startswith("b:b4:"), (
+        "the bond op did not take offer 3 (b4's loan) as the sender: %r" % have["bd_op"])
+    assert have["bd_take_off"].startswith("%d/0/0/" % (a4 - a1)), (
+        "with ai_gold off the houses' side must be notional and yours move in full: %r"
+        % have["bd_take_off"])
+
+    eq("bd_p_coupon", "40/-40,0,0/l:b1:1000:40:12:0", "a bond's payment is not paid by its house")
+    eq("bd_p_short", "25/0,-25,0/l:b3:1000:40:12:15",
+       "a house with 25 gold owing 40 must pay 25, and the other 15 must become arrears")
+    eq("bd_p_catchup", "55/0,-55,0/l:b3:1000:40:12:0", "arrears are not collected with the payment")
+    eq("bd_p_mature", "1040/-1040,0,0/",
+       "on the maturity turn the house owes the last payment and the principal, and the bond closes")
+    eq("bd_p_mature_short", "500/-500,0,0/l:b1:0:40:12:540",
+       "a maturity the house cannot pay must fold the principal into arrears, once")
+    eq("bd_p_after", "540/-540,0,0/", "after maturity only the arrears are owed, and then it closes")
+    eq("bd_p_war", "0/0,0,0/l:b1:1000:40:12:15", "a bond paid, or changed, while at war with you")
+    eq("bd_p_war_mature", "0/0,0,0/l:b1:1000:40:12:0", "a principal falling due at war must wait for peace")
+    eq("bd_p_peace", "1000/-1000,0,0/",
+       "after peace the principal is owed - and only the principal: the payments missed at war "
+       "are not built up")
+    w = float(have["bd_windup"])
+    eq("bd_p_dead", "%d/0,0,0/" % int(w * 1300),
+       "a dead borrower must pay back windup x (principal + arrears), from nothing, and close")
+    eq("bd_p_delisted", "%d/0,0,0/" % int(w * 1000), "a delisted borrower must settle the same way")
+    eq("bd_p_loan", "-40/0,0,40/b:b4:2000:40:12:0", "a loan's payment did not go to the lender")
+    eq("bd_p_loan_mature", "-2040/0,0,2040/", "a loan's principal is not repaid at maturity")
+    eq("bd_p_loan_broke", "-40/0,0,40/b:b4:2000:40:12:0",
+       "a loan must be paid in full even from an empty treasury - CA's bankruptcy does the rest")
+    eq("bd_p_loan_war", "0/0,0,0/b:b4:2000:40:12:0", "a loan paid while at war with the lender")
+    eq("bd_p_loan_dead", "-2000/0,0,0/",
+       "a dead lender's loan must fall due at once, paid to nobody - killing a lender must never "
+       "erase the debt")
+    eq("bd_p_loan_cap", "-1500/0,0,1500/b:b4:0:40:12:540",
+       "a loan payment past the house gold limit must move only what the house can take, the "
+       "rest carried as arrears")
+    eq("bd_p_loan_cap2", "-540/0,0,540/", "the arrears on a loan are not paid the next turn")
+    eq("bd_p_mixed", "30/-20,-40,30/l:b3:1000:40:12:0,b:b4:2000:30:12:0,l:b1:1000:20:12:0",
+       "three positions in one pass: each paid, in order, none dropped")
+    eq("bd_conserved", "0", "with ai_gold on, what you gained is not what the houses lost")
+    eq("bd_log", "true", "the turn's bond and loan payments are not in the log")
+    eq("bd_p_off", "10/0,0,0/l:b1:1000:40:12:0,b:b4:2000:30:12:0",
+       "with ai_gold off the houses' side is notional and yours moves in full")
+    eq("bd_p_err", "40/-40,0,0/l:b3:1000:40:12:0,l:b1:1000:40:12:0",
+       "an error in one position stopped the others, or dropped the position")
+    eq("bd_p_none", "0/0,0,0/", "a pass with nothing open moved gold")
+    print("  war bonds: the weakest houses at war post bonds and the richest at peace post loans, "
+          "never one at war with you; amounts, terms and the risk-scaled payment by rule; takes "
+          "move real gold both ways and refuse without consuming; payments collect arrears, fold "
+          "the principal once, pause at war without building up, settle a dead borrower at the "
+          "wind-up rate and call a dead lender's loan; conserved with ai_gold on")
+
+
+def check_index(have):
+    """The index fund (2026-09-29): the divisor, deaths and joins, trading, dividends.
+
+    Spec: docs/superpowers/specs/2026-09-29-zharr-exchange-index-fund-design.md. Prices are stubbed
+    per house in the harness, so every number here is arithmetic on figures written there. Levels
+    are in thousandths."""
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+            why, key, want, have.get(key))
+
+    eq("idx_pre", "none", "a removal pass created an index. Only the join pass may")
+    eq("idx_init", "3/h1,h2,h3/2000000",
+       "the index must open over your own culture's houses only, at their average lot price")
+    eq("idx_init_d", "3", "the first divisor is the member count")
+    eq("idx_join", "4/h1,h2,h3,h4/2000000", "a house that joins moved the level")
+    eq("idx_join_d", "5", "a joiner must raise the divisor by its price over the level")
+    eq("idx_move", "2100000", "the level does not follow a member's price live")
+    eq("idx_dead_live", "1900000",
+       "a dead member must read at the wind-up rate as soon as it is gone, before any round - "
+       "otherwise the index sells at the living price of a corpse, the share exploit's twin")
+    eq("idx_dead_sync", "3/h1,h3,h4/1900000",
+       "the removal pass moved the level, or kept the dead member. A death must never RAISE the "
+       "level: at 0.5 it falls by exactly half the member's weight, 2100 to 1900")
+    eq("idx_dead_log", "true", "the death was not logged against the dead house, with its fall")
+    eq("idx_saved", "true", "the index state did not survive the save's encode and decode")
+    eq("idx_leave", "2/h1,h3/1900000/1900000",
+       "a member that left alive (no longer your culture) must leave at full value")
+    eq("idx_trend_up", "true", "the trend does not compare the last round with the one before")
+    eq("idx_trend_down", "true", "the trend does not show a fall")
+    eq("idx_w0", "2625000/2125000/2125000",
+       "at wind-up 0 a dead member's whole weight must go, and the pass must keep that level")
+    eq("idx_all_dead", "none/true/0/2000",
+       "with every member dead the index must end, refuse a buy, and settle its holders at the "
+       "level the dead left - two lots at 1000 - or units bought for gold are lost, or kept "
+       "into an index that restarts at a higher average")
+    eq("idx_reborn", "2/h3,h4/6000000",
+       "after an index ends, a new one must open fresh at the living houses' average")
+    eq("idx_order", "true", "two insertion orders of the house list built different indices")
+    eq("idx_solo", "none/No index", "one house of your culture is not an index")
+
+    eq("idx_prices", "2500/2250", "buy at the level, sell at the level less the spread")
+    eq("idx_buy", "true/10/-5000", "two lots bought: ten units, 5000 gold")
+    eq("idx_sell", "true/5/-2750", "one lot sold at 2250")
+    eq("idx_oversell", "nothold/0/-500", "a sell past the units held must stop at what is held")
+    eq("idx_afford", "afford/10/-5000", "6000 gold buys two lots at 2500, not three")
+    eq("idx_closed", "closed/10/0", "the war lock must refuse an index buy and take no gold")
+    eq("idx_closed_sell", "true/5", "selling stays open under the war lock")
+    eq("idx_houses_paid", "0",
+       "gold moved to a house on an index trade. Like shares, a trade moves gold to nobody")
+    eq("idx_units_saved", "5", "the units were not saved per player")
+    eq("idx_op", "15/-5000", "the idx op did not buy the two lots its argument named")
+    eq("idx_worth", "2250", "the footer's Worth leaves out the index units, at one lot's sell price")
+
+    d = [int(x) for x in have["idx_divs"].split(",")]
+    assert d[2] == 0 and min(d[0], d[1], d[3]) > 0, have["idx_divs"]
+    eq("idx_div_lot", str(5 * (d[0] + d[1] + d[3]) // 4),
+       "the dividend per lot is 5 units times the members' per-share dividends over the divisor")
+    total = 10 * (d[0] + d[1] + d[3]) // 4
+    eq("idx_div_due", str(total),
+       "the dividend due is not floor(units x the members' per-share dividends / divisor). "
+       "Floored per member instead, a large index pays about half what its Div column says")
+    parts = dict(x.split("=") for x in have["idx_div_parts"].split(",") if x)
+    parts = {k: int(v) for k, v in parts.items()}
+    assert sum(parts.values()) == total, (
+        "the members' parts %r do not add up to the total due %d" % (parts, total))
+    assert "h3" not in parts, "a member at war was given a part of the dividend: %r" % parts
+    for i, h in ((0, "h1"), (1, "h2"), (3, "h4")):
+        q = 10 * d[i] / 4
+        assert int(q) <= parts.get(h, 0) <= int(q) + 1, (
+            "%s's part %s is not its exact share %.2f rounded down or up" % (h, parts.get(h), q))
+    paid = [parts.get("h1", 0), min(parts.get("h2", 0), 7), 0, parts.get("h4", 0)]
+    eq("idx_div_paid", "%d/%d/%d/%d/%d" % (sum(paid), -paid[0], -paid[1], -paid[2], -paid[3]),
+       "each member must pay its part through pay_house - clamped to what it has, nothing at war "
+       "- and the player be credited exactly what moved")
+    eq("idx_div_off", "%d/0" % total, "with ai_gold off the members' legs are notional")
+    eq("idx_div_dead", "h1,h2",
+       "a member that is gone was given a part of the dividend (h3 is at war, h4 is gone)")
+    eq("idx_div_none", "0", "an index dividend was paid on no units")
+    print("  index fund: opens at the average of your own culture's houses, a join never moves "
+          "it, a death reads at the wind-up rate at once and never raises it, a member leaving "
+          "alive leaves at full value, it survives the save, and ends by settling its holders "
+          "when every member dies; buys at the level and sells under it, refused under the war lock, no gold to "
+          "any house; members pay the dividend, clamped and nothing at war")
+
+
+def check_forwards(have):
+    """Forward contracts (2026-09-29): posting, taking, delivery and gold settlement.
+
+    Spec: docs/superpowers/specs/2026-09-29-zharr-exchange-forward-contracts-design.md. Every
+    expected number is derived from the market price and lot size THIS run printed, so moving the
+    ladder or the lot size moves the expectation with it rather than breaking it silently."""
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+            why, key, want, have.get(key))
+
+    deal_max = 3                       # EX.DEAL_MAX; the fixture's snapshot does not move it
+    eq("fwd_deals_n", str(deal_max),
+       "contract posting changed how many one-turn deals post. They are separate lists with "
+       "separate limits, and a contract must never take a deal's slot")
+    eq("fwd_offers_n", "2",
+       "six eligible factions, three deal slots and fwd_max = 2 must post exactly two contract "
+       "offers. More means the cap is gone; fewer means posting stopped early")
+    eq("fwd_disjoint", "true",
+       "one faction appeared on both lists. One offer per faction per turn, and the engine is "
+       "asked about each faction once")
+    lo, hi = (int(x) for x in have["fwd_due_range"].split("/"))
+    assert 5 <= lo <= hi <= 10, (
+        "a contract length fell outside [ceil(fwd_turns / 2), fwd_turns] = [5, 10]: %s"
+        % have["fwd_due_range"])
+    for row in have["fwd_rows"].split(";"):
+        fac, res, side, lots, px, turn, due, mkt = row.split("/")
+        want = (int(mkt) * (106 if side == "buy" else 94)) // 100
+        assert int(px) == want, (
+            "contract offer %r is priced %s, expected %d: market %s, edge 6, in the player's "
+            "favour - over market when the faction buys, under when it sells" % (row, px, want, mkt))
+        assert turn == "10", "an offer did not carry the turn it was posted: %r" % row
+    eq("fwd_offers_saved", "true/2",
+       "the offers did not round-trip through the save. A mid-turn reload would show a "
+       "different page, or none")
+    eq("fwd_rows_again", have["fwd_rows"],
+       "two insertion orders of the same world posted different contract offers. The Take op "
+       "carries an INDEX, so that is a different contract on each machine")
+    eq("fwd_off", "0/%d" % deal_max,
+       "ai_forwards off must post no contract and leave the deals alone")
+    eq("fwd_max0", "0/%d" % deal_max, "fwd_max = 0 still posted a contract")
+    eq("fwd_war", "0/%d" % deal_max,
+       "a faction at war with the player was offered as a contract counterparty")
+    eq("fwd_cap", "0/%d" % deal_max,
+       "a contract priced above world_cash_max was posted. The faction could never settle it "
+       "- the same hole ZHARR_EXCHANGE.md s17 records for deals")
+
+    eq("fwd_take_result", "true", "taking a contract offer failed")
+    eq("fwd_take_n", "1/0", "taking must move the offer into the open contracts, once")
+    eq("fwd_take_at", "17", "the delivery turn is not the posting turn plus the length")
+    eq("fwd_take_paid", "0/0", "gold moved on the day a contract was TAKEN. Nothing moves "
+       "until delivery")
+    eq("fwd_take_offers_saved", "",
+       "the taken offer is still in the saved page, so a reload offers it again")
+    eq("fwd_take_saved", "true/1", "open contracts do not round-trip through the save")
+    eq("fwd_full", "full/6/1",
+       "a seventh contract was taken, or the refusal consumed the offer")
+    eq("fwd_below", "true/6/0", "one below the limit must still take - the off-by-one")
+    eq("fwd_gone", "gone", "an offer from a faction no longer on the map was taken")
+    eq("fwd_nodeal", "nodeal", "a bad index was not refused")
+
+    m = int(have["fwd_market"])
+    lot = int(have["fwd_lot"])
+    assert m > 0 and lot > 0, have
+
+    def gold(n_lots, gap):
+        return n_lots * gap
+    eq("fwd_d_sell", "%d/%d/%d/0" % (2 * 1100, -2 * 1100, 100 - 2 * lot),
+       "a due contract did not deliver both lots at the agreed price, both legs")
+    eq("fwd_d_sell_fill", "true",
+       "a delivery did not mark the player for the round's single reprice")
+    eq("fwd_d_sell_saved", "", "the delivered contract is still in the saved list")
+    eq("fwd_d_early", "0/0/100/1", "a contract delivered before its turn")
+    g = gold(2, 1100 - m)
+    eq("fwd_d_short_up", "%d/%d/0/0" % (g, -g),
+       "player short of goods, agreed above market: the player must RECEIVE the gap, paid by "
+       "the faction")
+    g = gold(2, 900 - m)
+    eq("fwd_d_short_down", "%d/%d/0/0" % (g, -g),
+       "player short of goods, agreed below market: the player must PAY the gap to the faction")
+    g = 1100 + (1100 - m)
+    eq("fwd_d_part", "%d/%d/0/0" % (g, -g),
+       "one lot held of two: the first must deliver at the agreed price and the second settle "
+       "in gold")
+    eq("fwd_d_buy", "%d/%d/%d/0" % (-2 * 900, 2 * 900, 2 * lot),
+       "the player buying under a contract did not pay the agreed price for both lots")
+    g = gold(2, m - 900)
+    eq("fwd_d_broke_cheap", "%d/%d/0/0" % (g, -g),
+       "player cannot pay, agreed below market: the player must RECEIVE market minus agreed")
+    g = gold(2, m - 1100)
+    eq("fwd_d_broke_dear", "%d/%d/0/0" % (g, -g),
+       "player cannot pay, agreed above market: the player must PAY agreed minus market, in "
+       "full, whatever the treasury")
+    c = min(m - 900, 50)
+    assert m - 900 > 50, "the capped-settlement fixture needs a gap over the 50 limit"
+    eq("fwd_d_capped", "%d/%d/0/0" % (-2 * c, 2 * c),
+       "a short-lot gap past world_cash_max, owed by the player: the player must pay what the "
+       "faction was credited, not the full gap with the rest destroyed")
+    eq("fwd_d_poor", "50/-50/0/0",
+       "a faction with 50 gold owing more paid the wrong amount, or the player was credited "
+       "the full gap rather than what was actually taken")
+    g = gold(2, 1100 - m)
+    eq("fwd_d_war", "%d/%d/100/0" % (g, -g),
+       "at war, goods moved - or the lots were not settled in gold. War must not cancel a "
+       "contract: it would be a way out of a losing one")
+    eq("fwd_d_dead", "0/0/100/0",
+       "a destroyed faction's contract moved gold or goods, or stayed in the list")
+    eq("fwd_d_aigold_off", "%d/0/0/0" % gold(2, 1100 - m),
+       "with ai_gold off the faction's leg must be notional and the player's move in full")
+    eq("fwd_d_aigold_off_owe", "%d/0/0/0" % gold(2, 900 - m),
+       "with ai_gold off a gap the player owes must still be paid in full")
+    eq("fwd_d_switch_off", have["fwd_d_sell"],
+       "ai_forwards off cancelled or changed an OPEN contract. It stops new offers only")
+    eq("fwd_d_err", "0/0/100/0",
+       "an engine error mid-delivery left the contract in the list (a second delivery next "
+       "turn) or settled gold for a trade in an unknown state")
+    eq("fwd_d_err_filling", "false",
+       "an engine error left EX.filling on - every later manual trade stops repricing")
+    eq("fwd_d_keep", "12,13", "delivery dropped a contract that was not due, or reordered them")
+    print("  forward contracts: posted after the deals and never instead of one, two per turn, "
+          "disjoint from the deals, 5-10 turns, deterministic, none at war or above the cash "
+          "cap; taken with nothing moving, six at most; delivered on the turn, goods first, "
+          "the rest in gold at the gap both ways, a poor faction paying what it has, war "
+          "settling in gold, a destroyed faction cancelling, an error delivering at most once")
 
 
 def check_lua_books():
@@ -15452,6 +16816,20 @@ def check_lua_books():
     assert have["bias_stable"] == "true", have
 
     assert int(have["budget_rich"]) > 0, have
+    # THE HOUSE GOLD LIMIT BOUNDS A HOUSE'S LOTS (logic sweep, 2026-09-29): a house booked
+    # four lots and paid for as many as the limit allowed, so its book - which prices the
+    # market - held goods it never paid for.
+    assert have["budget_capped"] == "2", (
+        "a house with the gold limit at two lots' price was given %s lots to buy"
+        % have["budget_capped"])
+    assert have["sell_capped"] == "1", (
+        "a house with the gold limit at one lot's proceeds sold %s lots" % have["sell_capped"])
+    assert have["step_sell_capped"] == "9", (
+        "a house holding ten lots, with a gold limit of one lot's proceeds, was left with %s "
+        "after the turn step - it must sell exactly one" % have["step_sell_capped"])
+    assert have["budget_capped_off"] == "4/4", (
+        "with ai_gold off a house's gold is notional and the limit must not bind: %s"
+        % have["budget_capped_off"])
     assert int(have["budget_broke"]) == 0, (
         "a house with no treasury got a budget of %s. Budget is drawn from treasury() so a "
         "house that trades badly stops being able to trade; that feedback is the whole "
@@ -15516,15 +16894,49 @@ def check_lua_books():
     # deal moves no market, so there is no circular dependency to avoid here and nothing to be
     # gained from last turn's rung: priced before the reprice, this page would quote one number
     # while the Trade page beside it quoted another.
-    assert "EX.post_deals()" in body, (
-        "EX.post_deals was never called from EX.turn_round. It exists and does nothing - the "
-        "Task 1 and Task 2 shape, where EX.save_deals and EX.deal_ok each passed every gate "
+    assert "EX.post_all_deals()" in body, (
+        "EX.post_all_deals was never called from EX.turn_round. It exists and does nothing - "
+        "the Task 1 and Task 2 shape, where EX.save_deals and EX.deal_ok each passed every gate "
         "with no runtime call site at all.")
-    i_deals = body.index("EX.post_deals()")
+    # AND NEVER THE UNBOUND ONE. EX.post_deals builds ONE page, for EX.who(); called bare from
+    # the round it builds the local player's page only, on each machine, and every other
+    # human's slice keeps whatever the last load restored (2026-09-29, ZHARR_EXCHANGE.md s18).
+    # The per-human loop lives in EX.post_all_deals so _mp_harness.lua runs the shipped loop.
+    assert "EX.post_deals()" not in body, (
+        "EX.turn_round calls EX.post_deals directly. That builds one page, for whoever is "
+        "local on this machine - call EX.post_all_deals, which builds every human's.")
+    pad = re.search(r"function EX\.post_all_deals\(\).*?\n" + "end", code, re.S)
+    assert pad, "EX.post_all_deals is gone"
+    assert re.search(r"for _, f in ipairs\(EX\.humans\(\)\) do\s*EX\.with_player\(f, "
+                     r"function\(\) EX\.post_deals\(\) end\)", pad.group(0)), (
+        "EX.post_all_deals no longer calls EX.post_deals inside EX.with_player for each "
+        "human. Unbound, every page lands in the local player's slice.")
+    i_deals = body.index("EX.post_all_deals()")
     assert i_apply < i_deals, (
         "post_deals must sit AFTER apply_prices - the deal is priced off the rung the panel "
         "shows, not off the one the reprice is about to move. Found apply=%d deals=%d."
         % (i_apply, i_deals))
+    # FORWARD CONTRACTS (2026-09-29). Delivered per human AFTER the reprice, so a lot settled in
+    # gold settles at the price the panel shows; BEFORE the deals, so the offers are posted
+    # against the treasuries the deliveries left; and after the fill_factions reset, so a
+    # delivery joins the round's one zharr_after_fills reprice instead of being wiped from it.
+    assert "EX.deliver_all_forwards()" in body, (
+        "EX.deliver_all_forwards was never called from EX.turn_round. Every contract would sit "
+        "in the list past its turn forever, and nothing else in this file would notice.")
+    assert "EX.deliver_forwards()" not in body, (
+        "EX.turn_round calls EX.deliver_forwards directly - that delivers the local player's "
+        "contracts only, on each machine. Call EX.deliver_all_forwards.")
+    daf = re.search(r"function EX\.deliver_all_forwards\(\).*?\n" + "end", code, re.S)
+    assert daf and re.search(r"for _, f in ipairs\(EX\.humans\(\)\) do\s*EX\.with_player\(f, "
+                             r"function\(\) EX\.deliver_forwards\(\) end\)", daf.group(0)), (
+        "EX.deliver_all_forwards no longer delivers inside EX.with_player for each human.")
+    i_fwd = body.index("EX.deliver_all_forwards()")
+    i_reset = body.index("EX.fill_factions = {}")
+    i_fill = body.index("EX.fill_orders()")
+    assert i_apply < i_reset < i_fwd < i_deals < i_fill, (
+        "the round must run apply_prices, the fill_factions reset, deliver_all_forwards, "
+        "post_all_deals, then the fills. Found apply=%d reset=%d deliver=%d deals=%d fill=%d."
+        % (i_apply, i_reset, i_fwd, i_deals, i_fill))
     # THE POSITION SWEEP (Stage 3, Task 4). Same route as every ordering rule above - read
     # off the SOURCE, because EX.turn_round is a closure inside EX.init() and no harness here
     # runs EX.init(). It sits immediately after EX.apply_trade_income: both are world effects
@@ -15562,13 +16974,53 @@ def check_lua_books():
     assert tick, "EX.init() is gone"
     # THE SAME RULE FOR THE DEALS PAGE. EX.restore has just unpacked the saved deals when this
     # path runs; reposting here would overwrite them with a fresh roll on every single reload.
-    assert "EX.post_deals()" not in tick.group(0), (
+    # AND DELIVERY: a reload must never deliver a contract a second time.
+    assert "deliver_" not in tick.group(0), (
+        "a contract delivery runs on the first tick. A load is not a turn, and a contract "
+        "delivered on load has already been delivered at that turn's start.")
+    assert ("EX.post_deals()" not in tick.group(0)
+            and "EX.post_all_deals()" not in tick.group(0)), (
         "post_deals runs on the first tick. A load is not a turn - the page the player saved "
         "would be replaced by a new one every time they loaded, which is also five rolls of "
         "the engine's acceptance check for one turn's deals.")
     assert "EX.step_books()" not in tick.group(0), (
         "step_books runs on the first tick. A load is not a turn - five reloads would be "
         "five trading days, the same trap charge_carry and pay_dividends both document.")
+
+    # THE INDEX FUND (2026-09-29). Removals after check_delistings and before apply_prices, so a
+    # dead member leaves at the living price its share settlement just used; joins after
+    # apply_prices, so a new house joins at its fresh price and not its placeholder; the
+    # dividend beside pay_dividends inside the per-human block. Never on the first tick: a
+    # reload would be a second rebalance and a second dividend day.
+    assert "EX.index_sync(false)" in body and "EX.index_sync(true)" in body, (
+        "EX.turn_round no longer runs both index passes. Without removals a dead member stays "
+        "in the index forever; without joins nothing ever creates one.")
+    i_rm = body.index("EX.index_sync(false)")
+    i_join = body.index("EX.index_sync(true)")
+    assert i_del < i_rm < i_apply < i_join < i_fwd, (
+        "the index's removals must sit between check_delistings and apply_prices, and its "
+        "joins after apply_prices. Found delist=%d remove=%d apply=%d join=%d."
+        % (i_del, i_rm, i_apply, i_join))
+    assert re.search(r"EX\.pay_dividends\(\)\s*EX\.pay_index_dividends\(\)", body), (
+        "EX.pay_index_dividends is not called right after EX.pay_dividends, inside the "
+        "per-human block. Unbound it pays the local player's units on every machine.")
+    for name in ("EX.index_sync", "EX.pay_index_dividends"):
+        assert name not in tick.group(0), (
+            "%s runs on the first tick. A load is not a turn." % name)
+
+    # WAR BONDS (2026-09-29). Offers after the reprice, since a bond's payment reads the house's
+    # price; payments right after the index dividend, inside the per-human block. Neither on the
+    # first tick: a reload would repost the page and pay a second time.
+    i_bpost = body.find("EX.post_all_bonds()")
+    assert i_bpost > i_apply, (
+        "EX.post_all_bonds is missing from the turn round or runs before EX.apply_prices, so a "
+        "bond's risk reads last turn's price")
+    assert re.search(r"EX\.pay_index_dividends\(\)\s*EX\.pay_bonds\(\)", body), (
+        "EX.pay_bonds is not called right after EX.pay_index_dividends, inside the per-human "
+        "block. Unbound it pays the local player's bonds on every machine.")
+    for name in ("EX.post_all_bonds", "EX.post_bonds", "EX.pay_bonds"):
+        assert name not in tick.group(0), (
+            "%s runs on the first tick. A load is not a turn." % name)
 
     assert int(have["shift_zero"]) == 0, have
     assert int(have["shift_under"]) == 0, (
@@ -17870,6 +19322,9 @@ def check_lua_books():
           "trade and stock families; net position crossed long/short, non-war excluded; "
           "tier 2/-2 at war and 1/-1 at peace, boundary exact, capped at the ladder top"
           % have["war_keys_count"])
+    check_forwards(have)
+    check_index(have)
+    check_bonds(have)
 
 
 # The stub board check_lua_houses() runs the SHIPPED file against. Kept at module level for
@@ -19774,9 +21229,12 @@ def check_nav_cycle():
     # ===================================================================================
     assert have["h_pages"] == "3", (
         "41 houses at %s a page is 3, not %s" % (have["per_page"], have["h_pages"]))
-    assert have["h_count"] == have["h_pages"], (
-        "EX.page_count answers %s for the Houses view but there are %s pages - the counter "
-        "and the arrows both read that one function" % (have["h_count"], have["h_pages"]))
+    # PLUS TWO: the index page and the bonds page sit after the list (2026-09-29).
+    assert have["h_count"] == str(int(have["h_pages"]) + 2), (
+        "EX.page_count answers %s for the Houses view but there are %s list pages, the "
+        "index page and the bonds page - the counter and the arrows both read that one "
+        "function"
+        % (have["h_count"], have["h_pages"]))
     assert have["h_first"] == "house_001", have["h_first"]
     assert have["h_len1"] == "20", (
         "page 1 drew %s rows against a 20-slot holder" % have["h_len1"])
@@ -19806,9 +21264,25 @@ def check_nav_cycle():
     assert have["h_fwd"] == "2,houses", (
         "the forward arrow on the Houses view gave %s. It must page the view, not leave it - "
         "leaving is what the tabs are for." % have["h_fwd"])
-    assert have["h_back_wrap"] == have["h_pages"], (
-        "stepping back from page 1 landed on %s, not the last page (%s)"
-        % (have["h_back_wrap"], have["h_pages"]))
+    last = int(have["h_pages"]) + 2
+    assert have["h_back_wrap"] == "%d,bonds" % last, (
+        "stepping back from page 1 landed on %s, not the last page (%d, bonds)"
+        % (have["h_back_wrap"], last))
+    assert have["h_to_index"] == "%d,index,%d/%d" % (last - 1, last - 1, last), (
+        "Next from the last list page gave %s. It must land on the index page, and the counter "
+        "must say so" % have["h_to_index"])
+    assert have["h_to_bonds"] == "%d,bonds,%d/%d" % (last, last, last), (
+        "Next from the index page gave %s. It must land on the bonds page, the last one"
+        % have["h_to_bonds"])
+    assert have["h_index_wrap"] == "1,houses", (
+        "Next from the bonds page gave %s, want page 1 of the list" % have["h_index_wrap"])
+    assert have["h_index_shrunk"] == "2/3,true", (
+        "the list shrank to one page under a player on the index page and the view gave %s. "
+        "They must stay on the index, and the counter must not read past its own end - the "
+        "3/2 fault" % have["h_index_shrunk"])
+    assert have["h_index_reset"] == "false", (
+        "re-entering the Houses view reopened the index page. Every view opens on its first "
+        "page")
     assert have["h_exact"] == "1,20", (
         "20 houses against 20 slots reported %s. Chaos Dwarfs sit exactly on this number "
         "today - 10 vanilla plus the lords pack's 10 - so an off-by-one here ships a second, "

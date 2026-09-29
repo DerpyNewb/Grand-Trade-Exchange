@@ -55,6 +55,8 @@ EX.CHART_FLOOR = 6
 -- at four sessions ago, or on a house that has since been delisted.
 EX.selected    = nil
 EX.trade_page  = 1
+-- AND WHICH PAGE OF THE DEALS TAB: the one-turn deals, then the contracts (2026-09-29).
+EX.deal_page   = 1
 -- THE TICKET'S STATE. SESSION ONLY, never saved, same as EX.selected above: a half-composed
 -- order need not survive a reload. EX.ord_rung is re-seeded from the instrument's own current
 -- rung every time a row is selected - see the row_name click in EX.row_click.
@@ -216,6 +218,33 @@ EX.SAVE_ORDERS = "zharr_ord"
 -- would overwrite anyway.
 EX.SAVE_DEALS = "zharr_deals"
 EX.deals = {}
+
+-- FORWARD CONTRACTS (2026-09-29; docs/superpowers/specs/
+-- 2026-09-29-zharr-exchange-forward-contracts-design.md). PER PLAYER, both of them.
+-- EX.fwd_offers is this turn's contract offers - rebuilt every turn like EX.deals and saved for
+-- the same reason, so a mid-turn reload shows the same page. EX.forwards is the open contracts
+-- the player has taken, which DO cross turn boundaries until their delivery turn.
+EX.SAVE_FWD        = "zharr_fwd"
+EX.SAVE_FWD_OFFERS = "zharr_fwdo"
+EX.forwards   = {}
+EX.fwd_offers = {}
+
+-- THE INDEX FUND (2026-09-29; docs/superpowers/specs/2026-09-29-zharr-exchange-index-fund-design.md).
+-- EX.SAVE_INDEX is WORLD state, one key per culture with a human, suffixed with the culture:
+-- { d = divisor, m = sorted member keys, last = level at the end of the last round, prev = the
+-- round before }. Every machine computes it from the same world, so it is never per player.
+-- The units are per player.
+EX.SAVE_INDEX       = "zharr_idx_"
+EX.SAVE_INDEX_UNITS = "zharr_idxu"
+
+-- WAR BONDS AND LOANS, PER PLAYER, both of them: this turn's offers (rebuilt every turn and saved
+-- only so a mid-turn reload shows the same page) and the open positions, both sides in one list.
+EX.SAVE_BONDS       = "zharr_bond"
+EX.SAVE_BOND_OFFERS = "zharr_bondo"
+EX.bonds       = {}
+EX.bond_offers = {}
+EX.INDEX_MIN   = 2
+EX.index_units = 0
 
 -- Own-trade impact, moved here from the DB. rituals.percentage_cost_increase_per_use is
 -- invisible to script, so it would make the panel show a price the game does not charge.
@@ -766,11 +795,17 @@ end
 -- Upgrade path if the fence ever breaks: two-level tables keyed by faction.
 -- ------------------------------------------------------------------------------------------
 
-EX.SLICE_TABLES  = { "shares_held", "offer_until", "LOG", "orders", "deals" }
-EX.SLICE_SCALARS = { "offerings_made", "demand_turn", "demand_res", "demand_tier", "demand_due" }
+EX.SLICE_TABLES  = { "shares_held", "offer_until", "LOG", "orders", "deals",
+                     "forwards", "fwd_offers", "bonds", "bond_offers" }
+-- deal_why IS HERE BECAUSE THE PAGE IT EXPLAINS IS (2026-09-29). It is the Deals footer's
+-- reason for an empty page, and EX.post_all_deals now builds one page per human: held in one
+-- shared value it ended every pass as the LAST human's reason, so the local panel explained a
+-- page it never had.
+EX.SLICE_SCALARS = { "offerings_made", "demand_turn", "demand_res", "demand_tier", "demand_due",
+                     "deal_why", "index_units" }
 -- demand_res and demand_tier are absent on purpose: nil IS their cleared state, and a table
 -- literal cannot carry a nil value anyway.
-EX.SLICE_ZERO    = { offerings_made = 0, demand_turn = 0, demand_due = 0 }
+EX.SLICE_ZERO    = { offerings_made = 0, demand_turn = 0, demand_due = 0, index_units = 0 }
 
 EX.slices  = {}
 EX.subject = nil
@@ -1306,6 +1341,29 @@ EX.DEAL_MAX = 3
 -- so it is deliberately smaller than one step of the price ladder.
 EX.DEAL_EDGE = 6
 
+-- FORWARD CONTRACTS. How many contract offers a turn, posted after the one-turn deals and
+-- never instead of one. Also the offers' share of the Contracts page's row pool, so the cap in
+-- EX.post_deals and the pool in EX.build_panel read the same knob, as deal_max does.
+EX.FWD_MAX = 2
+-- THE LONGEST CONTRACT, in turns. The shortest is half of it, rounded up; each offer's length
+-- is drawn between the two by EX.key_hash, so every machine draws the same one.
+EX.FWD_TURNS = 10
+-- OPEN CONTRACTS ONE PLAYER MAY HOLD. A constant, not a knob: nothing about it needs tuning,
+-- and it is the rest of the page's row pool.
+EX.FWD_OPEN_MAX = 6
+
+-- WAR BONDS AND LOANS (2026-09-29; docs/superpowers/specs/2026-09-29-zharr-exchange-war-bonds-design.md).
+-- Offers a turn, PER SIDE: bond issues from houses at war, loan offers from houses at peace.
+EX.BOND_MAX = 2
+-- THE LONGEST TERM, in turns; the shortest is half of it, rounded up, the contracts rule.
+EX.BOND_TURNS = 10
+-- THE PAYMENT A TURN, as a fraction of the amount. A bond scales it by the house's risk.
+EX.BOND_RATE = 0.02
+-- Amounts are whole thousands, one to five of them. Constants, not knobs.
+EX.BOND_UNIT = 1000
+-- OPEN POSITIONS ONE PLAYER MAY HOLD, PER SIDE, and the rest of the page's row pool.
+EX.BOND_OPEN_MAX = 6
+
 
 -- ===========================================================================================
 -- MCT. Spec sections 13, 15.
@@ -1358,15 +1416,17 @@ EX.TUNE_NUM = {
     race_strength = "RACE_STRENGTH",
     world_cash_max = "WORLD_CASH_MAX", world_trade_max = "WORLD_TRADE_MAX",
     deal_max = "DEAL_MAX", deal_edge = "DEAL_EDGE",
+    fwd_max = "FWD_MAX", fwd_turns = "FWD_TURNS",
+    bond_max = "BOND_MAX", bond_turns = "BOND_TURNS", bond_rate = "BOND_RATE",
     pos_step = "POS_STEP_LOTS",
     world_gain = "WORLD_GAIN",
 }
 
--- The twelve system switches. All default TRUE: a settings panel that is not installed must
+-- The fourteen system switches. All default TRUE: a settings panel that is not installed must
 -- never silently disable a feature.
 EX.TUNE_BOOL = { "ai_traders", "ai_gold", "refusal", "war_lock", "warehouse_rent",
                  "hashut_demands", "trade_income", "cross_bloc", "ai_stance", "ai_world",
-                 "world_scarcity", "ai_deals", "world_bundles" }
+                 "world_scarcity", "ai_deals", "world_bundles", "ai_forwards", "ai_bonds" }
 EX.TUNE_BOOL_SET = {}
 for _, k in ipairs(EX.TUNE_BOOL) do EX.TUNE_BOOL_SET[k] = true end
 
@@ -1411,6 +1471,10 @@ EX.PRESETS = {
         -- the price ladder, which at easy's 1.08 is eight per cent - a deal must never be a
         -- free round trip against the Trade view.
         deal_max = 4, deal_edge = 7,
+        -- THREE CONTRACT OFFERS. The page teaches the instrument; the length stays the default.
+        fwd_max = 3, fwd_turns = 10,
+        -- THREE BOND OFFERS A SIDE, at the default rate: more choice, the same terms.
+        bond_max = 3, bond_turns = 10, bond_rate = 0.02,
         -- THE WIDEST STEP OF THE FOUR, so the fewest factions on the map carry a position
         -- bundle at all. A first campaign should meet this as flavour rather than as a
         -- second economy running underneath the one it is learning.
@@ -1418,7 +1482,7 @@ EX.PRESETS = {
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = false, hashut_demands = false, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true,
         -- THE ONE DELIBERATE ASYMMETRY. A first campaign should never have a purchase
         -- refused for want of a seller.
         world_scarcity = false,
@@ -1437,11 +1501,13 @@ EX.PRESETS = {
         race_strength = 1.0,
         world_cash_max = 4000, world_trade_max = 3, world_gain = 6.0,
         deal_max = 3, deal_edge = 4,
+        fwd_max = 2, fwd_turns = 10,
+        bond_max = 2, bond_turns = 10, bond_rate = 0.02,
         pos_step = 3,
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true,
         world_scarcity = true,
     },
     -- ULTRA CAPITALISM. A quarter spread against a tenth floor, the guild moving five rungs a
@@ -1466,13 +1532,18 @@ EX.PRESETS = {
         -- the world wants, which is worth more here than anywhere - and takes the gift out
         -- of it. Two per cent against a 1.18 ladder is a rounding error on a single lot.
         deal_max = 2, deal_edge = 2,
+        -- ONE CONTRACT OFFER. A forward on ultra is a bet against a 1.18 ladder, not a gift.
+        fwd_max = 1, fwd_turns = 10,
+        -- ONE BOND OFFER A SIDE. The rate stays: ultra's edge is the wind-up rate of 0.15 on a
+        -- dead borrower, which is where a bond's risk lives.
+        bond_max = 1, bond_turns = 10, bond_rate = 0.02,
         -- THE NARROWEST. Two lots of net war goods is a tier, so most of the map wears one
         -- and the war-materiel trade is a live strategic lever rather than a side effect.
         pos_step = 2,
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true,
         world_scarcity = true,
     },
 }
@@ -1543,16 +1614,29 @@ function EX.opt_live(key, preset)
     return v
 end
 
+-- THE SHARED MARKET'S KNOBS. They are read unbound - by the world steps of the turn round and
+-- by every reprice - which on each machine means that machine's own player. In multiplayer
+-- they take no race profile at all, so every machine prices one book the same way: until the
+-- logic sweep of 2026-09-29 a Chaos Dwarf machine and a Skaven one priced the same book
+-- differently and the shared prices never agreed again. In singleplayer the one player's
+-- profile still shapes the board, as it always has.
+EX.WORLD_TUNABLE = { pressure_per_rung = true, book_per_rung = true, shock_gain = true,
+                     shock_max = true }
+
 -- The player's race profile factor for one key, or 1. An uncovered race, a race with no
--- profile, a key off the whitelist and a non-numeric entry all answer 1.
-function EX.race_factor(key)
+-- profile, a key off the whitelist and a non-numeric entry all answer 1. r, when given, is the
+-- race row to use instead of the subject's; false means no profile.
+function EX.race_factor(key, r)
     if EX.RACE_TUNABLE[key] == nil then return 1 end
+    if r == nil then
+        if EX.WORLD_TUNABLE[key] and EX.is_mp() then return 1 end
+        r = EX.rc()
+    end
     -- EX.rc(), NOT EX.race. This is applied at READ time inside EX.opt, and EX.opt is read
     -- while another player is bound all through the turn round - so reading the LOCAL player's
     -- profile here would charge the Empire player's rent at Chaos Dwarf factors on one machine
     -- and at Empire factors on theirs. In singleplayer the subject is always the local player
     -- and this is the same lookup it always was.
-    local r = EX.rc()
     local t = r and r.tune
     local f = t and t[key]
     if type(f) ~= "number" then return 1 end
@@ -1575,10 +1659,10 @@ end
 -- for 30 * 1.83, and leaving it unrounded puts a fractional turn count into a comparison that
 -- reads as off-by-one exactly when the fraction lands wrong. The test is the DEFAULT's shape,
 -- not the resolved value's: a preset may hand back 0.5 for a knob whose constant is 6.
-function EX.race_apply(key, v)
+function EX.race_apply(key, v, r)
     local b = EX.RACE_TUNABLE[key]
     if b == nil or type(v) ~= "number" then return v end
-    local f = EX.race_factor(key)
+    local f = EX.race_factor(key, r)
     if f == 1 then return v end
     v = v * f
     if v < b[1] then v = b[1] end
@@ -1601,6 +1685,15 @@ function EX.opt(key)
     local s = EX.snap
     if s and s[key] ~= nil then return EX.race_apply(key, s[key]) end
     return EX.race_apply(key, EX.opt_live(key))
+end
+
+-- A KNOB AT ONE CULTURE'S PROFILE, whoever is bound or local. The index is one number per
+-- culture on every machine, so the wind-up it weighs a dead member at is that culture's own.
+function EX.opt_for_culture(key, c)
+    local s = EX.snap
+    local v = s and s[key]
+    if v == nil then v = EX.opt_live(key) end
+    return EX.race_apply(key, v, (c and EX.RACES[c]) or false)
 end
 
 -- Called first thing at FactionTurnStart, and NOT at first tick: first tick is not provably
@@ -2157,6 +2250,10 @@ function EX.short(res)
     -- AND THE DEALS PAGE'S, for the same reason: two deals can name one commodity (measured
     -- - the shipped fixture posts glass twice), which would collide on a single component.
     if string.match(res, "^dl%d+$") then return res end
+    -- AND THE CONTRACTS PAGE'S: offers then open contracts, by position (2026-09-29).
+    if string.match(res, "^fw%d+$") then return res end
+    -- AND THE BONDS PAGE'S: offers, then your bonds, then your loans (2026-09-29).
+    if string.match(res, "^bd%d+$") then return res end
     if res == "wh3_dlc23_chd_armaments" then return "armaments" end
     if res == "wh3_dlc23_chd_raw_materials" then return "raw_materials" end
     return string.gsub(res, "^res_", "")
@@ -2576,6 +2673,70 @@ function EX.house_pages()
     return n
 end
 
+-- THE HOUSES TAB'S PAGES: the house list, then the extra pages in EX.house_extra_pages' order.
+-- The index is always there, so a player with no index still finds the page that says why.
+function EX.house_page_count() return EX.house_pages() + #EX.house_extra_pages() end
+
+-- EX.HOUSE_INDEX_PAGE IS THE INDEX PAGE, wherever the list ends. Not "past the last list
+-- page": EX.on_index feeds EX.view, which the house list's own sort reads, so an on_index that
+-- counted the list's pages would recurse through it. It also keeps a player on the index page
+-- when the list shortens under them, and every `EX.house_page = 1` leaves it with no second
+-- flag to reset. Not 0: _nav_harness.lua pins 0 as an out-of-range page that clamps to 1.
+EX.HOUSE_INDEX_PAGE = -1
+EX.HOUSE_BONDS_PAGE = -2
+
+-- THE EXTRA PAGES, in order. Bonds stay while any bond or loan is open, the contracts rule: the
+-- switch stops new offers, not the page that shows what the player still holds.
+function EX.house_extra_pages()
+    local t = { EX.HOUSE_INDEX_PAGE }
+    if EX.setting("ai_bonds") or #(EX.bonds or {}) > 0 then t[#t + 1] = EX.HOUSE_BONDS_PAGE end
+    return t
+end
+
+-- WHICH EXTRA PAGE IS SHOWING, or nil on a list page. A sentinel whose page has gone reads as
+-- the last extra page, the clamp a list page gets. Reads no house list, for the reason above.
+function EX.house_extra()
+    local at = EX.house_page
+    if type(at) ~= "number" or at >= 0 then return nil end
+    local t = EX.house_extra_pages()
+    for _, s in ipairs(t) do
+        if s == at then return s end
+    end
+    return t[#t]
+end
+--
+-- A LIST PAGE IS CLAMPED, EX.deal_page_at's rule: the list can shorten under a player standing
+-- past its end. Unclamped, the counter read "3/2" (ZHARR_EXCHANGE.md s17).
+function EX.house_page_at()
+    local s = EX.house_extra()
+    if s then
+        for i, e in ipairs(EX.house_extra_pages()) do
+            if e == s then return EX.house_pages() + i end
+        end
+    end
+    local n = EX.house_pages()
+    local at = EX.house_page or 1
+    if at < 1 then at = 1 end
+    if at > n then at = n end
+    return at
+end
+
+function EX.on_index()
+    return EX.mode == EX.MODE_HOUSES and EX.house_extra() == EX.HOUSE_INDEX_PAGE
+end
+
+function EX.on_bonds()
+    return EX.mode == EX.MODE_HOUSES and EX.house_extra() == EX.HOUSE_BONDS_PAGE
+end
+
+-- THE INDEX PAGE'S ROWS: the index, then its members heaviest first, as many as fit.
+function EX.index_rows()
+    local t = { "idx" }
+    local m = EX.index_by_share(EX.index_culture())
+    for i = 1, math.min(#m, EX.MAX_ROWS - 1) do t[#t + 1] = m[i] end
+    return t
+end
+
 -- THE SLICE, AND ITS CLAMP. The clamp lives HERE, not only where the arrows move the index -
 -- exactly as EX.log_lines clamps inside itself. EX.check_delistings and EX.prune_houses both
 -- shorten EX.houses at turn start, so a page index that was valid when the player set it can
@@ -2623,7 +2784,19 @@ function EX.mode_instruments()
     -- name one commodity and would collide on a single component. An empty list hands back
     -- nothing, which is what hides every row and leaves the footer to say why.
     if EX.mode == EX.MODE_DEALS then
+        -- THE CONTRACTS PAGE is one list by position: this turn's offers, then the open
+        -- contracts - see EX.fwd_cells.
+        if EX.on_contracts() then
+            for i = 1, #EX.fwd_offers + #EX.forwards do t[#t + 1] = string.format("fw%d", i) end
+            return t
+        end
         for i = 1, #EX.deals do t[#t + 1] = string.format("dl%d", i) end
+        return t
+    end
+    if EX.on_index() then return EX.index_rows() end
+    -- THE BONDS PAGE, by position: the offers, then your bonds, then your loans - EX.bond_at.
+    if EX.on_bonds() then
+        for i = 1, #EX.bond_offers + #EX.bonds do t[#t + 1] = string.format("bd%d", i) end
         return t
     end
     if EX.mode == EX.MODE_HOUSES then
@@ -3383,6 +3556,12 @@ function EX.holdings_value()
             end
         end
     end
+    -- AND THE INDEX UNITS, at the index's own sell price - they are paper like the shares.
+    local u = EX.index_units or 0
+    if u > 0 then
+        local px = EX.index_sell_price(EX.index_culture()) or 0
+        total = total + math.floor(u * px / EX.HOUSE_LOT_SIZE)
+    end
     return total
 end
 
@@ -3767,6 +3946,344 @@ function EX.prune_houses()
 end
 
 -- ---------------------------------------------------------------------------------------
+-- THE INDEX FUND. One instrument over your own culture's listed houses: level = the sum of
+-- their lot prices over a divisor. A join moves the divisor and never the level; a death costs
+-- the index that house's weight times (1 - windup) and never raises it.
+-- ---------------------------------------------------------------------------------------
+
+-- THE BOUND PLAYER'S CULTURE, never EX.HOUSE_CULTURE: that is the local client's, and in a mixed
+-- multiplayer game it would hand the Empire player the Chaos Dwarf index.
+function EX.index_culture() return EX.culture_of(EX.who()) end
+
+-- The live table in EX.store, or nil. Mutated in place; EX.enc_store tags its float divisor on
+-- the way into the save.
+function EX.index_state(c)
+    if not c then return nil end
+    local s = EX.getv(EX.SAVE_INDEX .. c)
+    return type(s) == "table" and s or nil
+end
+
+function EX.index_dead(h) return EX.is_delisted(h) or EX.house_gone(h) end
+
+-- SORTED, so two machines holding the house list in different insertion orders build one index.
+function EX.index_eligible(c)
+    local t = {}
+    for _, h in ipairs(EX.houses or {}) do
+        if EX.culture_of(h) == c and not EX.index_dead(h) then t[#t + 1] = h end
+    end
+    table.sort(t)
+    return t
+end
+
+-- A DEAD MEMBER READS AT THE WIND-UP RATE AS SOON AS IT IS DEAD, before any round has removed
+-- it. At its living price the index would sell a corpse at full value for the rest of the turn.
+function EX.index_weight(h)
+    local p = EX.price(h)
+    if EX.index_dead(h) then p = EX.opt_for_culture("windup", EX.culture_of(h)) * p end
+    return p
+end
+
+function EX.index_level(c)
+    local s = EX.index_state(c)
+    if not s or #s.m == 0 or not s.d or s.d <= 0 then return nil end
+    local sum = 0
+    for _, h in ipairs(s.m) do sum = sum + EX.index_weight(h) end
+    return sum / s.d
+end
+
+-- The members, heaviest first, ties by key so the order is stable between refreshes.
+function EX.index_by_share(c)
+    local s = EX.index_state(c)
+    local t = {}
+    if not s then return t end
+    for _, h in ipairs(s.m) do t[#t + 1] = { h = h, w = EX.index_weight(h) } end
+    table.sort(t, function(x, y)
+        if x.w ~= y.w then return x.w > y.w end
+        return x.h < y.h
+    end)
+    local out = {}
+    for i, e in ipairs(t) do out[i] = e.h end
+    return out
+end
+
+function EX.index_cultures()
+    local seen, t = {}, {}
+    for _, f in ipairs(EX.humans()) do
+        local c = EX.culture_of(f)
+        if c and not seen[c] then seen[c] = true; t[#t + 1] = c end
+    end
+    table.sort(t)
+    return t
+end
+
+-- fn bound to each human of culture c: the log lines and the units are theirs.
+function EX.index_holders(c, fn)
+    for _, f in ipairs(EX.humans()) do
+        if EX.culture_of(f) == c then EX.with_player(f, fn) end
+    end
+end
+
+-- REMOVALS, turn step 7b: after check_delistings, before apply_prices collapses a dead house's
+-- price. The dead leave at windup x price, a member that left alive at its full price, and the
+-- divisor is re-cut so the level after is exactly the level the dead left behind. Each death
+-- is logged with its own fall, the house named at draw time (see EX.log_settlement).
+--
+-- EVERY MEMBER GONE ENDS THE INDEX: its holders are settled at that level and the state is
+-- dropped. A divisor cannot carry a level over an empty list, and restarting later at the new
+-- houses' average would hand a free rise to every unit still held.
+function EX.index_remove(c)
+    local s = EX.index_state(c)
+    if not s or #s.m == 0 then return end
+    local ok = {}
+    for _, h in ipairs(EX.index_eligible(c)) do ok[h] = true end
+    local wind = EX.opt_for_culture("windup", c)
+    local keep, dead, alive, full = {}, {}, 0, 0
+    for _, h in ipairs(s.m) do
+        local p = EX.price(h)
+        full = full + p
+        if EX.index_dead(h) then
+            dead[#dead + 1] = { h, p * (1 - wind) }
+        elseif ok[h] then
+            keep[#keep + 1] = h
+            alive = alive + p
+        end
+    end
+    if #keep == #s.m then return end
+    local lines, at = {}, full / s.d
+    for _, x in ipairs(dead) do
+        local to = at - x[2] / s.d
+        lines[#lines + 1] = { x[1], "Gone. The index took it at the wind-up rate and fell from "
+            .. math.floor(at + 0.5) .. " to " .. math.floor(to + 0.5) .. "." }
+        at = to
+    end
+    local level = at
+    if #keep == 0 then
+        EX.setv(EX.SAVE_INDEX .. c, nil)
+        EX.index_holders(c, function()
+            local u = EX.index_units or 0
+            local paid = math.floor(u * level / EX.HOUSE_LOT_SIZE)
+            if paid > 0 then cm:treasury_mod(EX.who(), paid) end
+            EX.set_index_units(0)
+            for _, l in ipairs(lines) do EX.log_add("", l[2], l[1]) end
+            if u > 0 then
+                EX.log_add("Index", "Every house in it is gone; your " .. u
+                    .. " unit(s) settled for " .. paid .. "g.", "")
+            end
+        end)
+        return
+    end
+    s.m = keep
+    s.d = alive / level
+    EX.index_holders(c, function()
+        for _, l in ipairs(lines) do EX.log_add("", l[2], l[1]) end
+    end)
+end
+
+-- JOINS, turn step 10c: after apply_prices, so a new house joins at its fresh price. The
+-- divisor grows by the joiner's price over the level, so the level does not move. A culture
+-- with no index gets one when it first has INDEX_MIN houses, opening at their average.
+-- Records the trend's two levels last.
+function EX.index_join(c)
+    local elig = EX.index_eligible(c)
+    local s = EX.index_state(c)
+    if not s then
+        if #elig < EX.INDEX_MIN then return end
+        s = { d = #elig, m = elig }
+        EX.setv(EX.SAVE_INDEX .. c, s)
+    else
+        local level = EX.index_level(c)
+        local have = {}
+        for _, h in ipairs(s.m) do have[h] = true end
+        local add = 0
+        for _, h in ipairs(elig) do
+            if not have[h] then
+                have[h] = true
+                s.m[#s.m + 1] = h
+                add = add + EX.price(h)
+            end
+        end
+        if add > 0 and level and level > 0 then
+            table.sort(s.m)
+            s.d = s.d + add / level
+        end
+    end
+    s.prev = s.last
+    s.last = EX.index_level(c)
+end
+
+-- BOTH PASSES ARE WORLD WORK, unbound, one culture at a time in sorted order.
+function EX.index_sync(join)
+    for _, c in ipairs(EX.index_cultures()) do
+        if join then EX.index_join(c) else EX.index_remove(c) end
+    end
+end
+
+function EX.index_trend(c)
+    local s = EX.index_state(c)
+    if not s or not s.last or not s.prev then return EX.TREND_FLAT end
+    if s.last > s.prev then return EX.TREND_UP end
+    if s.last < s.prev then return EX.TREND_DOWN end
+    return EX.TREND_FLAT
+end
+
+-- PER LOT. No hostility markup (no single house is selling) and no pressure (buying the index
+-- does not move its members), so the spread is the only thing between the two prices.
+function EX.index_buy_price(c)
+    local l = EX.index_level(c)
+    return l and math.floor(l + 0.5) or nil
+end
+
+function EX.index_sell_price(c)
+    local l = EX.index_level(c)
+    if not l then return nil end
+    local f = 1 - EX.opt("spread")
+    if f < EX.opt("sell_floor") then f = EX.opt("sell_floor") end
+    return math.floor(l * f)
+end
+
+-- REASON, LABEL for a buy, the EX.buy_refusal shape. Selling is never refused here.
+function EX.index_refusal(c)
+    local s = EX.index_state(c)
+    if not s or #s.m < EX.INDEX_MIN then
+        return "Fewer than two houses of your people are listed, so there is no index to buy. "
+            .. "Selling stays open.", "No index"
+    end
+    if EX.market_closed() then
+        return "The Exchange is shut: too much of the guild is at war with you. Selling stays "
+            .. "open.", "Closed"
+    end
+    return nil
+end
+
+function EX.set_index_units(n)
+    if n < 0 then n = 0 end
+    EX.index_units = n
+    EX.setp(EX.SAVE_INDEX_UNITS, n)
+end
+
+-- N LOTS AT ONE PRICE, one treasury_mod, gold to and from nobody - the share rule (scoping F2).
+-- Returns true when every lot filled, else the reason it stopped, as EX.apply_trade does.
+function EX.index_trade(is_buy, n)
+    local c = EX.index_culture()
+    local lot = EX.HOUSE_LOT_SIZE
+    if is_buy then
+        local why = EX.index_refusal(c)
+        if why then
+            EX.log_add("Index", "Buy refused. " .. why, "")
+            return EX.index_state(c) and #EX.index_state(c).m >= EX.INDEX_MIN and "closed"
+                or "noindex"
+        end
+    end
+    local px = is_buy and EX.index_buy_price(c) or EX.index_sell_price(c)
+    if not px then return "noindex" end
+    local gold = 0
+    pcall(function() gold = cm:get_faction(EX.who()):treasury() end)
+    local done, last = 0, true
+    for _ = 1, n do
+        if is_buy and gold - (done + 1) * px < 0 then last = "afford"; break end
+        if not is_buy and EX.index_units - (done + 1) * lot < 0 then last = "nothold"; break end
+        done = done + 1
+    end
+    local stop = (last ~= true) and EX.TRADE_STOP[last] or nil
+    if done > 0 then
+        cm:treasury_mod(EX.who(), (is_buy and -1 or 1) * done * px)
+        EX.set_index_units(EX.index_units + (is_buy and 1 or -1) * done * lot)
+        EX.log_add("Index", (is_buy and "Bought " or "Sold ") .. done * lot .. " unit(s) for "
+            .. done * px .. "g." .. (stop and (" " .. stop) or ""), "")
+    elseif stop then
+        EX.log_add("Index", (is_buy and "Buy refused. " or "Sell refused. ") .. stop, "")
+    end
+    return last
+end
+
+-- The amount rides on the op, as it does for EX.trade.
+function EX.index_send(is_buy)
+    local side = is_buy and "b" or "s"
+    EX.mp_send("idx", side .. tostring(EX.amount))
+end
+
+EX.MP_OPS.idx = function(arg)
+    arg = tostring(arg or "")
+    local side = string.sub(arg, 1, 1)
+    if side ~= "b" and side ~= "s" then return end
+    local why = EX.index_trade(side == "b", EX.clamp_lots(string.sub(arg, 2)))
+    if why ~= true then EX.say("trade", "index trade stopped: " .. tostring(why)) end
+    if is_uicomponent(EX.panel()) then EX.refresh_panel() end
+end
+
+-- EACH MEMBER'S PART, { house, gold }, for u units. THE TOTAL IS FLOORED ONCE - floor(u x the
+-- members' per-share dividends / divisor), the number the Div column promises - and split by
+-- largest remainder, ties by key. Floored per member instead, 21 houses each dropped most of a
+-- gold and ten units were paid 21g against the 40g the row showed. EX.dividend is already 0 at
+-- war and a dead member pays nothing, so neither can draw a remainder.
+function EX.index_dues(c, u)
+    local s = EX.index_state(c)
+    local t = {}
+    if not s or not u or u <= 0 or not s.d or s.d <= 0 then return t end
+    local sum, floors = 0, 0
+    for _, h in ipairs(s.m) do
+        if not EX.index_dead(h) then
+            local dv = EX.dividend(h)
+            local q = u * dv / s.d
+            local f = math.floor(q)
+            t[#t + 1] = { h, f, q - f }
+            sum, floors = sum + dv, floors + f
+        end
+    end
+    local left = math.floor(u * sum / s.d) - floors
+    if left > 0 then
+        local by = {}
+        for i, x in ipairs(t) do by[i] = x end
+        table.sort(by, function(x, y)
+            if x[3] ~= y[3] then return x[3] > y[3] end
+            return x[1] < y[1]
+        end)
+        for i = 1, left do
+            if by[i] and by[i][3] > 0 then by[i][2] = by[i][2] + 1 end
+        end
+    end
+    local out = {}
+    for _, x in ipairs(t) do
+        if x[2] > 0 then out[#out + 1] = { x[1], x[2] } end
+    end
+    return out
+end
+
+function EX.index_due(c, u)
+    local n = 0
+    for _, x in ipairs(EX.index_dues(c, u)) do n = n + x[2] end
+    return n
+end
+
+-- What one lot is paid a turn, for the row: the same total EX.index_dues splits.
+function EX.index_dividend_lot(c)
+    local s = EX.index_state(c)
+    if not s or not s.d or s.d <= 0 then return 0 end
+    local n = 0
+    for _, h in ipairs(s.m) do
+        if not EX.index_dead(h) then n = n + EX.dividend(h) end
+    end
+    return math.floor(EX.HOUSE_LOT_SIZE * n / s.d)
+end
+
+-- Bound, beside EX.pay_dividends: the members pay through EX.pay_house, clamped exactly as a
+-- share dividend is, and the player is credited only what moved. ai_gold off: paid in full.
+function EX.pay_index_dividends()
+    local paid = 0
+    for _, x in ipairs(EX.index_dues(EX.index_culture(), EX.index_units)) do
+        if EX.setting("ai_gold") then
+            paid = paid - EX.pay_house(x[1], -x[2])
+        else
+            paid = paid + x[2]
+        end
+    end
+    if paid <= 0 then return end
+    cm:treasury_mod(EX.who(), paid)
+    EX.log_add("Index", "The index paid you " .. paid .. "g.", "")
+    EX.say("turn", "index dividends paid " .. paid)
+end
+
+-- ---------------------------------------------------------------------------------------
 -- State. All of it persisted: effect bundles survive a save and these tables do not, so
 -- without this a reload re-applies a second bundle on top of the first - and same-effect
 -- bundles stack ADDITIVELY, so prices would compound on every load.
@@ -3922,6 +4439,13 @@ function EX.restore_player()
     end
     pcall(function() EX.unpack_orders(EX.getp(EX.SAVE_ORDERS)) end)
     pcall(function() EX.unpack_deals(EX.getp(EX.SAVE_DEALS)) end)
+    pcall(function() EX.unpack_forwards(EX.getp(EX.SAVE_FWD)) end)
+    pcall(function() EX.unpack_fwd_offers(EX.getp(EX.SAVE_FWD_OFFERS)) end)
+    pcall(function() EX.unpack_bonds(EX.getp(EX.SAVE_BONDS)) end)
+    pcall(function() EX.unpack_bond_offers(EX.getp(EX.SAVE_BOND_OFFERS)) end)
+    -- NOT SAVED, SO CLEARED. It is this turn's reason for an empty page; after a load the
+    -- footer says the neutral sentence rather than a stale one (see EX.post_deals).
+    EX.deal_why = nil
     EX.demand_turn = EX.getp(EX.SAVE_DEMAND) or 0
     -- A DEMAND IN FLIGHT SURVIVES A SAVE. It is three plain values rather than a table:
     -- the deadline has to outlive a reload or an unpaid tithe would quietly forgive itself.
@@ -3933,6 +4457,7 @@ function EX.restore_player()
     EX.demand_due = EX.getp(EX.SAVE_DEM_DUE) or 0
     -- The escalation has to survive a reload, or every load resets the altar's appetite.
     EX.offerings_made = EX.getp(EX.SAVE_OFFERINGS) or 0
+    EX.index_units = tonumber(EX.getp(EX.SAVE_INDEX_UNITS)) or 0
 end
 
 -- ONE STORE, TWO LENGTHS. The deep buffer is appended to and the sparkline is taken as
@@ -4069,6 +4594,27 @@ function EX.button_news()
         out = out .. " " .. n .. (n == 1 and " deal is" or " deals are")
             .. " waiting on the Deals tab, gone at the end of this turn."
     end
+    -- CONTRACTS DUE NEXT TURN. They deliver at the next turn start whatever the player does,
+    -- so this is the last moment to buy the goods or the gold for them.
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local due = 0
+    for _, c in ipairs(EX.forwards or {}) do
+        if c.at == turn + 1 then due = due + 1 end
+    end
+    if due > 0 then
+        out = out .. " " .. due .. (due == 1 and " contract delivers" or " contracts deliver")
+            .. " at the start of next turn."
+    end
+    -- AND A LOAN'S PRINCIPAL, paid in full at the next turn start whatever the treasury holds.
+    -- One at war with you waits, so it is not counted.
+    local owe = 0
+    for _, x in ipairs(EX.bonds or {}) do
+        if x.side == "b" and x.at == turn + 1 and x.p > 0 and EX.treaty_tier(x.fac) ~= "war" then
+            owe = owe + x.p
+        end
+    end
+    if owe > 0 then out = out .. " " .. owe .. "g of loans falls due at the start of next turn." end
     local t = EX.tithe()
     if t then
         out = out .. " " .. EX.patron() .. " demands " .. t.amount .. " " .. EX.display(t.res)
@@ -4687,6 +5233,25 @@ function EX.house_budget(house, res)
     if px <= 0 then return 0 end
     local n = math.floor(gold / px)
     if n > EX.BOOK_TRADE_MAX then n = EX.BOOK_TRADE_MAX end
+    local cap = EX.house_lot_cap(px)
+    if n > cap then n = cap end
+    return n
+end
+
+-- NO MORE LOTS THAN THE GOLD THAT CAN MOVE IN A TURN PAYS FOR. EX.pay_house clamps the gold to
+-- house_cash_max, so an uncapped count booked lots the house never paid for, and the book
+-- prices the market (logic sweep 2026-09-29). ai_gold off: the gold is notional, nothing binds.
+function EX.house_lot_cap(per_lot)
+    if not EX.setting("ai_gold") or per_lot <= 0 then return EX.BOOK_TRADE_MAX end
+    return math.floor(EX.opt("house_cash_max") / per_lot)
+end
+
+-- THE SELLING SIDE OF THE SAME RULE: at most the step, and no more than the limit's proceeds.
+function EX.house_sell_lots(house, res)
+    local n = EX.book_of(house, res)
+    if n > EX.BOOK_TRADE_MAX then n = EX.BOOK_TRADE_MAX end
+    local cap = EX.house_lot_cap(EX.price(res) * (1 - EX.opt("spread")))
+    if n > cap then n = cap end
     return n
 end
 
@@ -4802,8 +5367,7 @@ function EX.step_books()
             end
         end
         if worst and worst_d < 0 then
-            local n = EX.book_of(house, worst)
-            if n > EX.BOOK_TRADE_MAX then n = EX.BOOK_TRADE_MAX end
+            local n = EX.house_sell_lots(house, worst)
             EX.set_book(house, worst, EX.book_of(house, worst) - n)
             EX.pay_house(house, math.floor(n * EX.price(worst) * (1 - EX.opt("spread"))))
             if n > 0 then
@@ -5235,6 +5799,8 @@ EX.TIP_CANCEL = "Cancel this standing order."
 -- ITS OWN TOOLTIP AND NOT EX.TIP_BUY: this button settles the whole deal at the agreed price,
 -- every lot of it, and it is gone at the next turn whether it was taken or not.
 EX.TIP_DEAL = "Settle this deal in full, at the price agreed. It expires at the end of the turn."
+EX.TIP_FWD = "Agree to it now. Nothing moves until the delivery turn."
+EX.TIP_FWD_FULL = "You hold as many contracts as you can at once."
 
 -- THE CLOSURE BANNER, in one place because two footers draw it. It used to live only inside
 -- EX.guild_summary - which is the HOUSES footer - so the Trade view, the one view the player
@@ -6863,6 +7429,17 @@ function EX.build_panel()
     for i = 1, EX.opt("deal_max") do
         holder:CreateComponent(EX.ROW .. "_dl" .. i, EX.ROW_FILE)
     end
+    -- AND THE CONTRACTS PAGE'S: fwd_max offers above EX.FWD_OPEN_MAX open contracts, the same
+    -- knob EX.post_deals caps the offers with.
+    for i = 1, EX.opt("fwd_max") + EX.FWD_OPEN_MAX do
+        holder:CreateComponent(EX.ROW .. "_fw" .. i, EX.ROW_FILE)
+    end
+    -- AND THE INDEX'S ONE ROW. Its members draw on their own house rows.
+    holder:CreateComponent(EX.ROW .. "_idx", EX.ROW_FILE)
+    -- AND THE BONDS PAGE'S: bond_max offers a side above EX.BOND_OPEN_MAX open a side.
+    for i = 1, 2 * EX.opt("bond_max") + 2 * EX.BOND_OPEN_MAX do
+        holder:CreateComponent(EX.ROW .. "_bd" .. i, EX.ROW_FILE)
+    end
     EX.built = true
     EX.layout()
     EX.say("ui", "panel built with " .. #EX.instruments() .. " rows")
@@ -7116,6 +7693,14 @@ function EX.deal_of_row(id)
     return n
 end
 
+-- THE CONTRACTS PAGE'S, the same shape. The index runs over the offers and then the open
+-- contracts; only an offer's index is ever sent, and EX.row_click checks that.
+function EX.fwd_of_row(id)
+    local n = tonumber(string.match(tostring(id), "^" .. EX.ROW .. "_fw(%d+)$"))
+    if not n or n > #EX.fwd_offers + #EX.forwards then return nil end
+    return n
+end
+
 -- Rows are 28px apart, so every child has to fit inside 28 or it bleeds into the next row.
 EX.ROW_LAYOUT = {
     { "divider",      6, 26 },
@@ -7241,6 +7826,14 @@ EX.HELP_PAGES = {
         -- THE FOOTER'S OWN NUMBER, explained. "Worth" is a sell-side figure and a player who
         -- read it as the buy-side total would think the spread had eaten their money.
         { "Worth",        "What all you hold would fetch if sold now - after the spread, not before." },
+        -- FORWARD CONTRACTS (2026-09-29), page 2 of the Deals tab.
+        { "Contract",     "A price agreed now for goods delivered later. Nothing moves until that turn." },
+        { "Short",        "Lots nobody can deliver are paid in gold at the gap to market. War does not cancel them." },
+        -- THE INDEX FUND (2026-09-29), the last page of the Houses tab.
+        { "Index",        "One lot of every house of your people. A house that dies leaves at the wind-up rate." },
+        -- WAR BONDS AND LOANS (2026-09-29), the page after the index.
+        { "Bond",         "Gold you lend a house at war. It pays you each turn and the whole sum at the end." },
+        { "Loan",         "Gold a house at peace lends you. You pay it each turn and the whole sum at the end." },
     },
 }
 
@@ -7823,6 +8416,28 @@ function EX.on_orders()
     return EX.mode == EX.MODE_TRADE and EX.trade_kind() == "orders"
 end
 
+-- THE DEALS TAB'S PAGES, EX.trade_pages' shape. The contracts page stays while any contract
+-- is open, whatever the switch says: the switch stops new offers, and a contract the player
+-- holds must never become invisible while it is still going to settle gold.
+function EX.deals_pages()
+    local t = { "offers" }
+    if EX.setting("ai_forwards") or #(EX.forwards or {}) > 0 then t[#t + 1] = "contracts" end
+    return t
+end
+
+-- CLAMPED, EX.trade_kind's rule: the page can go away under a player standing on it.
+function EX.deal_page_at()
+    local n = #EX.deals_pages()
+    local at = EX.deal_page or 1
+    if at < 1 then at = 1 end
+    if at > n then at = n end
+    return at
+end
+
+function EX.on_contracts()
+    return EX.mode == EX.MODE_DEALS and EX.deals_pages()[EX.deal_page_at()] == "contracts"
+end
+
 -- WHICH SET OF PER-VIEW TABLES APPLIES. The ledger is a PAGE of MODE_TRADE and not a mode of
 -- its own, so every table keyed by EX.mode - EX.HEADERS, EX.TIPS, EX.TIP_CELL_TEXT,
 -- EX.SORT_VALUE - silently handed it the Trade view's entries. That drew "Buy" over a mid
@@ -7832,6 +8447,9 @@ end
 -- four separate branches, so a fifth table keyed this way cannot miss the ledger.
 function EX.view()
     if EX.on_orders() then return "orders" end
+    if EX.on_contracts() then return "contracts" end
+    if EX.on_index() then return "index" end
+    if EX.on_bonds() then return "bonds" end
     return EX.mode
 end
 
@@ -7903,6 +8521,8 @@ end
 function EX.panel_layout()
     if EX.on_orders() then return EX.PANEL_LAYOUT_ORDERS end
     if EX.on_chart() then return EX.PANEL_LAYOUT_CHART end
+    -- THE BONDS PAGE is a Houses page on the Deals tab's layout: five columns and one button.
+    if EX.on_bonds() then return EX.PANEL_LAYOUT_DEALS end
     if EX.mode == EX.MODE_DEALS  then return EX.PANEL_LAYOUT_DEALS  end
     if EX.mode == EX.MODE_LOG    then return EX.PANEL_LAYOUT_LOG    end
     if EX.mode == EX.MODE_STATS  then return EX.PANEL_LAYOUT_STATS  end
@@ -7916,6 +8536,7 @@ end
 function EX.row_layout()
     if EX.on_orders() then return EX.ROW_LAYOUT_ORDERS end
     if EX.on_chart() then return EX.ROW_LAYOUT_CHART end
+    if EX.on_bonds() then return EX.ROW_LAYOUT_DEALS end
     if EX.mode == EX.MODE_DEALS  then return EX.ROW_LAYOUT_DEALS  end
     if EX.mode == EX.MODE_LOG    then return EX.ROW_LAYOUT_LOG    end
     if EX.mode == EX.MODE_STATS  then return EX.ROW_LAYOUT_STATS  end
@@ -8159,6 +8780,10 @@ EX.HEADERS = {
     houses = { hdr_name = "House", hdr_price = "Price", hdr_sell = "Div", hdr_supply = "Seat",
                hdr_trend = "Trend", hdr_spark = "Last " .. EX.SPARK_BARS .. " turns",
                hdr_hold = "Held" },
+    -- THE INDEX PAGE, on the Houses layout: "Share" where the list has "Seat".
+    index = { hdr_name = "Name", hdr_price = "Price", hdr_sell = "Div", hdr_supply = "Share",
+              hdr_trend = "Trend", hdr_spark = "Last " .. EX.SPARK_BARS .. " turns",
+              hdr_hold = "Held" },
     -- Two columns only. Every other cell is hidden by EX.layout because ROW_LAYOUT_HELP does
     -- not name it, and both ids used here exist in .trade, which is what the hide loop walks.
     help = { hdr_name = "Term", hdr_trend = "What it means" },
@@ -8171,6 +8796,14 @@ EX.HEADERS = {
     -- the same trick the ledger uses for a standing order, and it reads at a glance.
     deals = { hdr_name = "Faction", hdr_trend = "Offer", hdr_price = "Per lot",
               hdr_sell = "vs market", hdr_hold = "Total" },
+    -- THE CONTRACTS PAGE, on the Deals layout: "Due" where the deals page has "Total", because
+    -- "in 10 turns" does not fit in the Offer sentence and the row has no sixth column.
+    contracts = { hdr_name = "Faction", hdr_trend = "Contract", hdr_price = "Per lot",
+                  hdr_sell = "vs market", hdr_hold = "Due" },
+    -- THE BONDS PAGE, a Houses page on the Deals layout. No sorter: the rows are in the order
+    -- EX.bond_at gives them, offers first.
+    bonds = { hdr_name = "House", hdr_trend = "Bond", hdr_price = "Per turn",
+              hdr_sell = "Rate", hdr_hold = "Due" },
     log = { hdr_name = "Turn", hdr_trend = "What happened" },
     -- EMPTY, NOT ABSENT, and the comment above the log entry says why: refresh_panel
     -- walks pairs(EX.HEADERS[EX.mode]) before it branches on the mode. The introduction
@@ -8238,6 +8871,20 @@ EX.TIPS = {
         hdr_trend = "What the order does, and the price it fills at.",
         hdr_price = "What one lot is worth now, on this order's own side.",
     },
+    bonds = {
+        hdr_name   = "The house on the other side. It pays or is paid.",
+        hdr_trend  = "Offers in their words; your bonds and loans in yours.",
+        hdr_price  = "Gold each turn: + paid to you, - paid by you.",
+        hdr_sell   = "That payment as a share of the amount.",
+        hdr_hold   = "When the whole amount is paid back.",
+    },
+    contracts = {
+        hdr_name   = "Who the contract is with. It settles with them.",
+        hdr_trend  = "Offers in their words; your contracts in yours.",
+        hdr_price  = "Gold per lot, fixed now, paid on delivery.",
+        hdr_sell   = "How far off today's market that price is.",
+        hdr_hold   = "When the goods and the gold change hands.",
+    },
     deals = {
         hdr_name   = "Who is offering. The deal settles with them.",
         hdr_trend  = "What they offer, and how many lots of it.",
@@ -8287,6 +8934,16 @@ EX.TIPS = {
         hdr_trend = "^ up, v down, - steady. Hi/Lo: at top or bottom limit.",
         hdr_spark = "This house's price, one bar per turn. Taller costs more.",
         hdr_hold  = "Shares you hold, and the dividend they pay this turn.",
+    },
+    -- TWO KINDS OF ROW UNDER ONE HEADER, so each tip names both.
+    index = {
+        hdr_name   = "The index, then each house in it, largest first.",
+        hdr_price  = "Gold for one lot: 5 units, or 5 shares of a house.",
+        hdr_sell   = "Index: gold per lot each turn. House: per share.",
+        hdr_supply = "How much of the index each house makes up.",
+        hdr_trend  = "^ up, v down, - steady, since the turn before.",
+        hdr_spark  = "This house's price, one bar per turn. Taller costs more.",
+        hdr_hold   = "Index units you hold; your own shares for a house.",
     },
 }
 
@@ -9060,6 +9717,13 @@ end
 --
 -- "Buys" AND "Sells" ARE FROM THE ACTOR'S SIDE, which is the side the name beside them is
 -- on. The player does the opposite, and the price column says what that costs them.
+function EX.pct_off(px, res)
+    local mkt = EX.price(res)
+    local pc = (mkt and mkt > 0) and ((px - mkt) / mkt * 100) or 0
+    pc = (pc >= 0) and math.floor(pc + 0.5) or -math.floor(-pc + 0.5)
+    return string.format("%+d%%", pc)
+end
+
 function EX.deal_cells(i)
     local d = EX.deals[i]
     if not d then return nil end
@@ -9071,9 +9735,7 @@ function EX.deal_cells(i)
     -- the same distance from market displayed as a different number depending on which side
     -- of it the deal sits, on the one column this page exists for. The fixture carries a
     -- 935-against-1000 deal so this branch is exercised rather than asserted about.
-    local mkt = EX.price(d.res)
-    local pc = (mkt and mkt > 0) and ((d.px - mkt) / mkt * 100) or 0
-    pc = (pc >= 0) and math.floor(pc + 0.5) or -math.floor(-pc + 0.5)
+    local edge = EX.pct_off(d.px, d.res)
     -- THE BUTTON IS A CELL TOO, and it is computed here for the reason every other string on
     -- this page is: nothing offline can run EX.refresh_panel, so a label or a disabled state
     -- decided inside it ships unread. A mutant that asked EX.buy_refusal on BOTH sides
@@ -9090,7 +9752,7 @@ function EX.deal_cells(i)
         name  = EX.faction_display(d.fac),
         offer = (d.side == "buy" and "Buys " or "Sells ") .. lots .. EX.display(d.res),
         price = d.px .. "g",
-        edge  = string.format("%+d%%", pc),
+        edge  = edge,
         total = (d.px * d.lots) .. "g",
         res   = d.res,
         take  = why_label or "Take",
@@ -9139,6 +9801,353 @@ function EX.draw_deal_row(row, i)
     local bb = find_uicomponent(row, "btn_buy")
     EX.set_off(bb, c.why ~= nil)
     set_tip(bb, c.why or EX.TIP_DEAL)
+end
+
+-- ONE ROW OF THE CONTRACTS PAGE, k over the offers and then the open contracts. EX.deal_cells'
+-- rule: every string and the button's state, out of the draw.
+--
+-- AN OFFER SPEAKS IN THE FACTION'S VERB, as a deal does ("Buys 1 lot of Iron"); A CONTRACT THE
+-- PLAYER HOLDS IN THE PLAYER'S ("Sell 1 lot of Iron"), because it is now their obligation. The
+-- contract's button is a STATUS and always greyed - Ready, Short or At war - so the player sees
+-- today what the delivery turn would do.
+function EX.fwd_cells(k)
+    local nof = #EX.fwd_offers
+    local offer = (k <= nof)
+    local c = offer and EX.fwd_offers[k] or EX.forwards[k - nof]
+    if not c then return nil end
+    local lots = c.lots .. (c.lots == 1 and " lot of " or " lots of ")
+    local verb
+    if offer then verb = (c.side == "buy") and "Buys " or "Sells "
+    else verb = (c.side == "buy") and "Sell " or "Buy " end
+    local left = c.due
+    if not offer then
+        local turn = 0
+        pcall(function() turn = cm:turn_number() end)
+        left = c.at - turn
+    end
+    local take, why
+    if offer then
+        take = "Take"
+        if #EX.forwards >= EX.FWD_OPEN_MAX then take, why = "Full", EX.TIP_FWD_FULL end
+    elseif EX.treaty_tier(c.fac) == "war" then
+        take, why = "At war", "At war: every lot will settle in gold."
+    else
+        local ready = false
+        pcall(function()
+            if c.side == "buy" then
+                ready = EX.held(c.res) >= c.lots * EX.lot(c.res)
+            else
+                ready = cm:get_faction(EX.who()):treasury() >= c.px * c.lots
+            end
+        end)
+        if ready then take, why = "Ready", "You could deliver every lot today."
+        else take, why = "Short", "Short today: missing lots settle in gold." end
+    end
+    return {
+        name  = EX.faction_display(c.fac),
+        offer = verb .. lots .. EX.display(c.res),
+        price = c.px .. "g",
+        edge  = EX.pct_off(c.px, c.res),
+        due   = (left <= 1) and "next turn" or ("in " .. left .. " turns"),
+        res   = c.res,
+        take  = take,
+        why   = why,
+        live  = offer and why == nil,
+    }
+end
+
+function EX.draw_fwd_row(row, k)
+    if not is_uicomponent(row) then return end
+    local c = EX.fwd_cells(k)
+    row:SetVisible(c ~= nil)
+    if not c then return end
+    set_text(row, "row_name", c.name)
+    set_text(row, "row_trend", c.offer)
+    set_text(row, "row_price", c.price)
+    set_text(row, "row_sell", c.edge)
+    set_text(row, "row_hold", c.due)
+    local ic = find_uicomponent(row, "icon")
+    if is_uicomponent(ic) then
+        local path = EX.icon(c.res)
+        if path then ic:SetImagePath(path, 0) end
+        ic:SetVisible(path ~= nil)
+    end
+    set_text(row, "btn_buy", c.take)
+    local bb = find_uicomponent(row, "btn_buy")
+    EX.set_off(bb, not c.live)
+    set_tip(bb, c.why or EX.TIP_FWD)
+end
+
+-- ROW k OF THE BONDS PAGE: the offers as posted (issues, then loans), then your bonds, then your
+-- loans. Returns the record and whether it is an offer. Only an offer's k is ever sent, and it is
+-- the offer's own index in EX.bond_offers, so the positions' order here is display only.
+function EX.bond_at(k)
+    local nof = #EX.bond_offers
+    if k <= nof then return EX.bond_offers[k], true end
+    k = k - nof
+    for _, side in ipairs({ "l", "b" }) do
+        for _, x in ipairs(EX.bonds) do
+            if x.side == side then
+                k = k - 1
+                if k == 0 then return x, false end
+            end
+        end
+    end
+    return nil
+end
+
+function EX.bond_of_row(id)
+    local n = tonumber(string.match(tostring(id), "^" .. EX.ROW .. "_bd(%d+)$"))
+    if not n or n > #EX.bond_offers + #EX.bonds then return nil end
+    return n
+end
+
+EX.TIP_BOND_LEND = "Lend it now. The house pays you back each turn."
+EX.TIP_BOND_BORROW = "Take the gold now. You pay it back each turn."
+EX.TIP_BOND_FULL = "You hold as many of these as you can at once."
+
+-- ONE ROW OF THE BONDS PAGE, EX.fwd_cells' rule: every string and the button's state, out of the
+-- draw. An offer speaks in the house's verb; a position the player holds in the player's. A
+-- position's button is a status and always greyed.
+function EX.bond_cells(k)
+    local x, offer = EX.bond_at(k)
+    if not x then return nil end
+    local lend = (x.side == "l")
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local text, left, pay, rate, take, why
+    if offer then
+        text = (lend and "Borrows " or "Lends ") .. x.amt .. "g for " .. x.term .. " turns"
+        left, pay = x.term, x.pay
+        rate = string.format("%.1f%%", x.pay * 100 / x.amt)
+        take = lend and "Lend" or "Borrow"
+        if EX.bond_open(x.side) >= EX.BOND_OPEN_MAX then
+            take, why = "Full", EX.TIP_BOND_FULL
+        elseif lend then
+            local gold = 0
+            pcall(function() gold = cm:get_faction(EX.who()):treasury() end)
+            if gold < x.amt then
+                take, why = "No gold", "You have " .. gold .. "g; this bond takes " .. x.amt .. "g."
+            end
+        end
+    else
+        local owed = x.p + x.late
+        text = lend and ("Owes you " .. owed .. "g") or ("You owe " .. owed .. "g")
+        left = x.at - turn
+        -- THE LAST PAYMENT FALLS ON TURN at, so from then on nothing a turn is due, only arrears.
+        pay = (turn < x.at) and x.c or nil
+        rate = (x.p > 0) and string.format("%.1f%%", x.c * 100 / x.p) or "-"
+        if EX.treaty_tier(x.fac) == "war" then
+            take, why = "At war", "At war with you: payments wait for peace."
+        elseif lend and x.late > 0 then
+            take, why = "Behind", "The house is short of gold. It pays when it has it."
+        else
+            take, why = "Paying", lend and "The house pays you each turn." or "You pay the house each turn."
+        end
+    end
+    local due
+    if left <= 0 then due = "overdue"
+    elseif left == 1 then due = "next turn"
+    else due = "in " .. left .. " turns" end
+    return {
+        name = EX.faction_display(x.fac),
+        text = text,
+        pay  = pay and ((lend and "+" or "-") .. pay .. "g") or "-",
+        rate = rate,
+        due  = due,
+        res  = x.fac,
+        take = take,
+        why  = why,
+        live = offer and why == nil,
+        lend = lend,
+    }
+end
+
+function EX.draw_bond_row(row, k)
+    if not is_uicomponent(row) then return end
+    local c = EX.bond_cells(k)
+    row:SetVisible(c ~= nil)
+    if not c then return end
+    set_text(row, "row_name", c.name)
+    set_text(row, "row_trend", c.text)
+    set_text(row, "row_price", c.pay)
+    set_text(row, "row_sell", c.rate)
+    set_text(row, "row_hold", c.due)
+    local ic = find_uicomponent(row, "icon")
+    if is_uicomponent(ic) then
+        local path = EX.icon(c.res)
+        if path then ic:SetImagePath(path, 0) end
+        ic:SetVisible(path ~= nil)
+    end
+    set_text(row, "btn_buy", c.take)
+    local bb = find_uicomponent(row, "btn_buy")
+    EX.set_off(bb, not c.live)
+    set_tip(bb, c.why or (c.lend and EX.TIP_BOND_LEND or EX.TIP_BOND_BORROW))
+end
+
+-- THE BONDS PAGE'S TWO FOOTER LINES. The net counts what the next turn start pays, so a
+-- position at war with you, or past its last payment, adds nothing.
+function EX.bonds_footer()
+    local l1
+    if EX.setting("ai_bonds") then
+        local o = #EX.bond_offers
+        l1 = o .. (o == 1 and " offer" or " offers") .. " this turn; " .. EX.bond_open("l")
+            .. " of " .. EX.BOND_OPEN_MAX .. " bonds and " .. EX.bond_open("b") .. " of "
+            .. EX.BOND_OPEN_MAX .. " loans open."
+    else
+        l1 = "New bonds and loans are switched off; the ones you hold still pay."
+    end
+    if #EX.bonds == 0 then
+        return l1, "Houses at war borrow from you; houses at peace lend to you. Both repay in full."
+    end
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local net = 0
+    for _, x in ipairs(EX.bonds) do
+        if turn < x.at and EX.treaty_tier(x.fac) ~= "war" then
+            net = net + ((x.side == "l") and x.c or -x.c)
+        end
+    end
+    return l1, "Net " .. ((net >= 0) and "+" or "") .. net .. "g a turn. If a house dies, "
+        .. "its bond pays the wind-up rate and its loan falls due."
+end
+
+-- THE INDEX ROW'S CELLS, out of the draw for EX.deal_cells' reason.
+EX.TIP_INDEX_BUY = "Buy the amount on the button. It does not move prices."
+
+function EX.index_cells()
+    local c = EX.index_culture()
+    local s = EX.index_state(c)
+    local n = s and #s.m or 0
+    local u = EX.index_units or 0
+    local due = EX.index_due(c, u)
+    local lot = EX.HOUSE_LOT_SIZE * EX.clamp_lots(EX.amount)
+    local why, label = EX.index_refusal(c)
+    local px = EX.index_buy_price(c)
+    return {
+        name     = "Index of " .. n .. (n == 1 and " house" or " houses"),
+        price    = px and tostring(px) or "-",
+        div      = s and ("+" .. EX.index_dividend_lot(c)) or "-",
+        share    = s and "100%" or "-",
+        trend    = EX.index_trend(c),
+        held     = tostring(u) .. ((due > 0) and ("  +" .. due .. "g") or ""),
+        buy      = label or ("Buy " .. lot),
+        buy_why  = why,
+        sell     = "Sell " .. lot,
+        sell_off = u < EX.HOUSE_LOT_SIZE or EX.index_sell_price(c) == nil,
+    }
+end
+
+-- A MEMBER ROW: the house's own numbers, and its share of the index.
+function EX.index_member_cells(h)
+    local c = EX.index_culture()
+    local sum = 0
+    for _, m in ipairs((EX.index_state(c) or { m = {} }).m) do sum = sum + EX.index_weight(m) end
+    local dead = EX.index_dead(h)
+    local share = (sum > 0) and math.floor(EX.index_weight(h) * 100 / sum + 0.5) or 0
+    return {
+        name  = EX.faction_display(h),
+        price = dead and "-" or tostring(EX.price(h)),
+        div   = dead and "-" or ("+" .. EX.dividend(h)),
+        share = share .. "%",
+        trend = dead and "-" or EX.trend_arrow(h),
+        held  = tostring(EX.held(h)),
+    }
+end
+
+function EX.draw_index_row(row)
+    if not is_uicomponent(row) then return end
+    local c = EX.index_cells()
+    set_text(row, "row_name", c.name)
+    set_text(row, "row_price", c.price)
+    set_text(row, "row_sell", c.div)
+    set_text(row, "row_supply", c.share)
+    set_text(row, "row_trend", c.trend)
+    set_text(row, "row_hold", c.held)
+    -- NO ICON AND NO SPARKLINE: the index keeps no price history of its own (spec s7).
+    for _, id in ipairs({ "icon", "spark" }) do
+        local x = find_uicomponent(row, id)
+        if is_uicomponent(x) then x:SetVisible(false) end
+    end
+    set_text(row, "btn_buy", c.buy)
+    set_text(row, "btn_sell", c.sell)
+    local bb = find_uicomponent(row, "btn_buy")
+    local bs = find_uicomponent(row, "btn_sell")
+    EX.set_off(bb, c.buy_why ~= nil)
+    set_tip(bb, c.buy_why or EX.TIP_INDEX_BUY)
+    EX.set_off(bs, c.sell_off)
+    set_tip(bs, c.sell_off and EX.TIP_SELL_NONE or EX.TIP_SELL)
+end
+
+-- BUTTONS HIDDEN, not greyed: a member is traded on the list pages, and a live-looking Buy
+-- here would read as buying the index.
+function EX.draw_index_member(row, h)
+    if not is_uicomponent(row) then return end
+    local c = EX.index_member_cells(h)
+    set_text(row, "row_name", c.name)
+    set_text(row, "row_price", c.price)
+    set_text(row, "row_sell", c.div)
+    set_text(row, "row_supply", c.share)
+    set_text(row, "row_trend", c.trend)
+    set_text(row, "row_hold", c.held)
+    local ic = find_uicomponent(row, "icon")
+    if is_uicomponent(ic) then
+        local path = EX.icon(h)
+        if path then ic:SetImagePath(path, 0) end
+        ic:SetVisible(path ~= nil)
+    end
+    EX.draw_spark(row, h)
+    for _, id in ipairs({ "btn_buy", "btn_sell" }) do
+        local x = find_uicomponent(row, id)
+        if is_uicomponent(x) then x:SetVisible(false) end
+    end
+end
+
+function EX.index_footer()
+    local c = EX.index_culture()
+    local s = EX.index_state(c)
+    local l1
+    if not s then
+        l1 = "No index: fewer than two houses of your people are listed."
+    else
+        local n = #s.m
+        local u = EX.index_units or 0
+        local worth = math.floor(u * (EX.index_sell_price(c) or 0) / EX.HOUSE_LOT_SIZE)
+        l1 = "Index " .. (EX.index_buy_price(c) or 0) .. " a lot, " .. n
+            .. (n == 1 and " house" or " houses") .. ". You hold " .. u .. " units, worth "
+            .. worth .. "g"
+        local due = EX.index_due(c, u)
+        if due > 0 then l1 = l1 .. ", paying +" .. due .. "g a turn" end
+        l1 = l1 .. "."
+        if n < EX.INDEX_MIN then l1 = l1 .. " Buying needs two houses." end
+    end
+    local l2 = "A new house joins without moving the price. One that dies leaves at the wind-up rate."
+    local cut = (s and #s.m or 0) - (EX.MAX_ROWS - 1)
+    if cut > 0 then
+        l2 = cut .. (cut == 1 and " smaller house" or " smaller houses") .. " not shown. " .. l2
+    end
+    return l1, l2
+end
+
+-- THE TWO FOOTER LINES OF THE DEALS TAB, both pages. Out of the draw for EX.deal_cells' reason.
+function EX.deals_footer()
+    if EX.on_contracts() then
+        local l1
+        if EX.setting("ai_forwards") then
+            local o = #EX.fwd_offers
+            l1 = o .. (o == 1 and " contract offer" or " contract offers") .. " this turn; "
+                .. #EX.forwards .. " of " .. EX.FWD_OPEN_MAX .. " contracts open."
+        else
+            l1 = "New contracts are switched off; the ones you hold still deliver."
+        end
+        return l1, "Lots you cannot deliver settle in gold at the market price."
+    end
+    local l2 = "A deal lasts one turn and is gone at the next. The price is agreed: the market "
+        .. "markup does not apply to it."
+    if #EX.fwd_offers > 0 and #EX.deals_pages() > 1 then
+        l2 = "Contract offers, for delivery in later turns, are on page 2."
+    end
+    return EX.deals_line(), l2
 end
 
 function EX.deals_line()
@@ -9283,10 +10292,12 @@ function EX.refresh_panel()
         local t = EX.the_name()
         if stats then t = nm .. ": Ownership"
         elseif offer then t = (EX.race and EX.race.offer_title) or "Offerings"
-        elseif houses then t = nm .. ": Houses"
+        elseif houses then
+            t = nm .. (EX.on_index() and ": Index" or EX.on_bonds() and ": Bonds" or ": Houses")
         elseif EX.mode == EX.MODE_INTRO then t = EX.the_name()
         elseif EX.mode == EX.MODE_HELP then t = "How the " .. nm .. " works"
-        elseif EX.mode == EX.MODE_DEALS then t = nm .. ": Deals"
+        elseif EX.mode == EX.MODE_DEALS then
+            t = nm .. (EX.on_contracts() and ": Contracts" or ": Deals")
         elseif EX.mode == EX.MODE_LOG then t = nm .. ": Log" end
         title:SetStateText(fit(title, t))
     end
@@ -9367,16 +10378,43 @@ function EX.refresh_panel()
     -- hardcoded label over the one EX.deal_cells computed - survived a full round on
     -- 2026-09-16 while these lines were still inline.
     if EX.mode == EX.MODE_DEALS then
+        local contracts = EX.on_contracts()
         for i, key in ipairs(EX.mode_instruments()) do
-            EX.draw_deal_row(EX.row(rows_holder, key), i)
+            local row = EX.row(rows_holder, key)
+            if contracts then EX.draw_fwd_row(row, i) else EX.draw_deal_row(row, i) end
         end
+        local l1, l2 = EX.deals_footer()
         local df1 = find_uicomponent(panel, "footer_text")
         local df2 = find_uicomponent(panel, "footer_text2")
-        if is_uicomponent(df1) then df1:SetStateText(fit(df1, EX.deals_line())) end
-        if is_uicomponent(df2) then
-            df2:SetStateText(fit(df2, "A deal lasts one turn and is gone at the next. The "
-                .. "price is agreed: the market markup does not apply to it."))
+        if is_uicomponent(df1) then df1:SetStateText(fit(df1, l1)) end
+        if is_uicomponent(df2) then df2:SetStateText(fit(df2, l2)) end
+        return
+    end
+
+    -- THE BONDS PAGE, drawn like the contracts page.
+    if EX.on_bonds() then
+        for i, key in ipairs(EX.mode_instruments()) do
+            EX.draw_bond_row(EX.row(rows_holder, key), i)
         end
+        local l1, l2 = EX.bonds_footer()
+        local bf1 = find_uicomponent(panel, "footer_text")
+        local bf2 = find_uicomponent(panel, "footer_text2")
+        if is_uicomponent(bf1) then bf1:SetStateText(fit(bf1, l1)) end
+        if is_uicomponent(bf2) then bf2:SetStateText(fit(bf2, l2)) end
+        return
+    end
+
+    -- THE INDEX PAGE. Row 1 is the index, the rest its members on their own house rows.
+    if EX.on_index() then
+        for i, key in ipairs(EX.mode_instruments()) do
+            local row = EX.row(rows_holder, key)
+            if i == 1 then EX.draw_index_row(row) else EX.draw_index_member(row, key) end
+        end
+        local l1, l2 = EX.index_footer()
+        local xf1 = find_uicomponent(panel, "footer_text")
+        local xf2 = find_uicomponent(panel, "footer_text2")
+        if is_uicomponent(xf1) then xf1:SetStateText(fit(xf1, l1)) end
+        if is_uicomponent(xf2) then xf2:SetStateText(fit(xf2, l2)) end
         return
     end
 
@@ -9903,7 +10941,7 @@ EX.ROW_LAYOUT_HOUSES = {
 function EX.page_count()
     if EX.mode == EX.MODE_HELP then return #EX.HELP_PAGES end
     if EX.mode == EX.MODE_LOG then return EX.log_pages() end
-    if EX.mode == EX.MODE_HOUSES then return EX.house_pages() end
+    if EX.mode == EX.MODE_HOUSES then return EX.house_page_count() end
     -- TRADE'S COUNT IS #EX.trade_pages(), NOT A FIXED NUMBER. It used to read "always two,
     -- even with nothing selected" back when the chart was the only optional page; the orders
     -- ledger made that false the moment it shipped as a second switch - with two switches
@@ -9914,12 +10952,13 @@ function EX.page_count()
         -- rather than by arithmetic - see EX.trade_pages.
         return #EX.trade_pages()
     end
+    if EX.mode == EX.MODE_DEALS then return #EX.deals_pages() end
     return 1
 end
 function EX.page_index()
     if EX.mode == EX.MODE_HELP then return EX.help_page end
     if EX.mode == EX.MODE_LOG then return EX.log_page end
-    if EX.mode == EX.MODE_HOUSES then return EX.house_page end
+    if EX.mode == EX.MODE_HOUSES then return EX.house_page_at() end
     -- CLAMPED, exactly as EX.trade_kind clamps and for the same reason: a switch can be
     -- thrown while the player stands on the page it removes. Unclamped this read "3/2" until
     -- an arrow was pressed, while trade_kind was already correctly showing page 2.
@@ -9930,6 +10969,7 @@ function EX.page_index()
         if at > n then at = n end
         return at
     end
+    if EX.mode == EX.MODE_DEALS then return EX.deal_page_at() end
     return 1
 end
 
@@ -9956,9 +10996,11 @@ function EX.step_page(delta)
     elseif EX.mode == EX.MODE_LOG then
         EX.log_page = at
     elseif EX.mode == EX.MODE_HOUSES then
-        EX.house_page = at
+        EX.house_page = EX.house_extra_pages()[at - EX.house_pages()] or at
     elseif EX.mode == EX.MODE_TRADE then
         EX.trade_page = at
+    elseif EX.mode == EX.MODE_DEALS then
+        EX.deal_page = at
     end
     EX.layout()
     EX.refresh_panel()   -- NOT EX.refresh: the function is EX.refresh_panel (see :3499)
@@ -10051,6 +11093,7 @@ function EX.set_mode(mode)
     if mode == EX.MODE_HOUSES then EX.house_page = 1 end
     -- Trade reopens on the list, not on whatever chart was last up.
     if mode == EX.MODE_TRADE then EX.trade_page = 1 end
+    if mode == EX.MODE_DEALS then EX.deal_page = 1 end
     -- AND THE SORT, for the reason written beside EX.SORT_VALUE.
     EX.sort_col, EX.sort_dir = nil, 1
     EX.mode = mode
@@ -10842,6 +11885,67 @@ function EX.save_deals()
     pcall(function() EX.setp(EX.SAVE_DEALS, EX.pack_deals()) end)
 end
 
+-- FORWARD CONTRACTS, both lists. EX.pack_deals' shape and its separators, for its reason: every
+-- field is a key, a side word or a number. Contracts are six fields, offers seven, and a record of
+-- any other length is a truncated save and is dropped, never defaulted - a guessed price or
+-- delivery turn would settle real gold against a number nobody agreed to.
+function EX.pack_forwards()
+    local out = {}
+    for i = 1, #EX.forwards do
+        local c = EX.forwards[i]
+        out[i] = table.concat({ c.fac, c.res, c.side, c.lots, c.px, c.at }, ",")
+    end
+    return table.concat(out, ";")
+end
+
+function EX.unpack_forwards(s)
+    EX.forwards = {}
+    if type(s) ~= "string" or s == "" then return end
+    for chunk in string.gmatch(s, "[^;]+") do
+        local f = {}
+        for part in string.gmatch(chunk, "[^,]+") do f[#f + 1] = part end
+        if #f == 6 and tonumber(f[4]) and tonumber(f[5]) and tonumber(f[6]) then
+            EX.forwards[#EX.forwards + 1] = {
+                fac = f[1], res = f[2], side = f[3],
+                lots = tonumber(f[4]), px = tonumber(f[5]), at = tonumber(f[6]),
+            }
+        end
+    end
+end
+
+function EX.pack_fwd_offers()
+    local out = {}
+    for i = 1, #EX.fwd_offers do
+        local o = EX.fwd_offers[i]
+        out[i] = table.concat({ o.fac, o.res, o.side, o.lots, o.px, o.turn, o.due }, ",")
+    end
+    return table.concat(out, ";")
+end
+
+function EX.unpack_fwd_offers(s)
+    EX.fwd_offers = {}
+    if type(s) ~= "string" or s == "" then return end
+    for chunk in string.gmatch(s, "[^;]+") do
+        local f = {}
+        for part in string.gmatch(chunk, "[^,]+") do f[#f + 1] = part end
+        if #f == 7 and tonumber(f[4]) and tonumber(f[5]) and tonumber(f[6]) and tonumber(f[7]) then
+            EX.fwd_offers[#EX.fwd_offers + 1] = {
+                fac = f[1], res = f[2], side = f[3], lots = tonumber(f[4]),
+                px = tonumber(f[5]), turn = tonumber(f[6]), due = tonumber(f[7]),
+            }
+        end
+    end
+end
+
+-- A WRITER BESIDE EACH READER, EX.save_deals' rule.
+function EX.save_forwards()
+    pcall(function() EX.setp(EX.SAVE_FWD, EX.pack_forwards()) end)
+end
+
+function EX.save_fwd_offers()
+    pcall(function() EX.setp(EX.SAVE_FWD_OFFERS, EX.pack_fwd_offers()) end)
+end
+
 -- THE ONE PLACE THIS MOD ASKS THE ENGINE'S OWN AI A QUESTION AND OBEYS THE ANSWER.
 --
 -- CA'S ORDER, NOT THE SPEC'S. All six of CA's call sites in wh3_narrative_shared_chains.lua read
@@ -10901,6 +12005,7 @@ end
 -- page to show and for a save restored mid-turn to be honest about.
 function EX.post_deals()
     EX.deals = {}
+    EX.fwd_offers = {}
     -- WHY THE PAGE IS EMPTY, and this is the whole reason EX.deal_ok returns can_issue and
     -- score SEPARATELY. "Nobody is eligible" and "everybody said no" are different states of
     -- the world and a page that renders both as a blank list explains neither. Not saved:
@@ -10911,7 +12016,19 @@ function EX.post_deals()
     -- and they differ on the case that matters: EX.setting FAILS OPEN, so a key that ever
     -- stops being a knob leaves the feature running rather than silently switched off. It is
     -- the same call every other system switch in this file makes.
-    if not EX.setting("ai_deals") then return end
+    --
+    -- TWO SWITCHES, ONE PASS (2026-09-29). Contract offers walk the same ranked list as the deals
+    -- and after them, so either list can be switched off without the other; both off is the old
+    -- early return. The empty lists are SAVED on the way out, so a reload cannot resurrect last
+    -- turn's page.
+    local deals_on, fwd_on = EX.setting("ai_deals"), EX.setting("ai_forwards")
+    if not deals_on and not fwd_on then
+        EX.save_deals()
+        EX.save_fwd_offers()
+        return
+    end
+    local deal_cap = deals_on and EX.opt("deal_max") or 0
+    local fwd_cap = fwd_on and EX.opt("fwd_max") or 0
     local me = EX.who()
     if not me or not EX.actors then return end
     -- THE FILE'S OWN DEFENSIVE IDIOM (see EX.log_add): a turn number is worth having and never
@@ -10999,31 +12116,75 @@ function EX.post_deals()
     -- FACTION and no commodity, so asking twice about one faction cannot give two answers -
     -- it is two wasted cm:get_faction calls. Worst case falls from ~2 x actors x commodities
     -- to 2 x actors, which on a full map is ~2,700 engine calls a turn against ~160.
+    --
+    -- CONTRACTS COME AFTER, NEVER INSTEAD. Once the deal slots are full the walk carries on for
+    -- contract offers, from factions not already asked, so no faction is on both lists and a
+    -- contract never takes a deal's slot. A contract has two filters a deal does not: a faction
+    -- at war with the player is skipped (it could never deliver), and so is a price above
+    -- world_cash_max (EX.pay_actor clamps every payment to it, so the faction could never settle
+    -- the lot - ZHARR_EXCHANGE.md s17 records that hole for deals). Neither marks the faction
+    -- seen: the price test is per commodity, and its next candidate may pass.
+    local T = EX.opt("fwd_turns")
+    local lo = math.ceil(T / 2)
     local seen = {}
     for i = 1, #cand do
-        if #EX.deals >= EX.opt("deal_max") then break end
+        local deal_room = #EX.deals < deal_cap
+        if not deal_room and #EX.fwd_offers >= fwd_cap then break end
         local c = cand[i]
         if not seen[c.fac] then
-            seen[c.fac] = true
-            -- THE ENGINE'S OWN ANSWER, AND IT IS OBEYED. can_issue before score, CA's order.
-            local can, score = EX.deal_ok(c.fac)
-            if can then EX.deal_why = EX.deal_why or "declined" end
-            if can and score > 0 then
-                local edge = (c.side == "buy") and (100 + EX.opt("deal_edge"))
-                                              or  (100 - EX.opt("deal_edge"))
-                EX.deals[#EX.deals + 1] = {
-                    fac = c.fac, res = c.res, side = c.side, lots = c.lots,
-                    px = math.floor(c.px * edge / 100), turn = turn,
-                }
+            local edge = (c.side == "buy") and (100 + EX.opt("deal_edge"))
+                                          or  (100 - EX.opt("deal_edge"))
+            local px = math.floor(c.px * edge / 100)
+            if deal_room then
+                seen[c.fac] = true
+                -- THE ENGINE'S OWN ANSWER, AND IT IS OBEYED. can_issue before score, CA's order.
+                local can, score = EX.deal_ok(c.fac)
+                if can then EX.deal_why = EX.deal_why or "declined" end
+                if can and score > 0 then
+                    EX.deals[#EX.deals + 1] = {
+                        fac = c.fac, res = c.res, side = c.side, lots = c.lots,
+                        px = px, turn = turn,
+                    }
+                end
+            elseif px <= EX.opt("world_cash_max") and EX.treaty_tier(c.fac) ~= "war" then
+                seen[c.fac] = true
+                local can, score = EX.deal_ok(c.fac)
+                if can and score > 0 then
+                    -- THE LENGTH, between half of fwd_turns and all of it. c.jit IS
+                    -- EX.key_hash(fac .. res .. turn), so every machine draws the same one.
+                    EX.fwd_offers[#EX.fwd_offers + 1] = {
+                        fac = c.fac, res = c.res, side = c.side, lots = c.lots,
+                        px = px, turn = turn, due = lo + c.jit % (T - lo + 1),
+                    }
+                end
             end
         end
     end
     -- NOBODY WAS EVEN ELIGIBLE, which is not the same as everybody declining. Set last, and
     -- only if the loop never saw a can_issue, so "declined" wins wherever both could be said.
-    if #EX.deals == 0 and not EX.deal_why then EX.deal_why = "none" end
+    if deals_on and #EX.deals == 0 and not EX.deal_why then EX.deal_why = "none" end
     -- THROUGH EX.save_deals, NOT AN INLINE EX.setp. The writer lives with its key so neither
     -- half can go missing on its own - Stage 1 shipped SAVE_WBOOK written and never read.
     EX.save_deals()
+    EX.save_fwd_offers()
+end
+
+-- EVERY HUMAN'S PAGE, EACH BUILT AS THAT HUMAN. What EX.turn_round calls (2026-09-29).
+--
+-- It used to call EX.post_deals once, unbound, which builds the page for EX.who() - the local
+-- player - so each machine rebuilt its own player's page and every other human's slice kept
+-- whatever the last load restored. The Take op carries a LIST INDEX, applied as the sender on
+-- every machine: the sender's machine settled this turn's deal, the others a stale one or
+-- none, and gold diverged from there. Bound per human, every machine builds every page from
+-- the same world, in EX.humans()' sorted order.
+--
+-- A NAMED FUNCTION, not a loop inside EX.turn_round, so _mp_harness.lua runs the shipped loop.
+-- EX.turn_round is a closure inside EX.init and no harness can call it; the harness used to
+-- write this loop itself, which is how it proved a shape the game never ran.
+function EX.post_all_deals()
+    for _, f in ipairs(EX.humans()) do
+        EX.with_player(f, function() EX.post_deals() end)
+    end
 end
 
 -- ACCEPTING ONE. A deal is INTENT AND NEVER A RESERVATION (this stage's pre-flight ruling), so
@@ -11076,6 +12237,144 @@ function EX.accept_deal(i)
     end
     if done < d.lots then return tostring(last) end
     return true
+end
+
+-- TAKING A CONTRACT OFFER. Nothing moves today: no gold, no goods, no reservation. The faction
+-- is re-checked only for being on the map at all; whether either side can pay is a question for
+-- the delivery turn, and the answer then is settled in gold either way.
+--
+-- THE REFUSALS, in this order: a bad index; a faction no longer on the map; six contracts open.
+-- A refusal leaves the offer on the page.
+function EX.accept_forward(k)
+    local i = tonumber(k) or 0
+    local o = EX.fwd_offers[i]
+    if not o or not o.fac or not o.res or not o.lots or not o.px or not o.due then
+        return "nodeal"
+    end
+    if not (EX.actors or {})[o.fac] then return "gone" end
+    if #EX.forwards >= EX.FWD_OPEN_MAX then return "full" end
+    local at = (o.turn or 0) + o.due
+    EX.forwards[#EX.forwards + 1] = { fac = o.fac, res = o.res, side = o.side, lots = o.lots,
+                                      px = o.px, at = at }
+    table.remove(EX.fwd_offers, i)
+    EX.save_forwards()
+    EX.save_fwd_offers()
+    -- THE FACTION IS THE LOG ROW'S SUBJECT, named when the row is drawn (EX.log_settlement's
+    -- rule); the delivery lines below run at turn start, where naming it is what crashed turn 1.
+    pcall(function()
+        EX.log_add("", "Contract taken: you " .. (o.side == "buy" and "sell " or "buy ")
+            .. o.lots .. " lot(s) of " .. EX.display(o.res) .. " at " .. o.px
+            .. "g a lot, on turn " .. at .. ".", o.fac)
+    end)
+    return true
+end
+
+-- ONE DUE CONTRACT. Raises on an engine error; EX.deliver_forwards catches it.
+--
+-- SIDE IS THE FACTION'S VERB, is_buy THE PLAYER'S, as on a deal.
+function EX.deliver_one(c)
+    local me = EX.who()
+    if EX.house_gone(c.fac) then
+        pcall(function()
+            EX.log_add("", "Contract on " .. EX.display(c.res)
+                .. " cancelled: the faction is gone. No gold moved.", c.fac)
+        end)
+        return
+    end
+    local is_buy = (c.side == "sell")
+    -- GOODS FIRST, lot by lot through the named-faction route at the agreed price, stopping at
+    -- the first refusal. NOT AT WAR: war does not cancel a contract (it would be a way out of a
+    -- losing one), it only means nothing can be shipped, so every lot settles in gold.
+    local done = 0
+    if EX.treaty_tier(c.fac) ~= "war" then
+        for _ = 1, c.lots do
+            if EX.apply_trade(c.res, is_buy, c.px, c.fac) ~= true then break end
+            done = done + 1
+        end
+    end
+    if done > 0 then EX.fill_factions[me] = true end
+    -- EVERY LOT NOT DELIVERED SETTLES AT THE GAP to today's price, whoever failed to deliver it.
+    -- Per lot the player is owed M - px on a purchase and px - M on a sale. Owed to the player,
+    -- the faction pays through EX.pay_actor, clamped to its treasury like every AI payment, and
+    -- the player is credited what was actually taken. Owed by the player, the player pays what
+    -- the faction is credited - the whole gap, unless one lot's gap passes the world tier's
+    -- per-payment limit - and the treasury may go below zero, where CA's bankruptcy applies. ai_gold off makes the faction's leg notional and the player's moves in full,
+    -- the EX.pay_dividends rule.
+    local short = c.lots - done
+    local net = 0
+    if short > 0 then
+        local M = EX.price(c.res)
+        local per = is_buy and (M - c.px) or (c.px - M)
+        local ai_gold = EX.setting("ai_gold")
+        local info = (EX.actors or {})[c.fac]
+        for _ = 1, short do
+            if per > 0 then
+                local got = ai_gold and -EX.pay_actor(c.fac, -per) or per
+                -- THE SCANNED TREASURY IS A BUDGET, spent down here as settle_counterparty
+                -- spends it, so a second contract with the same faction sees it poorer.
+                if ai_gold and info then info.gold = (info.gold or 0) - got end
+                net = net + got
+            elseif per < 0 then
+                -- CONSERVED (logic sweep 2026-09-29): the gap past world_cash_max used to leave
+                -- the player and reach nobody.
+                local moved = EX.pay_actor(c.fac, -per)
+                if info then info.gold = (info.gold or 0) + moved end
+                net = net - (ai_gold and moved or -per)
+            end
+        end
+        if net ~= 0 then cm:treasury_mod(me, net) end
+    end
+    pcall(function()
+        local line = "Contract on " .. EX.display(c.res) .. ": " .. done .. " of " .. c.lots
+            .. " lot(s) delivered at " .. c.px .. "g a lot."
+        if short > 0 then
+            line = line .. " " .. short .. " settled in gold at " .. EX.price(c.res)
+                .. "g: " .. (net >= 0 and "+" or "") .. net .. "g."
+        end
+        EX.log_add("", line, c.fac)
+    end)
+end
+
+-- EVERY DUE CONTRACT, IN LIST ORDER, EACH IN ITS OWN pcall. An attempted contract always leaves
+-- the list, success or error: delivered at most once beats delivered twice, and an error settles
+-- no gold for a trade in an unknown state. A contract not yet due stays, in its place.
+--
+-- IGNORES ai_forwards. An open contract is an obligation whatever the switch now says; the switch
+-- stops new offers.
+--
+-- UNDER EX.filling, as EX.fill_orders is, so the round's one zharr_after_fills reprice covers it.
+function EX.deliver_forwards()
+    if #EX.forwards == 0 then return end
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local keep = {}
+    EX.filling = true
+    for i = 1, #EX.forwards do
+        local c = EX.forwards[i]
+        if (c.at or 0) > turn then
+            keep[#keep + 1] = c
+        else
+            local ok, err = pcall(EX.deliver_one, c)
+            if not ok then
+                EX.say("error", "contract delivery on " .. tostring(c.res) .. " threw: "
+                    .. tostring(err))
+                pcall(function()
+                    EX.log_add("", "A contract on " .. EX.display(c.res)
+                        .. " could not be completed and was dropped.", c.fac)
+                end)
+            end
+        end
+    end
+    EX.filling = false
+    EX.forwards = keep
+    EX.save_forwards()
+end
+
+-- EVERY HUMAN'S CONTRACTS, EACH AS THAT HUMAN - EX.post_all_deals' shape, for its reason.
+function EX.deliver_all_forwards()
+    for _, f in ipairs(EX.humans()) do
+        EX.with_player(f, function() EX.deliver_forwards() end)
+    end
 end
 
 function EX.find_order(res, side, cmp, rung)
@@ -11488,6 +12787,327 @@ EX.MP_OPS.deal = function(arg)
     if is_uicomponent(EX.panel()) then
         EX.layout()
         EX.refresh_panel()
+    end
+end
+
+-- TAKING A CONTRACT OFFER, BY INDEX, on EX.deal_send's argument: the offers are built by the
+-- same bound pass on every machine, so index k is the same offer everywhere.
+function EX.fwd_send(k)
+    EX.mp_send("fwd", k)
+end
+
+EX.MP_OPS.fwd = function(arg)
+    local why = EX.accept_forward(arg)
+    if why ~= true then EX.say("trade", "contract refused: " .. tostring(why)) end
+    if is_uicomponent(EX.panel()) then
+        EX.layout()
+        EX.refresh_panel()
+    end
+end
+
+-- ---------------------------------------------------------------------------------------
+-- WAR BONDS AND LOANS. Houses post the offers; the gold is real on both sides, through
+-- EX.pay_house. A position is { side = "l" (you lent) or "b" (you borrowed), fac, p = principal
+-- still to repay, c = payment a turn, at = maturity turn, late = arrears }.
+-- ---------------------------------------------------------------------------------------
+
+-- EX.pack_forwards' shape. Six fields each, whole numbers only, so nothing crosses the
+-- decimal-comma save; a record of any other length is dropped, never defaulted.
+function EX.pack_bonds()
+    local out = {}
+    for i, x in ipairs(EX.bonds) do
+        out[i] = table.concat({ x.side, x.fac, x.p, x.c, x.at, x.late }, ",")
+    end
+    return table.concat(out, ";")
+end
+
+local function bond_fields(chunk)
+    local f = {}
+    for part in string.gmatch(chunk, "[^,]+") do f[#f + 1] = part end
+    if #f ~= 6 or (f[1] ~= "l" and f[1] ~= "b") then return nil end
+    for i = 3, 6 do if not tonumber(f[i]) then return nil end end
+    return f
+end
+
+function EX.unpack_bonds(s)
+    EX.bonds = {}
+    if type(s) ~= "string" or s == "" then return end
+    for chunk in string.gmatch(s, "[^;]+") do
+        local f = bond_fields(chunk)
+        if f then
+            EX.bonds[#EX.bonds + 1] = { side = f[1], fac = f[2], p = tonumber(f[3]),
+                c = tonumber(f[4]), at = tonumber(f[5]), late = tonumber(f[6]) }
+        end
+    end
+end
+
+function EX.pack_bond_offers()
+    local out = {}
+    for i, o in ipairs(EX.bond_offers) do
+        out[i] = table.concat({ o.side, o.fac, o.amt, o.pay, o.term, o.turn }, ",")
+    end
+    return table.concat(out, ";")
+end
+
+function EX.unpack_bond_offers(s)
+    EX.bond_offers = {}
+    if type(s) ~= "string" or s == "" then return end
+    for chunk in string.gmatch(s, "[^;]+") do
+        local f = bond_fields(chunk)
+        if f then
+            EX.bond_offers[#EX.bond_offers + 1] = { side = f[1], fac = f[2], amt = tonumber(f[3]),
+                pay = tonumber(f[4]), term = tonumber(f[5]), turn = tonumber(f[6]) }
+        end
+    end
+end
+
+function EX.save_bonds()
+    pcall(function() EX.setp(EX.SAVE_BONDS, EX.pack_bonds()) end)
+end
+
+function EX.save_bond_offers()
+    pcall(function() EX.setp(EX.SAVE_BOND_OFFERS, EX.pack_bond_offers()) end)
+end
+
+-- A WEAK HOUSE PAYS MORE: the neutral lot price over the house's own, kept to [0.5, 2].
+function EX.bond_risk(h)
+    local p = EX.price(h)
+    if not p or p <= 0 then return 2 end
+    local r = EX.price_at(EX.neutral_rung()) / p
+    if r < 0.5 then r = 0.5 end
+    if r > 2 then r = 2 end
+    return r
+end
+
+-- The bound player's culture's houses, alive and not at war with the player. Sorted, so two
+-- machines holding the house list in different orders post the same offers.
+function EX.bond_houses()
+    local c = EX.culture_of(EX.who())
+    local t = {}
+    if not c then return t end
+    for _, h in ipairs(EX.houses or {}) do
+        if EX.culture_of(h) == c and not EX.index_dead(h) and EX.treaty_tier(h) ~= "war" then
+            t[#t + 1] = h
+        end
+    end
+    table.sort(t)
+    return t
+end
+
+-- THE OFFERS, per human, bound. A house at war with somebody issues a bond, weakest first; one
+-- at war with nobody lends, richest first, never more than half its treasury. The two sets
+-- cannot share a house, so nothing can be borrowed from a house and lent straight back to it.
+-- ROUNDED, NOT FLOORED: WH3's numbers are float32, where 1000 x 0.02 reads 19.9999996.
+function EX.post_bonds()
+    EX.bond_offers = {}
+    if not EX.setting("ai_bonds") then
+        EX.save_bond_offers()
+        return
+    end
+    local cap = EX.opt("bond_max")
+    local T = EX.opt("bond_turns")
+    local lo = math.ceil(T / 2)
+    local rate = EX.opt("bond_rate")
+    local top = math.floor(EX.opt("house_cash_max") / EX.BOND_UNIT) * EX.BOND_UNIT
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local issuers, lenders = {}, {}
+    for _, h in ipairs(EX.bond_houses()) do
+        local war, gold = false, 0
+        pcall(function()
+            local f = cm:get_faction(h)
+            war = f:at_war() == true
+            gold = f:treasury() or 0
+        end)
+        if war then issuers[#issuers + 1] = { h = h, v = EX.price(h) }
+        else lenders[#lenders + 1] = { h = h, v = gold } end
+    end
+    table.sort(issuers, function(x, y)
+        if x.v ~= y.v then return x.v < y.v end
+        return x.h < y.h
+    end)
+    table.sort(lenders, function(x, y)
+        if x.v ~= y.v then return x.v > y.v end
+        return x.h < y.h
+    end)
+    local function post(side, e)
+        local amt = EX.BOND_UNIT * (1 + EX.key_hash(e.h .. "|a|" .. turn) % 5)
+        if amt > top then amt = top end
+        if side == "b" then
+            local half = math.floor(e.v / 2 / EX.BOND_UNIT) * EX.BOND_UNIT
+            if amt > half then amt = half end
+        end
+        if amt < EX.BOND_UNIT then return false end
+        local risk = (side == "l") and EX.bond_risk(e.h) or 1
+        EX.bond_offers[#EX.bond_offers + 1] = {
+            side = side, fac = e.h, amt = amt,
+            pay = math.floor(amt * rate * risk + 0.5),
+            term = lo + EX.key_hash(e.h .. "|t|" .. turn) % (T - lo + 1),
+            turn = turn,
+        }
+        return true
+    end
+    for _, list in ipairs({ { "l", issuers }, { "b", lenders } }) do
+        local n = 0
+        for _, e in ipairs(list[2]) do
+            if n >= cap then break end
+            if post(list[1], e) then n = n + 1 end
+        end
+    end
+    EX.save_bond_offers()
+end
+
+function EX.post_all_bonds()
+    for _, f in ipairs(EX.humans()) do
+        EX.with_player(f, function() EX.post_bonds() end)
+    end
+end
+
+function EX.bond_open(side)
+    local n = 0
+    for _, x in ipairs(EX.bonds) do if x.side == side then n = n + 1 end end
+    return n
+end
+
+-- TAKING AN OFFER. THE REFUSALS, in this order, each leaving the offer on the page: a bad
+-- index; the house dead or delisted; the house at war with you; six open on that side; a bond
+-- you cannot pay for; a loan the house can no longer fund (ai_gold on - off, its side is
+-- notional).
+function EX.accept_bond(k)
+    local i = tonumber(k) or 0
+    local o = EX.bond_offers[i]
+    if not o or not o.fac or not o.amt or not o.pay or not o.term then return "nodeal" end
+    if EX.index_dead(o.fac) then return "gone" end
+    if EX.treaty_tier(o.fac) == "war" then return "war" end
+    if EX.bond_open(o.side) >= EX.BOND_OPEN_MAX then return "full" end
+    local me = EX.who()
+    local p = o.amt
+    if o.side == "l" then
+        local gold = 0
+        pcall(function() gold = cm:get_faction(me):treasury() end)
+        if gold < o.amt then return "afford" end
+        cm:treasury_mod(me, -o.amt)
+        EX.pay_house(o.fac, o.amt)
+    else
+        if EX.setting("ai_gold") then
+            local hg = 0
+            pcall(function() hg = cm:get_faction(o.fac):treasury() end)
+            if hg < o.amt then return "poor" end
+            p = -EX.pay_house(o.fac, -o.amt)
+            if p <= 0 then return "poor" end
+        end
+        cm:treasury_mod(me, p)
+    end
+    EX.bonds[#EX.bonds + 1] = { side = o.side, fac = o.fac, p = p, c = o.pay,
+                                at = (o.turn or 0) + o.term, late = 0 }
+    table.remove(EX.bond_offers, i)
+    EX.save_bonds()
+    EX.save_bond_offers()
+    pcall(function()
+        EX.log_add("", ((o.side == "l") and "Bond bought: you lent " or "Loan taken: you borrowed ")
+            .. p .. "g for " .. o.term .. " turns at " .. o.pay .. "g a turn.", o.fac)
+    end)
+    return true
+end
+
+function EX.bond_send(k)
+    EX.mp_send("bond", k)
+end
+
+EX.MP_OPS.bond = function(arg)
+    local why = EX.accept_bond(arg)
+    if why ~= true then EX.say("trade", "bond refused: " .. tostring(why)) end
+    if is_uicomponent(EX.panel()) then
+        EX.layout()
+        EX.refresh_panel()
+    end
+end
+
+-- ONE POSITION'S TURN. Returns the player's gold delta and whether it closed. Raises on an engine
+-- error before touching the position; EX.pay_bonds catches it and keeps the position as it was.
+--
+-- DEATH FIRST: a bond pays you windup x (principal + arrears) from nothing, as shares settle -
+-- never the buyout premium, so lending to a house and then taking its capital earns nothing
+-- extra. A dead lender's loan falls due at once, paid to nobody: killing a lender only saves
+-- the payments still to come, never the debt.
+-- AT WAR WITH YOU: nothing, and nothing builds up. A principal that falls due waits for peace.
+-- THE TERM'S PAYMENTS fall on the turns after taking up to and including `at`; from `at` on the
+-- principal is folded into the arrears, once.
+function EX.pay_one_bond(x, turn, ai_gold)
+    if EX.index_dead(x.fac) then
+        local owed = x.p + x.late
+        if x.side == "l" then
+            local back = math.floor(EX.opt("windup") * owed)
+            pcall(function()
+                EX.log_add("", "Gone. Its bond settled at the wind-up rate: +" .. back .. "g.", x.fac)
+            end)
+            return back, true
+        end
+        pcall(function()
+            EX.log_add("", "Gone. Its heirs call in your loan: -" .. owed .. "g.", x.fac)
+        end)
+        return -owed, true
+    end
+    if EX.treaty_tier(x.fac) == "war" then return 0, false end
+    local p, late = x.p, x.late
+    if turn >= x.at and p > 0 then late, p = late + p, 0 end
+    local due = late + ((turn <= x.at) and x.c or 0)
+    local delta = 0
+    if due > 0 then
+        if x.side == "l" then
+            local paid = ai_gold and -EX.pay_house(x.fac, -due) or due
+            late = due - paid
+            delta = paid
+            if late > 0 then
+                pcall(function()
+                    EX.log_add("", "Paid " .. paid .. "g of " .. due .. "g it owes you; "
+                        .. late .. "g behind.", x.fac)
+                end)
+            end
+        else
+            -- CONSERVED (logic sweep 2026-09-29): you pay what the house can take in a turn, its
+            -- gold limit, and the rest waits as arrears, as a bond's does. ai_gold off, in full.
+            local paid = ai_gold and EX.pay_house(x.fac, due) or due
+            late = due - paid
+            delta = -paid
+        end
+    end
+    x.p, x.late = p, late
+    local closed = (turn >= x.at) and p == 0 and late == 0
+    if closed then
+        pcall(function()
+            EX.log_add("", (x.side == "l") and "Bond repaid in full." or "Loan repaid in full.", x.fac)
+        end)
+    end
+    return delta, closed
+end
+
+-- EVERY POSITION, IN LIST ORDER, EACH IN ITS OWN pcall; an error keeps the position and stops
+-- nothing else. The player's side is two cm:treasury_mod calls at most, one a direction.
+-- IGNORES ai_bonds: an open position is an obligation, whatever the switch now says.
+function EX.pay_bonds()
+    if #EX.bonds == 0 then return end
+    local me = EX.who()
+    local turn = 0
+    pcall(function() turn = cm:turn_number() end)
+    local ai_gold = EX.setting("ai_gold")
+    local keep, gain, cost = {}, 0, 0
+    for _, x in ipairs(EX.bonds) do
+        local ok, delta, closed = pcall(EX.pay_one_bond, x, turn, ai_gold)
+        if not ok then
+            EX.say("error", "bond with " .. tostring(x.fac) .. " failed: " .. tostring(delta))
+            keep[#keep + 1] = x
+        else
+            if delta > 0 then gain = gain + delta else cost = cost - delta end
+            if not closed then keep[#keep + 1] = x end
+        end
+    end
+    EX.bonds = keep
+    EX.save_bonds()
+    if gain > 0 then cm:treasury_mod(me, gain) end
+    if cost > 0 then cm:treasury_mod(me, -cost) end
+    if gain > 0 or cost > 0 then
+        EX.log_add("Bonds", "Bonds paid you " .. gain .. "g; your loans cost " .. cost .. "g.", "")
     end
 end
 
@@ -12136,8 +13756,29 @@ function EX.row_click(s, row_id)
     -- answers nil and the gate would eat every deal click before this branch was reached.
     -- That is how Stage 1 shipped a dead Cancel button with every check green.
     if EX.mode == EX.MODE_DEALS then
+        -- AN OFFER'S INDEX ONLY. A contract row's button is a status and greyed, but a disabled
+        -- button can still deliver a click (see EX.set_mode), so the index is checked here too.
+        if EX.on_contracts() then
+            local k = EX.fwd_of_row(row_id)
+            if k and k <= #EX.fwd_offers and s == "btn_buy" then EX.fwd_send(k) end
+            return
+        end
         local n = EX.deal_of_row(row_id)
         if n and s == "btn_buy" then EX.deal_send(n) end
+        return
+    end
+    -- THE BONDS PAGE: only an offer's button sends, the contracts page's rule and for its reason.
+    if EX.on_bonds() then
+        local k = EX.bond_of_row(row_id)
+        if k and k <= #EX.bond_offers and s == "btn_buy" then EX.bond_send(k) end
+        return
+    end
+    -- THE INDEX PAGE: only the index row trades. A member's buttons are hidden, but a hidden
+    -- button is still a component, and a name click must not chart a house from here.
+    if EX.on_index() then
+        if row_id == EX.ROW .. "_idx" and (s == "btn_buy" or s == "btn_sell") then
+            EX.index_send(s == "btn_buy")
+        end
         return
     end
     local res = EX.res_of_row(row_id)
@@ -12459,6 +14100,9 @@ function EX.init()
         -- list above. EX.settle_house pays every human holder off one living price and only
         -- then sets the world delisted flag.
         EX.check_delistings()
+        -- THE INDEX'S REMOVALS, step 7b. After the delistings, while a dead member is still at
+        -- the living price its share settlement just used; before apply_prices collapses it.
+        EX.index_sync(false)
 
         -- THE BOOK MODEL'S REFERENCE PLAYER.
         --
@@ -12483,15 +14127,28 @@ function EX.init()
 
         -- WORLD. The reprice, and the record of what it settled at.
         EX.apply_prices()
+        -- THE INDEX'S JOINS, step 10c. After the reprice, so a new house joins at its fresh
+        -- price rather than its placeholder. Also records the index's trend.
+        EX.index_sync(true)
+        -- RESET BEFORE STEP 10a, not at 9b: contract deliveries mark the players they trade
+        -- for, and share the one zharr_after_fills reprice with the order fills below.
+        EX.fill_factions = {}
+        -- FORWARD CONTRACTS, step 10a. After the reprice, so a lot settled in gold settles at
+        -- the price the panel shows; before the deals, so the offers are posted against the
+        -- treasuries the deliveries left. Never on first tick - a load is not a turn, and a
+        -- reload must not deliver a contract twice. PER HUMAN - see EX.deliver_all_forwards.
+        EX.deliver_all_forwards()
         -- THE DEALS PAGE. After the reprice on purpose - see EX.post_deals. Not on the
         -- first-tick path either: a load is not a turn, and reposting there would overwrite the
-        -- list EX.restore just unpacked out of the save.
-        EX.post_deals()
+        -- list EX.restore just unpacked out of the save. PER HUMAN - see EX.post_all_deals.
+        EX.post_all_deals()
+        -- WAR BONDS AND LOANS, step 10d. After the reprice (a bond's risk reads house prices)
+        -- and after the deliveries (a loan offer reads the treasury they left). PER HUMAN.
+        EX.post_all_bonds()
 
         -- PLAYER, step 9b. AFTER apply_prices, so a limit tests the number the panel shows;
         -- BEFORE remember_all, so the bar this turn records is the price the fill got rather
         -- than the price the fill caused.
-        EX.fill_factions = {}
         for _, f in ipairs(EX.humans()) do
             EX.with_player(f, function() EX.fill_orders() end)
         end
@@ -12558,6 +14215,8 @@ function EX.init()
                 -- load is not a turn, and five reloads would be five dividend days, the same
                 -- trap EX.charge_carry documents for the rent.
                 EX.pay_dividends()
+                EX.pay_index_dividends()
+                EX.pay_bonds()
                 EX.maybe_demand()
                 -- LAST IN THE PLAYER BLOCK, so the turn's entries read in the order they
                 -- happened once the log reverses them: the guild's trading and the world's

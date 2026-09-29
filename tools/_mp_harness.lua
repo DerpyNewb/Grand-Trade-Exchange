@@ -11,6 +11,7 @@ local BUNDLES = {}
 local MESSAGES = {}
 local TURN = 10
 local MP = false
+local AT_WAR = {}
 
 local HUMANS = { "zeta_player", "alpha_player", "mid_player", "omega_player" }
 local CULTURE = {
@@ -34,7 +35,7 @@ local function mkfac(name)
         is_dead = function() return false end,
         is_rebel = function() return false end,
         is_quest_battle_faction = function() return false end,
-        at_war = function() return false end,
+        at_war = function() return AT_WAR[name] == true end,
         region_list = function() return { num_items = function() return 3 end } end,
         military_force_list = function() return { num_items = function() return 2 end } end,
         home_region = function() return { is_null_interface = function() return true end } end,
@@ -370,9 +371,10 @@ print("deal_pages_empty " .. empty)
 -- playing alpha_player, and the gold that moves here must still be mid_player's. Applying it
 -- as the local player is a desync that looks correct on the clicker's own screen.
 MP = true
-for _, f in ipairs(EX.humans()) do
-    EX.with_player(f, function() EX.post_deals() end)
-end
+-- THE TURN ROUND'S OWN PASS, not a loop written here. Until 2026-09-29 this harness wrapped
+-- EX.post_deals per human itself while EX.turn_round called it once, unbound - so this section
+-- proved a page-building shape the game never ran.
+EX.post_all_deals()
 local before = {}
 for _, f in ipairs(EX.humans()) do before[f] = GOLD[f] or 0 end
 EX.mp_apply(EX.faction_by_cqi(13), "deal", "1")
@@ -383,3 +385,300 @@ end
 print("deal_moved " .. table.concat(moved, ","))
 print("deal_subject_after " .. tostring(EX.who()))
 MP = false
+
+-- ------------------------------------------------------------------------------------------
+-- 8b. EVERY HUMAN'S PAGE, AND EVERY HUMAN'S OWN REASON FOR AN EMPTY ONE.
+--
+-- EX.deal_why is the sentence an empty page shows - "none" (nobody could even issue a deal)
+-- or "declined" (somebody could and scored it no). It is per PLAYER, like the page it
+-- explains. zeta_player is LAST in the sorted walk and is NOT the local player, which is what
+-- makes this discriminating: the engine cannot issue a deal to zeta at all, so zeta's reason
+-- is "none"; everyone else is offered deals, and EX.post_deals marks "declined" on any
+-- can_issue. A reason held in one shared global ends the pass as zeta's "none", and the
+-- local player's panel would then explain a page they never had.
+-- ------------------------------------------------------------------------------------------
+cm.cai_evaluate_quick_deal_action = function(_, mine, them)
+    if mine.name() == "zeta_player" then return 0, false end
+    return 42, true
+end
+build_world({ "house_a", "house_b", "house_c",
+              "zeta_player", "alpha_player", "mid_player", "omega_player" })
+EX.post_all_deals()
+local pages = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        pages[#pages + 1] = f .. "=" .. #EX.deals .. "/" .. tostring(EX.deal_why)
+    end)
+end
+print("deal_all_pages " .. table.concat(pages, " "))
+print("deal_why_local " .. tostring(EX.deal_why))
+print("deal_all_subject_after " .. tostring(EX.who()))
+
+-- ------------------------------------------------------------------------------------------
+-- 8c. FORWARD CONTRACTS (2026-09-29): each human's own offers, taken as the SENDER by index,
+-- delivered per human on the delivery turn.
+--
+-- One deal slot, so the three houses spill onto the contract list at all. house_b refuses
+-- mid_player again, so mid's lists are the discriminating ones: the offers are built for the
+-- BOUND player, and a pass built for the local one would give mid house_b.
+-- ------------------------------------------------------------------------------------------
+cm.cai_evaluate_quick_deal_action = function(_, mine, them)
+    if them.name() == "house_b" and mine.name() == "mid_player" then return 0, false end
+    return 42, true
+end
+EX.snap = { ai_deals = true, ai_forwards = true, deal_max = 1 }
+build_world({ "house_a", "house_b", "house_c",
+              "zeta_player", "alpha_player", "mid_player", "omega_player" })
+EX.post_all_deals()
+local fp = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        local r = {}
+        for i = 1, #EX.fwd_offers do r[#r + 1] = EX.fwd_offers[i].fac end
+        for i = 1, #EX.deals do r[#r + 1] = "d:" .. EX.deals[i].fac end
+        fp[#fp + 1] = f .. "=" .. table.concat(r, ",")
+    end)
+end
+print("fwd_pages " .. table.concat(fp, " "))
+
+-- TAKEN AS THE SENDER. mid_player clicks on their machine; this one plays alpha_player.
+MP = true
+EX.mp_apply(EX.faction_by_cqi(13), "fwd", "1")
+MP = false
+local held, at = {}, nil
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        held[#held + 1] = f .. "=" .. #EX.forwards
+        if f == "mid_player" and EX.forwards[1] then at = EX.forwards[1].at end
+    end)
+end
+print("fwd_taken " .. table.concat(held, " "))
+print("fwd_subject_after " .. tostring(EX.who()))
+
+-- DELIVERED PER HUMAN on the delivery turn: only mid_player's treasury moves among the humans,
+-- and only mid_player's list empties. None of the humans holds any goods here, so every lot
+-- settles in gold - which is exactly what makes the moved-gold list readable.
+local gbefore = {}
+for _, f in ipairs(EX.humans()) do gbefore[f] = GOLD[f] or 0 end
+TURN = at or TURN
+EX.deliver_all_forwards()
+local gmoved, left = {}, {}
+for _, f in ipairs(EX.humans()) do
+    if (GOLD[f] or 0) ~= gbefore[f] then gmoved[#gmoved + 1] = f end
+    EX.with_player(f, function() left[#left + 1] = f .. "=" .. #EX.forwards end)
+end
+print("fwd_delivered_moved " .. table.concat(gmoved, ","))
+print("fwd_left " .. table.concat(left, " "))
+print("fwd_deliver_subject_after " .. tostring(EX.who()))
+
+-- ------------------------------------------------------------------------------------------
+-- 8d. THE INDEX FUND (2026-09-29): one index per culture with a human, world state; units per
+-- player, bought as the SENDER; members' dividends paid to each holder bound; a death logged to
+-- that culture's humans only.
+--
+-- house_a and house_b are Chaos Dwarf, house_c is the Empire's only house. So alpha_player has
+-- an index and mid_player has none - and the machine here plays alpha, so an index read off
+-- the LOCAL culture would hand mid the Chaos Dwarf one and let the buy through.
+-- ------------------------------------------------------------------------------------------
+EX.houses = { "house_a", "house_b", "house_c" }
+EX.house_set = nil
+EX.delisted = {}
+EX.snap = nil
+-- GOLD FIRST. Earlier sections leave treasuries wherever their settlements put them, and a
+-- human who cannot afford a lot is refused for the wrong reason - which is what let an index
+-- read off the local culture pass this section once.
+for _, f in ipairs(EX.humans()) do GOLD[f] = 100000 end
+EX.index_sync(true)
+local st = {}
+for _, c in ipairs(EX.index_cultures()) do
+    local s = EX.index_state(c)
+    st[#st + 1] = c .. "=" .. (s and table.concat(s.m, ",") or "none")
+end
+print("idx_mp_states " .. table.concat(st, " "))
+
+MP = true
+EX.mp_apply(EX.faction_by_cqi(12), "idx", "b1")      -- alpha, Chaos Dwarf: buys
+EX.mp_apply(EX.faction_by_cqi(13), "idx", "b1")      -- mid, Empire: no index to buy
+MP = false
+local units = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function() units[#units + 1] = f .. "=" .. EX.index_units end)
+end
+print("idx_mp_units " .. table.concat(units, " "))
+print("idx_mp_subject_after " .. tostring(EX.who()))
+
+-- THE DIVIDEND, bound per human the way the round's player block binds it.
+local gb = {}
+for _, f in ipairs(EX.humans()) do gb[f] = GOLD[f] or 0 end
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function() EX.pay_index_dividends() end)
+end
+local moved = {}
+for _, f in ipairs(EX.humans()) do
+    if (GOLD[f] or 0) > gb[f] then moved[#moved + 1] = f end
+end
+print("idx_mp_div_moved " .. table.concat(moved, ","))
+
+-- A DEATH, LOGGED TO THE CULTURE THAT HOLDS THE INDEX. The pass itself runs unbound, and the
+-- index that loses a member here is the EMPIRE's - a second Empire house gives mid_player one -
+-- so a log written unbound lands in alpha_player's, the local slice, and not in mid's.
+WORLD[#WORLD + 1] = "house_d"
+CULTURE.house_d = "wh_main_emp_empire"
+EX.houses = { "house_a", "house_b", "house_c", "house_d" }
+EX.house_set = nil
+EX.index_sync(true)
+EX.delisted.house_c = true
+EX.index_sync(false)
+local told = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        for _, e in ipairs(EX.LOG) do
+            if e[4] == "house_c" and e[2] == "" then told[#told + 1] = f; break end
+        end
+    end)
+end
+print("idx_mp_death_told " .. table.concat(told, ","))
+print("idx_mp_death_subject_after " .. tostring(EX.who()))
+EX.delisted = {}
+
+-- ------------------------------------------------------------------------------------------
+-- 8e. WAR BONDS AND LOANS (2026-09-29): each human's own offers, from houses of their own
+-- culture; taken as the SENDER by index; paid per human, bound.
+--
+-- house_a is at war with somebody, so it issues a bond; house_b is at peace, so it lends. Both
+-- are Chaos Dwarf, so they are alpha's. house_c and house_d are the Empire's and at peace, so
+-- mid gets two loan offers, richest first. An offer list built for the LOCAL player (alpha)
+-- would hand mid alpha's.
+-- ------------------------------------------------------------------------------------------
+EX.houses = { "house_a", "house_b", "house_c", "house_d" }
+EX.house_set = nil
+EX.delisted = {}
+EX.snap = { ai_bonds = true, ai_gold = true, bond_max = 2 }
+AT_WAR.house_a = true
+for _, f in ipairs(EX.humans()) do GOLD[f] = 100000 end
+GOLD.house_a, GOLD.house_b, GOLD.house_c, GOLD.house_d = 50000, 50000, 60000, 80000
+EX.post_all_bonds()
+local bo = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        local r = {}
+        for _, o in ipairs(EX.bond_offers) do r[#r + 1] = o.side .. ":" .. o.fac end
+        bo[#bo + 1] = f .. "=" .. table.concat(r, ",")
+    end)
+end
+print("bd_mp_offers " .. table.concat(bo, " "))
+print("bd_mp_post_subject_after " .. tostring(EX.who()))
+
+-- TAKEN AS THE SENDER. alpha lends to house_a; mid borrows from house_d - offer 1 on each
+-- player's own list. Every gold one side gains is what the other lost.
+local g0 = {}
+for k, v in pairs(GOLD) do g0[k] = v end
+MP = true
+EX.mp_apply(EX.faction_by_cqi(12), "bond", "1")
+EX.mp_apply(EX.faction_by_cqi(13), "bond", "1")
+MP = false
+local held = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        local r = {}
+        for _, x in ipairs(EX.bonds) do r[#r + 1] = x.side .. ":" .. x.fac end
+        held[#held + 1] = f .. "=" .. table.concat(r, ",") .. "/" .. #EX.bond_offers
+    end)
+end
+print("bd_mp_taken " .. table.concat(held, " "))
+print("bd_mp_take_moved alpha=" .. (GOLD.alpha_player - g0.alpha_player)
+    .. "|" .. (GOLD.house_a - g0.house_a) .. " mid=" .. (GOLD.mid_player - g0.mid_player)
+    .. "|" .. (GOLD.house_d - g0.house_d))
+print("bd_mp_take_subject_after " .. tostring(EX.who()))
+
+-- PAID PER HUMAN, the round's own player block: next turn alpha is paid by house_a and mid pays
+-- house_d; nobody else's treasury moves.
+TURN = TURN + 1
+local g1 = {}
+for k, v in pairs(GOLD) do g1[k] = v end
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function() EX.pay_bonds() end)
+end
+local pm = {}
+for _, f in ipairs(EX.humans()) do
+    if GOLD[f] ~= g1[f] then pm[#pm + 1] = f end
+end
+print("bd_mp_paid_moved " .. table.concat(pm, ","))
+print("bd_mp_paid_sum " .. tostring((GOLD.alpha_player - g1.alpha_player)
+    + (GOLD.house_a - g1.house_a) == 0 and (GOLD.mid_player - g1.mid_player)
+    + (GOLD.house_d - g1.house_d) == 0 and GOLD.alpha_player > g1.alpha_player
+    and GOLD.mid_player < g1.mid_player))
+print("bd_mp_pay_subject_after " .. tostring(EX.who()))
+TURN = TURN - 1
+AT_WAR.house_a = nil
+EX.snap = nil
+
+-- ------------------------------------------------------------------------------------------
+-- 8f. ONE MARKET ON EVERY MACHINE (logic sweep, 2026-09-29). The world steps and every reprice
+-- read the shared market's knobs UNBOUND, which on each machine means that machine's own
+-- player - so a knob that follows the local race prices the same book differently on a Chaos
+-- Dwarf machine and a Skaven one, and the shared prices never agree again. Two machines are
+-- played here by swapping the local race row. The index's wind-up is the same trap: the index
+-- belongs to a culture, and its level must be that culture's on every machine.
+-- ------------------------------------------------------------------------------------------
+local WORLD_KEYS = { "pressure_per_rung", "book_per_rung", "shock_gain", "shock_max" }
+local function world_read()
+    local r = {}
+    for _, k in ipairs(WORLD_KEYS) do r[#r + 1] = string.format("%%.3f", EX.opt(k)) end
+    return table.concat(r, ",")
+end
+local real_race = EX.race
+EX.snap = nil
+EX.houses = { "house_a", "house_b", "house_c", "house_d" }
+EX.house_set = nil
+EX.delisted = { house_c = true }
+local px_c = EX.price("house_c")
+local emp_w
+EX.with_player(EX.faction_by_cqi(13), function() emp_w = EX.opt("windup") end)
+local chd_w = EX.opt("windup")
+MP = true
+EX.race = EX.RACES["wh3_dlc23_chd_chaos_dwarfs"]
+local w_chd, i_chd = world_read(), EX.index_weight("house_c")
+EX.race = EX.RACES["wh2_main_skv_skaven"]
+local w_skv, i_skv = world_read(), EX.index_weight("house_c")
+MP = false
+local w_sp = world_read()
+EX.race = real_race
+EX.delisted = {}
+print("mp_world_same " .. tostring(w_chd == w_skv))
+print("mp_world_sp_moved " .. tostring(w_sp ~= w_chd))
+print("mp_index_windup_same " .. tostring(i_chd == i_skv))
+print("mp_index_windup_empire " .. tostring(math.abs(i_chd - emp_w * px_c) < 1e-6))
+print("mp_index_windup_differs " .. tostring(emp_w ~= chd_w))
+-- AND THE REMOVAL PASS re-cuts the Empire index's divisor at the Empire's wind-up on every
+-- machine: house_c dies out of an index of house_c and house_d, once per local race.
+local EMP = "wh_main_emp_empire"
+local function removal_d(race_row)
+    EX.setv(EX.SAVE_INDEX .. EMP, nil)
+    EX.delisted = {}
+    EX.index_sync(true)
+    EX.delisted = { house_c = true }
+    EX.race = race_row
+    MP = true
+    EX.index_remove(EMP)
+    MP = false
+    EX.race = real_race
+    local s = EX.index_state(EMP)
+    return s and string.format("%%.6f", s.d) or "none"
+end
+local rd1 = removal_d(EX.RACES["wh3_dlc23_chd_chaos_dwarfs"])
+local rd2 = removal_d(EX.RACES["wh2_main_skv_skaven"])
+EX.delisted = {}
+EX.setv(EX.SAVE_INDEX .. EMP, nil)
+print("mp_index_removal_same " .. tostring(rd1 == rd2 and rd1 ~= "none"))
+-- AND A PLAYER'S OWN KNOBS STILL FOLLOW THAT PLAYER in multiplayer: the fix is for the shared
+-- market only. The Empire player's markup ceiling is the Empire's, the Skaven player's Skaven.
+MP = true
+local own = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        own[#own + 1] = f .. "=" .. string.format("%%.3f", EX.opt("hostile_max"))
+    end)
+end
+MP = false
+print("mp_own_knobs " .. table.concat(own, " "))

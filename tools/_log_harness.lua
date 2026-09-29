@@ -194,7 +194,13 @@ common = { get_localised_string = function() LOC = LOC + 1 return "SHOULD NOT HA
 EX.COMMODITIES = { "res_gems", "res_rom_furs" }
 EX.INFO = { res_gems = { "Gemstones", "x" }, res_rom_furs = { "Furs", "x" } }
 EX.BOOK_TRADE_MAX = 5
-EX.opt = function(k) if k == "spread" then return 0.1 end return 1 end
+-- house_cash_max LARGE: since the logic sweep of 2026-09-29 a house sells no more lots than
+-- its gold limit pays for, and this stub answering 1 for it would forbid every sale.
+EX.opt = function(k)
+    if k == "spread" then return 0.1 end
+    if k == "house_cash_max" then return 1e9 end
+    return 1
+end
 EX.hold_guild, EX.free_guild = function() end, function() end
 EX.price = function() return 100 end
 EX.pay_house = function() return 0 end

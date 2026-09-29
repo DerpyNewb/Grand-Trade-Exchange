@@ -9,9 +9,9 @@ This is the **reference for what shipped**.
 | | |
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
-| Size / md5 | 1,606,064 B / `9348dfbc680c42ecc2dcbc3c587dc616` (2026-09-28, the decimal-comma save fix - §15; deployed to the Workshop folder and byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
+| Size / md5 | 1,682,305 B / `654db418c7a574efe98dd8a8cf282bf3` (2026-09-29: contracts, the index, bonds and loans, and the logic-sweep fixes - §12, §11.1, §18; deployed to the Workshop folder and the restore overlay, byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
 | Rows | 649 DB across 10 tables, plus 1,776 loc = 2,425 |
-| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 12,772 lines, 360 `EX.*` functions (682 `EX.*` names in all, every one read — `check_no_orphans`) |
+| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 14,431 lines, 438 `EX.*` functions (790 `EX.*` names in all, every one read — `check_no_orphans`) |
 | Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
 | Workshop | *Derpy's Grand Trade Exchange*, item 3798516851. In game it is still the Zharr Exchange |
 | Hard dependency | none |
@@ -184,6 +184,13 @@ therefore buys shares in Empire factions, which is what the per-race `div_yield`
 Holdings are **save state**, not a pooled resource: there is no DB row for a house, so
 `cm:faction_add_pooled_resource` would be a silent no-op and the position would vanish on
 reload.
+
+**The index fund** (2026-09-29) holds every house of your culture in one lot, on the page after
+the house list - see "The Index page" in §12.
+
+**War bonds and loans** (2026-09-29): a house of your culture at war with somebody borrows from
+you; one at war with nobody lends to you. Real gold both ways, a payment every turn, the whole
+amount at the end - see "The Bonds page" in §12.
 
 ---
 
@@ -951,7 +958,10 @@ books moved in full, creating goods. **Gold is conserved by construction**: the 
 exactly what `EX.pay_actor` took from the buyer, where the guild's `EX.pay_house` is a sink that
 would drain eighty treasuries a turn. Both scanned treasuries are spent down as a per-turn
 budget, so one treasury cannot pay once per commodity. Trades are at last turn's price, before
-the reprice. A **confirmed**-dead faction's book and save key are pruned first -
+the reprice. **The guild's own step, `EX.step_books`, has the same lot cap since the logic sweep
+of 2026-09-29**: a house buys and sells no more lots than `house_cash_max` pays for
+(`EX.house_lot_cap`, `ai_gold` on). Before, `EX.pay_house` clamped the gold while the book moved
+in full, so at a lot price above a quarter of the limit a house booked goods it never paid for. A **confirmed**-dead faction's book and save key are pruned first -
 `cm:get_faction` returning `false`, or a faction merely absent from this scan, leaves the entry
 alone. `ai_world` off makes the whole pass a no-op.
 
@@ -1115,6 +1125,15 @@ resolved — not a replacement. Skaven aggression composes with Hard rather than
 it. A race that set absolute values would flatten every preset but `default`.
 
 **Chaos Dwarfs carry no profile.** They are the baseline, at ×1 on everything.
+
+**In multiplayer the shared market takes no profile** (logic sweep, 2026-09-29).
+`shock_gain`, `shock_max`, `book_per_rung` and `pressure_per_rung` (`EX.WORLD_TUNABLE`) are read
+unbound by the world steps and by every reprice, which on each machine means that machine's own
+player - so until then a Chaos Dwarf machine and a Skaven one priced the same book differently
+and the shared prices never agreed again. In multiplayer those four answer ×1; in singleplayer
+the player's profile still shapes the board. The index weighs a dead member at the **index's own
+culture's** wind-up (`EX.opt_for_culture`), since one culture's index is one number on every
+machine. Every other knob follows the player it is read for, in both modes.
 
 | Knob | Empire | Cathay | Skaven | S. Realms | Dwarfs | High Elves | Dark Elves |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -1642,8 +1661,9 @@ Placing runs `EX.place_order_check` first — the same four-check dry run `EX.pl
 makes — so the ticket can print "You hold 12 orders. Cancel one first." locally, instead of
 sending an order over the network for the op to refuse right back for the identical reason. The
 target is always a rung, 1..42, never the gold `EX.price_at` displays next to it — comparing
-resolved gold would compare float32s, and `30 * 1.05` reading back as 31.4999985 (§7.1) is
-what a .5 rounding boundary does to one of those. Scope is `EX.orderable`:
+resolved gold would compare float32s, and `[[wh3-lua-is-single-precision-float]]` (§7.1 has the
+measured case: `30 * 1.05` reading back as 31.4999985) is what a .5 rounding boundary does to
+one of those. Scope is `EX.orderable`:
 the 17 commodities plus the two Layer 2 rows, because the ticket is only ever reached by
 selecting a row for the chart and the chart never selects a house.
 
@@ -1821,6 +1841,205 @@ with `ai_deals` off it draws nothing and says so. The HUD opener's tooltip count
 `EX.world_counterparty`'s gate, so with the world tier switched off the page still posts and a
 taken deal still moves the actor's book. The `ai_world` MCT tooltip says so since 2026-09-28.
 
+### The Contracts page (forward contracts)
+
+Page 2 of the Deals tab, since 2026-09-29. A **contract** is a
+price agreed now for goods delivered later: "Buys 1 lot of Iron at 1060g, in 7 turns". Taking one
+moves no gold and no goods. On the delivery turn the lots trade at the agreed price with that
+faction, and **every lot that cannot be delivered, for any reason, is settled in gold** at the gap
+to the market price on the day. There is no walking away, for either side.
+
+**Posting** - the same pass as the deals, inside `EX.post_deals`, walking the same ranked
+candidate list **after** the deal slots are full, so no faction is on both lists and a contract
+never takes a deal's slot. Up to `fwd_max` (2) offers. Two filters a deal does not have: a
+faction **at war** with the player is skipped, and so is a price above **`world_cash_max`**
+(`EX.pay_actor` clamps every AI payment to it, so the faction could never settle the lot). Neither
+marks the faction as asked, because the price test is per commodity. Lots and price exactly as a
+deal (`deal_edge`, in the player's favour). Length: `lo + key_hash(fac .. res .. turn) %
+(fwd_turns - lo + 1)`, `lo = ceil(fwd_turns / 2)` - 5 to 10 turns at the default, and the same on
+every machine. Gated on `ai_forwards`; `ai_deals` and `ai_forwards` are independent.
+
+**Taking** - `EX.accept_forward(k)`, op `fwd` with the offer's index, the Deals op's shape.
+Refusals in this order: `nodeal` (bad index), `gone` (the faction is no longer an actor), `full`
+(six open, `EX.FWD_OPEN_MAX`); a refusal leaves the offer on the page. Otherwise the contract is
+appended with `at = turn + due`, the offer leaves the page, both lists are saved.
+
+**Delivery** - `EX.deliver_forwards`, turn step 10a, per human, each due contract in list order
+inside its own `pcall`, under `EX.filling` so it shares the round's one reprice:
+
+1. faction gone (`EX.house_gone`) - cancelled, no gold;
+2. at war - no goods move; every lot settles in gold;
+3. otherwise lot by lot through `EX.apply_trade(res, is_buy, px, faction)`, the named-faction route
+   with no markup, stopping at the first refusal;
+4. every lot not delivered: per lot the player is owed `M - px` on a purchase and `px - M` on a
+   sale (`M = EX.price(res)`). Owed to the player, the faction pays through `EX.pay_actor`, clamped
+   to its scanned treasury, and the player is credited **what was actually taken**; the scanned
+   treasury is spent down as it goes. Owed by the player, the player pays **what the faction is
+   credited** - the whole gap, unless one lot's gap passes `world_cash_max`, the per-payment limit
+   `EX.pay_actor` clamps to (until the logic sweep of 2026-09-29 the player paid in full and the
+   excess reached nobody). The treasury may go below zero and CA's bankruptcy applies. With
+   `ai_gold` off the faction's leg is notional and the player's moves in full.
+
+An attempted contract always leaves the list, success or error: delivered at most once beats
+delivered twice, and an error settles no gold for a trade in an unknown state. Delivery ignores
+`ai_forwards` - the switch stops new offers, and an open contract is an obligation.
+
+**The page** keeps the Deals layout. `EX.view()` answers `"contracts"`, so the headers and tips
+are their own: Faction, Contract, Per lot, vs market, **Due** (where the deals page has Total -
+"in 10 turns" does not fit in the sentence, and the row has no sixth column). Offers first, in the
+faction's verb, with Take (greyed "Full" at six open); then the open contracts in the **player's**
+verb ("Sell 1 lot of Iron"), with the button as a greyed status: Ready (the goods or the gold are
+there today), Short, or At war. Cells from `EX.fwd_cells(k)`, the row from `EX.draw_fwd_row`, one
+pool `..._fw1` to `..._fw<fwd_max + 6>` by position. `EX.deals_pages()` lists the page while
+`ai_forwards` is on **or any contract is open**, so a contract that is going to settle gold never
+becomes invisible. Footer: offers and open contracts counted, and "Lots you cannot deliver settle
+in gold at the market price."; page 1's second footer line points at page 2 while offers wait
+there. The opener's tooltip says when a contract delivers next turn. Guide page 2: "Contract" and
+"Short". The Log carries taken, delivered, settled and cancelled lines, the faction named at draw
+time (`EX.log_add("", ..., faction)`), never at turn start.
+
+### The Index page (index fund)
+
+The page after the house list on the Houses tab, since 2026-09-29; the Bonds page follows it.
+One instrument over **your
+own culture's listed houses** (`EX.culture_of(EX.who())`, never `EX.HOUSE_CULTURE`, which is the
+local client's): not delisted, not gone, at least two of them, or there is no index.
+
+**Level** `L = S / D`: `S` is the sum of the members' lot prices (`EX.index_weight`), `D` a divisor
+kept in world state. Read live, so it moves with every share trade during the turn exactly as the
+member rows do. A new index opens with `D` = the member count, at their average lot price.
+
+- **A dead member** reads at `windup x price` the moment it is dead (`EX.index_dead`: delisted or
+  gone), not at the next round. At its living price the index would sell a corpse at full value
+  for the rest of the turn. The buyout premium never applies: conquest cannot be farmed through
+  the index, and one culture's index is one number for every player.
+- **Removals**, turn step 7b (`EX.index_sync(false)`): after `check_delistings`, while a dead house
+  is still at the living price its share settlement used, before `apply_prices` collapses it. The
+  dead leave at the wind-up rate, a member that left alive at full price, and `D` is re-cut to
+  `alive / L1` so the level after is the level the dead left. A death therefore lowers the level
+  by exactly its weight x (1 - windup) and never raises it. Each death is logged, with its fall,
+  to every human of that culture, the house named at draw time.
+- **Every member gone ends the index**: its holders are paid `floor(units x L / 5)` (the level, no
+  spread, as a share settlement pays) and the state is dropped. A divisor cannot carry a level over
+  an empty list, and restarting at the next houses' average would hand a free rise to every unit
+  still held. A new index opens fresh when two houses exist again. **This departs from the spec**,
+  which kept the state.
+- **Joins**, turn step 10c (`EX.index_sync(true)`): after `apply_prices`, so a new house joins at
+  its fresh price, not its placeholder. `D' = D + p_new / L`, so the level does not move. The join
+  pass also writes `prev` and `last`, the two levels the Trend column compares.
+
+**Trading**: a lot is 5 units. Buy `floor(L + 0.5)`, sell `floor(L x (1 - spread))`, no hostility
+markup and no pressure, so buying the index moves no member. Buy is refused with no index ("No
+index") and under the war lock ("Closed"); selling is always open, down to the units held. Gold to
+and from nobody - the share rule. Op `idx`, argument `b<n>` or `s<n>`, applied as the sender with
+`EX.clamp_lots`. Units are per player (`EX.index_units`, `zharr_idxu`, in `EX.SLICE_SCALARS`).
+The footer's Worth (`EX.holdings_value`) counts them at the sell price.
+
+**Dividend** - beside `pay_dividends`, per human: the total is floored ONCE, `floor(units x
+sum(EX.dividend(h)) / D)` - the number the Div column promises, `5 x sum / D` a lot - and split
+across the members by largest remainder, ties by key. Each member pays its part through
+`EX.pay_house` (clamped to its treasury, as a share dividend is) and the player is credited what
+moved; `ai_gold` off, the player is paid in full. War members pay nothing (`EX.dividend` is 0) and
+so do dead ones. **Also a departure from the spec**, which floored per member: at 21 houses each
+dropped most of a gold and ten units were paid 21g against the 40g the row showed.
+
+**The page** keeps the Houses layouts. `EX.view()` answers `"index"`; headers Name, Price, Div,
+Share, Trend, Last 12 turns, Held; no sort. Row 1 is `..._idx`, created in `EX.build_panel`: "Index
+of N houses", buy price and dividend per lot, 100%, trend, no icon, no sparkline, units and "+Ng"
+a turn, Buy/Sell with the amount. Rows 2.. are the members, heaviest first, on their own house row
+components with **both buttons hidden** - a member is traded on the list pages, and a live button
+here would read as buying the index - capped at `EX.MAX_ROWS - 1`; footer 2 names how many were
+cut. Title "<race name>: Index". Cells from `EX.index_cells` / `EX.index_member_cells`, rows from
+`EX.draw_index_row` / `EX.draw_index_member`, footers from `EX.index_footer`. Guide page 2 has an
+"Index" line.
+
+**The page is `EX.house_page == EX.HOUSE_INDEX_PAGE` (-1)**, not "one past the last list page".
+`EX.on_index` feeds `EX.view`, and the house list's own sort reads `EX.view` through
+`EX.sort_fn`, so an `on_index` that counted list pages recursed until the stack ran out - caught by
+the first selftest. The sentinel also keeps a player on the index when the list shortens, and every
+`EX.house_page = 1` leaves it with nothing else to reset. Not 0: `_nav_harness.lua` pins 0 as an
+out-of-range page that clamps to 1. `EX.house_page_at` clamps a list page, which fixes the "3/2"
+counter for the Houses tab (§17).
+
+### The Bonds page (war bonds and loans)
+
+The last page of the Houses tab, since 2026-09-29. Houses post the offers;
+the player takes one with a button, the contracts shape.
+
+**Which houses**: `EX.bond_houses()` - your own culture's (`EX.culture_of(EX.who())`), not delisted
+or gone (`EX.index_dead`), not at war with you (`EX.treaty_tier ~= "war"`), sorted by key so two
+machines holding the list in different orders post the same page.
+
+**Posting**, `EX.post_bonds()`, per human, bound, rebuilt every turn; nothing with `ai_bonds` off.
+
+| | Bond issue (you lend) | Loan offer (you borrow) |
+|---|---|---|
+| who | `faction:at_war()` true | `at_war()` false |
+| order | `EX.price` ascending, weakest first | treasury descending, richest first |
+| how many | up to `bond_max` | up to `bond_max` |
+| amount | 1000 x (1 + `key_hash(h .. "|a|" .. turn) % 5`), at most `house_cash_max` | the same, then cut to the largest thousand at most half the treasury; under 1000 is not posted |
+| term | `ceil(T/2) + key_hash(h .. "|t|" .. turn) % (T - ceil(T/2) + 1)`, `T` = `bond_turns` | the same |
+| a turn | `floor(amount x bond_rate x risk + 0.5)`, risk = neutral lot price / `EX.price(h)` kept to [0.5, 2] | `floor(amount x bond_rate + 0.5)` |
+
+Rounded, not floored: float32 reads 1000 x 0.02 as 19.9999996. The two sets cannot share a house,
+so nothing can be borrowed from a house and lent straight back to it.
+
+**Taking**, `EX.accept_bond(k)`, op `bond` with the offer's index, applied as the sender.
+Refusals, each leaving the offer on the page: `nodeal`, `gone`, `war` (now at war with you),
+`full` (`EX.BOND_OPEN_MAX` = 6 open on that side - the limit is per side), `afford` (a bond over
+your treasury), `poor` (a loan the house can no longer fund, `ai_gold` on). A bond moves the amount
+from you to the house through `EX.pay_house`; a loan credits you what `EX.pay_house(fac, -amt)`
+actually moved (the whole amount with `ai_gold` off), and that is the principal. The position is
+`{ side, fac, p, c, at = offer turn + term, late = 0 }`.
+
+**Paying**, `EX.pay_bonds()`, per human, bound, every position in its own `pcall` (an error keeps
+the position and stops nothing else), ignoring `ai_bonds` - an open position is an obligation:
+
+1. **The other side is dead**: a bond pays `floor(windup x (p + late))`, from nothing, as a share
+   settles, never the buyout premium; a loan falls due at once, `p + late`, paid to nobody. Both
+   close. Killing a lender never erases the debt.
+2. **At war with you**: nothing, and nothing changes - the payments missed are not built up, and a
+   principal that falls due waits for peace.
+3. **Maturity**: on the first turn `turn >= at` with `p > 0`, `p` folds into `late`, once.
+4. **Due** = `late + c` up to and including turn `at`, then `late` alone. A bond: the house pays
+   through `EX.pay_house(fac, -due)`, clamped to its treasury and `house_cash_max`; what it could
+   not pay stays as `late` (arrears, earning nothing) and is logged. A loan: you pay what the house
+   can take in a turn - `due` in full unless it passes `house_cash_max` - into a negative treasury
+   if need be, and the rest waits as `late` (logic sweep, 2026-09-29: the excess used to be
+   charged and reach nobody). `ai_gold` off, you pay `due` in full.
+5. **Closed** when `turn >= at` and `p` and `late` are both 0.
+
+The player's side is at most two `cm:treasury_mod` calls a turn, one a direction, and one Log line.
+With `ai_gold` on every gold you gain on a take or a payment is what a house lost, and the reverse;
+the two deaths are the only exceptions.
+
+**The page** uses the Deals tab's layouts (`EX.PANEL_LAYOUT_DEALS` / `EX.ROW_LAYOUT_DEALS`):
+headers House, Bond, Per turn, Rate, Due; no sort. Rows `..._bd1` to `..._bd<2 x bond_max + 12>`,
+created once in `EX.build_panel`: the offers (issues, then loans), then your bonds, then your
+loans (`EX.bond_at`).
+
+| Row | Bond | Per turn | Rate | Due | Button |
+|---|---|---|---|---|---|
+| issue | Borrows 3000g for 8 turns | +60g | 2.0% | in 8 turns | Lend; greyed Full / No gold |
+| loan offer | Lends 2000g for 5 turns | -40g | 2.0% | in 5 turns | Borrow; greyed Full |
+| your bond | Owes you 3000g | +60g, `-` after the last payment | 2.0%, `-` once matured | in N turns / next turn / overdue | greyed: Paying, Behind, At war |
+| your loan | You owe 2000g | -40g | 2.0% | the same | greyed: Paying, At war |
+
+Only an offer's button sends `bond/<k>`; a status or a name click sends nothing. Footer 1 counts
+the offers and each side open, or says new ones are switched off; footer 2 gives the net a turn
+(leaving out a position at war with you or past its last payment) and the death rule, or, with
+nothing open, what a bond and a loan are. The opener's tooltip adds "Ng of loans falls due at the
+start of next turn" - loans only, and not one at war with you. Title "<race name>: Bonds". Guide
+page 2 has "Bond" and "Loan" lines. Cells from `EX.bond_cells`, rows from `EX.draw_bond_row`,
+footers from `EX.bonds_footer`.
+
+**The Houses tab's extra pages are a list**, `EX.house_extra_pages()`: the index always, bonds
+while `ai_bonds` is on or any position is open, each its own sentinel (`EX.HOUSE_INDEX_PAGE` -1,
+`EX.HOUSE_BONDS_PAGE` -2). `EX.house_extra()` answers which one is showing without reading the
+house list (the recursion above), and reads a sentinel whose page has gone - the bonds switch off
+with nothing open - as the last extra page, so the player lands on the index and the counter
+agrees. `EX.step_page` indexes the list; `EX.house_page_count` is list pages plus extras.
+
 ### The HUD opener
 
 `derpy_chd_exchange_button.twui.xml`, 48px. It is created on the **UI root** and is never
@@ -1873,8 +2092,8 @@ the network.
 
 ### 13.1 Presets
 
-Five: **Easy**, **Default**, **Hard**, **Ultra Capitalism**, **Custom**. The preset owns all 32
-numeric knobs *and* the thirteen system switches.
+Five: **Easy**, **Default**, **Hard**, **Ultra Capitalism**, **Custom**. The preset owns all 37
+numeric knobs *and* the fifteen system switches.
 
 | | easy | default | hard | ultra |
 |---|---:|---:|---:|---:|
@@ -1898,6 +2117,11 @@ numeric knobs *and* the thirteen system switches.
 | `world_gain` | 2.0 | 4.0 | 6.0 | 9.0 |
 | `deal_max` | 4 | 3 | 3 | 2 |
 | `deal_edge` | 7 | 6 | 4 | 2 |
+| `fwd_max` | 3 | 2 | 2 | 1 |
+| `fwd_turns` | 10 | 10 | 10 | 10 |
+| `bond_max` | 3 | 2 | 2 | 1 |
+| `bond_turns` | 10 | 10 | 10 | 10 |
+| `bond_rate` | 0.02 | 0.02 | 0.02 | 0.02 |
 | `pos_step` | 6 | 4 | 3 | 2 |
 | rent / tithe | **off** | on | on | on |
 | `world_scarcity` | **off** | on | on | on |
@@ -1921,7 +2145,7 @@ still buy their shares (they are absent from `EX.BLOC`, so none can), `ai_world`
 "fourteen houses" trade when it is off (the guild can be far larger, and Deals keep running), and
 `world_bundles` said the War Stocks bundles apply to you (§10.1 - they never do).
 
-Thirteen system switches, 32 sliders across seven sections (Market, Rival houses, Shares, Tithes,
+Fifteen system switches, 37 sliders across seven sections (Market, Rival houses, Shares, Tithes,
 War shocks, Race profile, The world), a difficulty picker, **a Features section** and a debug
 section - eleven sections in all.
 
@@ -1939,20 +2163,31 @@ exactly those saves - which is why `world_bundles` off strips bundles instead of
 (§10.1). `deal_max` is also the Deals page's row pool, and `deal_edge` and `pos_step`
 bottom out at 1, not 0 - all asserted.
 
+**Forward contracts added three (2026-09-29):** `ai_forwards` "Factions offer you contracts" (on
+in every preset), `fwd_max` "Contracts offered per turn" (0-3, which with `EX.FWD_OPEN_MAX` is also
+the Contracts page's row pool) and `fwd_turns` "Longest contract, in turns" (4-20). The same build
+cut `deal_edge`'s slider maximum from 25 to 10, since a deal above one price step is a free round
+trip; a campaign already frozen above 10 keeps its value.
+
+**War bonds added four (2026-09-29):** `ai_bonds` "Houses offer bonds and loans" (on in every
+preset; off stops new offers only), `bond_max` "Bond and loan offers per turn" (0-3 a side, which
+with `EX.BOND_OPEN_MAX` is also the Bonds page's row pool), `bond_turns` "Longest bond, in turns"
+(4-20) and `bond_rate` "Bond payment per turn" (0.01-0.05).
+
 **The Features section holds four kill-switches and two permissions** (`feat_deep_history`,
 `feat_demand_shocks`, `feat_appetite_drift`, `feat_orders`, plus `allow_uncommercial` and
 `allow_raiders`, which open the Exchange to a culture the lock in §11 keeps out - the permissions
 default off and stay off in multiplayer, the opposite of the kill-switches, which is why they
 read `EX.lock_allowed` rather than `EX.feature`) and is the one economic-looking thing
 that is **not** in `ECONOMIC` and so not locked in a campaign. That is deliberate and it is the
-whole difference between these and the thirteen system switches above: a system switch is
+whole difference between these and the fifteen system switches above: a system switch is
 snapshotted so a price you were quoted stays the price you are charged, while a kill-switch
 exists to be moved *while* a bug is happening — the same argument the debug options carry. In
 multiplayer all four are forced on, because reconciling a live model switch across machines is
 the MCT race `EX.mp_ignores_mct` already refuses to run.
 
 `feat_orders` came back 2026-09-10 with the feature it gates, in the same commit as its first
-real call site — the condition set on 2026-09-09 for `orders`' return after it was
+real call site — the condition the 2026-09-09 handoff set for `orders`' return after it was
 **deleted** rather than shipped disabled (a checkbox for a system that does not exist yet is
 worse than no checkbox). It has the same two-reader shape `deep_history` already has, and for the
 same reason: `EX.trade_pages` stops the ledger page being *reached*, `EX.fill_orders` stops the
@@ -2023,6 +2258,7 @@ after `apply_trade_income`:
  5  rescan()            supply, owners, culture shares, war index, house regions
  6  share_shocks()      AFTER rescan, which is what measures the shares; before pricing
  7  check_delistings()  BEFORE apply_prices - a dead house must settle at its living price
+ 7b index_sync(false)   the index's removals, at that same living price (§12, The Index page)
  8  check_standing_sign()
  9  step_books()        AFTER delisting (dead houses have left the guild), BEFORE pricing
  9a step_world()        the world tier (§9.1). AFTER step_books, BEFORE apply_prices -
@@ -2033,8 +2269,17 @@ after `apply_trade_income`:
                         its land on every call (EX.world_capacity); EX.accrue_world_stock is
                         withdrawn, not merely unused.
 10  apply_prices()
-10a post_deals()        the Deals page. AFTER apply_prices, so a deal is quoted off the price step the
-                        Trade view shows. Called once, unbound - see §18
+10c index_sync(true)    the index's joins, at the fresh price; records the index's trend
+    fill_factions = {}  reset HERE, above 10a, so a contract delivery joins the one reprice
+10a deliver_all_forwards()  forward contracts due this turn (§12). PER HUMAN. AFTER apply_prices,
+                        so a lot settled in gold settles at the price the panel shows; BEFORE the
+                        deals, so the offers see the treasuries the deliveries left
+10b post_all_deals()    the Deals page and the contract offers. AFTER apply_prices, so a deal is
+                        quoted off the price step the Trade view shows. PER HUMAN: EX.post_deals
+                        inside EX.with_player for each (2026-09-29; it was called once, unbound - §18)
+10d post_all_bonds()    the Bonds page's offers. PER HUMAN. AFTER apply_prices, since a bond's
+                        payment reads the house's price, and after the deliveries, since a loan
+                        offer reads the treasury they left
  9b fill_orders()       PER HUMAN. AFTER apply_prices, so a limit tests the number the panel
                         shows; BEFORE remember_all, so the bar this turn records is the price
                         the fill got rather than the price the fill caused
@@ -2050,6 +2295,8 @@ after `apply_trade_income`:
 16  apply_stockpiles()  a tithe or raid may have crossed a tier boundary
 17  charge_carry()      on the same holding the tier was just read from
 18  pay_dividends()     AFTER delisting - a house dying this turn must not also be paid
+    pay_index_dividends()  right after it, in the same per-human block
+    pay_bonds()            right after that: payments, maturities, deaths (§12, The Bonds page)
 19  maybe_demand()
 19b flush_world_log()   LAST in the player block, so the world's lines sit above this
                         player's own rent and dividends once the log reverses them
@@ -2058,7 +2305,11 @@ after `apply_trade_income`:
 The label is the shipped code's own — `EX.turn_round`'s comment calls this step "9b" rather than
 renumbering everything from `apply_prices` down, and it is placed here, after row 10, because the
 table is in **execution order** and that is where it actually runs.
-`0`, `10a`, `15a` and `15b` are this doc's labels; the code numbers nothing after 9b.
+`0`, `10b`, `15a` and `15b` are this doc's labels; `7b`, `10a`, `10c` and `10d` are the code's
+own. `check_lua_books` asserts 7b between the delistings and the reprice, 10c after the reprice,
+the index dividend right after `pay_dividends`, and neither index step on the first tick; 10d
+after the reprice, `pay_bonds` right after the index dividend, and no bond step on the first tick. Both 10a and 10b
+are asserted between the reprice and the fills, reset first, by `check_lua_books`.
 
 **Where the turn round writes the Log** (since 2026-09-25). Step 3 `check_demand` writes "Tithe
 unpaid." when the wrath lands. Step 17 `charge_carry` writes the rent line. Step 19
@@ -2098,8 +2349,8 @@ Nothing runs at script root. `EX.init` is reached from both
 Dwarf default whatever the player actually is.
 
 A load is not a turn: `charge_carry`, `remember_all`, `share_shocks`, `check_delistings`,
-`step_books`, `step_world`, `post_deals` and `promote_stances` are deliberately absent from the
-first-tick path. Five reloads would otherwise be five rent days, one turn filling the whole
+`step_books`, `step_world`, `post_deals`, contract delivery and `promote_stances` are deliberately
+absent from the first-tick path. Five reloads would otherwise be five rent days, one turn filling the whole
 sparkline, a second settlement payout, five trading days and five re-rolled Deals pages.
 `apply_trade_income` and `apply_positions` are the opposite and run on the load path too:
 effect bundles survive a save and this script's memo of them does not, so a load re-sweeps.
@@ -2112,8 +2363,10 @@ All through `EX.setv` / `EX.getv` (and `EX.setp` / `EX.getp` for per-player keys
 `EX.store`, one table saved as its own named value `zharr_state` with `cm:save_named_value` - off
 CA's shared saved-value string since 2026-09-07. `EX.getv` still falls back to
 `cm:get_saved_value`, so an older save restores. Most values are packed strings, so anything
-list-shaped is delimited; `zharr_opts` is a table. Twenty-six keys now: `zharr_deals` (the Deals
-page) is the newest, after `zharr_wb_<faction>`, one per actor holding a world-tier position.
+list-shaped is delimited; `zharr_opts` is a table. Thirty-two keys now: `zharr_bond` and
+`zharr_bondo` (war bonds and loans) are the newest, after `zharr_idx_<culture>` and `zharr_idxu`
+(the index fund), `zharr_fwd` and `zharr_fwdo` (forward contracts), `zharr_deals` (the Deals page) and `zharr_wb_<faction>`, one per actor holding a
+world-tier position.
 
 **Fractions are tagged on the way through the save** (2026-09-28). CA's table save
 (`campaign_manager:process_table_save`) writes a number with plain `tostring`, which follows the
@@ -2160,6 +2413,12 @@ equivalent; the selftest says so when none exists). Five mutants, one per piece,
 | `zharr_bundles_stripped` | the one-time legacy-ladder migration flag |
 | `zharr_ord` | standing orders, `;`/`,`-delimited (`res,side,cmp,rung` per record) — **per-player**, joins `EX.SLICE_TABLES`; see §12 and §18 |
 | `zharr_wb_<faction>` | that actor's world book, `res=n;...` sorted, in lots and signed. Cleared when every commodity in it is exactly 0 (`v ~= 0`, not `v > 0` - a short is a real, non-empty book) and when `EX.step_world` confirms the faction dead. Restored by scanning `EX.store` for the prefix (`EX.restore_world_books`), since no actor roster exists that early - until 2026-09-13 it was written and never read, so every load emptied the world book |
+| `zharr_idx_<culture>` | the index for that culture, a table `{ d, m, last, prev }`: the divisor (a float - tagged through the save, see above), the sorted member keys and the two trend levels. **World** state: every machine computes it from the same houses, so it is never per player. Dropped when the last member dies |
+| `zharr_idxu` | index units held - **per-player**, joins `EX.SLICE_SCALARS` |
+| `zharr_bond` | open bonds and loans, `side,fac,p,c,at,late` per record - **per-player**, joins `EX.SLICE_TABLES`. Six fields, whole numbers, or the record is dropped |
+| `zharr_bondo` | this turn's bond and loan offers, `side,fac,amt,pay,term,turn` - **per-player**, joins `EX.SLICE_TABLES`. Rebuilt every turn, saved so a reload mid-turn shows the same page |
+| `zharr_fwd` | open forward contracts, `fac,res,side,lots,px,at` per record - **per-player**, joins `EX.SLICE_TABLES`. Six fields or the record is dropped |
+| `zharr_fwdo` | this turn's contract offers, `fac,res,side,lots,px,turn,due` - **per-player**, joins `EX.SLICE_TABLES`. Rebuilt every turn like `zharr_deals`, saved for the same reason |
 | `zharr_deals` | this turn's Deals page, `;`/`,`-delimited (`fac,res,side,lots,px,turn` per deal) - **per-player**, joins `EX.SLICE_TABLES`. Only so a reload mid-turn shows the same page; the next turn start replaces it. A record without all six fields is dropped, never defaulted |
 
 `EX.strip_legacy_bundles` sweeps any `derpy_chd_ex_ladder_*` bundle left applied by a build
@@ -2322,6 +2581,13 @@ five tabs open, seven houses, every profiled knob on its intended value, `spread
 
 **Not yet run in a campaign:**
 
+- **Forward contracts, all of it** (2026-09-29). Proved offline only: the books harness, MP
+  section 8c, the layout harness's Contracts scene, and 29 mutants, all caught. Two things no
+  harness measures: the Due column's widest string ("in 20 turns") against its 80px cell, which
+  rests on the file's own 62px-per-10-characters reading and not on `TextDimensionsForText`; and
+  the Deals and Contracts **headers**, which `check_header_labels` does not cover at all (it
+  measures only the five views in its table). Also unmeasured: how CA's bankruptcy lands on a
+  player driven below zero by a settlement they owe.
 - **The settlement PAYOUT** — buyout 1.25 and wind-up 0.5, resolved through a *cached* region
   key. **The chain around it is no longer unplayed:** a live Chaos Dwarf campaign on the
   2026-09-09 build (about five turn rounds) delisted
@@ -2546,7 +2812,7 @@ Every constant is a guess: `WORLD_STOCK_TURNS`, `world_gain`, `world_cash_max`, 
   reaches Sold out once that is spent.
 - **The world book's price term reads only the players.** Matched trades conserve
   `EX.world_book`, so `world_book_shift` moves only on player trades with actors and on a dead
-  faction's pruning - and net buying from the world makes the good cheaper through it (§9.1).
+  faction's pruning - and net buying from the world makes the good cheaper through it (§9.1). This is the "player's own offset never unwinds" the Stage 1 handoff left open.
 - **Production drowns the other four desire terms.** `-(0.4 x output)` is in units: a 26-unit
   producer scores -10.4 against a taste term inside -1..1. Every producer sells what it makes and
   every non-producer buys; taste, war and value decide little. Inherited from `EX.house_desire`,
@@ -2578,7 +2844,8 @@ Every constant is a guess: `WORLD_STOCK_TURNS`, `world_gain`, `world_cash_max`, 
   MCT says another plays its first turn on the other. Not tested in game.
 - **The guide says nothing** about the Deals page, world trading, Sold out, War Stocks or
   stances. Page 1 is at the 19-row ceiling; page 2 has room.
-- **The Deals page is not multiplayer-safe as shipped** - §18.
+- ~~**The Deals page is not multiplayer-safe as shipped**~~ - **FIXED 2026-09-29**, build
+  `1ba9a03f`; §18. Still never run on two machines, like the rest of §18.
 
 **Not yet seen in play (the 2026-09-23..28 builds):**
 
@@ -2606,10 +2873,26 @@ Every constant is a guess: `WORLD_STOCK_TURNS`, `world_gain`, `world_cash_max`, 
   rent-floor harness's premise ("rent off, `carry_total` still answers 300"), so it is its own
   change.
 - **The friendly discount is unreachable** (§4.3).
-- **The page counter can read "3/2" after the panel grows or shrinks**, until the next arrow or
-  tab click. `EX.layout` writes the label before `EX.house_slice` clamps `EX.house_page`: the
-  prune case again.
+- ~~**The page counter can read "3/2" after the panel grows or shrinks.**~~ Fixed 2026-09-29 for
+  the Houses tab: `EX.page_index` reads `EX.house_page_at`, which clamps.
+- **The index has no sparkline and no chart** - it keeps no price history of its own (spec §7).
+- **An index member discovered after the panel was built has no row** to draw on, the same as on
+  the Houses list; it still counts in the level, the dividend and the footer's member count.
+- **A dead member reads at `windup x EX.price`, and a mid-turn reprice collapses a dead house's
+  price** before the round's removal pass. Share settlement has the same exposure and the index
+  follows it rather than keeping a price of its own.
+- **Bonds: no early repayment, and a house's stance does not move with its bonds** (spec §7). A
+  missed payment is arrears for as long as the house lives; nothing short of its death defaults.
+- **A bond at war with you still shows its payment** in the Per turn column, though nothing is
+  paid until peace. The status button says At war and the footer's net leaves it out.
+- **Which house counts as "at war" for posting is `faction:at_war()`**, CA's own answer. Whether
+  a war with rebels alone counts is not verified in game.
+- **A loan is paid in full from any treasury**, into the negative if need be; CA's bankruptcy
+  rules take it from there.
 - **Multiplayer: another player's standing order resets your amount button** (§18).
+- **Multiplayer: another player's Deals, Contracts, Index or Bonds click redraws your open panel
+  with their data** until your next redraw. The four ops (`deal`, `fwd`, `idx`, `bond`) refresh
+  the panel while the sender is bound. Display only; nothing is traded or saved from it.
 - **The Offerings Status column tooltip** ("Ready, turns of favour left, or units still
   needed.") does not mention the tithe row's "Due: N turns".
 - No harness scene runs the scaled chart in Lua. Only Python's copy of the rule checks it.
@@ -2646,7 +2929,7 @@ Exchange.
 machine; both arguments or neither. The op rides in the id as `zx1|<op>|<arg>`, the faction on
 the cqi. Six ops now: `buy`, `sell`, `offer`; `ord` (place) and `ordx` (cancel), added 2026-09-10 for
 limit and stop orders; and `deal`, added with the Deals page, which carries only the deal's list
-index - see "The Deals page is not safe here yet" below. All well inside MCT's 100-character
+index - see "The Deals page, built per human" below. All well inside MCT's 100-character
 convention. `ordx` sends
 the whole packed order (`res,side,cmp,rung`) rather than a list index: the list is per-player and
 every machine holds the same one, so an index would *usually* land on the right row — and
@@ -2732,7 +3015,7 @@ defaults while the host freezes its own, permanently, with a correct-looking pan
 in a multiplayer campaign every economic value is the shipped default on every machine, and the
 MCT panel says so. The log options are *not* gated — they touch nothing in the model.
 
-Lifting this is a real option: gate the snapshot on
+Lifting this is a real option and is written up in the handoff: gate the snapshot on
 `cm:get_saved_value("mct_mp_init")` plus `cm:progress_on_all_clients_ui_triggered`, or read MCT
 on one machine and broadcast the **preset name** over our own transport — one word, because the
 four presets are baked identically into every copy of the Lua.
@@ -2754,19 +3037,90 @@ them crosses the network, so none can desync. `EX.bulk` is the one piece of trad
 is not per-player, and it does not need to be: it is set and cleared inside a single synchronous
 `EX.bulk_trade`, which every machine runs the same way from the same op.
 
-### The Deals page is not safe here yet
+### The Deals page, built per human
 
-**`EX.post_deals` builds the page for `EX.who()`, and `EX.turn_round` calls it once, unbound.**
-Unbound means the adopted local subject, so each machine rebuilds only its own player's page and
-every other human's slice keeps whatever the last load restored. The Take op carries only a list
-index, applied as the sender on every machine: the sender's machine resolves this turn's deal,
-the others a stale one or none (`nodeal`), and gold and books diverge from there. The save
-diverges too - `EX.save_deals` writes only the local player's key. `_mp_harness.lua` section 8
-proves the pages agree *when `EX.post_deals` runs inside `EX.with_player` for each human*, which
-the harness does and the turn round does not, and no ordering check asserts the wrapper. The fix
-is the turn round's own idiom - a per-human `EX.with_player` loop around the call. Singleplayer is
-unaffected. The world tier, the positions sweep (world, unbound, identical everywhere) and the
-stance pass (per human, bound) follow the rules.
+**Fixed 2026-09-29, build `1ba9a03f`.** Until then `EX.turn_round` called `EX.post_deals` once,
+unbound. `EX.post_deals` builds the page for `EX.who()`, so unbound meant the adopted local
+subject: each machine rebuilt only its own player's page, and every other human's slice kept
+whatever the last load restored. The Take op carries only a list index, applied as the sender on
+every machine, so the sender's machine resolved this turn's deal and the others a stale one or
+none (`nodeal`). `_mp_harness.lua` section 8 hid it by writing the per-human loop itself.
+
+**Now `EX.turn_round` calls `EX.post_all_deals`**, which runs `EX.post_deals` inside
+`EX.with_player` for each human in `EX.humans()`' sorted order. Every machine builds every page
+from the same world, and `EX.save_deals` writes each human's own key. It is a named function
+rather than a loop inside the round so that the harness runs the shipped loop: `EX.turn_round` is
+a closure inside `EX.init`, and nothing offline can call it.
+
+**`EX.deal_why` moved into `EX.SLICE_SCALARS` with it.** It is the footer's reason for an empty
+page ("none" or "declined"). Held in one shared value, a per-human pass ended with the last
+human's reason, so the local panel explained a page it never had. `EX.restore_player` clears it,
+because it is not saved: after a load the footer says the neutral sentence, as it always did.
+
+**Checked by:**
+
+- `_mp_harness.lua` section 8b. zeta_player, last in the walk and not local, is refused
+  outright. Every page and every reason must come out per player, and the local reason must
+  still be the local player's after the pass.
+- `check_lua_books`: the round must call `EX.post_all_deals()` after the reprice and never
+  `EX.post_deals()` bare, `EX.post_all_deals` must bind per human, and neither may run on first
+  tick.
+
+Four mutants, four caught: the bare call restored, the loop unbound, `deal_why` taken out of the
+slice lists and the restore together (only 8b sees that one), and the restore's clear dropped.
+Singleplayer is unchanged: one human, bound to itself, as every other per-player step already is.
+
+### Forward contracts, per human
+
+Built per human from the first build that has them (2026-09-29). The offers come out of the same
+bound pass as the deals, so offer `k` is the same offer on every machine; they have their own list
+(`EX.fwd_offers`) and their own op, `fwd`, carrying that index. Delivery is turn-round work:
+`EX.deliver_all_forwards` runs `EX.deliver_forwards` inside `EX.with_player` for each human, like
+the deals, and nothing about it crosses the network. Both lists are in `EX.SLICE_TABLES`, both keys
+are per player (`zharr_fwd`, `zharr_fwdo`), and `EX.restore_player` unpacks both.
+
+**Checked by** `_mp_harness.lua` section 8c: one deal slot and house_b refusing mid_player, so each
+human's offers differ exactly where they should; mid_player takes offer 1 through `mp_apply` on a
+machine playing alpha_player, and only mid_player's list grows; on the delivery turn only
+mid_player's treasury moves and every list is empty after. `check_lua_mp` pins all of it, plus the
+two keys as per-player and `fwd` in the op set.
+
+### One market on every machine
+
+The shared market's four race-tuned knobs take no profile in multiplayer, and the index's
+wind-up is its own culture's - §11.1. **Checked by** `_mp_harness.lua` section 8f, which plays
+two machines by swapping the local race row between Chaos Dwarf and Skaven: the four knobs read
+the same on both, the Empire index weighs a dead member and re-cuts its divisor at the Empire's
+wind-up on both, singleplayer still moves with the local race, and each player's own knobs still
+follow that player.
+
+### The index fund, per culture
+
+The index is world state, one per culture with a human, rebuilt by both passes over the sorted
+list of those cultures, unbound. The units are per player; the `idx` op carries the lots and is
+applied as the sender, whose culture - not the local machine's - picks the index. The dividend
+runs inside the per-human block. Deaths are logged to every human of that culture through
+`EX.index_holders`, which binds each in turn.
+
+**Checked by** `_mp_harness.lua` section 8d: the index is built for the Chaos Dwarf humans only;
+alpha_player (Chaos Dwarf, local) buys and mid_player (Empire, no index) is refused - with both
+treasuries reset first, because an earlier section left mid's negative and a gold refusal once
+hid an index read off the local culture; only alpha's treasury receives the dividend; and an
+Empire member's death, once a second Empire house gives mid an index, lands in mid's log and not
+in the local player's.
+
+### War bonds and loans, per player
+
+Offers and positions are both per player (`EX.SLICE_TABLES`), posted inside `EX.with_player` for
+each human from that human's culture's houses. The `bond` op carries the offer's index and is
+applied as the sender. Payments run in the per-human block, right after the index dividend.
+
+**Checked by** `_mp_harness.lua` section 8e: a house at war posts a bond and one at peace a loan
+for alpha_player (Chaos Dwarf, local), while mid_player (Empire) gets the two Empire houses'
+loans, richest first - a page built for the local player would hand mid alpha's; alpha lends and
+mid borrows with offer 1 each, as the sender, and each take moves exactly the amount between that
+player and that house; the next turn's payments move alpha's and mid's treasuries only, each the
+exact mirror of its house's; every pass leaves the local player bound.
 
 ### What is checked
 
@@ -2807,7 +3161,7 @@ that should care. `check_lua_appetite()` asserts `WAR_APPETITE` is complete.
 are the round-trip algebra, and a race factor on any of them can mint gold.
 
 **A new order kind** — the shape is `{res, side, cmp, rung}` and limit/stop is derived from
-`side`/`cmp`, never stored, so a genuinely new kind needs a fifth field
+`side`/`cmp`, never stored, so a genuinely new kind needs a sixth field (`qty` is already the fifth)
 threaded through `EX.pack_orders`/`EX.unpack_orders`/`EX.valid_order`, a new branch in
 `EX.order_hits`, and a sentence in `EX.order_text`. Classify every new `EX.apply_trade` refusal
 token it can hit into `EX.ORDER_FATAL` or leave it to the transient default before shipping it —

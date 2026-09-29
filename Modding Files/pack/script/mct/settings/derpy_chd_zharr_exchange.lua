@@ -115,6 +115,18 @@ o_ai_deals:set_tooltip_text("Factions with something to buy or sell put a one-tu
 o_ai_deals:set_default_value(true)
 o_ai_deals:set_assigned_section("systems")
 
+local o_ai_forwards = m:add_new_option("ai_forwards", "checkbox")
+o_ai_forwards:set_text("Factions offer you contracts")
+o_ai_forwards:set_tooltip_text("Some factions offer to buy or sell a commodity at a fixed price, delivered in a few turns. On the day, the goods trade at that price, and any lots that cannot be delivered are paid off in gold at the market price. Off: no new contracts are offered; contracts you already hold still deliver.")
+o_ai_forwards:set_default_value(true)
+o_ai_forwards:set_assigned_section("systems")
+
+local o_ai_bonds = m:add_new_option("ai_bonds", "checkbox")
+o_ai_bonds:set_text("Houses offer bonds and loans")
+o_ai_bonds:set_tooltip_text("Houses at war sell you bonds: you lend them gold and they pay you back a little each turn, then the whole amount. Houses at peace lend to you on the same terms. Off: no new offers; bonds and loans you already hold still pay.")
+o_ai_bonds:set_default_value(true)
+o_ai_bonds:set_assigned_section("systems")
+
 local o_world_bundles = m:add_new_option("world_bundles", "checkbox")
 o_world_bundles:set_text("Positions supply armies")
 o_world_bundles:set_tooltip_text("A faction holding iron, timber and obsidian replenishes its armies faster; one that has sold them short replenishes slower, and being at war doubles it either way. Applies to the other factions of the world, not to you or the rival houses. Off: no supply effect is applied to anyone, and any left over from a previous save is removed.")
@@ -395,10 +407,55 @@ local o_deal_edge = m:add_new_option("deal_edge", "slider")
 o_deal_edge:set_text("Deal edge, per cent")
 o_deal_edge:set_tooltip_text("How far off market an offer is priced, always in your favour: a buyer pays over, a seller takes under. Keep it under one price step or a deal becomes a free round trip against the market.")
 o_deal_edge:slider_set_precision(0)
-o_deal_edge:slider_set_min_max(1, 25)
+o_deal_edge:slider_set_min_max(1, 10)
 o_deal_edge:slider_set_step_size(1, 0)
 o_deal_edge:set_default_value(6)
 o_deal_edge:set_assigned_section("world")
+
+local o_fwd_max = m:add_new_option("fwd_max", "slider")
+o_fwd_max:set_text("Contracts offered per turn")
+o_fwd_max:set_tooltip_text("How many contract offers the world puts to you each turn, after the one-turn deals. Needs the contracts switch on.")
+o_fwd_max:slider_set_precision(0)
+o_fwd_max:slider_set_min_max(0, 3)
+o_fwd_max:slider_set_step_size(1, 0)
+o_fwd_max:set_default_value(2)
+o_fwd_max:set_assigned_section("world")
+
+local o_fwd_turns = m:add_new_option("fwd_turns", "slider")
+o_fwd_turns:set_text("Longest contract, in turns")
+o_fwd_turns:set_tooltip_text("A contract is delivered between half this many turns and this many turns after it is offered.")
+o_fwd_turns:slider_set_precision(0)
+o_fwd_turns:slider_set_min_max(4, 20)
+o_fwd_turns:slider_set_step_size(1, 0)
+o_fwd_turns:set_default_value(10)
+o_fwd_turns:set_assigned_section("world")
+
+local o_bond_max = m:add_new_option("bond_max", "slider")
+o_bond_max:set_text("Bond and loan offers per turn")
+o_bond_max:set_tooltip_text("How many bonds, and how many loans, the houses offer you each turn. Needs the bonds switch on.")
+o_bond_max:slider_set_precision(0)
+o_bond_max:slider_set_min_max(0, 3)
+o_bond_max:slider_set_step_size(1, 0)
+o_bond_max:set_default_value(2)
+o_bond_max:set_assigned_section("shares")
+
+local o_bond_turns = m:add_new_option("bond_turns", "slider")
+o_bond_turns:set_text("Longest bond, in turns")
+o_bond_turns:set_tooltip_text("A bond or loan is repaid between half this many turns and this many turns after it is taken.")
+o_bond_turns:slider_set_precision(0)
+o_bond_turns:slider_set_min_max(4, 20)
+o_bond_turns:slider_set_step_size(1, 0)
+o_bond_turns:set_default_value(10)
+o_bond_turns:set_assigned_section("shares")
+
+local o_bond_rate = m:add_new_option("bond_rate", "slider")
+o_bond_rate:set_text("Bond payment per turn")
+o_bond_rate:set_tooltip_text("What a bond or loan pays each turn, as a fraction of the amount. 0.02 is 2%. A weak house pays up to double on its bonds.")
+o_bond_rate:slider_set_precision(2)
+o_bond_rate:slider_set_min_max(0.01, 0.05)
+o_bond_rate:slider_set_step_size(0.01, 2)
+o_bond_rate:set_default_value(0.02)
+o_bond_rate:set_assigned_section("shares")
 
 local o_pos_step = m:add_new_option("pos_step", "slider")
 o_pos_step:set_text("War-goods position step")
@@ -413,15 +470,16 @@ local ECONOMIC = {
     "ai_traders", "ai_gold", "refusal", "war_lock",
     "warehouse_rent", "hashut_demands", "trade_income", "cross_bloc",
     "ai_stance", "ai_world", "world_scarcity", "ai_deals",
-    "world_bundles", "ladder_step", "spread", "l2_sell",
-    "sell_floor", "pressure_per_rung", "carry_per_unit", "ai_gain",
-    "ai_max_rungs", "book_per_rung", "book_max", "hostile_max",
-    "friendly_max", "guild_close", "refuse_share", "house_cash_max",
-    "div_yield", "buyout_premium", "windup", "seat_lost",
-    "demand_first_turn", "demand_cooldown", "demand_chance", "shock_gain",
-    "shock_max", "shock_decay", "race_strength", "world_cash_max",
-    "world_trade_max", "world_gain", "deal_max", "deal_edge",
-    "pos_step",
+    "ai_forwards", "ai_bonds", "world_bundles", "ladder_step",
+    "spread", "l2_sell", "sell_floor", "pressure_per_rung",
+    "carry_per_unit", "ai_gain", "ai_max_rungs", "book_per_rung",
+    "book_max", "hostile_max", "friendly_max", "guild_close",
+    "refuse_share", "house_cash_max", "div_yield", "buyout_premium",
+    "windup", "seat_lost", "demand_first_turn", "demand_cooldown",
+    "demand_chance", "shock_gain", "shock_max", "shock_decay",
+    "race_strength", "world_cash_max", "world_trade_max", "world_gain",
+    "deal_max", "deal_edge", "fwd_max", "fwd_turns",
+    "bond_max", "bond_turns", "bond_rate", "pos_step",
 }
 
 local function relock()

@@ -203,6 +203,27 @@ local function build_rows()
             HOLDER.kids[name]:CreateComponent(cell)
         end
     end
+    -- AND THE CONTRACTS PAGE'S, mirroring EX.build_panel's fw loop (2026-09-29).
+    for i = 1, EX.opt("fwd_max") + EX.FWD_OPEN_MAX do
+        local name = EX.ROW .. "_fw" .. i
+        HOLDER:CreateComponent(name)
+        for _, cell in ipairs(EX.ROW_CELLS) do
+            HOLDER.kids[name]:CreateComponent(cell)
+        end
+    end
+    -- AND THE INDEX'S ONE ROW, mirroring EX.build_panel (2026-09-29).
+    HOLDER:CreateComponent(EX.ROW .. "_idx")
+    for _, cell in ipairs(EX.ROW_CELLS) do
+        HOLDER.kids[EX.ROW .. "_idx"]:CreateComponent(cell)
+    end
+    -- AND THE BONDS PAGE'S, mirroring EX.build_panel's bd loop (2026-09-29).
+    for i = 1, 2 * EX.opt("bond_max") + 2 * EX.BOND_OPEN_MAX do
+        local name = EX.ROW .. "_bd" .. i
+        HOLDER:CreateComponent(name)
+        for _, cell in ipairs(EX.ROW_CELLS) do
+            HOLDER.kids[name]:CreateComponent(cell)
+        end
+    end
 end
 build_rows()
 
@@ -668,6 +689,306 @@ print("deal_draw name=" .. cell(DR1, "row_name")
     .. " icon=" .. tostring(find_uicomponent(DR1, "icon").img ~= nil)
     -- PAST THE END: hidden, and its stale text is irrelevant because nothing draws it.
     .. " pastend=" .. tostring(DR3.vis) .. "/" .. cell(DR3, "row_name"))
+EX.mode = EX.MODE_TRADE
+
+-- THE CONTRACTS PAGE, page 2 of the Deals tab (2026-09-29) ---------------------------------
+-- Two offers and three open contracts, one per status the button can show: Ready (the player
+-- holds the goods), Short (the treasury read fails here, so the gold cannot be shown) and At
+-- war. Turn 10: the first contract is due on 11, "next turn".
+local function us(s) return (string.gsub(tostring(s), " ", "_")) end
+EX.mode = EX.MODE_DEALS
+EX.snap = { ai_deals = true, ai_forwards = true }
+EX.deals = { { fac = "house_a", res = "res_rom_iron", side = "sell", lots = 1, px = 940, turn = 10 } }
+EX.fwd_offers = {
+    { fac = "house_c", res = "res_rom_iron", side = "buy",  lots = 1, px = 1060, turn = 10, due = 7 },
+    { fac = "house_d", res = "res_rom_iron", side = "sell", lots = 2, px = 940,  turn = 10, due = 5 },
+}
+EX.forwards = {
+    { fac = "house_e", res = "res_rom_iron", side = "buy",  lots = 1, px = 1100, at = 11 },
+    { fac = "house_f", res = "res_rom_iron", side = "sell", lots = 1, px = 900,  at = 14 },
+    { fac = "house_g", res = "res_rom_iron", side = "buy",  lots = 1, px = 1100, at = 12 },
+}
+-- THE PAGE LIST: on with the switch; off with nothing open; still there with a contract open.
+local pg_on = #EX.deals_pages()
+local keep_fw = EX.forwards
+EX.snap = { ai_deals = true, ai_forwards = false }
+EX.forwards = {}
+local pg_off = #EX.deals_pages()
+EX.forwards = keep_fw
+local pg_open = #EX.deals_pages()
+EX.snap = { ai_deals = true, ai_forwards = true }
+-- PAGE 2 BY THE ARROW, the way a player gets there.
+EX.deal_page = 1
+local v1 = EX.view()
+local foot1a, foot1b = EX.deals_footer()
+EX.nav_click("forward")
+print("fwd_nav pages=" .. pg_on .. "/" .. pg_off .. "/" .. pg_open .. " view1=" .. v1
+    .. " view2=" .. EX.view() .. " nav=" .. EX.nav_label()
+    .. " pointer=" .. tostring(string.find(foot1b, "page 2", 1, true) ~= nil))
+report("contracts_p2")
+local real_held, real_tier = EX.held, EX.treaty_tier
+EX.held = function() return 100 end
+EX.treaty_tier = function(f) return (f == "house_g") and "war" or "free" end
+local FW = {}
+for k = 1, 6 do
+    FW[k] = HOLDER.kids[EX.ROW .. "_fw" .. k]
+    find_uicomponent(FW[k], "row_name"):SetStateText("STALE")
+    EX.draw_fwd_row(FW[k], k)
+end
+local function fw(k)
+    local b = find_uicomponent(FW[k], "btn_buy")
+    return us(cell(FW[k], "row_trend")) .. "/" .. us(cell(FW[k], "row_hold")) .. "/"
+        .. us(b.text) .. "/" .. us(b.states.hover) .. "/" .. tostring(b.disabled)
+end
+print("fwd_draw o1=" .. fw(1) .. " o2=" .. fw(2) .. " c1=" .. fw(3) .. " c2=" .. fw(4)
+    .. " c3=" .. fw(5) .. " name=" .. cell(FW[1], "row_name")
+    .. " pastend=" .. tostring(FW[6].vis))
+local foot2a, foot2b = EX.deals_footer()
+print("fwd_foot l1=" .. us(foot2a) .. " l2=" .. us(foot2b))
+-- AT SIX OPEN, an offer's button reads Full and is greyed; the contracts are unchanged.
+EX.forwards = {}
+for i = 1, EX.FWD_OPEN_MAX do
+    EX.forwards[i] = { fac = "house_e", res = "res_rom_iron", side = "buy", lots = 1, px = 1, at = 20 }
+end
+EX.draw_fwd_row(FW[1], 1)
+print("fwd_full o1=" .. fw(1))
+EX.forwards = keep_fw
+EX.held, EX.treaty_tier = real_held, real_tier
+-- THE CLICK: an offer's Take sends fwd/<index>; a contract row's button sends nothing.
+local SENT = {}
+local real_send = EX.mp_send
+EX.mp_send = function(op, arg) SENT[#SENT + 1] = op .. "/" .. tostring(arg) end
+EX.row_click("btn_buy", EX.ROW .. "_fw2")
+EX.row_click("btn_buy", EX.ROW .. "_fw3")
+EX.row_click("row_name", EX.ROW .. "_fw1")
+EX.mp_send = real_send
+print("fwd_click sent=" .. table.concat(SENT, ","))
+-- THE OPENER: one contract delivers next turn (at = 11 on turn 10).
+EX.deals = {}
+EX.refresh_button_tip()
+print("fwd_news due=" .. tostring(string.find(ROOT.kids[EX.BUTTON].tip or "",
+    "1 contract delivers at the start of next turn.", 1, true) ~= nil))
+EX.fwd_offers, EX.forwards, EX.deals = {}, {}, {}
+EX.refresh_button_tip()
+print("fwd_news quiet=" .. tostring(string.find(ROOT.kids[EX.BUTTON].tip or "",
+    "contract", 1, true) == nil))
+EX.deal_page = 1
+EX.snap = nil
+EX.mode = EX.MODE_TRADE
+
+-- THE INDEX PAGE, the last page of the Houses tab (2026-09-29) --------------------------------
+-- 21 of the 41 clans are the player's culture, so the index has 21 members against 19 member
+-- rows: two are cut, and the footer must say so. Prices 1010..1210 put the level at 1110.
+EX.mode = EX.MODE_HOUSES
+EX.houses = HOUSES
+EX.house_set = nil
+local real_gone_i, real_price_i, real_cult_i = EX.house_gone, EX.price, EX.culture_cache
+local real_closed_i = EX.market_closed
+EX.house_gone = function() return false end
+EX.market_closed = function() return nil end
+EX.culture_cache = { player = "cc" }
+local PXI = {}
+for i = 1, #HOUSES do
+    EX.culture_cache[HOUSES[i]] = (i <= 21) and "cc" or "zz"
+    if i <= 21 then PXI[HOUSES[i]] = 1000 + i * 10 end
+end
+EX.price = function(r) return PXI[r] or real_price_i(r) end
+EX.store[EX.SAVE_INDEX .. "cc"] = nil
+EX.human_list = nil
+EX.index_sync(true)
+EX.set_index_units(10)
+-- BY THE ARROW: back from page 1 wraps to the last page, the bonds page, and back once more
+-- is the index.
+EX.house_page = 1
+EX.nav_click(EX.MODE_PREV)
+EX.nav_click(EX.MODE_PREV)
+local irows = EX.mode_instruments()
+print("idx_nav view=" .. EX.view() .. " nav=" .. EX.nav_label() .. " rows=" .. #irows
+    .. " first=" .. irows[1] .. " second=" .. tostring(irows[2]))
+report("index_p")
+local IR = HOLDER.kids[EX.ROW .. "_idx"]
+for _, n in ipairs({ "row_name", "btn_buy", "btn_sell" }) do
+    find_uicomponent(IR, n):SetStateText("STALE")
+end
+EX.draw_index_row(IR)
+local function ib(r, n)
+    local c = find_uicomponent(r, n)
+    return us(c.text) .. "/" .. us(c.states.hover) .. "/" .. tostring(c.disabled)
+end
+print("idx_row name=" .. us(cell(IR, "row_name")) .. " price=" .. cell(IR, "row_price")
+    .. " div=" .. cell(IR, "row_sell") .. " divmodel=+" .. EX.index_dividend_lot("cc")
+    .. " share=" .. cell(IR, "row_supply") .. " held=" .. us(cell(IR, "row_hold"))
+    .. " buy=" .. ib(IR, "btn_buy") .. " sell=" .. ib(IR, "btn_sell")
+    .. " spark=" .. tostring(find_uicomponent(IR, "spark").vis)
+    .. " icon=" .. tostring(find_uicomponent(IR, "icon").vis))
+-- EVERY MEMBER ROW: the house's numbers, and no button left on screen.
+local shown_btn = 0
+for i = 2, #irows do
+    local r = EX.row(HOLDER, irows[i])
+    EX.draw_index_member(r, irows[i])
+    for _, n in ipairs({ "btn_buy", "btn_sell" }) do
+        if find_uicomponent(r, n).vis then shown_btn = shown_btn + 1 end
+    end
+end
+local M1 = EX.row(HOLDER, irows[2])
+print("idx_member name=" .. cell(M1, "row_name") .. " price=" .. cell(M1, "row_price")
+    .. " share=" .. cell(M1, "row_supply") .. " buttons=" .. shown_btn)
+local if1, if2 = EX.index_footer()
+print("idx_foot l1=" .. us(if1) .. " l2=" .. us(if2))
+-- UNDER THE WAR LOCK Buy greys and says Closed; with less than a lot held, Sell greys.
+EX.market_closed = function() return HOUSES[1] end
+EX.set_index_units(0)
+EX.draw_index_row(IR)
+print("idx_shut buy=" .. ib(IR, "btn_buy") .. " sell=" .. ib(IR, "btn_sell"))
+EX.market_closed = function() return nil end
+-- THE CLICK: the index row's two buttons send idx; a member row's buttons and a name send
+-- nothing, and a name click does not pick a commodity for the Trade page.
+local ISENT = {}
+local real_send_i = EX.mp_send
+EX.mp_send = function(op, arg) ISENT[#ISENT + 1] = op .. "/" .. tostring(arg) end
+EX.amount = 5
+EX.selected = nil
+EX.row_click("btn_buy", EX.ROW .. "_idx")
+EX.row_click("btn_sell", EX.ROW .. "_idx")
+EX.row_click("btn_buy", EX.ROW .. "_" .. EX.short(irows[2]))
+EX.row_click("row_name", EX.ROW .. "_" .. EX.short(irows[2]))
+EX.mp_send = real_send_i
+EX.amount = 1
+print("idx_click sent=" .. table.concat(ISENT, ",") .. " selected=" .. tostring(EX.selected))
+-- ONE HOUSE OF YOUR CULTURE: the page is still there and says why there is no index.
+EX.store[EX.SAVE_INDEX .. "cc"] = nil
+EX.culture_cache = { player = "cc", [HOUSES[1]] = "cc" }
+EX.index_sync(true)
+EX.draw_index_row(IR)
+local nf1 = EX.index_footer()
+print("idx_none buy=" .. ib(IR, "btn_buy") .. " rows=" .. #EX.mode_instruments()
+    .. " l1=" .. us(nf1))
+EX.store[EX.SAVE_INDEX .. "cc"] = nil
+EX.set_index_units(0)
+EX.house_gone, EX.price, EX.culture_cache = real_gone_i, real_price_i, real_cult_i
+EX.market_closed = real_closed_i
+EX.house_page = 1
+EX.mode = EX.MODE_TRADE
+
+-- THE BONDS PAGE, after the index on the Houses tab (2026-09-29) ------------------------------
+-- Turn 10. Three offers - two bond issues, one loan - and three positions, one per status: a
+-- loan paying and due next turn, a bond at war with you, a matured bond still behind. The
+-- player holds 4000g, so the 3000g issue can be lent and the 5000g one cannot.
+EX.mode = EX.MODE_HOUSES
+EX.houses = HOUSES
+EX.bond_offers = {
+    { side = "l", fac = "house_c", amt = 3000, pay = 60,  term = 8, turn = 10 },
+    { side = "l", fac = "house_d", amt = 5000, pay = 150, term = 6, turn = 10 },
+    { side = "b", fac = "house_e", amt = 2000, pay = 40,  term = 5, turn = 10 },
+}
+EX.bonds = {
+    { side = "b", fac = "house_f", p = 2000, c = 40, at = 11, late = 0 },
+    { side = "l", fac = "house_g", p = 3000, c = 60, at = 14, late = 0 },
+    { side = "l", fac = "house_h", p = 0,    c = 60, at = 9,  late = 500 },
+}
+-- THE PAGE LIST: on with the switch; off with nothing open; still there with a position open.
+EX.snap = { ai_bonds = true }
+local bpg_on = EX.house_page_count()
+local keep_bd = EX.bonds
+EX.snap = { ai_bonds = false }
+EX.bonds = {}
+local bpg_off = EX.house_page_count()
+EX.bonds = keep_bd
+local bpg_open = EX.house_page_count()
+EX.house_page = EX.HOUSE_BONDS_PAGE
+local bgone = EX.view()
+EX.bonds = {}
+local bgone2 = EX.view() .. "/" .. EX.nav_label() .. "/" .. tostring(EX.on_bonds())
+EX.bonds = keep_bd
+EX.snap = { ai_bonds = true }
+-- BY THE ARROW, the way a player gets there: back from page 1.
+EX.house_page = 1
+EX.nav_click(EX.MODE_PREV)
+print("bd_nav pages=" .. bpg_on .. "/" .. bpg_off .. "/" .. bpg_open .. " view=" .. EX.view()
+    .. " nav=" .. EX.nav_label() .. " gone=" .. bgone .. "/" .. bgone2
+    .. " rows=" .. #EX.mode_instruments()
+    .. " lay=" .. tostring(EX.panel_layout() == EX.PANEL_LAYOUT_DEALS) .. "/"
+    .. tostring(EX.row_layout() == EX.ROW_LAYOUT_DEALS))
+report("bonds_p")
+local real_tier_b, real_gf_b = EX.treaty_tier, cm.get_faction
+EX.treaty_tier = function(f) return (f == "house_g") and "war" or "free" end
+cm.get_faction = function() return { treasury = function() return 4000 end } end
+local BD = {}
+for k = 1, 7 do
+    BD[k] = HOLDER.kids[EX.ROW .. "_bd" .. k]
+    for _, n in ipairs({ "row_name", "row_trend", "btn_buy" }) do
+        find_uicomponent(BD[k], n):SetStateText("STALE")
+    end
+    EX.draw_bond_row(BD[k], k)
+end
+local function bd(k)
+    local b = find_uicomponent(BD[k], "btn_buy")
+    return us(cell(BD[k], "row_trend")) .. "/" .. cell(BD[k], "row_price") .. "/"
+        .. cell(BD[k], "row_sell") .. "/" .. us(cell(BD[k], "row_hold")) .. "/"
+        .. us(b.text) .. "/" .. us(b.states.hover) .. "/" .. tostring(b.disabled)
+end
+print("bd_draw o1=" .. bd(1) .. " o2=" .. bd(2) .. " o3=" .. bd(3))
+print("bd_draw_pos p1=" .. bd(4) .. " p2=" .. bd(5) .. " p3=" .. bd(6)
+    .. " name=" .. us(cell(BD[1], "row_name")) .. " pastend=" .. tostring(BD[7].vis))
+local bf1, bf2 = EX.bonds_footer()
+print("bd_foot l1=" .. us(bf1) .. " l2=" .. us(bf2))
+-- AT SIX BONDS OPEN, an issue reads Full and greys; a loan offer does not - the limit is a side's.
+EX.bonds = {}
+for i = 1, EX.BOND_OPEN_MAX do
+    EX.bonds[i] = { side = "l", fac = "house_c", p = 1000, c = 20, at = 20, late = 0 }
+end
+EX.draw_bond_row(BD[1], 1)
+EX.draw_bond_row(BD[3], 3)
+print("bd_full o1=" .. bd(1) .. " o3=" .. bd(3))
+EX.bonds = keep_bd
+EX.treaty_tier, cm.get_faction = real_tier_b, real_gf_b
+-- THE SWITCH OFF: the footer says so, and the positions still draw.
+EX.snap = { ai_bonds = false }
+local of1 = EX.bonds_footer()
+print("bd_off l1=" .. us(of1) .. " view=" .. EX.view())
+EX.snap = { ai_bonds = true }
+-- THE CLICK: an offer's button sends bond/<index>; a position's button and a name send nothing.
+local BSENT = {}
+local real_send_b = EX.mp_send
+EX.mp_send = function(op, arg) BSENT[#BSENT + 1] = op .. "/" .. tostring(arg) end
+EX.row_click("btn_buy", EX.ROW .. "_bd1")
+EX.row_click("btn_buy", EX.ROW .. "_bd3")
+EX.row_click("btn_buy", EX.ROW .. "_bd4")
+EX.row_click("row_name", EX.ROW .. "_bd2")
+EX.mp_send = real_send_b
+print("bd_click sent=" .. table.concat(BSENT, ","))
+-- THE OPENER: the 2000g loan falls due next turn (at = 11 on turn 10); nothing when none does.
+-- A BOND due next turn and a LOAN at war with you due next turn are both left out: the bond is
+-- money coming in, and the loan waits for peace.
+EX.deals, EX.forwards = {}, {}
+EX.bonds[#EX.bonds + 1] = { side = "l", fac = "house_c", p = 1000, c = 20, at = 11, late = 0 }
+EX.bonds[#EX.bonds + 1] = { side = "b", fac = "house_g", p = 700, c = 14, at = 11, late = 0 }
+EX.treaty_tier = function(f) return (f == "house_g") and "war" or "free" end
+EX.refresh_button_tip()
+print("bd_news due=" .. tostring(string.find(ROOT.kids[EX.BUTTON].tip or "",
+    "2000g of loans falls due at the start of next turn.", 1, true) ~= nil))
+EX.treaty_tier = real_tier_b
+for _, x in ipairs(EX.bonds) do x.at = 12 end
+EX.refresh_button_tip()
+print("bd_news quiet=" .. tostring(string.find(ROOT.kids[EX.BUTTON].tip or "",
+    "loans", 1, true) == nil))
+-- THE MOST ROWS THE PAGE CAN ASK FOR: bond_max offers a side and EX.BOND_OPEN_MAX open a side.
+-- check_layout compares it with the pool EX.build_panel's own loop creates.
+EX.bond_offers, EX.bonds = {}, {}
+for _, side in ipairs({ "l", "b" }) do
+    for i = 1, EX.opt("bond_max") do
+        EX.bond_offers[#EX.bond_offers + 1] = { side = side, fac = "house_c", amt = 1000, pay = 20,
+                                                term = 5, turn = 10 }
+    end
+    for i = 1, EX.BOND_OPEN_MAX do
+        EX.bonds[#EX.bonds + 1] = { side = side, fac = "house_c", p = 1000, c = 20, at = 20, late = 0 }
+    end
+end
+print("bd_pool rows=" .. #EX.mode_instruments() .. " bond_max=" .. EX.opt("bond_max")
+    .. " open_max=" .. EX.BOND_OPEN_MAX)
+EX.bond_offers, EX.bonds = {}, {}
+EX.snap = nil
+EX.house_page = 1
 EX.mode = EX.MODE_TRADE
 
 -- ONE ROW OF THE OFFERINGS VIEW, DRAWN FOR REAL --------------------------------------------
