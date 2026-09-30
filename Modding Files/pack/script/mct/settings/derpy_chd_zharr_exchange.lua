@@ -405,7 +405,7 @@ o_deal_max:set_assigned_section("world")
 
 local o_deal_edge = m:add_new_option("deal_edge", "slider")
 o_deal_edge:set_text("Deal edge, per cent")
-o_deal_edge:set_tooltip_text("How far off market an offer is priced, always in your favour: a buyer pays over, a seller takes under. Keep it under one price step or a deal becomes a free round trip against the market.")
+o_deal_edge:set_tooltip_text("How far off market an offer is priced, always in your favour: a buyer pays over, but never more than the goods cost you to buy here, and a seller takes under.")
 o_deal_edge:slider_set_precision(0)
 o_deal_edge:slider_set_min_max(1, 10)
 o_deal_edge:slider_set_step_size(1, 0)

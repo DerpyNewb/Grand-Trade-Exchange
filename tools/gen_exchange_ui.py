@@ -55,6 +55,7 @@ CHART_FLOOR = 6
 # view the player cannot reach now that the arrows page instead of cycling.
 TAB_MODES = ["trade", "stats", "offer", "houses", "deals", "log"]
 TAB_W, TAB_PITCH = 108, 116
+SUB_SLOTS = 3   # EX.SUB_SLOTS in the Lua; selftest() pins the two together
 
 ROW_W, ROW_H = 880, 40
 # 736, not 700: the last 36px are the nav strip below the two footer lines. See the
@@ -610,6 +611,16 @@ def build_panel():
         p.add(C("derpy_chd_ex_tab_" + mode, TAB_W, 26, interactive=True, image=BTN_BG,
                 hover=tabhov, sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
                 dockpoint="Bottom Left", dock_offset="%.2f,-12.00" % (20 + i * TAB_PITCH),
+                tooltip=TIP_TAB))
+    # THE SUB-TABS (2026-09-30), the tabs' twins in the title bar: Houses | Index | Bonds and
+    # Deals | Contracts, asked for from play because the index and bonds pages sat at 4/5 and
+    # 5/5 behind the arrows and nobody found them. SLOTS, labelled per view by the Lua
+    # (EX.SECTIONS); placed by its layout tables like the tabs, so the offsets here are
+    # placeholders too.
+    for i in range(1, SUB_SLOTS + 1):
+        p.add(C("derpy_chd_ex_sub_%d" % i, TAB_W, 26, interactive=True, image=BTN_BG,
+                hover=tabhov, sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
+                dockpoint="Top Left", dock_offset="%.2f,16.00" % (484 + (i - 1) * TAB_PITCH),
                 tooltip=TIP_TAB))
     # ONE LABEL PER COLUMN, not one space-padded string. The font is proportional, so padded
     # spaces never line up with the row columns below; and the single header_text carried
@@ -1307,6 +1318,38 @@ def selftest():
         for (x, k), (nx, nk) in zip(byx, byx[1:]):
             end = x + (tabs[k][1] or xml_w[k])
             assert end <= nx, ("%s: tab %s ends at %d but %s starts at %d" % (tbl, k, end, nx, nk))
+
+    # THE SUB-TABS SIT IN THE TITLE BAR (2026-09-30): after the title's box, before the help
+    # button, above the header row, and not into each other. The title is fit() to its own
+    # box, so its BOX edge is the most it can reach.
+    lua_sub = re.search(r"EX\.SUB_SLOTS = (\d+)", lua)
+    assert lua_sub and int(lua_sub.group(1)) == SUB_SLOTS, (
+        "SUB_SLOTS here is %d but EX.SUB_SLOTS in the Lua is %s - a slot one side does not "
+        "know is a button never placed, or a label written to nothing"
+        % (SUB_SLOTS, lua_sub and lua_sub.group(1)))
+    sub_tables = 0
+    for tbl in [n for n in re.findall(r"EX\.PANEL_LAYOUT\w*", lua)]:
+        b = boxes(tbl)
+        subs = sorted((v[0], k) for k, v in b.items() if k.startswith("derpy_chd_ex_sub_"))
+        if not subs:
+            continue
+        sub_tables += 1
+        assert len(subs) == SUB_SLOTS, "%s places %d of the %d sub-tab slots" % (
+            tbl, len(subs), SUB_SLOTS)
+        title_end = b["title_text"][0] + b["title_text"][2]
+        help_x = b["btn_help"][0]
+        hdr_y = min(v[1] for k, v in b.items() if k.startswith("hdr_") or k.startswith("btn_am"))
+        for x, k in subs:
+            _x, y, w = b[k]
+            assert x >= title_end and x + w <= help_x, (
+                "%s: %s spans %d..%d, but the title runs to %d and the help button starts at %d"
+                % (tbl, k, x, x + w, title_end, help_x))
+            assert y + panel_h[k] <= hdr_y, (
+                "%s: %s runs to y=%d and the header row starts at %d" % (tbl, k, y + panel_h[k], hdr_y))
+        for (x, k), (nx, nk) in zip(subs, subs[1:]):
+            assert x + b[k][2] <= nx, "%s: %s runs into %s" % (tbl, k, nk)
+    assert sub_tables >= 2, (
+        "only %d layout tables place the sub-tabs; Houses and Deals both need them" % sub_tables)
 
     # TAB_MODES HERE VS EX.MODES IN THE LUA. This file MAKES the five tab components and the
     # Lua PLACES and labels them, so the two lists have to be the same list. A tab this file

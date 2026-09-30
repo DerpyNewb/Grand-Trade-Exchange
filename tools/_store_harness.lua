@@ -109,6 +109,10 @@ if COMMA then
     EX.snapshot()
     local legacy = prices()
 
+    -- THE DISPLAY HALF, read while the locale is still the comma one: EX.num trimmed "1,000"
+    -- to "1," - its trailing-separator strip only knew ".".
+    local comma_num = EX.num(1) .. "/" .. EX.num(1.5)
+
     -- ACROSS LOCALES: a multiplayer save is loaded on every machine, and two players need not
     -- share a separator. Written under the comma locale, read back under "C".
     NAMED, EX.store = {}, {}
@@ -119,6 +123,7 @@ if COMMA then
     LOADG({})
     print("cross_shock " .. tostring(EX.getv(EX.SAVE_SHOCK .. R)))
 
+    print("comma_num " .. comma_num)
     print("comma_prices " .. before .. " " .. after)
     print("comma_shock " .. tostring(shock))
     print("comma_cshare " .. tostring(share))

@@ -867,19 +867,23 @@ FEED_IMAGE = {
     "wh3_dlc23_chd_chaos_dwarfs": {
         "call": "chd/zharr_temple", "wrath": "chd/zharr_temple",
         "shock": "chd/zharr_temple", "delist": "chd/zharr_temple",
+        "shockat": "chd/zharr_temple",
     },
     # cth/ivory_road is CA's own picture for the trade road this race's market is named after.
     "wh3_main_cth_cathay": {
         "call": "cth/ivory_road", "wrath": "cth/civilisation_down",
         "shock": "cth/messenger", "delist": "cth/funeral",
+        "shockat": "cth/messenger",
     },
     "wh_main_emp_empire": {
         "call": "emp/civilisation_up", "wrath": "emp/civilisation_down",
         "shock": "emp/messenger", "delist": "emp/funeral",
+        "shockat": "emp/messenger",
     },
     "wh2_main_skv_skaven": {
         "call": "skv/celebration", "wrath": "skv/civilisation_down",
         "shock": "skv/messenger", "delist": "skv/funeral",
+        "shockat": "skv/messenger",
     },
     # THE SOUTHERN REALMS BORROW THE EMPIRE'S ART, and that is a decision rather than a
     # shortcut. The column is a FILE PATH into the game's own event pictures, and Cataph's
@@ -889,22 +893,26 @@ FEED_IMAGE = {
     TEB_CULTURE: {
         "call": "emp/civilisation_up", "wrath": "emp/civilisation_down",
         "shock": "emp/messenger", "delist": "emp/funeral",
+        "shockat": "emp/messenger",
     },
     # The three added 2026-09-09 all have their OWN art in the base game, so none of them has
     # to borrow the way the Southern Realms do. Every value below is in a vanilla row.
     "wh_main_dwf_dwarfs": {
         "call": "dwf/celebration", "wrath": "dwf/civilisation_down",
         "shock": "dwf/messenger", "delist": "dwf/funeral",
+        "shockat": "dwf/messenger",
     },
     # hef/court_intrigue_2 rather than civilisation_up: the tithe here IS the Phoenix Court
     # asking, and CA's picture for that is the one of a court asking.
     "wh2_main_hef_high_elves": {
         "call": "hef/court_intrigue_2", "wrath": "hef/civilisation_down",
         "shock": "hef/messenger", "delist": "hef/funeral",
+        "shockat": "hef/messenger",
     },
     "wh2_main_def_dark_elves": {
         "call": "def/black_ark_created", "wrath": "def/civilisation_down",
         "shock": "def/messenger", "delist": "def/funeral",
+        "shockat": "def/messenger",
     },
 }
 # THE EVENT COLUMN IS THE POPUP SWITCH, and it pairs with show_message_event's persistent
@@ -946,6 +954,13 @@ FEED = [
     # wordings below - which one draws is a loc key EX.settle_house picks, not a second row.
     ("derpy_chd_ex_feed_delist", 7404, "",
      "UI_CAM_POPUP_Message_Event_Neutral", "scripted_transient_event", False),
+    # THE SHOCK BULLETIN WITH A PLACE (2026-09-30): the same news, and clicking it moves the
+    # camera to the settlement the named hit landed on. Its own record because
+    # show_message_event_located resolves only against a _located_ event type - against a
+    # plain one it logs success and draws nothing. All 20 vanilla
+    # scripted_transient_located_event rows are instant_open false.
+    ("derpy_chd_ex_feed_shockat", 7405, "",
+     "UI_CAM_POPUP_Message_Event_Neutral", "scripted_transient_located_event", False),
 ]
 
 # THE TWO DELISTING BULLETINS. Two wordings because the payout has two branches and the text
@@ -2397,7 +2412,7 @@ def build():
 
     # The event-feed records show_message_event's index resolves against. group == id on the
     # member row is vanilla's own shape for every one of these.
-    # FOUR RECORDS PER RACE, NOT FOUR IN TOTAL. The picture is a COLUMN on the record and
+    # FIVE RECORDS PER RACE, NOT FIVE IN TOTAL. The picture is a COLUMN on the record and
     # nothing can swap it at runtime, so the only way a Skaven player stops being shown the
     # Chaos Dwarf forge for a Trade Disrupted bulletin (screenshot, 2026-09-08) is a record of
     # their own. Keys carry the segment, exactly like every other per-race key in this build,
@@ -2815,15 +2830,15 @@ def selftest():
     fkeys = {f["group"] for f in t["event_feed_message_events_tables"][1]}
     gids = {g["id"] for g in t["campaign_groups_tables"][1]}
     mids = {m["id"] for m in t["campaign_group_members_tables"][1]}
-    # FOUR RECORDS PER RACE. FEED holds the four SHAPES; the build crosses them with the race
-    # segments, so the expected set is the product - the Chaos Dwarf four under their shipped
-    # unsegmented names, and four more per covered race.
+    # FIVE RECORDS PER RACE. FEED holds the five SHAPES; the build crosses them with the race
+    # segments, so the expected set is the product - the Chaos Dwarf five under their shipped
+    # unsegmented names, and five more per covered race.
     want = set()
     for culture in FEED_INDEX_BASE:
         seg = race_table()[culture]["seg"]
         for f in FEED:
             want.add(PREFIX + seg + "feed_" + f[0].rsplit("_", 1)[1])
-    assert len(want) == 4 * len(FEED_INDEX_BASE), (
+    assert len(want) == len(FEED) * len(FEED_INDEX_BASE), (
         "two races generated the same feed key - a segment is missing or duplicated: %s"
         % sorted(want))
     assert want == fkeys == gids == mids == set(crit), (
@@ -2850,7 +2865,8 @@ def selftest():
     for name, key in (("FEED_CALL", "derpy_chd_ex_feed_call"),
                       ("FEED_WRATH", "derpy_chd_ex_feed_wrath"),
                       ("FEED_SHOCK", "derpy_chd_ex_feed_shock"),
-                      ("FEED_DELIST", "derpy_chd_ex_feed_delist")):
+                      ("FEED_DELIST", "derpy_chd_ex_feed_delist"),
+                      ("FEED_SHOCK_AT", "derpy_chd_ex_feed_shockat")):
         m = re.search(r"EX\.%s\s*=\s*(\d+)" % name, lua_raw)
         assert m and int(m.group(1)) == crit[key], (
             "EX.%s is %s, the row indexes %s" % (name, m and m.group(1), crit[key]))
@@ -3074,6 +3090,7 @@ def selftest():
     check_trend_survives_load()
     check_lua_shocks()
     check_shock_news()
+    check_shock_source()
     check_click_filter()
     check_panel_cell_shows()
     check_lua_hover()
@@ -3703,6 +3720,17 @@ def check_layout():
     for tag in scenes:
         assert tag in have, "the layout harness never reported %s: %s" % (tag, got)
 
+    # ANOTHER PLAYER'S OP DRAWS NOTHING HERE (2026-09-30), and the local player's still does.
+    rd = have["rival_draw"]
+    assert rd["kept"] == "true" and rd["refresh_rival"] == "0", (
+        "EX.layout (kept=%s) or EX.refresh_panel (%s panel asks) drew while another player was "
+        "bound. The deal, fwd, idx and bond ops (and a tithe demand) run bound to the SENDER, "
+        "so every machine with the panel open drew the sender's data"
+        % (rd["kept"], rd["refresh_rival"]))
+    assert rd["local"] == "true" and rd["refresh_local"] == "1", (
+        "the local player's own layout (%s) or refresh (%s panel asks) no longer draws - the "
+        "guard is too wide" % (rd["local"], rd["refresh_local"]))
+
     # EX.panel_cells() MUST BE THE WHOLE UNION. The harness builds its own by scanning EX
     # for the PANEL_LAYOUT* tables, so this compares two independently-derived sets - a
     # cell named by some layout table and absent from the union is one EX.layout can
@@ -4110,7 +4138,7 @@ def check_layout():
         "drawn under a shorter list, which is a row offering a price nobody agreed to."
         % have["deal_draw_pastend"])
 
-    # THE CONTRACTS PAGE (2026-09-29): page 2 of the Deals tab, reached by the arrow. Two
+    # THE CONTRACTS PAGE (2026-09-29): the Deals tab's second sub-tab since 09-30. Two
     # offers then three open contracts on one pool; each contract's button a greyed status.
     eq_l = lambda key, want, why: _eq_layout(have, key, want, why)
     eq_l("fwd_nav_pages", "2/1/2",
@@ -4119,10 +4147,11 @@ def check_layout():
          "to settle gold must never be invisible")
     eq_l("fwd_nav_view1", "deals", "page 1 of the Deals tab is not the deals view")
     eq_l("fwd_nav_view2", "contracts",
-         "the arrow did not reach the contracts view - headers and tips are keyed by EX.view()")
-    eq_l("fwd_nav_nav", "2/2", "the page counter does not count the contracts page")
+         "the sub-tab did not reach the contracts view - headers and tips are keyed by EX.view()")
+    eq_l("fwd_nav_nav", "1/1", "the contracts section is one page; the arrows no longer walk "
+         "into it from the deals list")
     eq_l("fwd_nav_pointer", "true",
-         "page 1's footer does not point at page 2 while contract offers are waiting there")
+         "the deals footer does not point at the Contracts tab while contract offers wait there")
     eq_l("contracts_p2_visible", "5",
          "the contracts page did not show its two offers and three open contracts")
     eq_l("fwd_draw_o1", "Buys_1_lot_of_Iron/in_7_turns/Take/Take/false",
@@ -4152,9 +4181,8 @@ def check_layout():
 
     # THE INDEX PAGE (2026-09-29): the last page of the Houses tab. 21 members at 1010..1210,
     # so the level is 1110 and two members do not fit under the index row.
-    eq_l("idx_nav_view", "index", "two arrows back from page 1 did not land on the index view")
-    eq_l("idx_nav_nav", "4/5", "the counter does not put the index after the list and before "
-         "the bonds page")
+    eq_l("idx_nav_view", "index", "the Index sub-tab did not land on the index view")
+    eq_l("idx_nav_nav", "1/1", "the index section is one page, not page 4 of 5 behind the list")
     eq_l("idx_nav_rows", str(have["index_p_visible"]),
          "the index page's row list and what EX.layout showed disagree")
     eq_l("index_p_visible", "20",
@@ -4187,6 +4215,23 @@ def check_layout():
         % have.get("idx_foot_l1"))
     eq_l("idx_shut_buy", "Closed/Closed/true", "under the war lock the index Buy must grey and say Closed")
     eq_l("idx_shut_sell", "Sell_5/Sell_5/true", "with no units held the index Sell must grey")
+    eq_l("idx_poor_buy", "No_gold/No_gold/true",
+         "a treasury one gold short of a lot must grey the index Buy as No gold - seen in play "
+         "2026-09-30: four clicks refused in the Log with nothing on screen")
+    eq_l("idx_poor_tip", "You_have_1109g;_one_lot_costs_1110g.",
+         "the No gold tooltip must give both numbers")
+    eq_l("idx_poor_exact", "Buy_5/Buy_5/false", "exactly one lot's gold must buy")
+    eq_l("idx_poor_shut", "Closed/Closed/true",
+         "short of gold AND under the war lock, the button must say Closed - gold is the last "
+         "reason, not the first")
+    # THE HOUSE ROWS draw inside EX.refresh_panel, which no harness runs: the same helper, after
+    # the market's own refusals, so the war lock still names itself.
+    src_h = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    assert re.search(r"local why, why_label = EX\.buy_refusal\(res\)\s*\n\s*if not why then why, "
+                     r"why_label = EX\.gold_short\(EX\.buy_price\(res\)\) end\s*\n\s*set_text\(row, "
+                     r"\"btn_buy\", why_label or \(\"Buy \" \.\. lot\)\)", src_h), (
+        "the house rows' Buy no longer greys on an empty treasury (EX.gold_short after "
+        "EX.buy_refusal, before the label is written)")
     eq_l("idx_click_sent", "idx/b5,idx/s5",
          "the index row's buttons must send idx with the amount, and a member row must send "
          "nothing")
@@ -4199,15 +4244,30 @@ def check_layout():
     # THE BONDS PAGE (2026-09-29): after the index. Turn 10, 4000g in the treasury, three
     # offers and three positions - a loan due next turn, a bond at war with you, a matured bond
     # 500g behind. Rows are the offers, then bonds, then loans, whatever order they were taken in.
-    eq_l("bd_nav_pages", "5/4/5", "the bonds page must be there with the switch on, gone with "
+    eq_l("bd_nav_pages", "2/1/2", "the bonds page must be there with the switch on, gone with "
          "it off and nothing open, and there again while a bond or loan is open")
-    eq_l("bd_nav_gone", "bonds/index/4/4/false", "standing on the bonds page when it goes must "
-         "show the index, the last page left, count it as that, and stop being the bonds page - "
+    eq_l("bd_nav_gone", "bonds/index/1/1/false", "standing on the bonds page when it goes must "
+         "show the index, the last section left, count it as one page, and stop being bonds - "
          "EX.panel_layout and EX.refresh_panel both ask EX.on_bonds before EX.on_index")
     eq_l("bd_nav_lay", "true/true", "the bonds page must use the Deals tab's layouts: its offer "
          "sentence and its one button have no place on the Houses row")
-    eq_l("bd_nav_view", "bonds", "the arrow back from page 1 did not land on the bonds page")
-    eq_l("bd_nav_nav", "5/5", "the counter does not count the bonds page as the last one")
+    eq_l("bd_nav_view", "bonds", "the Bonds sub-tab did not land on the bonds page")
+    eq_l("bd_nav_nav", "1/1", "the bonds section is one page")
+    # THE SUB-TABS AS DRAWN (2026-09-30): label and greyed-or-live per slot, else hidden. The
+    # section on screen and a locked one are greyed; a view with fewer sections hides the rest.
+    eq_l("sub_draw_contracts", "Deals:on,Contracts:off,hidden",
+         "the Deals tab's sub-tabs: the section on screen greyed, the other live, and the third "
+         "slot hidden - it is placed, because the bonds page shares this layout")
+    eq_l("sub_draw_locked", "Houses:on,Index:off,Bonds:off",
+         "with bonds off and none held the Bonds sub-tab must grey, and the index show as current")
+    eq_l("sub_draw_tip", "Bonds_and_loans_are_switched_off_in_this_campaign's_settings.",
+         "a locked sub-tab must say why, not invite a click that does nothing")
+    eq_l("sub_draw_bonds", "Houses:on,Index:on,Bonds:off", "the bonds page's sub-tabs")
+    eq_l("sub_draw_tip3", "You_are_looking_at_this_page.", "the current sub-tab's tooltip")
+    assert have.get("sub_draw_tip2", "").startswith("Index||"), (
+        "a live sub-tab's tooltip must name the section and say what is on it: %r"
+        % have.get("sub_draw_tip2"))
+    eq_l("sub_draw_trade", "hidden,hidden,hidden", "a view with no sections showed a sub-tab")
     eq_l("bd_nav_rows", "6", "the bonds page must list three offers and three positions")
     eq_l("bonds_p_visible", "6", "EX.layout did not show the six bond rows")
     eq_l("bd_draw_o1", "Borrows_3000g_for_8_turns/+60g/2.0%/in_8_turns/Lend/Lend/false",
@@ -6111,6 +6171,9 @@ def check_lua_mp():
     WORLD = {"SAVE_PREFIX", "SAVE_HIST", "SAVE_PRESS", "SAVE_STRIPPED", "SAVE_HOUSES",
              "SAVE_HOME", "SAVE_BOOK", "SAVE_DELISTED", "SAVE_SHOCK", "SAVE_SHOCK_WHY",
              "SAVE_SHOCKED", "SAVE_SNAP", "SAVE_STORE",
+             # Who caused each shock and where (2026-09-30). WORLD for SAVE_SHOCK_WHY's
+             # reason: it describes the one shock every player's price reads.
+             "SAVE_SHOCK_SRC",
              # The world tier's books. WORLD for the same reason SAVE_BOOK is: one market
              # has one set of positions, and scoping a non-house actor's book per player
              # would fork the same faction's holdings into two different numbers.
@@ -6662,6 +6725,9 @@ def check_race_bind():
         assert f["feed_delist"] == str(base + 3), (
             "%s's delist bulletin is index %s, expected %d"
             % (culture, f["feed_delist"], base + 3))
+        assert f["feed_shockat"] == str(base + 4), (
+            "%s's located shock bulletin is index %s, expected %d"
+            % (culture, f["feed_shockat"], base + 4))
         assert f["house_culture"] == culture, (
             "%s bound EX.HOUSE_CULTURE to %s. It must follow the PLAYER - that is what "
             "generalises discovery and the guild to every race" % (culture, f["house_culture"]))
@@ -7294,9 +7360,9 @@ TUNABLES = [
     # MINIMUM 1, NOT 0. A deal priced AT market is not a deal - it is the Trade view with extra
     # clicks - and the deals check refuses a zero rather than shipping a page of non-offers.
     ("deal_edge", "world", "Deal edge, per cent",
-     "How far off market an offer is priced, always in your favour: a buyer pays over, a "
-     "seller takes under. Keep it under one price step or a deal becomes a free "
-     "round trip against the market.", 6, 1, 10, 1, 0),
+     "How far off market an offer is priced, always in your favour: a buyer pays over, but "
+     "never more than the goods cost you to buy here, and a seller takes under.",
+     6, 1, 10, 1, 0),
     # THE CEILING IS THE ROW POOL again: EX.build_panel makes fwd_max offer rows plus
     # EX.FWD_OPEN_MAX contract rows, once. 0 is allowed here, unlike deal_max, because it is a
     # second list and the page still has the deals on it.
@@ -8124,6 +8190,10 @@ def check_lua_orders():
         "a 10-lot order packed as %s and reloaded at qty %s - the size has to be read off the "
         "order on the way out, not written as a constant"
         % (have["sized_packed"], have["sized_qty"]))
+    # ANOTHER PLAYER'S ORDER LEAVES YOUR AMOUNT BUTTON ALONE (2026-09-30).
+    assert have["op_qty"] == "10 amount=1", (
+        "placing a 10-lot order through the op left %r - the order must carry the op's size and "
+        "EX.amount, this machine's button, must stay where its player put it" % have["op_qty"])
 
     # N LOTS IS N REAL TRADES, not a bulk formula beside the per-trade one.
     assert have["bulk_calls"] == "5" and have["bulk_same"] == "true", (
@@ -8550,6 +8620,12 @@ def check_lua_orders():
         "warehouse_rent is switched OFF and the fill was still floored - the treasury there "
         "is exactly the price, so the switch must reserve NOTHING rather than merely less. "
         "Nothing will be debited, so any reserve under-fills for a charge that never comes")
+    # RENT OFF SHOWS NO RENT (2026-09-30). The Held cell, the footer's "Rent:" and the HUD
+    # income all read EX.carry_cost / EX.carry_total, so the switch belongs in carry_cost.
+    assert have["rentoff_carry"] == "0 0", (
+        "warehouse rent is switched OFF and EX.carry_total / EX.carry_cost still answer %s for "
+        "600 held - the panel and the HUD show a charge EX.charge_carry never makes"
+        % have["rentoff_carry"])
     # THE FLOOR PREDICTS THE PRICE THE FILL WILL ACTUALLY PAY. EX.buy_price and EX.price are
     # the same number on a calm board, so every case above passes whichever is used; the
     # markup a hostile guild adds is real gold and separates them.
@@ -9174,6 +9250,19 @@ def check_snapshot_and_debug():
     eq("after_load_spread", _lua_num(presets["ultra"]["spread"]),
        "the snapshot did not survive the save store round trip")
     eq("after_load_preset", "ultra", "the preset name did not survive a load")
+    # FROM THE LOAD, NOT THE NEXT TURN START (2026-09-30).
+    eq("adopt_on_load", "true", "EX.adopt_snap did not take the snapshot the save carries")
+    eq("before_turn_spread", _lua_num(presets["ultra"]["spread"]),
+       "between a load and the next turn start the economy read the MCT panel's preset, not "
+       "the one the campaign froze - EX.init prices the whole board in that window")
+    # AND EX.init CALLS IT BEFORE ANYTHING PRICES. adopt_local and bind_race read no knob; the
+    # first reader is rescan.
+    ini = re.search(r"function EX\.init\(\).*?\nend", stripped, re.S)
+    assert ini, "EX.init is gone"
+    body = ini.group(0)
+    assert "EX.adopt_snap()" in body and body.index("EX.adopt_snap()") < body.index("EX.rescan()"), (
+        "EX.init does not call EX.adopt_snap() before EX.rescan(), so the load prices off the "
+        "live MCT panel rather than the campaign's frozen settings")
     eq("legacy_taken", "true",
        "a campaign with no snapshot in its save never takes one, so it reads MCT live forever")
     eq("legacy_spread", _lua_num(presets["hard"]["spread"]),
@@ -11695,6 +11784,13 @@ def check_tooltips():
                 "stops growing and clips mid-glyph on line two, and the fix for that is a "
                 "split this route cannot use." % (mode, hid, len(text), tip_max, text))
 
+    # EVERY STATE THE OFFERINGS STATUS COLUMN DRAWS IS NAMED ON HOVER (2026-09-30). The tithe
+    # row writes "Due: N turns" there and the tip listed only the other three.
+    if 'c.status = "Due: "' in lua:
+        assert "due" in tips["offer"]["hdr_hold"].lower(), (
+            "the Offerings Status column draws 'Due: N turns' on the tithe row and its tooltip "
+            "(%r) does not say so" % tips["offer"]["hdr_hold"])
+
     # THE HEADER-TO-CELL MAP. A tip is put on the header AND on every row cell under it; a
     # missing or misspelled entry here leaves the rows silent while the header still answers,
     # which reads as "tooltips work" to anyone testing by hovering the top row.
@@ -12648,7 +12744,12 @@ cm = {
         return { __key = k,
                  is_null_interface = function() return false end,
                  treasury = function() return TREASURY[k] or 0 end,
-                 at_war_with = function() return TREATY[k] == "war" end,
+                 -- "throw" IS A HOUSE WHOSE TREATIES CANNOT BE READ: EX.treaty_tier's pcall
+                 -- lands on its fallback, which must never be taken for a real friend.
+                 at_war_with = function()
+                     if TREATY[k] == "throw" then error("unreadable") end
+                     return TREATY[k] == "war"
+                 end,
                  allied_with = function() return TREATY[k] == "allied" end,
                  military_allies_with = function() return false end,
                  is_vassal_of = function() return false end,
@@ -12836,19 +12937,24 @@ print("shift_empty " .. EX.book_shift("res_rom_iron"))
 EX.stance_of = REAL_STANCE_OF
 
 -- THE TREATY LADDER DOMINATES THE NUMBER. An allied house with the worst standing in the
--- guild is still never penalised - which is what makes the counterplay something the player
--- can act on in the diplomacy screen rather than something they have to discover.
-EX.houses = { "friend", "trader", "pact", "cold", "enemy" }
+-- guild is never penalised - it is a full friend (2026-09-30: the friendly half used to be
+-- unreachable) - which is what makes the counterplay something the player can act on in the
+-- diplomacy screen rather than something they have to discover.
+EX.houses = { "friend", "trader", "pact", "cold", "enemy", "odd" }
 EX.delisted = {}
-DIPLO = { friend = -900, trader = -900, pact = -200, cold = -100, enemy = -800 }
-TREATY = { friend = "allied", trader = "trade", pact = "pact", enemy = "war" }
+DIPLO = { friend = -900, trader = -900, pact = -200, cold = -100, enemy = -800, odd = 900 }
+TREATY = { friend = "allied", trader = "trade", pact = "pact", enemy = "war", odd = "throw" }
 print("tier_friend " .. EX.treaty_tier("friend"))
 print("tier_trader " .. EX.treaty_tier("trader"))
 print("tier_pact " .. EX.treaty_tier("pact"))
 print("tier_cold " .. EX.treaty_tier("cold"))
 print("tier_enemy " .. EX.treaty_tier("enemy"))
+print("tier_odd " .. EX.treaty_tier("odd"))
 print("stance_friend " .. EX.stance_of("friend"))
 print("stance_trader " .. EX.stance_of("trader"))
+-- A TREATY WE COULD NOT READ IS NOT A FRIENDSHIP. treaty_tier falls back to "free" so our own
+-- failure never charges the player; taken as a treaty it would hand out a discount instead.
+print("stance_unread " .. EX.stance_of("odd"))
 
 -- SIGN AND RANK, NEVER MAGNITUDE. The deepest-negative eligible house pays the full markup;
 -- a barely-negative one pays a sliver. diplomatic_standing_with returns an int32 of
@@ -12861,18 +12967,19 @@ print("rank_order " .. tostring(EX.stance_of("deep") < EX.stance_of("shallow")))
 DIPLO = { deep = -9, shallow = -1 }
 print("scale_free " .. tostring(EX.stance_of("deep") < EX.stance_of("shallow")))
 
--- A GUILD THAT ALL LIKES YOU CHARGES NOTHING. Zero is the anchor; there is no "least liked"
--- penalty when nobody is below it.
+-- A GUILD THAT ALL LIKES YOU CHARGES NOTHING - IT DISCOUNTS. The friendliest house is the full
+-- +1 and everyone else ranks against it, the mirror of the hostile half.
 DIPLO = { deep = 500, shallow = 10 }
 print("all_friendly " .. EX.stance_of("deep"))
+print("friendly_rank " .. tostring(EX.stance_of("shallow") > 0
+                                   and EX.stance_of("shallow") < EX.stance_of("deep")))
 
--- THE ZERO ANCHOR, TESTED DIRECTLY rather than through all_friendly above. With every house
--- >= 0, "deepest" is also >= 0 and the redundant `if deepest >= 0 then return 0 end` guard
--- further down rescues the answer even with the real zero-anchor line deleted. Mix in a
--- genuinely hostile house so deepest goes negative - then the zero anchor is the only thing
--- standing between a friendly house and a markup.
+-- THE ZERO ANCHOR, in a MIXED guild so the deepest-negative walk cannot rescue it. A house that
+-- likes you is never charged, and a house at exactly zero is exactly nothing either way.
 DIPLO = { deep = -900, shallow = 50 }
 print("zero_anchor " .. EX.stance_of("shallow"))
+DIPLO = { deep = -900, shallow = 0 }
+print("zero_exact " .. EX.stance_of("shallow"))
 
 -- HOSTILITY IS WEIGHTED BY WHO HOLDS THE GOOD. A house holding none of it has no say.
 EX.houses = { "deep", "shallow" }
@@ -12881,6 +12988,11 @@ EX.book = { deep = { res_gems = 10 }, shallow = { res_rom_iron = 10 } }
 print("hostile_gems " .. string.format("%%.4f", EX.hostility("res_gems")))
 print("hostile_iron " .. string.format("%%.4f", EX.hostility("res_rom_iron")))
 print("hostile_none " .. string.format("%%.4f", EX.hostility("res_ivory")))
+print("friendly_cap " .. string.format("%%.4f", EX.friendly_cap()))
+-- THE HOUSE A DISCOUNT IS CREDITED TO is the friend holding the book, as the markup's is the
+-- enemy holding it - not nil, which drew "The guild likes you".
+print("friendly_source " .. tostring(EX.hostility_source("res_rom_iron")))
+print("hostile_source " .. tostring(EX.hostility_source("res_gems")))
 
 -- THE BOUNDARY THAT MATTERS MOST: hostility must never reach the rung. Same books, same
 -- map, furious guild versus friendly guild - target_rung must be identical.
@@ -12916,12 +13028,37 @@ print("world " .. EX.price("res_gems"))
 print("buy " .. EX.buy_price("res_gems"))
 print("sell " .. EX.sell_price("res_gems"))
 
--- A FRIENDLY GUILD CHANGES NOTHING. This is also the empty-guild path, and it must be exact:
--- buy equals the world price and sell is exactly the old spread.
+-- A FRIENDLY GUILD DISCOUNTS BOTH SIDES (2026-09-30), inside EX.friendly_cap: buy under the
+-- world price, sell over the plain spread, and still no gold from a same-rung round trip.
 DIPLO = { deep = 900 }
 print("buy_friendly " .. EX.buy_price("res_gems"))
 print("sell_friendly " .. EX.sell_price("res_gems"))
 print("sell_expected " .. math.floor(EX.price("res_gems") * (1 - EX.SPREAD) + 0.5))
+-- ...AND A DISCOUNT THAT ROUNDS TO 0%% SAYS NOTHING. At the default spread the cap is under half
+-- a per cent, and "likes you: 0%% less" is a sentence about nothing.
+print("friendly_note [" .. EX.markup_note("res_gems", true) .. "]")
+-- THE TOOLTIPS SPEAK ON THE SAME PERCENT: silent under the default spread's sub-1%% cap, and
+-- naming the friend once a wider spread leaves room for a whole per cent.
+local function says(s) return tostring(string.find(s, "likes you") ~= nil) end
+print("friendly_tips_quiet " .. says(EX.buy_tip("res_gems")) .. "/" .. says(EX.sell_tip("res_gems"))
+      .. "/" .. EX.markup_pct("res_gems", true) .. "/" .. EX.markup_pct("res_gems", false))
+local keep_spread = EX.SPREAD
+EX.SPREAD = 0.25
+print("friendly_tips_wide " .. says(EX.buy_tip("res_gems")) .. "/" .. says(EX.sell_tip("res_gems"))
+      .. "/" .. says(EX.markup_note("res_gems", true)) .. "/" .. EX.markup_pct("res_gems", true))
+EX.SPREAD = keep_spread
+-- AND A DISCOUNT TOO SMALL TO ROUND TO 1%% ON EITHER SIDE: still a real discount (h < 0), and
+-- every sentence silent.
+local keep_fmax = EX.FRIENDLY_MAX
+EX.FRIENDLY_MAX = 0.001
+print("friendly_tips_tiny " .. says(EX.buy_tip("res_gems")) .. "/" .. says(EX.sell_tip("res_gems"))
+      .. "/" .. tostring(EX.hostility("res_gems") < 0))
+EX.FRIENDLY_MAX = keep_fmax
+-- THE EMPTY GUILD STAYS EXACT: nobody holds the good, so nobody's stance moves its price.
+EX.book = {}
+print("buy_empty " .. EX.buy_price("res_gems"))
+print("sell_empty " .. EX.sell_price("res_gems"))
+EX.book = { deep = { res_gems = 10 } }
 
 -- THE FLOOR. Spread and hostility must never sum to a sale that pays nothing.
 EX.SPREAD_SAVED = EX.SPREAD
@@ -13204,6 +13341,14 @@ EX.free_guild()
 print("memo_same " .. tostring(math.abs(loose - held) < 0.000001))
 print("memo_calls " .. held_calls)
 print("memo_loose_calls " .. loose_calls)
+-- AND THE HOLD'S OWN CONSTRUCTION ON A FRIENDLY BOARD (2026-09-30). Every house that likes you
+-- asks EX.best_standing for its rank; memoised in the hold, that is one walk, and without the
+-- memo it is one walk PER HOUSE - O(houses^2) on every refresh, the hang in a new costume.
+for i = 1, 14 do DIPLO["house" .. i] = 100 * i end
+GF_CALLS = 0
+EX.hold_guild()
+print("memo_build_calls " .. GF_CALLS)
+EX.free_guild()
 
 -- -------------------------------------------------------------------------------------------
 -- THE BUY-CLICK HANG AND THE WRONG NAME, both reported 2026-09-23.
@@ -13225,7 +13370,11 @@ for i = 1, 40 do
 end
 DIPLO.house2 = 85
 TREATY = { house1 = "war" }
-EX.book = { house1 = { res_gems = 5 }, house2 = { res_gems = 200 } }
+-- house1 HOLDS MORE THAN house2 SINCE 2026-09-30: house2 at +85 is now a real friend, so with
+-- house1 on 5 the board was a DISCOUNT credited to house2 - correct, and no markup to name.
+-- house2 is still the house you buy FROM (the counterparty skips a house at war), which is
+-- the name the 2026-09-23 fault drew.
+EX.book = { house1 = { res_gems = 300 }, house2 = { res_gems = 200 } }
 print("source_named " .. tostring(EX.hostility_source("res_gems")))
 local keep = { EX.house_regions, EX.supply, EX.owners, EX.med, EX.med_raw }
 EX.house_regions = {}
@@ -15093,6 +15242,7 @@ do
         local d = EX.deals[i]
         rows[#rows + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots)
             .. "/" .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(EX.price(d.res))
+            .. "/" .. tostring(EX.buy_price(d.res))
     end
     print("deals_rows " .. table.concat(rows, ";"))
 end
@@ -15122,8 +15272,27 @@ do
         local d = EX.deals[i]
         rows[#rows + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots)
             .. "/" .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(EX.price(d.res))
+            .. "/" .. tostring(EX.buy_price(d.res))
     end
     print("deals_rows_again " .. table.concat(rows, ";"))
+end
+
+-- A BUY DEAL NEVER PAYS MORE THAN THE LOT COSTS ON THE TRADE VIEW (2026-09-30). On the calm
+-- board above the buy price IS the market, so the cap binds there; on a hostile one it sits far
+-- over market and the edge stands - the case that tells the cap from an edge deleted outright.
+do
+    local keep = EX.hostility
+    EX.hostility = function() return 0.25 end
+    EX.post_deals()
+    local rows = {}
+    for i = 1, #EX.deals do
+        local d = EX.deals[i]
+        rows[#rows + 1] = d.side .. "/" .. tostring(d.px) .. "/" .. tostring(EX.price(d.res))
+            .. "/" .. tostring(EX.buy_price(d.res))
+    end
+    print("deals_hot " .. table.concat(rows, ";"))
+    EX.hostility = keep
+    EX.post_deals()          -- the calm page back, for everything below
 end
 
 -- ONE DEAL PER ACTOR. `adumper` outranks every buyer on the map by construction - it is the
@@ -15759,7 +15928,7 @@ local function fwd_rows()
         local d = EX.fwd_offers[i]
         r[#r + 1] = d.fac .. "/" .. d.res .. "/" .. d.side .. "/" .. tostring(d.lots) .. "/"
             .. tostring(d.px) .. "/" .. tostring(d.turn) .. "/" .. tostring(d.due) .. "/"
-            .. tostring(EX.price(d.res))
+            .. tostring(EX.price(d.res)) .. "/" .. tostring(EX.buy_price(d.res))
     end
     return table.concat(r, ";")
 end
@@ -16058,6 +16227,30 @@ print("idx_trend_up " .. tostring(EX.index_trend("cc") == EX.TREND_UP))
 PXI.h4 = 2000
 EX.index_sync(true)
 print("idx_trend_down " .. tostring(EX.index_trend("cc") == EX.TREND_DOWN))
+-- ON LOAD (2026-09-30): a save older than the index has none, and only the turn round made
+-- one - the page read "No index: fewer than two houses" over twenty. EX.index_open creates a
+-- missing index at load, and leaves an existing one alone: no join, no trend roll.
+reset_idx()
+EX.houses = { "h1", "h2", "h3", "h4" }
+PXI = { h1 = 1000, h2 = 2000, h3 = 3000, h4 = 4000 }
+EX.index_open()
+print("idx_open_new " .. st())
+do
+    local so = EX.index_state("cc")
+    so.prev, so.last = 111, 222
+    EX.culture_cache.h5 = "cc"
+    EX.houses[5] = "h5"
+    PXI.h5 = 5000
+    EX.index_open()
+    print("idx_open_kept " .. tostring(so.prev) .. "/" .. tostring(so.last) .. "/" .. #so.m)
+    EX.culture_cache.h5 = nil
+    EX.houses[5] = nil
+end
+reset_idx()
+EX.houses = { "h1" }
+EX.index_open()
+print("idx_open_solo " .. st())
+EX.houses = { "h1", "h2", "h3", "h4" }
 -- WIND-UP 0: the dead member's whole weight goes.
 reset_idx()
 EX.snap = { windup = 0 }
@@ -16567,6 +16760,19 @@ def check_index(have):
        "a member that left alive (no longer your culture) must leave at full value")
     eq("idx_trend_up", "true", "the trend does not compare the last round with the one before")
     eq("idx_trend_down", "true", "the trend does not show a fall")
+    eq("idx_open_new", "4/h1,h2,h3,h4/2500000",
+       "a save with no index must get one on load, at the average - seen 2026-09-30 on a save "
+       "older than the index: 'No index: fewer than two houses' over twenty houses")
+    eq("idx_open_kept", "111/222/4",
+       "loading touched an existing index: a join or a trend roll on load is a turn's work "
+       "done by a reload")
+    eq("idx_open_solo", "none", "one house of your culture opened an index on load")
+    code = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    init = re.search(r"function EX\.init\(\).*?\n    EX\.apply_prices\(\)(.*?)\n    function EX\.turn_round",
+                     code, re.S)
+    assert init and "EX.index_open()" in init.group(1), (
+        "EX.init does not call EX.index_open() after its EX.apply_prices() - a save older than "
+        "the index shows none until the next turn")
     eq("idx_w0", "2625000/2125000/2125000",
        "at wind-up 0 a dead member's whole weight must go, and the pass must keep that level")
     eq("idx_all_dead", "none/true/0/2000",
@@ -16648,11 +16854,16 @@ def check_forwards(have):
         "a contract length fell outside [ceil(fwd_turns / 2), fwd_turns] = [5, 10]: %s"
         % have["fwd_due_range"])
     for row in have["fwd_rows"].split(";"):
-        fac, res, side, lots, px, turn, due, mkt = row.split("/")
+        fac, res, side, lots, px, turn, due, mkt, buy = row.split("/")
         want = (int(mkt) * (106 if side == "buy" else 94)) // 100
+        # A BUYING FACTION PAYS NO MORE THAN THE TRADE VIEW'S BUY PRICE (2026-09-30), or the
+        # player buys there and delivers into the contract for the edge less the rent.
+        if side == "buy":
+            want = min(want, int(buy))
         assert int(px) == want, (
-            "contract offer %r is priced %s, expected %d: market %s, edge 6, in the player's "
-            "favour - over market when the faction buys, under when it sells" % (row, px, want, mkt))
+            "contract offer %r is priced %s, expected %d: market %s, buy price %s, edge 6, in the "
+            "player's favour - over market (never over the buy price) when the faction buys, "
+            "under when it sells" % (row, px, want, mkt, buy))
         assert turn == "10", "an offer did not carry the turn it was posted: %r" % row
     eq("fwd_offers_saved", "true/2",
        "the offers did not round-trip through the save. A mid-turn reload would show a "
@@ -17057,32 +17268,52 @@ def check_lua_books():
         % (m.group(1), HOSTILE_PACT_CAP))
 
     for k, want in (("tier_friend", "free"), ("tier_trader", "free"),
-                    ("tier_pact", "pact"), ("tier_cold", "open"), ("tier_enemy", "war")):
+                    ("tier_pact", "pact"), ("tier_cold", "open"), ("tier_enemy", "war"),
+                    ("tier_odd", "free")):
         assert have[k] == want, "%s read %r, expected %r" % (k, have[k], want)
-    assert float(have["stance_friend"]) == 0.0, (
-        "an allied house is penalised. The treaty ladder must dominate the number - it is "
-        "what makes the counterplay a thing the player can do in the diplomacy screen.")
-    assert float(have["stance_trader"]) == 0.0, have
+    # A TREATY IS A FULL FRIEND (2026-09-30; until then the friendly half was unreachable and
+    # an ally read 0). The treaty ladder still dominates the number: -900 standing and allied is
+    # +1, which is what makes the counterplay a thing the player does in the diplomacy screen.
+    assert float(have["stance_friend"]) == 1.0, (
+        "an allied house reads %s, not the full friend +1. The treaty must dominate the "
+        "number, and the friendly discount is unreachable without it" % have["stance_friend"])
+    assert float(have["stance_trader"]) == 1.0, have
+    assert float(have["stance_unread"]) == 0.0, (
+        "a house whose treaties could not be read reads %s. treaty_tier's 'free' fallback is "
+        "there so our own failure never CHARGES the player; taken as a treaty it hands out a "
+        "discount instead" % have["stance_unread"])
 
     assert have["rank_order"] == "true", have
     assert have["scale_free"] == "true", (
         "stances changed when the standing scale changed while the RANKING did not. "
         "diplomatic_standing_with returns an int32 of undocumented range; nothing may "
         "depend on its magnitude.")
-    assert float(have["all_friendly"]) == 0.0, (
-        "a guild that all likes you still charges. Zero is the anchor - with nobody below "
-        "it there is no 'least liked' to penalise.")
-    assert float(have["zero_anchor"]) == 0.0, (
-        "a house with non-negative standing was charged %s in a MIXED guild (one hostile "
-        "house present, so the redundant deepest>=0 guard cannot rescue this). The zero "
-        "anchor in EX.stance_of ('if mine >= 0 then return 0 end') is load-bearing and must "
-        "fire on its own." % have["zero_anchor"])
+    assert float(have["all_friendly"]) == 1.0, (
+        "the friendliest house in a guild that all likes you reads %s, not +1. The friendly "
+        "half ranks against the friendliest house as the hostile half ranks against the "
+        "deepest" % have["all_friendly"])
+    assert have["friendly_rank"] == "true", (
+        "a house that likes you less than the friendliest does not rank between 0 and it")
+    assert float(have["zero_anchor"]) == 1.0, (
+        "the only house that likes you, in a MIXED guild, reads %s. A positive standing must "
+        "never be charged and the friendliest house is the full +1" % have["zero_anchor"])
+    assert float(have["zero_exact"]) == 0.0, (
+        "a house at exactly zero standing reads %s - zero is the anchor both ways"
+        % have["zero_exact"])
 
     assert float(have["hostile_gems"]) > 0, have
     assert float(have["hostile_gems"]) <= HOSTILE_MAX + 1e-6, (
         "hostility %s exceeds HOSTILE_MAX %s" % (have["hostile_gems"], HOSTILE_MAX))
-    assert float(have["hostile_iron"]) == 0.0, (
-        "a friendly house holding the whole book still produced hostility")
+    # THE FRIENDLY HALF, LIVE, and inside the cap that keeps a round trip from minting gold.
+    cap = float(have["friendly_cap"])
+    assert cap > 0, "EX.friendly_cap() is %s at the defaults - there is no discount to give" % cap
+    assert -cap - 1e-4 <= float(have["hostile_iron"]) < 0, (
+        "a friendly house holding the whole book produced %s, not a discount within the "
+        "friendly cap %s" % (have["hostile_iron"], cap))
+    assert have["friendly_source"] == "shallow" and have["hostile_source"] == "deep", (
+        "the discount is credited to %s and the markup to %s; each must name the holder "
+        "doing it, or the tooltip reads 'The guild likes you'"
+        % (have["friendly_source"], have["hostile_source"]))
     assert float(have["hostile_none"]) == 0.0, (
         "a commodity nobody in the guild holds produced hostility. A house holding none of "
         "a good has no say in its price to you.")
@@ -17116,14 +17347,39 @@ def check_lua_books():
     assert int(have["buy"]) > world, (
         "a hostile guild did not raise the buy price")
     assert int(have["sell"]) < world, have
-    assert int(have["buy_friendly"]) == world, (
-        "buy_price is %s against a world price of %s with a FRIENDLY guild. This is also "
-        "the empty-guild path and it must be exact - any drift here changes every price in "
-        "every campaign that has no other Chaos Dwarf faction."
-        % (have["buy_friendly"], world))
-    assert have["sell_friendly"] == have["sell_expected"], (
-        "sell_price changed for a friendly guild: %s, was %s"
-        % (have["sell_friendly"], have["sell_expected"]))
+    # THE EMPTY GUILD STAYS EXACT - any drift here changes every price in every campaign that
+    # has no other house.
+    assert int(have["buy_empty"]) == world, (
+        "buy_price is %s against a world price of %s with nobody holding the good"
+        % (have["buy_empty"], world))
+    assert have["sell_empty"] == have["sell_expected"], (
+        "sell_price moved with nobody holding the good: %s, was %s"
+        % (have["sell_empty"], have["sell_expected"]))
+    # A FRIENDLY GUILD DISCOUNTS BOTH SIDES, never past the cap, never into a same-rung profit.
+    bf, sf, se = int(have["buy_friendly"]), int(have["sell_friendly"]), int(have["sell_expected"])
+    assert bf < world and sf > se, (
+        "a friendly guild priced buy %s / sell %s against world %s / plain sell %s - the "
+        "discount did not land on both sides" % (bf, sf, world, se))
+    assert bf >= world * (1 - cap) and sf < bf, (
+        "the friendly prices buy %s / sell %s went past the cap %s or sell at or above buy - a "
+        "same-rung round trip would mint gold" % (bf, sf, cap))
+    assert have["friendly_note"] == "[]", (
+        "a discount that rounds to 0%% still wrote a sentence: %r" % have["friendly_note"])
+    # THE TOOLTIPS SPEAK EXACTLY WHEN THEIR OWN PERCENT DOES. At the default spread the buy
+    # side rounds to 0% and must be silent - that is the case the gate exists for - and a
+    # wider spread must make all three sentences name the friend.
+    qb, qs, pb, ps = have["friendly_tips_quiet"].split("/")
+    assert pb == "0" and qb == "false" and qs == ("true" if int(ps) > 0 else "false"), (
+        "at the default spread the Buy tooltip said 'likes you' = %s at %s%% and the Sell one %s "
+        "at %s%%. Each must speak exactly when its own realised percent is above 0"
+        % (qb, pb, qs, ps))
+    wb, ws, wn, wp = have["friendly_tips_wide"].split("/")
+    assert (wb, ws, wn) == ("true", "true", "true") and int(wp) > 0, (
+        "at a 25%% spread (a %s%% discount) the Buy/Sell tooltips and the Log note said "
+        "'likes you' = %s/%s/%s - all three must name the friend" % (wp, wb, ws, wn))
+    assert have["friendly_tips_tiny"] == "false/false/true", (
+        "a discount under 1%% on both sides (hostility below zero = the third field) drew "
+        "Buy/Sell 'likes you' = %s - a 0%% sentence" % have["friendly_tips_tiny"])
     assert have["sell_floored"] == "true", (
         "spread plus hostility drove a sale below SELL_FLOOR. A sale that pays nothing "
         "reads as a broken button, not as a bad market.")
@@ -17361,11 +17617,17 @@ def check_lua_books():
         "four hostility() asks inside one EX.hold_guild() still made %s cm:get_faction calls. "
         "The whole point is that the guild is walked ONCE per refresh; %s were made without "
         "the hold." % (have["memo_calls"], have["memo_loose_calls"]))
+    # BUILDING THE HOLD IS LINEAR TOO (2026-09-30). 14 friendly houses: 12 calls a house with
+    # EX.best_standing memoised in it; one guild walk per house without, 40 a house.
+    assert int(have["memo_build_calls"]) <= 14 * 14, (
+        "EX.hold_guild made %s cm:get_faction calls over 14 friendly houses - the friendly "
+        "rank's denominator is walked per house, O(houses^2) on every refresh"
+        % have["memo_build_calls"])
     # THE BUY-CLICK HANG AND THE WRONG NAME, 2026-09-23 - see the harness section.
     assert have["source_named"] == "house1", (
         "the markup names %s. house1 is the only house that dislikes you; house2 likes you at "
-        "+85 and is merely the biggest holder - naming it is how the Warhost of Zharr came to "
-        "'dislike' a player it was friendly with" % have["source_named"])
+        "+85 and is merely the house you buy from - naming it is how the Warhost of Zharr came "
+        "to 'dislike' a player it was friendly with" % have["source_named"])
     assert int(have["reprice_power_reads"]) <= 2 * 40, (
         "one reprice read house power %s times for 40 houses. The median is taken ONCE per "
         "EX.apply_prices and handed to EX.target_rung; per house it is O(houses^2), and a "
@@ -18758,7 +19020,7 @@ def check_lua_books():
 
     rows = [r.split("/") for r in have["deals_rows"].split(";") if r]
     assert len(rows) == deal_max, have["deals_rows"]
-    for fac, res, side, lots, px, turn, mkt in rows:
+    for fac, res, side, lots, px, turn, mkt, buy in rows:
         # THE HUMAN FILTER. `human2` is not the bound subject, so only EX.is_human excludes it.
         assert fac not in ("player", "human2"), (
             "a HUMAN faction posted a deal to the player: %s. EX.actors is built from every "
@@ -18776,15 +19038,26 @@ def check_lua_books():
         # the player sells it; a seller takes UNDER for what the player buys. Both are in the
         # player's favour - that is the incentive to use the page - and the plan's own comment
         # said the opposite, which is why this is asserted rather than read off it.
+        #
+        # A BUY DEAL IS CAPPED AT THE TRADE VIEW'S BUY PRICE (2026-09-30). Priced over it, the
+        # player buys the lot on the Trade view and sells it straight into the deal: a riskless
+        # round trip every turn the guild's markup sat under the edge.
         mult = (100 + deal_edge) if side == "buy" else (100 - deal_edge)
         want_px = int(float(mkt) * mult // 100)
+        if side == "buy":
+            want_px = min(want_px, int(buy))
         assert int(px) == want_px, (
-            "a %s deal on %s priced at %s against a market of %s; %s%% of market is %s. The "
-            "edge must be the player's way round on both sides."
-            % (side, res, px, mkt, mult, want_px))
-        assert (int(px) > float(mkt)) == (side == "buy"), (
-            "the %s deal on %s is on the wrong side of the market at %s against %s"
-            % (side, res, px, mkt))
+            "a %s deal on %s priced at %s against a market of %s (buy price %s); expected %s. "
+            "The edge must be the player's way round on both sides, and a buy deal must not "
+            "pay over the Trade view's buy price." % (side, res, px, mkt, buy, want_px))
+        if side == "buy":
+            assert float(mkt) <= int(px) <= int(buy), (
+                "the buy deal on %s pays %s against market %s and buy price %s"
+                % (res, px, mkt, buy))
+        else:
+            assert int(px) < float(mkt), (
+                "the sell deal on %s is on the wrong side of the market at %s against %s"
+                % (res, px, mkt))
         if side == "buy":
             assert int(lots) == 1, "a buy deal is for %s lots, not 1" % lots
         else:
@@ -18833,6 +19106,22 @@ def check_lua_books():
         "order. pairs() follows the hash layout, so without the sort's tiebreak a reload "
         "reshuffles the page - and in multiplayer two clients resolve different deals from one "
         "save.\n  first: %s\n  again: %s" % (have["deals_rows"], have["deals_rows_again"]))
+
+    # THE CAP, BOTH WAYS. The calm board must have a buy deal the cap actually bound (its price
+    # is the buy price, under market + edge), and the hostile board one it left alone (market +
+    # edge, under the buy price) - either missing and the rows above prove only half of it.
+    calm_bound = [r for r in rows if r[2] == "buy"
+                  and int(r[4]) == int(r[7]) < int(float(r[6]) * (100 + deal_edge) // 100)]
+    assert calm_bound, (
+        "no buy deal on the calm board was held to the Trade view's buy price: %s"
+        % have["deals_rows"])
+    hot = [r.split("/") for r in have["deals_hot"].split(";") if r]
+    hot_buys = [r for r in hot if r[0] == "buy"]
+    assert hot_buys, "the hostile-board page posted no buy deal: %s" % have["deals_hot"]
+    for side, px, mkt, buy in hot_buys:
+        assert int(px) == int(float(mkt) * (100 + deal_edge) // 100) < int(buy), (
+            "on a hostile board a buy deal paid %s against market %s and buy price %s - the "
+            "edge must stand where the buy price is above it" % (px, mkt, buy))
 
     assert have["deals_refused"] == "0" and have["deals_zero_score"] == "0", (
         "the engine refused (can_issue false: %r) or declined (score 0: %r) and deals were "
@@ -20425,6 +20714,9 @@ def check_save_store():
             "a save and a turn end in a decimal-comma locale moved the prices [%s] - the frozen "
             "settings lost their fractions on the way through the save"
             % have.get("comma_prices"))
+        assert have.get("comma_num") == "1/1,5", (
+            "EX.num under a comma locale wrote %r - a whole number must lose its separator "
+            "whichever one the locale uses" % have.get("comma_num"))
         assert have.get("comma_shock") == "1.5", (
             "a war shock of 1.5 came back as [%s] in a decimal-comma locale"
             % have.get("comma_shock"))
@@ -21221,6 +21513,33 @@ def check_nav_cycle():
     assert re.search(r"EX\.set_off\(a, pages < 2\)", code), (
         "the arrows stay live on a one-page view. A control that does nothing when clicked is "
         "what EX.gate_button and the refused Buy button both exist not to be")
+    # THE SUB-TABS' WIRING, the same three halves as the tabs': the filter admits them, the
+    # dispatch routes them, and the click redraws. Each is invisible to the harness.
+    assert "or EX.sub_slot(s) ~= nil" in code, (
+        "the listener's FILTER does not admit sub-tab clicks - they would draw and do nothing")
+    assert re.search(r"local sub = EX\.sub_slot\(s\)\s+if sub then\s+EX\.sub_click\(sub\)",
+                     code), "the click listener has no sub-tab branch"
+    sub = re.search(r"function EX\.sub_click.*?" + chr(10) + "end", code, re.S)
+    assert sub, "EX.sub_click is gone"
+    assert "EX.layout()" in sub.group(0) and "EX.refresh_panel()" in sub.group(0), (
+        "EX.sub_click no longer redraws: the view would change under a panel still drawing the "
+        "last section's rows")
+    rp = re.search(r"function EX\.refresh_panel\(\).*?" + chr(10) + "end", code, re.S)
+    assert rp and "EX.draw_sections(panel)" in rp.group(0), (
+        "EX.refresh_panel no longer draws the sub-tabs. The harnesses stub it, so only this sees "
+        "three blank buttons in the title bar")
+    # AND EVERY SLOT IS PLACED WHERE A VIEW HAS SECTIONS. The bonds page borrows the Deals
+    # layout, so the Deals table carries all three slots even though Deals itself uses two.
+    sp = re.search(r'EX\.SUB_PREFIX = "([^"]+)"', code)
+    sn = re.search(r"EX\.SUB_SLOTS = (\d+)", code)
+    assert sp and sn, "EX.SUB_PREFIX or EX.SUB_SLOTS is gone"
+    for tname in ("EX.PANEL_LAYOUT_HOUSES", "EX.PANEL_LAYOUT_DEALS"):
+        body = re.search(re.escape(tname) + r" = \{(.*?)" + chr(10) + r"\}", code, re.S)
+        assert body, tname + " is gone"
+        for i in range(1, int(sn.group(1)) + 1):
+            assert '"%s%d"' % (sp.group(1), i) in body.group(1), (
+                "%s places no sub-tab slot %d - it keeps its placeholder offset on that view"
+                % (tname, i))
     # ===================================================================================
     # THE HOUSES VIEW PAGES. Until 2026-09-08 it TRUNCATED - `while #t > EX.MAX_ROWS do
     # t[#t] = nil end` against an ALPHABETICALLY SORTED list - so 39 Empire factions would
@@ -21229,11 +21548,11 @@ def check_nav_cycle():
     # ===================================================================================
     assert have["h_pages"] == "3", (
         "41 houses at %s a page is 3, not %s" % (have["per_page"], have["h_pages"]))
-    # PLUS TWO: the index page and the bonds page sit after the list (2026-09-29).
-    assert have["h_count"] == str(int(have["h_pages"]) + 2), (
-        "EX.page_count answers %s for the Houses view but there are %s list pages, the "
-        "index page and the bonds page - the counter and the arrows both read that one "
-        "function"
+    # THE LIST ONLY (2026-09-30). The index and the bonds page were pages 4/5 and 5/5 behind
+    # the list, and the player never found them; they are sub-tabs now, so they are not pages.
+    assert have["h_count"] == have["h_pages"], (
+        "EX.page_count answers %s for the Houses list but it has %s pages. The index and the "
+        "bonds page are sub-tabs, not pages the arrows walk into"
         % (have["h_count"], have["h_pages"]))
     assert have["h_first"] == "house_001", have["h_first"]
     assert have["h_len1"] == "20", (
@@ -21264,22 +21583,53 @@ def check_nav_cycle():
     assert have["h_fwd"] == "2,houses", (
         "the forward arrow on the Houses view gave %s. It must page the view, not leave it - "
         "leaving is what the tabs are for." % have["h_fwd"])
-    last = int(have["h_pages"]) + 2
-    assert have["h_back_wrap"] == "%d,bonds" % last, (
-        "stepping back from page 1 landed on %s, not the last page (%d, bonds)"
+    last = int(have["h_pages"])
+    assert have["h_back_wrap"] == "%d,houses" % last, (
+        "stepping back from page 1 landed on %s, not the list's last page (%d)"
         % (have["h_back_wrap"], last))
-    assert have["h_to_index"] == "%d,index,%d/%d" % (last - 1, last - 1, last), (
-        "Next from the last list page gave %s. It must land on the index page, and the counter "
-        "must say so" % have["h_to_index"])
-    assert have["h_to_bonds"] == "%d,bonds,%d/%d" % (last, last, last), (
-        "Next from the index page gave %s. It must land on the bonds page, the last one"
-        % have["h_to_bonds"])
-    assert have["h_index_wrap"] == "1,houses", (
-        "Next from the bonds page gave %s, want page 1 of the list" % have["h_index_wrap"])
-    assert have["h_index_shrunk"] == "2/3,true", (
+    assert have["h_fwd_wrap"] == "1,houses", (
+        "Next from the list's last page gave %s, want page 1 of the list. The arrows walking "
+        "on into the index is the 4/5 and 5/5 the player never found" % have["h_fwd_wrap"])
+
+    # THE SUB-TABS (2026-09-30), asked for from play: "theres bonds and index, but its not too
+    # visible to the player, maybe have a tab system for the House panel? instead of using
+    # the arrow buttons". Three slots along the title, labelled per view.
+    assert have["sub_map"] == "1,2,3", (
+        "a sub-tab's component name does not map back to its own slot: %s" % have["sub_map"])
+    assert have["sub_foreign"] == "nil,nil,nil", (
+        "EX.sub_slot claimed a component that is not a slot (%s) - it is the listener's filter, "
+        "so that is a click anywhere in the game read as a sub-tab" % have["sub_foreign"])
+    assert have["sub_houses"] == "houses=Houses,index=Index,bonds=Bonds", have["sub_houses"]
+    assert have["sub_to_index"] == "index,1/1,nil", (
+        "the Index sub-tab from list page 2 gave %s: want the index view, a one-page counter, "
+        "and the list's sort dropped - a sort is per view" % have["sub_to_index"])
+    assert have["sub_index_arrows"] == "index,1/1", (
+        "an arrow moved the player off the index page (%s). A section has its own pages; the "
+        "sub-tabs change section" % have["sub_index_arrows"])
+    assert have["sub_to_bonds"] == "bonds,1/1", have["sub_to_bonds"]
+    assert have["sub_to_list"] == "houses,1/3", (
+        "the Houses sub-tab gave %s, want page 1 of the three-page list" % have["sub_to_list"])
+    assert have["sub_here"] == "houses,2/3", (
+        "a click on the section already on screen gave %s. Its button is greyed; a click that "
+        "still arrives must leave the player on page 2" % have["sub_here"])
+    assert have["sub_bonds_locked"] == "houses,true,false", (
+        "with bonds switched off and none held, the Bonds sub-tab gave %s: it must be locked, "
+        "say why, and not be entered; the index is never locked" % have["sub_bonds_locked"])
+    assert have["sub_bonds_open"] == "false", (
+        "a bond still open locked the Bonds sub-tab. A position that pays gold must never be "
+        "out of reach, the contracts rule")
+    assert have["sub_deals"] == "deals=Deals,contracts=Contracts,1/1", have["sub_deals"]
+    assert have["sub_to_contracts"] == "contracts,1/1", have["sub_to_contracts"]
+    assert have["sub_deals_slot3"] == "contracts", (
+        "the Deals tab has two sections, and the third slot moved the player to %s"
+        % have["sub_deals_slot3"])
+    assert have["sub_to_deals"] == "deals", have["sub_to_deals"]
+    assert have["sub_contracts_locked"] == "deals,true", have["sub_contracts_locked"]
+    assert have["sub_trade"] == "nil,1,trade", (
+        "a slot click on a view with no sections did something: %s" % have["sub_trade"])
+    assert have["h_index_shrunk"] == "1/1,true", (
         "the list shrank to one page under a player on the index page and the view gave %s. "
-        "They must stay on the index, and the counter must not read past its own end - the "
-        "3/2 fault" % have["h_index_shrunk"])
+        "They must stay on the index, and it is one page" % have["h_index_shrunk"])
     assert have["h_index_reset"] == "false", (
         "re-entering the Houses view reopened the index page. Every view opens on its first "
         "page")
@@ -21593,6 +21943,13 @@ def check_house_discovery():
     #
     # The subject is now left empty and resolved when the ROW IS DRAWN, a moment the UI is
     # provably up. So the harness runs the settlement with `common` set to nil outright.
+    assert have["turn1_unheld"] == "0", (
+        "a house that died by turn 1 with nothing held still wrote a Log line (%s). A fresh "
+        "campaign delisted 56 such dormant factions at once on 2026-09-29, half the 120-line "
+        "Log, every one 'You held nothing in it'" % have["turn1_unheld"])
+    assert have["turn1_paid"] == "1", (
+        "a PAID settlement on turn 1 was not written (%s) - only the unheld line is skipped"
+        % have["turn1_paid"])
     assert have["settle_logged"] == "1", (
         "EX.log_settlement wrote no entry with `common` absent. It must not need it - that is "
         "the whole point of deferring the name")
@@ -22195,6 +22552,13 @@ def check_lua_hover():
         assert modes, "EX.MODES is gone"
         listed |= {prefix.group(1) + x
                    for x in re.findall(r'"(\w+)"', modes.group(1))}
+    # THE SUB-TAB SLOTS (2026-09-30), filled by the same kind of loop over a count.
+    if re.search(r"for i = 1, EX\.SUB_SLOTS do EX\.TWO_STATE_CELLS\[EX\.sub_name\(i\)\] = true end",
+                 code):
+        sp = re.search(r'EX\.SUB_PREFIX = "([^"]+)"', code)
+        sn = re.search(r"EX\.SUB_SLOTS = (\d+)", code)
+        assert sp and sn, "EX.SUB_PREFIX or EX.SUB_SLOTS is gone but the slot loop still runs"
+        listed |= {"%s%d" % (sp.group(1), i) for i in range(1, int(sn.group(1)) + 1)}
 
     # The generator is the authority on which components actually have two states.
     hovering = set()
@@ -22223,8 +22587,11 @@ def check_lua_hover():
     # being guarded is that every hovering cell IS labelled somewhere, not how it is spelled.
     tab_loop = bool(re.search(r'set_text\(panel, EX\.tab_name\(m\),', code))
     tab_prefix = re.search(r'EX\.TAB_PREFIX = "([^"]+)"', code)
+    sub_loop = bool(re.search(r'set_text\(panel, EX\.sub_name\(i\),', code))
+    sub_prefix = re.search(r'EX\.SUB_PREFIX = "([^"]+)"', code)
     for cell in sorted(hovering):
-        by_loop = tab_loop and tab_prefix and cell.startswith(tab_prefix.group(1))
+        by_loop = ((tab_loop and tab_prefix and cell.startswith(tab_prefix.group(1)))
+                   or (sub_loop and sub_prefix and cell.startswith(sub_prefix.group(1))))
         assert by_loop or re.findall(r'set_text\([^,]+,\s*"%s"' % cell, code), \
             "%s is never given a label" % cell
         direct = re.findall(r'"%s"[^\n]*\n[^\n]*SetStateText' % cell, code)
@@ -22399,6 +22766,11 @@ def check_lua_warehouse():
         "it was built and wrong on every turn since." % have["charged_empty"])
 
 
+def _event_documented(event, blob):
+    """True when CA's docs name this event as a whole word, not as the front of a longer one."""
+    return re.search(r"\b%s\b" % re.escape(event), blob) is not None
+
+
 def check_lua_shocks():
     """Run the SHIPPED shock code and assert what a razed settlement does to a price.
 
@@ -22474,7 +22846,7 @@ def check_lua_shocks():
 
     for ev in ["CharacterRazedSettlement", "CharacterSackedSettlement",
                "CharacterLootedSettlement", "ForceAdoptsStance",
-               "CharacterCapturedSettlement", "CharacterCapturedSettlementUnopposed",
+               "GarrisonOccupiedEvent", "CharacterCapturedSettlementUnopposed",
                "RegionRebels"]:
         assert ev in code, "the %s listener is gone" % ev
 
@@ -22510,7 +22882,16 @@ def check_lua_shocks():
         # interface documentation that lists engine events. It is the entry point half of
         # this mod uses and is verified by every campaign it has ever run in.
         ours.add("ScriptEventFirstTickAfterWorldCreated")
-        unknown = sorted(e for e in listened if e not in blob and e not in ours)
+        # WHOLE WORDS. A substring test passed CharacterCapturedSettlement, which CA does
+        # not ship, because it is the front of CharacterCapturedSettlementUnopposed - and it
+        # is proved on that pair against the real docs, since no listener today would fail
+        # a substring test and the check could quietly go back to one.
+        assert not _event_documented("CharacterCapturedSettlement", blob) and \
+            _event_documented("CharacterCapturedSettlementUnopposed", blob), (
+            "the documented-event match no longer tells CharacterCapturedSettlement (which CA "
+            "does not ship) from CharacterCapturedSettlementUnopposed (which it does)")
+        unknown = sorted(e for e in listened if e not in ours
+                         and not _event_documented(e, blob))
         assert not unknown, (
             "these listeners name events CA does not document: %s. An event that does not "
             "exist never fires and never errors, so nothing anywhere would say so." % unknown)
@@ -22889,7 +23270,7 @@ def check_shock_news():
     # of each now, one per race, and the persistent flag is passed ONCE in the Lua for all of
     # them - so a single row disagreeing means that race's bulletin draws nothing while the
     # others work, which is the hardest version of this fault to spot in play.
-    for kind in ("call", "wrath", "shock", "delist"):
+    for kind in ("call", "wrath", "shock", "delist", "shockat"):
         rows = [r for k, r in feed.items() if k.endswith("feed_" + kind)]
         assert len(rows) == len(FEED_IMAGE), (
             "%d records for the %s bulletin, expected one per race (%d)"
@@ -23149,6 +23530,308 @@ print("cleared " .. tostring(SAVED["zharr_shocked"] == ""))
         "and this turn's first shock on each of last turn's regions is silently eaten")
     print("  shock news: %d bulletins, transient record at index %d, guard survives a reload"
           % (len(COMMODITIES), shock_index))
+
+
+def check_shock_source():
+    """Who caused a shock, and where - named on the chart page and in the log, and the
+    bulletin's camera sent to the place.
+
+    Every half of this fails in silence:
+
+    1. AN EVENT NAME CA DOES NOT SHIP never fires and never errors. The opposed capture was
+       listened for as CharacterCapturedSettlement, which is in neither CA's docs nor any of
+       CA's 7,540 scripts - so a settlement taken by assault never moved a price. The docs
+       check passed it because it matched as a SUBSTRING of CharacterCapturedSettlementUnopposed.
+    2. THE LOCATED CALL NEEDS A LOCATED RECORD. show_message_event_located against a plain
+       scripted_transient_event record resolves, logs a line that reads like success, and
+       draws nothing (measured 2026-09-17, six calls, nothing on screen).
+    3. A NAME LOOKED UP INSIDE THE TURN HANDLER took the process down at turn 1 with no error
+       (2026-09-07). The log entry is written from the turn round, so it must carry the
+       faction KEY and resolve the name only when the log is drawn.
+    4. THE NAMED HIT MUST FADE WITH THE SHOCK, or one huge raze names its attacker over every
+       later hit for as long as any of the shock stands.
+    5. A CONTEXT THAT CANNOT NAME ITS CHARACTER must still shock: the name is the extra, the
+       lost goods are the point.
+    """
+    import subprocess
+    import tempfile
+    t = build()
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    code = NL.join(l for l in lua.splitlines() if not l.lstrip().startswith("--"))
+    crit = {r["member"]: r["value"]
+            for r in t["campaign_group_member_criteria_values_tables"][1]}
+    feed = {r["group"]: r for r in t["event_feed_message_events_tables"][1]}
+
+    # -----------------------------------------------------------------------------------
+    # 1. THE WIRING.
+    # -----------------------------------------------------------------------------------
+    assert re.search(r'core:add_listener\(\s*"zharr_shock_\w+",\s*"GarrisonOccupiedEvent",\s*'
+                     r'true,\s*function\(context\) EX\.shock_from_garrison\(context, '
+                     r'"captured"\)', code), (
+        "no GarrisonOccupiedEvent listener raising a capture. It is the event CA fires when a "
+        "settlement is taken and occupied - CA's own XP script uses it for exactly that - and "
+        "without it a settlement taken by assault never moves a price")
+    assert '"CharacterCapturedSettlement"' not in code, (
+        "listening for CharacterCapturedSettlement. CA ships no such event (docs, and 0 of "
+        "7,540 scripts); the listener would sit there for the life of the campaign")
+    assert re.search(r'"ForceAdoptsStance",.*?EX\.shock_from_raid\(context\)', code, re.S), (
+        "the raid listener no longer goes through EX.shock_from_raid, so the raid half of this "
+        "check is testing a function the game never calls")
+    rec = feed.get("derpy_chd_ex_feed_shockat")
+    assert rec, "no located shock record - the camera jump has nothing to resolve against"
+    assert rec["event"] == "scripted_transient_located_event", (
+        "the located shock record is a %s. show_message_event_located resolves only against "
+        "a _located_ record; against any other it logs success and draws nothing"
+        % rec["event"])
+    assert rec["instant_open"] is False, (
+        "the located shock record is instant_open true - all 20 vanilla "
+        "scripted_transient_located_event rows are false, and a popup per shock would fire "
+        "ten times a turn")
+    m = re.search(r'cm:show_message_event_located\([^;]*?(true|false), '
+                  r'EX\.feed\("shockat"\)\)', code, re.S)
+    assert m, 'EX.feed("shockat") is never passed to show_message_event_located'
+    assert m.group(1) == "false", (
+        "the located bulletin passes persistent=%s against a transient record - nothing "
+        "draws" % m.group(1))
+    assert re.search(r'say\("chart_note", string\.format\("Shaken %.1f steps \(%s\)\.", sh, '
+                     r'EX\.shock_cause\(res, true\)\)\)', code), (
+        "the chart page's note does not print EX.shock_cause(res, true), so the attacker is "
+        "named nowhere a player can look back at")
+
+    # -----------------------------------------------------------------------------------
+    # 2. THE BEHAVIOUR, run against the shipped file.
+    # -----------------------------------------------------------------------------------
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped lua shock-source run: no lua.exe)")
+        return
+    harness = """
+local SAVED, MSGS, LOC = {}, {}, 0
+local NAMES = {
+    factions_screen_name_fac_d = "Name D",
+    factions_screen_name_inv = "{{tr:factions_screen_name_qb1}}",
+    factions_screen_name_qb1 = "Khorne Warband",
+    factions_screen_name_lost = "{{tr:factions_screen_name_nowhere}}",
+    factions_screen_name_inv2 = "{{tr:factions_screen_name_inv}}",
+}
+local POS = { R1 = { 101, 202 }, R3 = { 303, 404 }, R5 = { 505, 606 } }
+local function live(t) t.is_null_interface = function() return false end return t end
+local function region(key)
+    return live({
+        name = function() return key end,
+        settlement = function()
+            return live({ logical_position_x = function() return POS[key][1] end,
+                          logical_position_y = function() return POS[key][2] end })
+        end,
+    })
+end
+local function char(fkey, rkey)
+    return live({
+        faction = function() return live({ name = function() return fkey end }) end,
+        has_region = function() return rkey ~= nil end,
+        region = function() return region(rkey) end,
+    })
+end
+local function garrison(rkey, fkey)
+    return {
+        garrison_residence = function()
+            return live({ region = function() return region(rkey) end })
+        end,
+        character = function()
+            if not fkey then error("no character on this context") end
+            return char(fkey)
+        end,
+    }
+end
+local function raid(rkey, fkey)
+    return { military_force = function()
+        return live({ general_character = function() return char(fkey, rkey) end })
+    end }
+end
+cm = {
+    add_first_tick_callback = function() end,
+    add_loading_game_callback = function() end,
+    add_saving_game_callback = function() end,
+    callback = function() end,
+    set_saved_value = function(_, k, v) SAVED[k] = v end,
+    get_saved_value = function(_, k) return SAVED[k] end,
+    get_local_faction_name = function() return "cr_chd_test" end,
+    get_region = function(_, key) if POS[key] then return region(key) end return false end,
+    show_message_event = function(_, _f, _t, _p, _s, persist, idx)
+        MSGS[#MSGS + 1] = "plain " .. tostring(persist) .. " " .. tostring(idx)
+    end,
+    show_message_event_located = function(_, _f, _t, _p, _s, x, y, persist, idx)
+        MSGS[#MSGS + 1] = "located " .. tostring(persist) .. " " .. tostring(idx)
+            .. " " .. tostring(x) .. "," .. tostring(y)
+    end,
+}
+core = { add_listener = function() end }
+common = { get_localised_string = function(k) LOC = LOC + 1 return NAMES[k] or "" end }
+function out() end
+dofile([[%s]])
+EX.store = SAVED
+
+local function src(res)
+    local s = EX.shock_src[res]
+    if not s then return "none" end
+    return s.who .. "/" .. s.at .. "/" .. tostring(EX.shock_why[res]) .. "/" .. tostring(s.others)
+end
+
+EX.supply = { res_obsidian = 80, res_gems = 80 }
+EX.shock, EX.shock_why, EX.shock_src, EX.shocked = {}, {}, {}, {}
+EX.region_last = {
+    R1 = { { "res_obsidian", 10 } }, R2 = { { "res_obsidian", 2 } },
+    R3 = { { "res_obsidian", 40 } }, R4 = { { "res_gems", 10 } },
+    R5 = { { "res_obsidian", 10 } },
+}
+
+-- A SACK BY fac_a on R1 records the attacker and the place beside the kind.
+EX.shock_from_garrison(garrison("R1", "fac_a"), "sacked")
+print("src1 " .. src("res_obsidian"))
+-- THE SAME ATTACKER, a smaller raid elsewhere: still fac_a's sack, and nobody else.
+EX.shock_from_raid(raid("R2", "fac_a"))
+print("src2 " .. src("res_obsidian"))
+-- A DIFFERENT ATTACKER, smaller still: the name stays and "and others" appears.
+EX.shock_from_garrison(garrison("R2", "fac_b"), "looted")
+print("src3 " .. src("res_obsidian"))
+-- A BIGGER HIT takes the name, the kind and the place together.
+EX.shock_from_garrison(garrison("R3", "fac_c"), "razed")
+print("src4 " .. src("res_obsidian"))
+-- A CONTEXT THAT CANNOT NAME ITS CHARACTER still costs the market its goods.
+EX.shock_from_garrison(garrison("R4", nil), "sacked")
+print("nochar " .. tostring((EX.shock.res_gems or 0) > 0) .. " " .. src("res_gems"))
+
+-- THE SOURCE SURVIVES A SAVE AND LOAD.
+local big = EX.shock_src.res_obsidian.big
+EX.shock, EX.shock_why, EX.shock_src = {}, {}, {}
+EX.restore()
+local back = EX.shock_src.res_obsidian
+print("restored " .. src("res_obsidian") .. " "
+    .. tostring(back ~= nil and math.abs(back.big - big) < 1e-6))
+-- AN EMPTY ATTACKER IS A FIELD, NOT A MISSING ONE: a rebellion has nobody to name.
+print("restored_nobody " .. src("res_gems"))
+
+-- THE NAMED HIT FADES WITH THE SHOCK. Decay until what is left of the raze is smaller than a
+-- fresh sack, then sack: the sack takes the name. The raze's remnant is still standing, so
+-- "and others" must hold - which is what tells this apart from a name that never faded and
+-- only changed hands because the whole shock had gone.
+EX.supply = { res_obsidian = 80, res_gems = 80 }
+EX.shocked = {}
+local turns = 0
+while EX.shock_src.res_obsidian and EX.shock_src.res_obsidian.big >= 2.5 and turns < 20 do
+    EX.decay_shocks()
+    turns = turns + 1
+end
+print("faded " .. turns)
+EX.shock_from_garrison(garrison("R5", "fac_d"), "sacked")
+print("src7 " .. src("res_obsidian"))
+
+-- THE BULLETIN GOES TO THE PLACE, and the turn round names nobody.
+EX.LOG = {}
+LOC = 0
+EX.announce_shocks()
+print("bulletin " .. tostring(MSGS[#MSGS]))
+print("announce_loc " .. LOC)
+local raw = EX.LOG[1] and EX.LOG[1][3] or ""
+print("log_raw_key " .. tostring(string.find(raw, "fac_d") ~= nil))
+local lines = EX.log_lines()
+print("log_line " .. tostring(lines[1] and lines[1][2]))
+
+-- A PLACE THE MAP CANNOT FIND goes down the plain path, not to a map corner at 0,0.
+EX.shock_src.res_obsidian.at = "R_gone"
+EX.announce_shocks()
+print("bulletin_gone " .. tostring(MSGS[#MSGS]))
+-- A SHOCK WITH NO PLACE - a culture losing ground - is the plain bulletin too.
+EX.shock_src.res_obsidian = nil
+EX.announce_shocks()
+print("bulletin_noplace " .. tostring(MSGS[#MSGS]))
+
+-- A SHOCK THAT FADES TO NOTHING FORGETS WHO CAUSED IT. Otherwise the next hit on the good,
+-- turns later, reads "and others" about attackers whose damage is long gone.
+local guard = 0
+while (EX.shock.res_gems or 0) ~= 0 and guard < 40 do
+    EX.decay_shocks()
+    guard = guard + 1
+end
+print("gone " .. src("res_gems") .. " " .. tostring(SAVED["zharr_shocksrc_res_gems"] == ""))
+EX.shocked = {}
+EX.shock_from_garrison(garrison("R4", "fac_e"), "sacked")
+print("fresh " .. src("res_gems"))
+
+-- THE CHART NOTE'S WORDS, resolved at draw time.
+EX.shock_src.res_gems = { who = "fac_d", at = "R4", big = 1, others = false }
+EX.shock_why.res_gems = "sacked"
+print("cause " .. EX.shock_cause("res_gems", true))
+-- A NAME THAT IS ONLY A POINTER to another entry is followed once; one to nothing is
+-- humanised rather than printed as markup.
+print("tr_name " .. EX.faction_display("inv"))
+print("tr_lost " .. EX.faction_display("lost"))
+-- A POINTER TO A POINTER is followed once and still reads as markup, so it is humanised.
+print("tr_deep " .. EX.faction_display("inv2"))
+"""
+    harness = harness % (LUA_SCRIPT.replace("\\", "\\\\"),)
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness)
+        tmp = fh.name
+    try:
+        got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    have = {}
+    for line in got.split(NL):
+        line = line.strip()
+        if line:
+            k, _sp, v = line.partition(" ")
+            have[k] = v
+
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s: got %r, want %r - %s" % (key, have.get(key), want, why)
+
+    eq("src1", "fac_a/R1/sacked/false", "a sack did not record who did it and where")
+    eq("src2", "fac_a/R1/sacked/false",
+       "a smaller hit by the SAME attacker changed the name or claimed there were others")
+    eq("src3", "fac_a/R1/sacked/true",
+       "a smaller hit by a second attacker took the name, or went unmentioned")
+    eq("src4", "fac_c/R3/razed/true",
+       "a bigger hit did not take the name, the kind and the place together - the chart "
+       "would say one faction razed a place another faction sacked")
+    eq("nochar", "true /R4/sacked/false",
+       "a context whose character() throws lost the shock, or invented an attacker")
+    eq("restored", "fac_c/R3/razed/true true",
+       "the attacker, the place or the size did not survive a save and load")
+    eq("restored_nobody", "/R4/sacked/false",
+       "a record with no attacker did not survive a save - an empty field was read as a "
+       "missing one")
+    eq("gone", "none true",
+       "a shock that decayed to nothing kept its attacker in memory or in the save")
+    eq("fresh", "fac_e/R4/sacked/false",
+       "the first hit after a shock faded away was reported as one of several")
+    eq("faded", "3",
+       "the named hit did not halve with the shock each turn (decay 0.5: 15 -> 1.875 in three)")
+    eq("src7", "fac_d/R5/sacked/true",
+       "the named hit never faded, so a raze three turns old kept the name over a fresh sack "
+       "- or the whole shock was cleared, which drops the 'and others' still standing")
+    eq("bulletin", "located false %d 505,606" % crit["derpy_chd_ex_feed_shockat"],
+       "the bulletin did not jump to the named hit's settlement on the located record")
+    eq("announce_loc", "0",
+       "the turn round looked a name up. That took the process down at turn 1 on 2026-09-07; "
+       "the log carries the key and names it when drawn")
+    eq("log_raw_key", "true", "the stored log entry does not carry the attacker's key")
+    assert re.match(r"^Demand shock: prices \+\d+ step\(s\) \(sacked by Name D and others\)\.$",
+                    have.get("log_line", "")), (
+        "the log line reads %r - it must name the attacker when drawn" % have.get("log_line"))
+    eq("bulletin_gone", "plain false %d" % crit["derpy_chd_ex_feed_shock"],
+       "a region the map cannot find must take the plain bulletin")
+    eq("bulletin_noplace", "plain false %d" % crit["derpy_chd_ex_feed_shock"],
+       "a shock with no place must take the plain bulletin")
+    eq("cause", "sacked by Name D", "the chart note's words are wrong")
+    eq("tr_name", "Khorne Warband",
+       "a faction whose name is a {{tr:}} pointer printed the markup - CA's invasion "
+       "factions, the likeliest raiders, are all named this way")
+    eq("tr_lost", "Lost", "a pointer to nothing must fall back to the humanised key")
+    eq("tr_deep", "Inv2",
+       "a pointer to a pointer printed the second pointer's markup as the faction's name")
+    print("  shock source: attacker and place recorded, faded, saved; bulletin located at "
+          "index %d, log names at draw time" % crit["derpy_chd_ex_feed_shockat"])
 
 
 def check_lua_agrees():

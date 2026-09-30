@@ -185,6 +185,13 @@ local sized = EX.pack_orders()
 print("sized_packed " .. sized)
 EX.unpack_orders(sized)
 print("sized_qty " .. tostring(EX.orders[1] and EX.orders[1].qty))
+-- THE OP'S SIZE IS THE ORDER'S, NOT THIS MACHINE'S AMOUNT BUTTON (2026-09-30). EX.MP_OPS.ord
+-- runs on every machine with the placer's qty; writing it into EX.amount reset every other
+-- player's button to the placer's size.
+EX.amount = 1
+EX.orders = {}
+EX.place_order("res_gems", "b", "le", 28, 10)
+print("op_qty " .. tostring(EX.orders[1] and EX.orders[1].qty) .. " amount=" .. EX.amount)
 EX.unpack_orders(packed)     -- and put the three-order board back for the scenes below
 
 -- ORDERS BY INSTRUMENT ---------------------------------------------------------------------
@@ -383,11 +390,16 @@ print("clear_calls " .. n)
 print("clear_left " .. left)
 
 -- RENT OFF RESERVES NOTHING AT ALL, and the treasury is exactly the price to prove it: the
--- 600 units in the warehouse are still there and EX.carry_total still answers 300, so a floor
--- that read the holding without reading the switch refuses this and the honest one fills it.
+-- 600 units in the warehouse are still there, so a floor that read the holding without the
+-- switch refuses this and the honest one fills it.
 rent_on = false
 n, left = one_buy(gem_buy)
 print("rentoff_calls " .. n)
+-- AND RENT OFF COSTS NOTHING ON SCREEN EITHER (2026-09-30). The Held cell, the Trade footer's
+-- "Rent:" and the HUD income all read EX.carry_cost / EX.carry_total, and until today those
+-- answered 300 here - a charge EX.charge_carry never makes.
+holding = { res_gems = 600 }
+print("rentoff_carry " .. EX.carry_total() .. " " .. EX.carry_cost("res_gems"))
 rent_on = true
 
 -- THE FLOOR PREDICTS THE PRICE EX.apply_trade WILL ACTUALLY CHARGE. On a calm board

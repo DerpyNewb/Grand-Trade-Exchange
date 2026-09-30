@@ -1696,6 +1696,22 @@ function EX.opt_for_culture(key, c)
     return EX.race_apply(key, v, (c and EX.RACES[c]) or false)
 end
 
+-- THE SAVED SNAPSHOT, PUT IN FORCE WITHOUT TAKING A NEW ONE. True if the save carried an
+-- undamaged one. EX.init calls it before anything prices (2026-09-30): until then EX.snap stayed
+-- nil from a load to the next turn start, so the load's reprice, trade income and positions -
+-- and the rest of that turn - read whatever preset the MCT panel showed, not the campaign's.
+-- Safe at first tick where EX.snapshot is not: it READS the save and never asks MCT.
+function EX.adopt_snap()
+    if EX.snap then return true end
+    local saved = EX.getv(EX.SAVE_SNAP)
+    -- A LIST ENTRY IS A DECIMAL-COMMA-DAMAGED SAVE, which EX.snapshot rebuilds; not adopted.
+    if type(saved) == "table" and next(saved) ~= nil and saved[1] == nil then
+        EX.snap = saved
+        return true
+    end
+    return false
+end
+
 -- Called first thing at FactionTurnStart, and NOT at first tick: first tick is not provably
 -- after MCT's registry has loaded, and a snapshot taken too early would freeze the DEFAULTS
 -- over the player's actual choice - permanently, with a correct-looking MCT panel beside it
@@ -1703,13 +1719,10 @@ end
 -- start from whatever MCT says then, and is frozen from that point like any other.
 function EX.snapshot()
     if EX.snap then return false end
+    if EX.adopt_snap() then return false end
     local saved = EX.getv(EX.SAVE_SNAP)
     local preset
     if type(saved) == "table" and next(saved) ~= nil then
-        if saved[1] == nil then
-            EX.snap = saved
-            return false
-        end
         -- A LIST ENTRY MEANS A DECIMAL-COMMA LOCALE ALREADY BROKE THIS SAVE (see EX.FLOAT_TAG):
         -- every fraction was split into its integer part and a stray entry. The preset's name
         -- is a string and survived, so rebuild from it - exact for a named preset, and for
@@ -1992,10 +2005,10 @@ EX.DEMAND_GRACE = 3
 -- and NOT 0: it is the campaign_group_member_criteria_values value of our own feed record, and
 -- an index with no record behind it makes the call log and draw nothing.
 -- THE EVENT-FEED INDEX BLOCK PER RACE. The record's PICTURE is a DB column and nothing can
--- swap it at runtime, so each race owns four records rather than sharing four - a Skaven
+-- swap it at runtime, so each race owns five records rather than sharing five - a Skaven
 -- player was shown the Chaos Dwarf forge for a Trade Disrupted bulletin (2026-09-08).
 --
--- The Chaos Dwarf block stays at 7401-7404, which is where it has always been. The offsets
+-- The Chaos Dwarf block stays at 7401-7405, which is where it has always been. The offsets
 -- below are the SLOT within a block and must match the order of FEED in
 -- tools/gen_zharr_exchange.py; the generator asserts the two agree.
 EX.FEED_BASE = {
@@ -2008,7 +2021,7 @@ EX.FEED_BASE = {
     hef_     = 7461,
     def_     = 7471,
 }
-EX.FEED_SLOT = { call = 0, wrath = 1, shock = 2, delist = 3 }
+EX.FEED_SLOT = { call = 0, wrath = 1, shock = 2, delist = 3, shockat = 4 }
 
 -- An UNCOVERED race has no block of its own and falls back to the Chaos Dwarf one. That is
 -- deliberate rather than an oversight: the shock bulletin fires for every player, covered or
@@ -2032,6 +2045,11 @@ EX.FEED_WRATH = 7402     -- the tithe refused
 -- THE PERSISTENT FLAG PASSED TO show_message_event MUST AGREE WITH THE RECORD - false here,
 -- true for the two above - or nothing draws. Same rule the demand messages carry.
 EX.FEED_SHOCK = 7403     -- war shook the market; see EX.announce_shocks
+-- THE SAME BULLETIN WITH A PLACE: clicking it moves the camera to the settlement the named hit
+-- landed on. A RECORD OF ITS OWN because show_message_event_located resolves only against a
+-- _located_ event type and the plain call only against a plain one - a mismatch logs success
+-- and draws nothing. The plain record stays for shocks with no place: a culture losing ground.
+EX.FEED_SHOCK_AT = 7405
 
 EX.SAVE_DEM_RES  = "zharr_demand_res"
 EX.SAVE_DEM_TIER = "zharr_demand_tier"
@@ -2190,6 +2208,13 @@ EX.TAB_LABEL = {
     trade = "Trade", stats = "Ownership", offer = "Offerings",
     houses = "Houses", deals = "Deals", log = "Log",
 }
+-- THE SUB-TABS (2026-09-30): three SLOTS along the title bar, labelled per view from
+-- EX.SECTIONS. Slots and not a component per section, because the bonds page borrows the
+-- Deals layout: one set of three serves Houses' three sections and Deals' two. Same prefix
+-- rule as the tabs - the listener matches on the name alone.
+EX.SUB_PREFIX = "derpy_chd_ex_sub_"
+EX.SUB_SLOTS = 3
+function EX.sub_name(i) return EX.SUB_PREFIX .. i end
 EX.NAV_PAGE  = "nav_page"
 
 -- The panel has two views over ONE set of components. A second panel file would mean a second
@@ -2673,9 +2698,10 @@ function EX.house_pages()
     return n
 end
 
--- THE HOUSES TAB'S PAGES: the house list, then the extra pages in EX.house_extra_pages' order.
--- The index is always there, so a player with no index still finds the page that says why.
-function EX.house_page_count() return EX.house_pages() + #EX.house_extra_pages() end
+-- THE HOUSES TAB'S SECTIONS: the house list, then the extra pages in EX.house_extra_pages'
+-- order, each its own sub-tab since 2026-09-30 (EX.SECTIONS). They were pages 4/5 and 5/5 of
+-- the arrows until then, and the player did not find them. The index is always there, so a
+-- player with no index still finds the page that says why.
 
 -- EX.HOUSE_INDEX_PAGE IS THE INDEX PAGE, wherever the list ends. Not "past the last list
 -- page": EX.on_index feeds EX.view, which the house list's own sort reads, so an on_index that
@@ -2706,14 +2732,9 @@ function EX.house_extra()
 end
 --
 -- A LIST PAGE IS CLAMPED, EX.deal_page_at's rule: the list can shorten under a player standing
--- past its end. Unclamped, the counter read "3/2" (ZHARR_EXCHANGE.md s17).
+-- past its end. Unclamped, the counter read "3/2" (ZHARR_EXCHANGE.md s17). An extra page's
+-- sentinel is negative, so the same clamp reads it as page 1 of its one-page section.
 function EX.house_page_at()
-    local s = EX.house_extra()
-    if s then
-        for i, e in ipairs(EX.house_extra_pages()) do
-            if e == s then return EX.house_pages() + i end
-        end
-    end
     local n = EX.house_pages()
     local at = EX.house_page or 1
     if at < 1 then at = 1 end
@@ -3157,7 +3178,9 @@ function EX.treaty_tier(house)
     -- A guarded read that throws is a house we know nothing about, and charging a player for
     -- our own failure to read the game is the wrong default.
     if not ok then return "free" end
-    return tier
+    -- THE SECOND VALUE SAYS THE TREATIES WERE READ. Only EX.stance_of asks: a "free" that is a
+    -- real ally is a full friend, and a "free" that is this fallback is nothing either way.
+    return tier, true
 end
 
 -- IT TAKES A FACTION KEY STRING, NOT A FACTION INTERFACE. Passing the interface does not
@@ -3228,13 +3251,14 @@ end
 -- up by the next one with no invalidation anybody has to remember. A cache that outlived its
 -- scope would quietly price the wrong markup. The turn handler frees it once more before it
 -- starts, so a refresh that errored mid-hold cannot strand a stale vector for the campaign.
-EX.guild_hold = nil   -- { list = {...}, stance = { house -> -1..0 }, deepest = n } while held
+EX.guild_hold = nil   -- { list = {...}, stance = { house -> -1..1 }, deepest = n, best = n } while held
 
 function EX.hold_guild()
     EX.guild_hold = nil                     -- never build a hold on top of a hold
     local hd = { list = EX.guild(), stance = {} }
     EX.guild_hold = hd                      -- the guild list is memoised from here on
     hd.deepest = EX.deepest_standing()      -- ...and the rank denominator from here
+    hd.best = EX.best_standing()            -- ...and the friendly side's
     for _, h in ipairs(hd.list) do hd.stance[h] = EX.stance_of(h) end
 end
 
@@ -3258,21 +3282,51 @@ function EX.deepest_standing()
     return d
 end
 
--- -1 .. 0. Zero is never penalised. Severity is RANK within the guild's negative spread, so
--- the scale of the underlying number is irrelevant; only its sign and its ordering are read.
+-- THE FRIENDLY MIRROR OF EX.deepest_standing: the highest positive standing among guild
+-- members holding neither a treaty nor a war. Zero when none likes you.
+function EX.best_standing()
+    if EX.guild_hold and EX.guild_hold.best then return EX.guild_hold.best end
+    local b = 0
+    for _, h in ipairs(EX.guild()) do
+        local tier = EX.treaty_tier(h)
+        if tier ~= "free" and tier ~= "war" then
+            local v = EX.standing_of(h)
+            if v > b then b = v end
+        end
+    end
+    return b
+end
+
+-- -1 .. 1. Zero is the anchor both ways. Severity is RANK within the guild's spread on each side,
+-- so the scale of the underlying number is irrelevant; only its sign and its ordering are read.
+--
+-- THE POSITIVE HALF EXISTS SINCE 2026-09-30. It used to stop at 0, so EX.hostility could never
+-- go below zero and the friendly discount, its slider and every "likes you" sentence were
+-- unreachable. Every reader acts on the negative side only (front-run, refusal, the hostile
+-- list, the markup's source) except EX.hostility, which is where the discount is wanted - and
+-- EX.friendly_cap still bounds it so a round trip cannot mint gold.
 function EX.stance_of(house)
     -- 0 is truthy in Lua, so this reads a memoised zero correctly; a house outside the held
     -- guild is absent from the table and falls through to the live path below.
     local hd = EX.guild_hold
     if hd and hd.stance[house] then return hd.stance[house] end
 
-    local tier = EX.treaty_tier(house)
-    if tier == "free" then return 0 end
+    local tier, read = EX.treaty_tier(house)
+    -- AN ALLY, VASSAL OR TRADE PARTNER IS A FULL FRIEND, whatever the standing number says -
+    -- the treaty ladder dominates, as it does for war. Only a treaty actually READ: the "free"
+    -- EX.treaty_tier falls back to on a failed read is our ignorance, and discounts nothing.
+    if tier == "free" then return read and 1 or 0 end
     if tier == "war" then return -1 end
     if not EX.standing_trusted then return -0.5 end   -- flat mid, see check_standing_sign
 
     local mine = EX.standing_of(house)
-    if mine >= 0 then return 0 end                    -- the zero anchor
+    if mine == 0 then return 0 end                    -- the zero anchor
+    if mine > 0 then
+        -- The friendliest untreatied house is the full +1; the rest scale against it.
+        local best = EX.best_standing()
+        if mine > best then best = mine end
+        return mine / best
+    end
 
     -- The deepest negative in the guild is the full -1; everyone else scales against it. The
     -- house's own standing is folded in afterwards rather than seeding the walk, so the answer
@@ -3367,13 +3421,20 @@ end
 -- houses at war and so is never the one charging you. Reported 2026-09-23: the Warhost of
 -- Zharr "dislikes you" at +85 standing, which EX.stance_of scores 0 - the markup on its gems
 -- came from other holders, and a house at war counts in the sum while being skipped as seller.
+--
+-- AND THE DISCOUNT'S, the same way round (2026-09-30): when the sum is friendly, the holder
+-- adding the most to THAT side. Taking only positive terms returned nil for every discount,
+-- which the sentences draw as "The guild likes you".
 function EX.hostility_source(res)
-    local best, best_w = nil, 0
+    local hot, hot_w, warm, warm_w, sum = nil, 0, nil, 0, 0
     for _, house in ipairs(EX.guild()) do
         local w = EX.book_of(house, res) * -EX.stance_of(house)
-        if w > best_w then best, best_w = house, w end
+        sum = sum + w
+        if w > hot_w then hot, hot_w = house, w end
+        if w < warm_w then warm, warm_w = house, w end
     end
-    return best
+    if sum < 0 then return warm end
+    return hot
 end
 
 function EX.price(res)
@@ -3505,7 +3566,12 @@ end
 -- charging rent on them would tax ordinary Chaos Dwarf play rather than trading. Nothing about
 -- this feature should touch a player who never opens the panel. Houses are EXEMPT too - they
 -- are paper, not goods, and there is nothing to store in a warehouse.
+--
+-- AND RENT SWITCHED OFF IS NO RENT, here rather than at each reader (2026-09-30). The Held cell,
+-- the Trade footer's "Rent:" and the HUD income all read this, and all three showed a charge
+-- EX.charge_carry never makes.
 function EX.carry_cost(res)
+    if not EX.setting("warehouse_rent") then return 0 end
     if EX.is_layer2(res) or EX.is_house(res) then return 0 end
     return math.floor(EX.held(res) * EX.opt("carry_per_unit"))
 end
@@ -3868,6 +3934,16 @@ end
 -- itself on the next refresh.
 function EX.log_settlement(house, paid, lots)
     local n = tonumber(lots) or 0
+    -- NOTHING HELD AND DEAD BY TURN 1 IS NOT NEWS (2026-09-30). A fresh campaign with Mixu's
+    -- unlocker delists 56 dormant factions at its first turn round - each had an army in the
+    -- first-tick window EX.tradeable_faction reads - and every one wrote "You held nothing in
+    -- it": 56 of the Log's 120 lines about houses nobody could have traded. A paid settlement
+    -- is still written, and so is every later death.
+    if n <= 0 then
+        local turn = 0
+        pcall(function() turn = cm:turn_number() end)
+        if turn <= 1 then return end
+    end
     pcall(function()
         EX.log_add("",
             n > 0
@@ -4115,6 +4191,17 @@ end
 function EX.index_sync(join)
     for _, c in ipairs(EX.index_cultures()) do
         if join then EX.index_join(c) else EX.index_remove(c) end
+    end
+end
+
+-- ON LOAD, A MISSING INDEX ONLY (2026-09-30). Step 10c was the one place an index was made, so
+-- a save older than the index - every player updating from a build without it - showed "No
+-- index: fewer than two houses of your people are listed" over twenty houses until the next
+-- turn start. Seen in play on a 09-29 save. An existing index is left alone: index_join also
+-- takes new members and rolls the trend, and a reload is not a turn.
+function EX.index_open()
+    for _, c in ipairs(EX.index_cultures()) do
+        if not EX.index_state(c) then EX.index_join(c) end
     end
 end
 
@@ -4380,6 +4467,7 @@ function EX.restore()
         EX.shock[res] = sh or 0
         local why = EX.getv(EX.SAVE_SHOCK_WHY .. res)
         EX.shock_why[res] = (why and why ~= "") and why or nil
+        EX.shock_src[res] = EX.unpack_shock_src(EX.getv(EX.SAVE_SHOCK_SRC .. res))
         local hist = EX.getv(EX.SAVE_HIST .. res)
         EX.history[res] = {}
         if hist then
@@ -4535,7 +4623,8 @@ function EX.num(v)
     if type(v) ~= "number" then return tostring(v) end
     local t = string.format("%.3f", v)
     t = string.gsub(t, "0+$", "")
-    t = string.gsub(t, "%.$", "")
+    -- EITHER SEPARATOR: under a decimal-comma locale %.3f writes "1,000", and a "." strip left "1,".
+    t = string.gsub(t, "[%.,]$", "")
     return t
 end
 
@@ -5896,8 +5985,19 @@ function EX.faction_display(key)
     local ok, loc = pcall(function()
         return common.get_localised_string("factions_screen_name_" .. key)
     end)
+    -- A NAME THAT IS ONLY A POINTER. 26 of CA's factions are named "{{tr:<another key>}}" -
+    -- the Khorne, Nurgle and Slaanesh invasions among them, which is who raids - and a panel
+    -- that prints the entry prints the markup. Each pointer is followed once; one that leads
+    -- nowhere resolves to "", and the empty name falls through to the humanised key below.
+    if ok and type(loc) == "string" then
+        loc = string.gsub(loc, "{{tr:([%w_]+)}}", function(ref)
+            local ok2, s = pcall(function() return common.get_localised_string(ref) end)
+            return (ok2 and type(s) == "string") and s or ""
+        end)
+    end
     local name
-    if ok and loc and loc ~= "" and not string.find(loc, EX.LOC_PLACEHOLDER) then
+    if ok and loc and loc ~= "" and not string.find(loc, EX.LOC_PLACEHOLDER)
+            and not string.find(loc, "{{") then
         name = loc
     else
         name = EX.humanise_key(key)
@@ -6349,6 +6449,9 @@ EX.SHOCK_DECAY = 0.5    -- multiplied each turn: half gone next turn, gone in ab
 EX.SHOCK_MIN   = 0.05   -- below this it is dropped, rather than carried as dust forever
 EX.SAVE_SHOCK  = "zharr_shock_"
 EX.SAVE_SHOCK_WHY = "zharr_shockwhy_"
+-- WHO AND WHERE, per commodity, as "attacker;region;size;others" - one saved value per
+-- commodity rather than four, the way EX.remember packs a history.
+EX.SAVE_SHOCK_SRC = "zharr_shocksrc_"
 EX.SAVE_SHOCKED   = "zharr_shocked"     -- the per-turn duplicate guard, ";"-joined
 
 -- ALL FOUR ARE UNCALIBRATED. Every one is a first guess, and the clamp is what makes that
@@ -6372,12 +6475,10 @@ EX.SHOCK_KINDS = {
     captured = 0.5,   -- changes hands: disrupted for a season, not destroyed
 }
 
--- GarrisonOccupiedEvent IS DELIBERATELY NOT HERE. It appears in CA's event index with no
--- documented context accessor, so what it carries is a guess - and a listener reading a
--- method the context does not have fails inside a pcall and shocks nothing, forever,
--- silently. It also almost certainly overlaps CharacterCapturedSettlement, which would
--- double-count one capture through two kinds, since the per-turn guard is keyed by kind.
--- Add it only with the context read off a running game, the way the TEB culture key was.
+-- GarrisonOccupiedEvent RAISES `captured` (since 2026-09-30). This note used to say it had
+-- no documented accessor; CA's scripting_doc lists garrison_residence() and character() on
+-- it, and CA's own scripts read both 31 times. The event it was kept out in favour of,
+-- CharacterCapturedSettlement, does not exist.
 
 -- The three stances that stop goods leaving a region. LAND_RAID and SEA_RAID are the army and
 -- fleet raiding stances; SET_CAMP_RAIDING is a settled army camped and raiding at once.
@@ -6390,7 +6491,10 @@ EX.RAID_STANCES = {
 }
 
 EX.shock     = {}   -- res -> rungs, a FLOAT. Truncated only where it meets the price.
-EX.shock_why = {}   -- res -> the kind that last moved it, for the footer
+EX.shock_why = {}   -- res -> the kind of the hit EX.shock_src names, for the footer
+-- res -> { who = faction key or "", at = region key or "", big = that hit's size in rungs,
+-- others = true once anyone else's hit is in the same shock }. World state, like EX.shock.
+EX.shock_src = {}
 EX.shocked   = {}   -- "<region>|<kind>" already applied this turn; cleared at FactionTurnStart
 
 -- PERSISTED, because a guard that a reload empties is a guard with a hole in it: the whole
@@ -6489,15 +6593,102 @@ function EX.share_shocks()
     end
 end
 
-function EX.bump_shock(res, rungs, why)
+-- THE NAMED CAUSE IS THE BIGGEST SINGLE HIT STILL STANDING, not the last. A commodity is often
+-- hit from several places in one turn, and "last" names whoever the event order put second -
+-- a raid on a village over the raze of the mine. The kind follows the same hit, so "razed by
+-- X" always describes one event. `big` fades with the shock in EX.decay_shocks, or a raze
+-- three turns old would keep the name over every fresh hit while any of it stood. `others`
+-- is anyone ELSE's hit in the shock: a second hit by the same attacker is not someone else.
+function EX.bump_shock(res, rungs, why, who, at)
     if rungs == 0 then return end
     local v = (EX.shock[res] or 0) + rungs
     if v > EX.opt("shock_max") then v = EX.opt("shock_max") end
     if v < -EX.opt("shock_max") then v = -EX.opt("shock_max") end
     EX.shock[res] = v
-    EX.shock_why[res] = why
     EX.setv(EX.SAVE_SHOCK .. res, v)
-    EX.setv(EX.SAVE_SHOCK_WHY .. res, why or "")
+    who, at = who or "", at or ""
+    local s = EX.shock_src[res]
+    if not s then
+        s = { who = who, at = at, big = 0, others = false }
+        EX.shock_src[res] = s
+    elseif who ~= s.who then
+        s.others = true
+    end
+    local size = math.abs(rungs)
+    if size >= s.big then
+        s.who, s.at, s.big = who, at, size
+        EX.shock_why[res] = why
+        EX.setv(EX.SAVE_SHOCK_WHY .. res, why or "")
+    end
+    EX.save_shock_src(res)
+end
+
+function EX.save_shock_src(res)
+    local s = EX.shock_src[res]
+    if not s then
+        EX.setv(EX.SAVE_SHOCK_SRC .. res, "")
+        return
+    end
+    EX.setv(EX.SAVE_SHOCK_SRC .. res, s.who .. ";" .. s.at .. ";" .. tostring(s.big) .. ";"
+        .. (s.others and "1" or "0"))
+end
+
+-- NIL FOR A SAVE FROM BEFORE THIS EXISTED, which then draws what it always drew: the kind
+-- alone. Split with gmatch rather than an anchored pattern - an empty attacker is a real
+-- field (a rebellion has nobody to name), so "[^;]*" and not "[^;]+".
+function EX.unpack_shock_src(v)
+    if type(v) ~= "string" or v == "" then return nil end
+    local f = {}
+    for part in string.gmatch(v .. ";", "([^;]*);") do f[#f + 1] = part end
+    if #f ~= 4 then return nil end
+    return { who = f[1], at = f[2], big = tonumber(f[3]) or 0, others = f[4] == "1" }
+end
+
+-- WHAT HIT A COMMODITY, in words: "razed", "sacked by <attacker>", "raided by <attacker> and
+-- others". RESOLVE only where something is being drawn. The turn round must not look a name
+-- up - that was a turn-1 CTD on 2026-09-07 - so without it the attacker is left as a KEY
+-- between two EX.LOG_NAME marks, which EX.log_lines names when the log is shown.
+function EX.shock_cause(res, resolve)
+    local text = EX.shock_why[res] or "disrupted"
+    local s = EX.shock_src[res]
+    if not s then return text end
+    if s.who ~= "" then
+        text = text .. " by " .. (resolve and EX.faction_display(s.who)
+                                  or (EX.LOG_NAME .. s.who .. EX.LOG_NAME))
+    end
+    if s.others then text = text .. " and others" end
+    return text
+end
+
+-- WHO DID IT, as a faction key, or nil. ITS OWN pcall: a context that cannot name its
+-- character must still cost the market its goods - the lost supply is the point, the name is
+-- what the player reads about it.
+function EX.attacker(get_character)
+    local ok, key = pcall(function()
+        local ch = get_character()
+        if not ch or ch:is_null_interface() then return nil end
+        local f = ch:faction()
+        if not f or f:is_null_interface() then return nil end
+        return f:name()
+    end)
+    if ok and type(key) == "string" and key ~= "" then return key end
+    return nil
+end
+
+-- WHERE THE BULLETIN'S CAMERA GOES: the settlement of the region the named hit landed on.
+-- nil when the map cannot find it, which sends the bulletin down the plain path rather than
+-- to a corner of the map at 0,0. cm:get_region answers false, not nil, for an unknown key.
+function EX.region_xy(key)
+    if not key or key == "" then return nil end
+    local ok, x, y = pcall(function()
+        local r = cm:get_region(key)
+        if not r or r:is_null_interface() then return nil end
+        local s = r:settlement()
+        if not s or s:is_null_interface() then return nil end
+        return s:logical_position_x(), s:logical_position_y()
+    end)
+    if ok and x and y then return x, y end
+    return nil
 end
 
 -- kind is a key of EX.SHOCK_KINDS, and is also the word the footer prints.
@@ -6506,7 +6697,7 @@ end
 -- is the common case and the player is not looking; repricing here would run apply_prices
 -- once per razed settlement on the whole map. Call EX.apply_prices() from here if a shock
 -- during the PLAYER'S own turn ever needs to show immediately.
-function EX.add_shock(region, kind)
+function EX.add_shock(region, kind, who)
     local mult = EX.SHOCK_KINDS[kind]
     if not mult then return end
     if not EX.supply then return end     -- no scan has completed; there is no share to take
@@ -6540,13 +6731,14 @@ function EX.add_shock(region, kind)
         local res, amount = goods[i][1], goods[i][2]
         local total = EX.supply[res] or 0
         if total > 0 then
-            EX.bump_shock(res, mult * (amount / total) * EX.opt("shock_gain"), kind)
+            EX.bump_shock(res, mult * (amount / total) * EX.opt("shock_gain"), kind, who,
+                          region:name())
             moved = moved + 1
         end
     end
     if moved > 0 then
-        EX.say("shock", kind .. " at " .. region:name() .. " shocked "
-            .. moved .. " commodities")
+        EX.say("shock", kind .. " at " .. region:name() .. (who and (" by " .. who) or "")
+            .. " shocked " .. moved .. " commodities")
     end
 end
 
@@ -6559,11 +6751,25 @@ function EX.shock_from_garrison(context, kind)
         if not gr or gr:is_null_interface() then return end
         local region = gr:region()
         if not region or region:is_null_interface() then return end
-        EX.add_shock(region, kind)
+        EX.add_shock(region, kind, EX.attacker(function() return context:character() end))
     end)
     if not ok then
         EX.say("error", kind .. " shock failed: " .. tostring(err))
     end
+end
+
+-- THE RAID LISTENER'S HANDLER, named so the harness runs the code the game runs. The raider
+-- is the army's general, and the place is the region the army is standing in.
+function EX.shock_from_raid(context)
+    local ok, err = pcall(function()
+        local ch = context:military_force():general_character()
+        if not ch or ch:is_null_interface() then return end
+        if not ch:has_region() then return end
+        local region = ch:region()
+        if not region or region:is_null_interface() then return end
+        EX.add_shock(region, "raided", EX.attacker(function() return ch end))
+    end)
+    if not ok then EX.say("error", "raid shock failed: " .. tostring(err)) end
 end
 
 -- Rungs, truncated TOWARD ZERO. Same trap as EX.pressure_shift and EX.appetite_shift:
@@ -6593,6 +6799,11 @@ function EX.decay_shocks()
             if v == 0 then
                 EX.shock_why[res] = nil
                 EX.setv(EX.SAVE_SHOCK_WHY .. res, "")
+                EX.shock_src[res] = nil
+                EX.save_shock_src(res)
+            elseif EX.shock_src[res] then
+                EX.shock_src[res].big = EX.shock_src[res].big * EX.opt("shock_decay")
+                EX.save_shock_src(res)
             end
         end
     end
@@ -6660,10 +6871,19 @@ function EX.announce_shocks()
     -- deliberately not in the key: it would multiply 17 messages by four for a word the
     -- panel's own footer already prints beside the commodity.
     local m = EX.PREFIX .. "shock_" .. EX.short(best)
-    -- false, not true: EX.FEED_SHOCK is a scripted_transient_event record and the flag has to
-    -- agree with the record or nothing draws.
-    cm:show_message_event(fname, m .. "_title", m .. "_primary", m .. "_secondary",
-                          false, EX.feed("shock"))
+    -- false, not true: both shock records are transient and the flag has to agree with the
+    -- record or nothing draws. LOCATED when the named hit has a place the map can find, so the
+    -- message takes the player to it; the text cannot name the attacker - it is a fixed loc
+    -- key per commodity - so the place is what the bulletin itself can give.
+    local src = EX.shock_src[best]
+    local x, y = EX.region_xy(src and src.at)
+    if x then
+        cm:show_message_event_located(fname, m .. "_title", m .. "_primary", m .. "_secondary",
+                                      x, y, false, EX.feed("shockat"))
+    else
+        cm:show_message_event(fname, m .. "_title", m .. "_primary", m .. "_secondary",
+                              false, EX.feed("shock"))
+    end
     -- AND IN THE LOG. The bulletin is an event-feed message, which the player dismisses and
     -- cannot get back; the shock it announced is still moving their prices several turns later.
     -- SUBJECT DEFERRED: "" plus the commodity key gives the row the good's name AND its icon,
@@ -6671,10 +6891,10 @@ function EX.announce_shocks()
     -- turn-time entry uses and one exception is how the next one gets written unsafely.
     local shift = EX.shock_shift(best)
     EX.log_add("", "Demand shock: prices " .. (shift > 0 and "+" or "") .. shift
-        .. " step(s) (" .. (EX.shock_why[best] or "disrupted") .. ").", best)
+        .. " step(s) (" .. EX.shock_cause(best) .. ").", best)
     EX.say("shock", "news - " .. best .. " shaken "
         .. string.format("%.2f", size) .. " steps (" .. (EX.shock_why[best] or "disrupted")
-        .. ")")
+        .. ((src and src.who ~= "") and (" by " .. src.who) or "") .. ")")
 end
 
 -- Power for a house key, from the scan's table with a live read as the fallback for the
@@ -8095,6 +8315,9 @@ function EX.log_subject(res)
 end
 EX.LOG_RS = string.char(30)
 EX.LOG_FS = string.char(31)
+-- A FACTION KEY TO NAME AT DRAW TIME sits between two of these inside an entry's text; see
+-- EX.shock_cause. Not a separator the store splits on, so it survives a save untouched.
+EX.LOG_NAME = string.char(29)
 function EX.pack_log()
     local out = {}
     for i = 1, #EX.LOG do
@@ -8185,10 +8408,14 @@ function EX.log_lines()
             local ok, nm = pcall(EX.log_subject, e[4])
             subj = (ok and nm and nm ~= "") and nm or e[4]
         end
+        -- A FACTION KEY BETWEEN TWO EX.LOG_NAME MARKS is named here, for the reason the
+        -- subject is: the line was written from the turn round.
+        local detail = (string.gsub(tostring(e[3]),
+            EX.LOG_NAME .. "([^" .. EX.LOG_NAME .. "]+)" .. EX.LOG_NAME,
+            function(k) return EX.faction_display(k) end))
         -- THIRD FIELD IS THE KEY, and it is what the row's icon is painted from - not the
         -- row's own instrument, which has nothing to do with the line that landed in it.
-        out[#out + 1] = { "T" .. tostring(e[1]) .. "  " .. subj, tostring(e[3]),
-                          e[4] or "" }
+        out[#out + 1] = { "T" .. tostring(e[1]) .. "  " .. subj, detail, e[4] or "" }
     end
     if #out == 0 then
         out[1] = { "Nothing yet",
@@ -8320,6 +8547,11 @@ EX.PANEL_LAYOUT_DEALS = {
     { "footer_text2",  20, 662 },
     { "close_button", 876,  14 },
     { "btn_help",     838,  14 },
+    -- ALL THREE SUB-TAB SLOTS, though Deals has two sections: the bonds page draws on this
+    -- table. EX.draw_sections hides the third on Deals.
+    { "derpy_chd_ex_sub_1", 484,  16, 108 },
+    { "derpy_chd_ex_sub_2", 600,  16, 108 },
+    { "derpy_chd_ex_sub_3", 716,  16, 108 },
     { "derpy_chd_ex_tab_trade", 20, 698, 108 },
     { "derpy_chd_ex_tab_stats", 136, 698, 108 },
     { "derpy_chd_ex_tab_offer", 252, 698, 108 },
@@ -8914,7 +9146,7 @@ EX.TIPS = {
         hdr_supply = "Units you hold. An offering is paid out of these.",
         hdr_price  = "Units burned to make an offering. They are gone.",
         hdr_trend  = "What Hashut grants while the offering lasts.",  -- patron-literal: rewritten by EX.bind_race
-        hdr_hold   = "Ready, turns of favour left, or units still needed.",
+        hdr_hold   = "Ready, turns of favour left, units needed, or tithe due.",
     },
     -- THE TWO COLUMNS SIT SIDE BY SIDE IN DIFFERENT UNITS, so both name their unit. Price is
     -- per LOT - EX.trade charges EX.price(res) and hands over EX.HOUSE_LOT_SIZE shares - while
@@ -8972,7 +9204,8 @@ function EX.buy_tip(res)
         t = t .. "||" .. EX.faction_display(by) .. " will not sell to you."
     else
         local h = EX.hostility(res)
-        if h ~= 0 then
+        -- ON THE REALISED PERCENT - see EX.sell_tip.
+        if EX.markup_pct(res, true) > 0 then
             local cp = EX.hostility_source(res)
             t = t .. "||" .. (cp and EX.faction_display(cp) or "The guild")
                   .. (h > 0 and " holds this and dislikes you: +"
@@ -9017,7 +9250,9 @@ end
 function EX.sell_tip(res)
     local t = EX.TIPS.trade.hdr_sell
     local h = EX.hostility(res)
-    if h ~= 0 then
+    -- ON THE REALISED PERCENT, NOT h ~= 0 (2026-09-30): the friendly cap is under half a per
+    -- cent at the default spread, and "likes you: pays you 0% more" says nothing.
+    if EX.markup_pct(res, false) > 0 then
         local cp = EX.hostility_source(res)
         -- EX.markup_pct, NOT math.floor(h * 100 + 0.5). REPORTED FROM A SCREENSHOT
         -- 2026-09-08: the cell read -11% and this tooltip read 10%, on the same row, for the
@@ -9133,6 +9368,8 @@ local function place(parent, tbl, ox, oy)
 end
 
 function EX.layout()
+    -- The row set is the bound player's (EX.deals, EX.forwards, EX.bonds); see EX.refresh_panel.
+    if EX.who() ~= EX.me() then return end
     local sw, sh = EX.screen()
     -- Last attempt by construction: retry() refuses at >= EX.PLACE_TRIES, so a bad read
     -- here is ignored rather than starting a second chain alongside the first tick's.
@@ -9299,6 +9536,7 @@ EX.TWO_STATE_CELLS = { btn_buy = true, btn_sell = true,
 -- would otherwise add a tab whose label disappears on hover and nothing but a screenshot
 -- taken with the pointer on it would ever show that.
 for _, m in ipairs(EX.MODES) do EX.TWO_STATE_CELLS[EX.tab_name(m)] = true end
+for i = 1, EX.SUB_SLOTS do EX.TWO_STATE_CELLS[EX.sub_name(i)] = true end
 
 local function set_text(parent, child, text)
     local c = find_uicomponent(parent, child)
@@ -9629,7 +9867,7 @@ function EX.draw_chart()
     local sh = EX.shock[res] or 0
     local why = EX.shock_why[res]
     if sh ~= 0 and why then
-        say("chart_note", string.format("Shaken %.1f steps (%s).", sh, why))
+        say("chart_note", string.format("Shaken %.1f steps (%s).", sh, EX.shock_cause(res, true)))
     elseif hi == lo then
         say("chart_note", "This price has not moved since it was first recorded.")
     else
@@ -10015,6 +10253,17 @@ end
 -- THE INDEX ROW'S CELLS, out of the draw for EX.deal_cells' reason.
 EX.TIP_INDEX_BUY = "Buy the amount on the button. It does not move prices."
 
+-- NOT ENOUGH GOLD FOR ONE LOT (2026-09-30): the button greys "No gold", the Bonds page's word,
+-- instead of taking the click and refusing it in the Log - seen in play, four refused index buys
+-- with nothing on screen. ONE lot, not the amount: a buy fills as many lots as the gold covers.
+-- Returns REASON, LABEL like EX.buy_refusal; nil when the gold is there or cannot be read.
+function EX.gold_short(px)
+    local gold
+    pcall(function() gold = cm:get_faction(EX.who()):treasury() end)
+    if not gold or not px or gold >= px then return nil end
+    return "You have " .. gold .. "g; one lot costs " .. px .. "g.", "No gold"
+end
+
 function EX.index_cells()
     local c = EX.index_culture()
     local s = EX.index_state(c)
@@ -10022,8 +10271,9 @@ function EX.index_cells()
     local u = EX.index_units or 0
     local due = EX.index_due(c, u)
     local lot = EX.HOUSE_LOT_SIZE * EX.clamp_lots(EX.amount)
-    local why, label = EX.index_refusal(c)
     local px = EX.index_buy_price(c)
+    local why, label = EX.index_refusal(c)
+    if not why then why, label = EX.gold_short(px) end
     return {
         name     = "Index of " .. n .. (n == 1 and " house" or " houses"),
         price    = px and tostring(px) or "-",
@@ -10145,7 +10395,7 @@ function EX.deals_footer()
     local l2 = "A deal lasts one turn and is gone at the next. The price is agreed: the market "
         .. "markup does not apply to it."
     if #EX.fwd_offers > 0 and #EX.deals_pages() > 1 then
-        l2 = "Contract offers, for delivery in later turns, are on page 2."
+        l2 = "Contract offers, for delivery in later turns, are on the Contracts tab."
     end
     return EX.deals_line(), l2
 end
@@ -10261,7 +10511,12 @@ function EX.draw_offer_row(row, res)
     set_tip(bb, c.why or c.tip)
 end
 
+-- THIS MACHINE'S PANEL DRAWS THIS MACHINE'S PLAYER, and nobody else's (2026-09-30). The deal,
+-- fwd, idx and bond ops and a tithe demand redraw while the ACTING player is bound, so every
+-- other machine with the panel open drew the sender's deals, bonds and holdings. Bound to
+-- somebody else, draw nothing; the local player's next redraw is theirs.
 function EX.refresh_panel()
+    if EX.who() ~= EX.me() then return end
     local panel = EX.panel()
     if not is_uicomponent(panel) then return end
     EX.refresh_button_tip()
@@ -10338,6 +10593,7 @@ function EX.refresh_panel()
                     or ("Switch to " .. (EX.TAB_LABEL[m] or m) .. "."))
         end
     end
+    EX.draw_sections(panel)
 
     -- AND THE ARROWS, which page the view rather than cycling views since the tabs arrived.
     -- A view with one page has nothing for them to do, so they grey out and say so instead of
@@ -10608,6 +10864,7 @@ function EX.refresh_panel()
                     -- than EX.market_closed so this row can never disagree with the commodity
                     -- rows about what is wrong.
                     local why, why_label = EX.buy_refusal(res)
+                    if not why then why, why_label = EX.gold_short(EX.buy_price(res)) end
                     set_text(row, "btn_buy", why_label or ("Buy " .. lot))
                     set_text(row, "btn_sell", "Sell " .. lot)
                     EX.set_off(bb, why ~= nil)
@@ -10889,6 +11146,11 @@ EX.PANEL_LAYOUT_HOUSES = {
     { "footer_text2",  20, 662 },
     { "close_button", 876,  14 },
     { "btn_help",     838,  14 },
+    -- THE SUB-TABS, the tab strip's 108 on 116 in the title bar: after title_text's 400px box
+    -- (ends 420), clear of btn_help at 838, and above the amount cluster at 46.
+    { "derpy_chd_ex_sub_1", 484,  16, 108 },
+    { "derpy_chd_ex_sub_2", 600,  16, 108 },
+    { "derpy_chd_ex_sub_3", 716,  16, 108 },
     -- THE NAV STRIP, 696..726 in a 736-tall panel. Right edge at 906, the same as
     -- close_button's, so the two controls line up down the right-hand side. nav_page is
     -- Center-aligned in its 44px box, so "1/4" and "4/4" do not shuffle sideways as you page.
@@ -10941,7 +11203,8 @@ EX.ROW_LAYOUT_HOUSES = {
 function EX.page_count()
     if EX.mode == EX.MODE_HELP then return #EX.HELP_PAGES end
     if EX.mode == EX.MODE_LOG then return EX.log_pages() end
-    if EX.mode == EX.MODE_HOUSES then return EX.house_page_count() end
+    -- THE SECTION ON SCREEN'S PAGES: the list's, or one on the index and the bonds page.
+    if EX.mode == EX.MODE_HOUSES then return EX.house_extra() and 1 or EX.house_pages() end
     -- TRADE'S COUNT IS #EX.trade_pages(), NOT A FIXED NUMBER. It used to read "always two,
     -- even with nothing selected" back when the chart was the only optional page; the orders
     -- ledger made that false the moment it shipped as a second switch - with two switches
@@ -10952,7 +11215,7 @@ function EX.page_count()
         -- rather than by arithmetic - see EX.trade_pages.
         return #EX.trade_pages()
     end
-    if EX.mode == EX.MODE_DEALS then return #EX.deals_pages() end
+    -- DEALS HAS NO BRANCH: its two pages are sub-tabs since 2026-09-30, one page each.
     return 1
 end
 function EX.page_index()
@@ -10969,7 +11232,6 @@ function EX.page_index()
         if at > n then at = n end
         return at
     end
-    if EX.mode == EX.MODE_DEALS then return EX.deal_page_at() end
     return 1
 end
 
@@ -10996,11 +11258,9 @@ function EX.step_page(delta)
     elseif EX.mode == EX.MODE_LOG then
         EX.log_page = at
     elseif EX.mode == EX.MODE_HOUSES then
-        EX.house_page = EX.house_extra_pages()[at - EX.house_pages()] or at
+        EX.house_page = at
     elseif EX.mode == EX.MODE_TRADE then
         EX.trade_page = at
-    elseif EX.mode == EX.MODE_DEALS then
-        EX.deal_page = at
     end
     EX.layout()
     EX.refresh_panel()   -- NOT EX.refresh: the function is EX.refresh_panel (see :3499)
@@ -11022,6 +11282,93 @@ function EX.tab_mode(name)
         if name == EX.tab_name(m) then return m end
     end
     return nil
+end
+
+-- THE SUB-TABS (2026-09-30), asked for from play with the Houses tab screenshotted at 4/5 and
+-- 5/5: "theres bonds and index, but its not too visible to the player, maybe have a tab system
+-- for the House panel? instead of using the arrow buttons". Seven top-level tabs do not fit
+-- the strip, which is why those two became pages; the title bar holds the second level. The
+-- arrows now page only the section on screen.
+--
+-- A SLOT CLICK, the listener's filter and its handler both - EX.tab_mode's rule.
+function EX.sub_slot(name)
+    for i = 1, EX.SUB_SLOTS do
+        if name == EX.sub_name(i) then return i end
+    end
+    return nil
+end
+
+-- EACH VIEW'S SECTIONS: the EX.view() it lands on, the label, and the tooltip's line. The
+-- first is the view's own list, so the labels match the title's ": Houses" / ": Deals".
+EX.SECTIONS = {
+    houses = {
+        { "houses", "Houses", "Shares in the houses of your people, one row a house." },
+        { "index", "Index", "One lot of every house of your people, bought and sold with one "
+            .. "button." },
+        { "bonds", "Bonds", "Lend gold to houses of your people at war, or borrow from those "
+            .. "at peace. Paid back a little every turn." },
+    },
+    deals = {
+        { "deals", "Deals", "Offers to buy or sell at an agreed price, this turn only." },
+        { "contracts", "Contracts", "Buy or sell at a price fixed today, delivered in a "
+            .. "later turn." },
+    },
+}
+EX.SECTION_PAGE = { houses = 1, index = EX.HOUSE_INDEX_PAGE, bonds = EX.HOUSE_BONDS_PAGE,
+                    deals = 1, contracts = 2 }
+
+function EX.sections() return EX.SECTIONS[EX.mode] end
+
+-- WHY A SECTION IS UNAVAILABLE, or nil. The pages' own rule: a switch stops new offers, and a
+-- position still open keeps its page (EX.house_extra_pages, EX.deals_pages).
+function EX.section_locked(v)
+    if v == "bonds" and #EX.house_extra_pages() < 2 then
+        return "Bonds and loans are switched off in this campaign's settings."
+    end
+    if v == "contracts" and #EX.deals_pages() < 2 then
+        return "Contracts are switched off in this campaign's settings."
+    end
+    return nil
+end
+
+-- THE SECTION ON SCREEN IS A NO-OP, not a reset to its first page: its button is greyed, and
+-- a click that still arrives must not throw a player off page 2 of the list. The sort goes,
+-- as it does on a tab click - it belongs to one view's columns.
+function EX.sub_click(i)
+    local s = (EX.sections() or {})[i]
+    if not s or s[1] == EX.view() or EX.section_locked(s[1]) then return end
+    if EX.mode == EX.MODE_HOUSES then
+        EX.house_page = EX.SECTION_PAGE[s[1]]
+    else
+        EX.deal_page = EX.SECTION_PAGE[s[1]]
+    end
+    EX.sort_col, EX.sort_dir = nil, 1
+    EX.layout()
+    EX.refresh_panel()
+end
+
+-- LABEL, GREY AND TOOLTIP PER SLOT, the tab strip's standard: the section on screen and a
+-- locked one are greyed, a locked one says why. A slot the view has no section for is HIDDEN -
+-- set_text shows what it writes, and the Deals layout places all three for the bonds page.
+function EX.draw_sections(panel)
+    local secs = EX.sections() or {}
+    local v = EX.view()
+    for i = 1, EX.SUB_SLOTS do
+        local c = find_uicomponent(panel, EX.sub_name(i))
+        if is_uicomponent(c) then
+            local s = secs[i]
+            if s then
+                set_text(panel, EX.sub_name(i), s[2])
+                local here = (s[1] == v)
+                local locked = EX.section_locked(s[1])
+                EX.set_off(c, here or locked ~= nil)
+                set_tip(c, locked or (here and "You are looking at this page.")
+                        or (s[2] .. "||" .. s[3]))
+            else
+                c:SetVisible(false)
+            end
+        end
+    end
 end
 
 -- WHY A TAB IS UNAVAILABLE, or nil if it is not. The tab strip and the harness read the same
@@ -11518,11 +11865,13 @@ end
 -- Same realised figure the cell and the tooltip use; see EX.sell_tip.
 function EX.markup_note(res, is_buy)
     local h = EX.hostility(res)
-    if h == 0 then return "" end
+    -- ON THE REALISED PERCENT - see EX.sell_tip.
+    local pct = EX.markup_pct(res, is_buy)
+    if pct <= 0 then return "" end
     local cp = EX.hostility_source(res)
     return "  " .. (cp and EX.faction_display(cp) or "The guild")
         .. (h > 0 and " dislikes you: " or " likes you: ")
-        .. EX.markup_pct(res, is_buy) .. "% "
+        .. pct .. "% "
         .. ((h > 0) == is_buy and "more" or "less") .. "."
 end
 
@@ -12135,6 +12484,15 @@ function EX.post_deals()
             local edge = (c.side == "buy") and (100 + EX.opt("deal_edge"))
                                           or  (100 - EX.opt("deal_edge"))
             local px = math.floor(c.px * edge / 100)
+            -- A BUYER NEVER PAYS MORE THAN THE LOT COSTS YOU ON THE TRADE VIEW (2026-09-30).
+            -- Over it, the player bought the lot there and sold it straight in: a free round
+            -- trip every turn the guild's markup sat under the edge. Contracts too - the same
+            -- price, held until delivery for the cost of the rent. Read bound, so it is this
+            -- player's markup; once per faction the walk asks, like EX.deal_ok.
+            if c.side == "buy" then
+                local cap = EX.buy_price(c.res)
+                if px > cap then px = cap end
+            end
             if deal_room then
                 seen[c.fac] = true
                 -- THE ENGINE'S OWN ANSWER, AND IT IS OBEYED. can_issue before score, CA's order.
@@ -12454,13 +12812,16 @@ end
 -- ticket prints on the standing line and EX.ticket_click logs; logging here as well would put
 -- two lines in the Log for one click.
 function EX.place_order(res, side, cmp, rung, qty)
-    if qty ~= nil then EX.amount = EX.clamp_lots(qty) end
     local why = EX.place_order_check(res, side, cmp, rung)
     if why then return why end
     -- THE AMOUNT ON SCREEN AT THE MOMENT PLACE WAS PRESSED, frozen onto the order. Reading
     -- EX.amount at FILL time instead would let a player change the amount button and quietly
     -- rewrite the size of every standing order they hold.
-    local o = { res = res, side = side, cmp = cmp, rung = rung, qty = EX.clamp_lots(EX.amount) }
+    -- qty IS THAT AMOUNT, carried by the op; EX.amount is only the fallback. It used to be
+    -- written INTO EX.amount, which is this machine's button - so another player's order reset
+    -- it to their size (2026-09-30).
+    local o = { res = res, side = side, cmp = cmp, rung = rung,
+                qty = EX.clamp_lots(qty ~= nil and qty or EX.amount) }
     EX.orders[#EX.orders + 1] = o
     EX.save_orders()
     -- pcall for the same reason every other EX.log_add call site has one: EX.log_subject
@@ -13860,6 +14221,11 @@ function EX.click_dispatch(context)
         EX.nav_click(s)
         return
     end
+    local sub = EX.sub_slot(s)
+    if sub then
+        EX.sub_click(sub)
+        return
+    end
     -- THE TICKET, ABOVE THE ROW WALK BELOW. These five have no row parent - they are
     -- PANEL-LEVEL - so `UIComponent(clicked:Parent())` would resolve to the panel
     -- itself, not a row, and EX.row_click has no branch for that. THE TAIL LIVES IN
@@ -13932,6 +14298,8 @@ function EX.init()
     -- the first write lands in a slice nothing will ever read back.
     EX.forget_humans()
     EX.adopt_local()
+    -- THE CAMPAIGN'S FROZEN SETTINGS, before the first knob is read (see EX.adopt_snap).
+    EX.adopt_snap()
     -- FIRST, BEFORE EX.rescan. rescan -> scan_supply reads EX.HOUSE_CULTURES once per region,
     -- so the rebind has to land before the first scan or turn one's house-region tally is
     -- counted against the Chaos Dwarf default whatever the players actually are.
@@ -13992,6 +14360,8 @@ function EX.init()
 
     EX.restore()
     EX.apply_prices()
+    -- After the prices: a new index opens at its members' average.
+    EX.index_open()
     EX.apply_trade_income()
     -- THE SAME RESYNC, for the same reason and one bundle family over. EX.rescan() above has
     -- already filled EX.actors, so this is a real sweep and not the early return. Without it a
@@ -14310,11 +14680,14 @@ function EX.init()
     core:add_listener("zharr_shock_loot", "CharacterLootedSettlement", true,
         function(context) EX.shock_from_garrison(context, "looted") end, true)
     -- A CAPTURE IS A GARRISON EVENT like the three above, so it reuses their handler and
-    -- its region lookup. Two events, because CA ships the opposed and unopposed cases
-    -- separately and a settlement walked into is disrupted exactly as much as one stormed.
-    -- They cannot double-count each other: only one of the pair fires for any one capture,
-    -- and the per-turn guard is keyed by region AND kind, which is the same kind here.
-    core:add_listener("zharr_shock_capture", "CharacterCapturedSettlement", true,
+    -- its region lookup. GarrisonOccupiedEvent is the one CA fires when a settlement is taken
+    -- and occupied: its docs list garrison_residence() and character(), and CA's own XP script
+    -- uses it for exactly "general captures and occupies a settlement". Until 2026-09-30 this
+    -- listened for CharacterCapturedSettlement, which is in neither CA's docs nor any of CA's
+    -- 7,540 scripts - so a settlement taken by assault never moved a price. The unopposed
+    -- event stays beside it: if both fire for one capture, the per-turn guard is keyed by
+    -- region AND kind, which is the same kind here, and the share counts once.
+    core:add_listener("zharr_shock_capture", "GarrisonOccupiedEvent", true,
         function(context) EX.shock_from_garrison(context, "captured") end, true)
     core:add_listener("zharr_shock_capture_un", "CharacterCapturedSettlementUnopposed", true,
         function(context) EX.shock_from_garrison(context, "captured") end, true)
@@ -14353,17 +14726,7 @@ function EX.init()
             end)
             return ok and is_raid == true
         end,
-        function(context)
-            local ok, err = pcall(function()
-                local ch = context:military_force():general_character()
-                if not ch or ch:is_null_interface() then return end
-                if not ch:has_region() then return end
-                local region = ch:region()
-                if not region or region:is_null_interface() then return end
-                EX.add_shock(region, "raided")
-            end)
-            if not ok then EX.say("error", "raid shock failed: " .. tostring(err)) end
-        end, true)
+        function(context) EX.shock_from_raid(context) end, true)
 
     -- NO DilemmaChoiceMadeEvent LISTENER. One that MATCHES hard-crashes this game even with
     -- an EMPTY handler - see the note on EX.DEMANDS_ENABLED. The demand is answered through
@@ -14402,7 +14765,7 @@ function EX.init()
         function(context)
             local s = context.string
             return s == EX.BUTTON or s == "close_button" or s == EX.MODE_BTN
-                or s == EX.MODE_PREV or EX.tab_mode(s) ~= nil
+                or s == EX.MODE_PREV or EX.tab_mode(s) ~= nil or EX.sub_slot(s) ~= nil
                 or s == EX.HELP_BTN or s == "btn_buy" or s == "btn_sell"
                 -- The name cell, which selects that instrument for the chart.
                 or s == "row_name"

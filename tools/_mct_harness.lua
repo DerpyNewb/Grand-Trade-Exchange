@@ -131,6 +131,12 @@ local saved_store = EX.store
 EX.snap = nil
 EX.store = saved_store
 PRESET = "easy"
+-- AND IT HOLDS FROM THE LOAD ITSELF, not from the next turn start (2026-09-30). EX.init prices
+-- the board, the trade income and the positions long before the turn round's EX.snapshot, and
+-- all of that read the panel's EASY here. EX.adopt_snap is what EX.init calls first.
+print("adopt_on_load " .. tostring(EX.adopt_snap()))
+print("before_turn_spread " .. tostring(EX.opt("spread")))
+EX.snap = nil
 local retaken = EX.snapshot()
 print("retaken_on_load " .. tostring(retaken))
 print("after_load_spread " .. tostring(EX.opt("spread")))

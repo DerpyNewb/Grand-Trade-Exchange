@@ -461,7 +461,16 @@ print("fwd_subject_after " .. tostring(EX.who()))
 local gbefore = {}
 for _, f in ipairs(EX.humans()) do gbefore[f] = GOLD[f] or 0 end
 TURN = at or TURN
+-- THE MARKET MOVES BEFORE DELIVERY (2026-09-30). A buying faction's contract is held to the
+-- Trade view's buy price, which on this calm board IS the market, so an unmoved market settled
+-- every short lot at a difference of 0 and no treasury moved to be read. Put back after.
+local keep_rungs = {}
+for _, res in ipairs(EX.COMMODITIES) do
+    keep_rungs[res] = EX.current[res]
+    EX.current[res] = (EX.current[res] or EX.neutral_rung()) + 3
+end
 EX.deliver_all_forwards()
+for _, res in ipairs(EX.COMMODITIES) do EX.current[res] = keep_rungs[res] end
 local gmoved, left = {}, {}
 for _, f in ipairs(EX.humans()) do
     if (GOLD[f] or 0) ~= gbefore[f] then gmoved[#gmoved + 1] = f end

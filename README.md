@@ -37,14 +37,14 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 26,842 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 15,842 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 5,175 |
-| UI layouts (`.twui.xml`) | 5,249 |
-| Generated DB + localisation (TSV) | 2,425 rows |
-| Documentation | 264 KB |
+| Python generators (`tools/`) | 27,573 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 16,205 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 5,351 |
+| UI layouts (`.twui.xml`) | 5,513 |
+| Generated DB + localisation (TSV) | 2,457 rows |
+| Documentation | 271 KB |
 
-The mod itself is 10 DB tables, 649 rows and 1,776 localisation strings, plus the
+The mod itself is 10 DB tables, 681 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
 three `.twui.xml` files and the settings Lua are outputs, committed so the repo is
 readable without running anything.

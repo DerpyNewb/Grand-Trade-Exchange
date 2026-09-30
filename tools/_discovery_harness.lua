@@ -123,6 +123,17 @@ print("name_no_common " .. EX.faction_display("mixer_chd_gargath"))
 EX.LOG = {}
 EX.store = EX.store or {}
 common = nil                     -- exactly what settle time must survive
+-- A DEATH ON TURN 1 WITH NOTHING HELD IS NOT WRITTEN (2026-09-30). A fresh campaign with
+-- Mixu's unlocker delists 56 dormant factions at its first turn round - each passed discovery
+-- in the first-tick window - and every one wrote "You held nothing in it", half the Log. A
+-- paid settlement on turn 1 is still written.
+cm.turn_number = function() return 1 end
+EX.log_settlement("mixer_chd_gargath", 0, 0)
+print("turn1_unheld " .. #EX.LOG)
+EX.log_settlement("mixer_chd_gargath", 500, 2)
+print("turn1_paid " .. #EX.LOG)
+EX.LOG = {}
+cm.turn_number = function() return 5 end
 EX.log_settlement("cr_chd_skullstack", 0, 0)
 print("settle_logged " .. #EX.LOG)
 print("settle_subject_empty " .. tostring(EX.LOG[1] and EX.LOG[1][2] == ""))

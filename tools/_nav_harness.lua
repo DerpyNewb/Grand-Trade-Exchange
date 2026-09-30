@@ -273,15 +273,82 @@ print("h_fwd " .. EX.house_page .. "," .. tostring(EX.mode))
 EX.house_page = 1
 EX.nav_click(EX.MODE_PREV)
 print("h_back_wrap " .. EX.page_index() .. "," .. EX.view())
--- AFTER THE LIST, THE INDEX, THEN THE BONDS PAGE (2026-09-29): Next from the last list page
--- lands on the index, Next again on bonds, and Next again wraps to page 1 of the list.
+-- THE ARROWS PAGE THE LIST AND NOTHING ELSE (2026-09-30): Next from the last list page wraps
+-- to page 1. The index and the bonds page used to follow the list here, pages 4/5 and 5/5,
+-- and a player never found them; they are sub-tabs now.
 EX.house_page = EX.house_pages()
 EX.nav_click(EX.MODE_BTN)
-print("h_to_index " .. EX.page_index() .. "," .. EX.view() .. "," .. EX.nav_label())
+print("h_fwd_wrap " .. EX.page_index() .. "," .. EX.view())
+
+-- THE SUB-TABS ----------------------------------------------------------------------------
+-- A slot's component name maps back to its number, and nothing else does - the listener's
+-- filter reads EX.sub_slot, so a false positive is a click anywhere in the game.
+local smap = {}
+for i = 1, EX.SUB_SLOTS do smap[#smap + 1] = tostring(EX.sub_slot(EX.sub_name(i))) end
+print("sub_map " .. table.concat(smap, ","))
+print("sub_foreign " .. tostring(EX.sub_slot("button_end_turn")) .. ","
+      .. tostring(EX.sub_slot(EX.tab_name(EX.MODE_HOUSES))) .. ","
+      .. tostring(EX.sub_slot(EX.sub_name(EX.SUB_SLOTS + 1))))
+local function secs()
+    local t = {}
+    for _, s in ipairs(EX.sections() or {}) do t[#t + 1] = s[1] .. "=" .. s[2] end
+    return table.concat(t, ",")
+end
+EX.mode = EX.MODE_HOUSES
+print("sub_houses " .. secs())
+-- ONE CLICK TO EACH, from the second page of the list, and the counter reads the section.
+EX.house_page = 2
+EX.sort_col = "hdr_price"
+EX.sub_click(2)
+print("sub_to_index " .. EX.view() .. "," .. EX.nav_label() .. "," .. tostring(EX.sort_col))
 EX.nav_click(EX.MODE_BTN)
-print("h_to_bonds " .. EX.page_index() .. "," .. EX.view() .. "," .. EX.nav_label())
-EX.nav_click(EX.MODE_BTN)
-print("h_index_wrap " .. EX.page_index() .. "," .. EX.view())
+EX.nav_click(EX.MODE_PREV)
+print("sub_index_arrows " .. EX.view() .. "," .. EX.nav_label())
+EX.sub_click(3)
+print("sub_to_bonds " .. EX.view() .. "," .. EX.nav_label())
+EX.sub_click(1)
+print("sub_to_list " .. EX.view() .. "," .. EX.nav_label())
+-- THE SECTION ON SCREEN IS A NO-OP: its button is greyed, and a click that still arrives
+-- must not throw the player back to page 1 of the list.
+EX.house_page = 2
+EX.sub_click(1)
+print("sub_here " .. EX.view() .. "," .. EX.nav_label())
+-- A LOCKED SECTION says why and is not entered: bonds off and none held.
+EX.snap = { ai_bonds = false }
+local keep_bonds = EX.bonds
+EX.bonds = {}
+EX.house_page = 1
+EX.sub_click(3)
+print("sub_bonds_locked " .. EX.view() .. "," .. tostring(EX.section_locked("bonds") ~= nil)
+      .. "," .. tostring(EX.section_locked("index") ~= nil))
+EX.bonds = { { side = "b" } }
+print("sub_bonds_open " .. tostring(EX.section_locked("bonds") ~= nil))
+EX.bonds = keep_bonds
+EX.snap = nil
+-- THE DEALS TAB: two sections, one page each, and no third slot.
+EX.mode = EX.MODE_DEALS
+EX.deal_page = 1
+print("sub_deals " .. secs() .. "," .. EX.nav_label())
+EX.sub_click(2)
+print("sub_to_contracts " .. EX.view() .. "," .. EX.nav_label())
+EX.sub_click(3)
+print("sub_deals_slot3 " .. EX.view())
+EX.sub_click(1)
+print("sub_to_deals " .. EX.view())
+EX.snap = { ai_forwards = false }
+local keep_fw = EX.forwards
+EX.forwards = {}
+EX.sub_click(2)
+print("sub_contracts_locked " .. EX.view() .. "," .. tostring(EX.section_locked("contracts") ~= nil))
+EX.forwards = keep_fw
+EX.snap = nil
+-- A VIEW WITH NO SECTIONS ignores every slot.
+EX.mode = EX.MODE_TRADE
+EX.trade_page = 1
+EX.sub_click(2)
+print("sub_trade " .. tostring(EX.sections()) .. "," .. EX.trade_page .. "," .. EX.mode)
+EX.mode = EX.MODE_HOUSES
+
 -- THE LIST SHRINKING UNDER THE INDEX PAGE KEEPS THE PLAYER ON IT.
 EX.house_page = EX.HOUSE_INDEX_PAGE
 houses(4)

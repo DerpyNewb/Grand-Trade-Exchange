@@ -167,6 +167,7 @@ comp(EX.BUTTON, ROOT)
 EX.screen = function() return 1600, 900 end
 EX.built = true
 EX.place_button = function() end
+local REAL_REFRESH = EX.refresh_panel      -- for the one scene that asks the real one
 EX.refresh_panel = function() end
 EX.faction_display = function(f) return f end
 EX.icon = function() return nil end
@@ -717,15 +718,27 @@ local pg_off = #EX.deals_pages()
 EX.forwards = keep_fw
 local pg_open = #EX.deals_pages()
 EX.snap = { ai_deals = true, ai_forwards = true }
--- PAGE 2 BY THE ARROW, the way a player gets there.
+-- BY THE SUB-TAB, the way a player gets there (2026-09-30; it was page 2 of the arrows).
 EX.deal_page = 1
 local v1 = EX.view()
 local foot1a, foot1b = EX.deals_footer()
-EX.nav_click("forward")
+EX.sub_click(2)
 print("fwd_nav pages=" .. pg_on .. "/" .. pg_off .. "/" .. pg_open .. " view1=" .. v1
     .. " view2=" .. EX.view() .. " nav=" .. EX.nav_label()
-    .. " pointer=" .. tostring(string.find(foot1b, "page 2", 1, true) ~= nil))
+    .. " pointer=" .. tostring(string.find(foot1b, "Contracts tab", 1, true) ~= nil))
 report("contracts_p2")
+-- WHAT THE SLOTS DRAW: label and greyed-or-live per slot, or hidden. Deals has two sections,
+-- so the third slot - placed, because the bonds page shares this layout - must be hidden.
+local function subs()
+    local t = {}
+    for i = 1, EX.SUB_SLOTS do
+        local c = PANEL.kids[EX.sub_name(i)]
+        t[#t + 1] = c.vis and (us(c.text) .. ":" .. (c.disabled and "off" or "on")) or "hidden"
+    end
+    return table.concat(t, ",")
+end
+EX.draw_sections(PANEL)
+print("sub_draw contracts=" .. subs())
 local real_held, real_tier = EX.held, EX.treaty_tier
 EX.held = function() return 100 end
 EX.treaty_tier = function(f) return (f == "house_g") and "war" or "free" end
@@ -797,11 +810,9 @@ EX.store[EX.SAVE_INDEX .. "cc"] = nil
 EX.human_list = nil
 EX.index_sync(true)
 EX.set_index_units(10)
--- BY THE ARROW: back from page 1 wraps to the last page, the bonds page, and back once more
--- is the index.
+-- BY THE SUB-TAB, from page 1 of the list.
 EX.house_page = 1
-EX.nav_click(EX.MODE_PREV)
-EX.nav_click(EX.MODE_PREV)
+EX.sub_click(2)
 local irows = EX.mode_instruments()
 print("idx_nav view=" .. EX.view() .. " nav=" .. EX.nav_label() .. " rows=" .. #irows
     .. " first=" .. irows[1] .. " second=" .. tostring(irows[2]))
@@ -841,6 +852,24 @@ EX.set_index_units(0)
 EX.draw_index_row(IR)
 print("idx_shut buy=" .. ib(IR, "btn_buy") .. " sell=" .. ib(IR, "btn_sell"))
 EX.market_closed = function() return nil end
+-- SHORT OF ONE LOT (2026-09-30): greyed "No gold" with the two numbers, not a live button whose
+-- click is refused in the Log. Seen in play: four refused index buys, nothing on screen. Exactly
+-- one lot's gold is enough.
+local real_gf_i, real_tier_poor = cm.get_faction, EX.treaty_tier
+EX.treaty_tier = function() return "free" end
+cm.get_faction = function() return { treasury = function() return 1109 end } end
+EX.draw_index_row(IR)
+print("idx_poor buy=" .. ib(IR, "btn_buy") .. " tip=" .. us(find_uicomponent(IR, "btn_buy").tip))
+-- AND THE MARKET'S OWN REFUSAL STILL NAMES ITSELF when both apply.
+EX.market_closed = function() return HOUSES[1] end
+EX.draw_index_row(IR)
+print("idx_poor shut=" .. ib(IR, "btn_buy"))
+EX.market_closed = function() return nil end
+cm.get_faction = function() return { treasury = function() return 1110 end } end
+EX.draw_index_row(IR)
+print("idx_poor exact=" .. ib(IR, "btn_buy"))
+cm.get_faction, EX.treaty_tier = real_gf_i, real_tier_poor
+EX.draw_index_row(IR)
 -- THE CLICK: the index row's two buttons send idx; a member row's buttons and a name send
 -- nothing, and a name click does not pick a commodity for the Trade page.
 local ISENT = {}
@@ -888,22 +917,33 @@ EX.bonds = {
 }
 -- THE PAGE LIST: on with the switch; off with nothing open; still there with a position open.
 EX.snap = { ai_bonds = true }
-local bpg_on = EX.house_page_count()
+local bpg_on = #EX.house_extra_pages()
 local keep_bd = EX.bonds
 EX.snap = { ai_bonds = false }
 EX.bonds = {}
-local bpg_off = EX.house_page_count()
+local bpg_off = #EX.house_extra_pages()
 EX.bonds = keep_bd
-local bpg_open = EX.house_page_count()
+local bpg_open = #EX.house_extra_pages()
 EX.house_page = EX.HOUSE_BONDS_PAGE
 local bgone = EX.view()
 EX.bonds = {}
 local bgone2 = EX.view() .. "/" .. EX.nav_label() .. "/" .. tostring(EX.on_bonds())
+-- THE LOCKED SLOT: greyed, and its tooltip is the reason rather than an invitation.
+EX.draw_sections(PANEL)
+local lock_tip = PANEL.kids[EX.sub_name(3)].tip
+print("sub_draw locked=" .. subs() .. " tip=" .. us(lock_tip))
 EX.bonds = keep_bd
 EX.snap = { ai_bonds = true }
--- BY THE ARROW, the way a player gets there: back from page 1.
+-- BY THE SUB-TAB, the way a player gets there.
 EX.house_page = 1
-EX.nav_click(EX.MODE_PREV)
+EX.sub_click(3)
+EX.draw_sections(PANEL)
+print("sub_draw bonds=" .. subs() .. " tip3=" .. us(PANEL.kids[EX.sub_name(3)].tip)
+    .. " tip2=" .. us(PANEL.kids[EX.sub_name(2)].tip))
+EX.mode = EX.MODE_TRADE
+EX.draw_sections(PANEL)
+print("sub_draw trade=" .. subs())
+EX.mode = EX.MODE_HOUSES
 print("bd_nav pages=" .. bpg_on .. "/" .. bpg_off .. "/" .. bpg_open .. " view=" .. EX.view()
     .. " nav=" .. EX.nav_label() .. " gone=" .. bgone .. "/" .. bgone2
     .. " rows=" .. #EX.mode_instruments()
@@ -1171,6 +1211,31 @@ EX.house_page = 1
 EX.layout()
 report("near_again", " pw=" .. tostring(PANEL.w) .. " ph=" .. tostring(PANEL.h))
 EX.mode = EX.MODE_TRADE
+
+-- ANOTHER PLAYER'S CLICK DRAWS NOTHING ON THIS MACHINE (2026-09-30). The deal, fwd, idx and
+-- bond ops, and a tithe demand, redraw the panel while the ACTING player is bound - through
+-- EX.with_player, exactly as EX.mp_apply runs them - so every machine with the panel open drew
+-- the sender's deals, bonds and holdings. Bound to somebody else, layout and refresh must leave
+-- the panel alone; bound to the local player they must still draw.
+do
+    -- LAYOUT: the panel's position is the sentinel, since every layout pass MoveTo's it.
+    PANEL.x, PANEL.y = -999, -999
+    EX.with_player("rival", EX.layout)
+    local kept = (PANEL.x == -999)
+    EX.layout()
+    local drew = (PANEL.x ~= -999)
+    -- REFRESH: stubbed for every scene above, so the real one is asked here - and the first
+    -- thing it asks past the guard is EX.panel(), which is all this counts. Its body needs a
+    -- world no harness builds; the question is only whether it gets that far.
+    local keep_panel, asks = EX.panel, 0
+    EX.panel = function() asks = asks + 1 return nil end
+    EX.with_player("rival", REAL_REFRESH)
+    local rival_asks = asks
+    REAL_REFRESH()
+    EX.panel = keep_panel
+    print("rival_draw kept=" .. tostring(kept) .. " local=" .. tostring(drew)
+        .. " refresh_rival=" .. rival_asks .. " refresh_local=" .. (asks - rival_asks))
+end
 
 -- GREYED MEANS DRAWN GREY, over every component any scene above touched. A component the
 -- script disabled must wear the greyscale and one it enabled must not; a scene that only

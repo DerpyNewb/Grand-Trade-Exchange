@@ -83,7 +83,8 @@ for _, culture in ipairs(order) do
         -- another culture's art - the Chaos Dwarf forge on a Skaven bulletin, 2026-09-08.
         .. ";feed_call=" .. EX.feed("call")
         .. ";feed_shock=" .. EX.feed("shock")
-        .. ";feed_delist=" .. EX.feed("delist"))
+        .. ";feed_delist=" .. EX.feed("delist")
+        .. ";feed_shockat=" .. EX.feed("shockat"))
 end
 
 -- AN UNCOVERED CULTURE. Bretonnia is in EX.CULTURE_WANTS and is not a covered race, which is

@@ -18,86 +18,89 @@
 				<derpy_chd_ex_tab_houses this="DE160022-D000-4000-B000000000000022"/>
 				<derpy_chd_ex_tab_deals this="DE160025-D000-4000-B000000000000025"/>
 				<derpy_chd_ex_tab_log this="DE160028-D000-4000-B000000000000028"/>
-				<hdr_name this="DE16002B-D000-4000-B00000000000002B"/>
-				<hdr_price this="DE16002E-D000-4000-B00000000000002E"/>
-				<hdr_sell this="DE160031-D000-4000-B000000000000031"/>
-				<hdr_supply this="DE160034-D000-4000-B000000000000034"/>
-				<hdr_trend this="DE160037-D000-4000-B000000000000037"/>
-				<hdr_spark this="DE16003A-D000-4000-B00000000000003A"/>
-				<hdr_hold this="DE16003D-D000-4000-B00000000000003D"/>
-				<rows_holder this="DE160040-D000-4000-B000000000000040"/>
-				<chart_grid_hi this="DE160043-D000-4000-B000000000000043"/>
-				<chart_grid_mid this="DE160046-D000-4000-B000000000000046"/>
-				<chart_grid_lo this="DE160049-D000-4000-B000000000000049"/>
-				<chart this="DE16004C-D000-4000-B00000000000004C">
-					<cbar_00 this="DE16004F-D000-4000-B00000000000004F"/>
-					<cbar_01 this="DE160052-D000-4000-B000000000000052"/>
-					<cbar_02 this="DE160055-D000-4000-B000000000000055"/>
-					<cbar_03 this="DE160058-D000-4000-B000000000000058"/>
-					<cbar_04 this="DE16005B-D000-4000-B00000000000005B"/>
-					<cbar_05 this="DE16005E-D000-4000-B00000000000005E"/>
-					<cbar_06 this="DE160061-D000-4000-B000000000000061"/>
-					<cbar_07 this="DE160064-D000-4000-B000000000000064"/>
-					<cbar_08 this="DE160067-D000-4000-B000000000000067"/>
-					<cbar_09 this="DE16006A-D000-4000-B00000000000006A"/>
-					<cbar_10 this="DE16006D-D000-4000-B00000000000006D"/>
-					<cbar_11 this="DE160070-D000-4000-B000000000000070"/>
-					<cbar_12 this="DE160073-D000-4000-B000000000000073"/>
-					<cbar_13 this="DE160076-D000-4000-B000000000000076"/>
-					<cbar_14 this="DE160079-D000-4000-B000000000000079"/>
-					<cbar_15 this="DE16007C-D000-4000-B00000000000007C"/>
-					<cbar_16 this="DE16007F-D000-4000-B00000000000007F"/>
-					<cbar_17 this="DE160082-D000-4000-B000000000000082"/>
-					<cbar_18 this="DE160085-D000-4000-B000000000000085"/>
-					<cbar_19 this="DE160088-D000-4000-B000000000000088"/>
-					<cbar_20 this="DE16008B-D000-4000-B00000000000008B"/>
-					<cbar_21 this="DE16008E-D000-4000-B00000000000008E"/>
-					<cbar_22 this="DE160091-D000-4000-B000000000000091"/>
-					<cbar_23 this="DE160094-D000-4000-B000000000000094"/>
-					<cbar_24 this="DE160097-D000-4000-B000000000000097"/>
-					<cbar_25 this="DE16009A-D000-4000-B00000000000009A"/>
-					<cbar_26 this="DE16009D-D000-4000-B00000000000009D"/>
-					<cbar_27 this="DE1600A0-D000-4000-B0000000000000A0"/>
-					<cbar_28 this="DE1600A3-D000-4000-B0000000000000A3"/>
-					<cbar_29 this="DE1600A6-D000-4000-B0000000000000A6"/>
-					<cbar_30 this="DE1600A9-D000-4000-B0000000000000A9"/>
-					<cbar_31 this="DE1600AC-D000-4000-B0000000000000AC"/>
-					<cbar_32 this="DE1600AF-D000-4000-B0000000000000AF"/>
-					<cbar_33 this="DE1600B2-D000-4000-B0000000000000B2"/>
-					<cbar_34 this="DE1600B5-D000-4000-B0000000000000B5"/>
-					<cbar_35 this="DE1600B8-D000-4000-B0000000000000B8"/>
-					<cbar_36 this="DE1600BB-D000-4000-B0000000000000BB"/>
-					<cbar_37 this="DE1600BE-D000-4000-B0000000000000BE"/>
-					<cbar_38 this="DE1600C1-D000-4000-B0000000000000C1"/>
-					<cbar_39 this="DE1600C4-D000-4000-B0000000000000C4"/>
+				<derpy_chd_ex_sub_1 this="DE16002B-D000-4000-B00000000000002B"/>
+				<derpy_chd_ex_sub_2 this="DE16002E-D000-4000-B00000000000002E"/>
+				<derpy_chd_ex_sub_3 this="DE160031-D000-4000-B000000000000031"/>
+				<hdr_name this="DE160034-D000-4000-B000000000000034"/>
+				<hdr_price this="DE160037-D000-4000-B000000000000037"/>
+				<hdr_sell this="DE16003A-D000-4000-B00000000000003A"/>
+				<hdr_supply this="DE16003D-D000-4000-B00000000000003D"/>
+				<hdr_trend this="DE160040-D000-4000-B000000000000040"/>
+				<hdr_spark this="DE160043-D000-4000-B000000000000043"/>
+				<hdr_hold this="DE160046-D000-4000-B000000000000046"/>
+				<rows_holder this="DE160049-D000-4000-B000000000000049"/>
+				<chart_grid_hi this="DE16004C-D000-4000-B00000000000004C"/>
+				<chart_grid_mid this="DE16004F-D000-4000-B00000000000004F"/>
+				<chart_grid_lo this="DE160052-D000-4000-B000000000000052"/>
+				<chart this="DE160055-D000-4000-B000000000000055">
+					<cbar_00 this="DE160058-D000-4000-B000000000000058"/>
+					<cbar_01 this="DE16005B-D000-4000-B00000000000005B"/>
+					<cbar_02 this="DE16005E-D000-4000-B00000000000005E"/>
+					<cbar_03 this="DE160061-D000-4000-B000000000000061"/>
+					<cbar_04 this="DE160064-D000-4000-B000000000000064"/>
+					<cbar_05 this="DE160067-D000-4000-B000000000000067"/>
+					<cbar_06 this="DE16006A-D000-4000-B00000000000006A"/>
+					<cbar_07 this="DE16006D-D000-4000-B00000000000006D"/>
+					<cbar_08 this="DE160070-D000-4000-B000000000000070"/>
+					<cbar_09 this="DE160073-D000-4000-B000000000000073"/>
+					<cbar_10 this="DE160076-D000-4000-B000000000000076"/>
+					<cbar_11 this="DE160079-D000-4000-B000000000000079"/>
+					<cbar_12 this="DE16007C-D000-4000-B00000000000007C"/>
+					<cbar_13 this="DE16007F-D000-4000-B00000000000007F"/>
+					<cbar_14 this="DE160082-D000-4000-B000000000000082"/>
+					<cbar_15 this="DE160085-D000-4000-B000000000000085"/>
+					<cbar_16 this="DE160088-D000-4000-B000000000000088"/>
+					<cbar_17 this="DE16008B-D000-4000-B00000000000008B"/>
+					<cbar_18 this="DE16008E-D000-4000-B00000000000008E"/>
+					<cbar_19 this="DE160091-D000-4000-B000000000000091"/>
+					<cbar_20 this="DE160094-D000-4000-B000000000000094"/>
+					<cbar_21 this="DE160097-D000-4000-B000000000000097"/>
+					<cbar_22 this="DE16009A-D000-4000-B00000000000009A"/>
+					<cbar_23 this="DE16009D-D000-4000-B00000000000009D"/>
+					<cbar_24 this="DE1600A0-D000-4000-B0000000000000A0"/>
+					<cbar_25 this="DE1600A3-D000-4000-B0000000000000A3"/>
+					<cbar_26 this="DE1600A6-D000-4000-B0000000000000A6"/>
+					<cbar_27 this="DE1600A9-D000-4000-B0000000000000A9"/>
+					<cbar_28 this="DE1600AC-D000-4000-B0000000000000AC"/>
+					<cbar_29 this="DE1600AF-D000-4000-B0000000000000AF"/>
+					<cbar_30 this="DE1600B2-D000-4000-B0000000000000B2"/>
+					<cbar_31 this="DE1600B5-D000-4000-B0000000000000B5"/>
+					<cbar_32 this="DE1600B8-D000-4000-B0000000000000B8"/>
+					<cbar_33 this="DE1600BB-D000-4000-B0000000000000BB"/>
+					<cbar_34 this="DE1600BE-D000-4000-B0000000000000BE"/>
+					<cbar_35 this="DE1600C1-D000-4000-B0000000000000C1"/>
+					<cbar_36 this="DE1600C4-D000-4000-B0000000000000C4"/>
+					<cbar_37 this="DE1600C7-D000-4000-B0000000000000C7"/>
+					<cbar_38 this="DE1600CA-D000-4000-B0000000000000CA"/>
+					<cbar_39 this="DE1600CD-D000-4000-B0000000000000CD"/>
 				</chart>
-				<chart_icon this="DE1600C7-D000-4000-B0000000000000C7"/>
-				<chart_title this="DE1600CA-D000-4000-B0000000000000CA"/>
-				<chart_y_hi this="DE1600CD-D000-4000-B0000000000000CD"/>
-				<chart_y_mid this="DE1600D0-D000-4000-B0000000000000D0"/>
-				<chart_y_lo this="DE1600D3-D000-4000-B0000000000000D3"/>
-				<chart_x_left this="DE1600D6-D000-4000-B0000000000000D6"/>
-				<chart_x_mid this="DE1600D9-D000-4000-B0000000000000D9"/>
-				<chart_x_right this="DE1600DC-D000-4000-B0000000000000DC"/>
-				<chart_axis this="DE1600DF-D000-4000-B0000000000000DF"/>
-				<chart_stats this="DE1600E2-D000-4000-B0000000000000E2"/>
-				<chart_note this="DE1600E5-D000-4000-B0000000000000E5"/>
-				<ord_side this="DE1600E8-D000-4000-B0000000000000E8"/>
-				<ord_cmp this="DE1600EB-D000-4000-B0000000000000EB"/>
-				<ord_down this="DE1600EE-D000-4000-B0000000000000EE"/>
-				<ord_price this="DE1600F1-D000-4000-B0000000000000F1"/>
-				<ord_up this="DE1600F4-D000-4000-B0000000000000F4"/>
-				<ord_place this="DE1600F7-D000-4000-B0000000000000F7"/>
-				<ord_standing this="DE1600FA-D000-4000-B0000000000000FA"/>
-				<btn_amt_down this="DE1600FD-D000-4000-B0000000000000FD"/>
-				<btn_amount this="DE160100-D000-4000-B000000000000100"/>
-				<btn_amt_up this="DE160103-D000-4000-B000000000000103"/>
-				<ord_qty_down this="DE160106-D000-4000-B000000000000106"/>
-				<ord_qty this="DE160109-D000-4000-B000000000000109"/>
-				<ord_qty_up this="DE16010C-D000-4000-B00000000000010C"/>
-				<ord_cost this="DE16010F-D000-4000-B00000000000010F"/>
-				<footer_text this="DE160112-D000-4000-B000000000000112"/>
-				<footer_text2 this="DE160115-D000-4000-B000000000000115"/>
+				<chart_icon this="DE1600D0-D000-4000-B0000000000000D0"/>
+				<chart_title this="DE1600D3-D000-4000-B0000000000000D3"/>
+				<chart_y_hi this="DE1600D6-D000-4000-B0000000000000D6"/>
+				<chart_y_mid this="DE1600D9-D000-4000-B0000000000000D9"/>
+				<chart_y_lo this="DE1600DC-D000-4000-B0000000000000DC"/>
+				<chart_x_left this="DE1600DF-D000-4000-B0000000000000DF"/>
+				<chart_x_mid this="DE1600E2-D000-4000-B0000000000000E2"/>
+				<chart_x_right this="DE1600E5-D000-4000-B0000000000000E5"/>
+				<chart_axis this="DE1600E8-D000-4000-B0000000000000E8"/>
+				<chart_stats this="DE1600EB-D000-4000-B0000000000000EB"/>
+				<chart_note this="DE1600EE-D000-4000-B0000000000000EE"/>
+				<ord_side this="DE1600F1-D000-4000-B0000000000000F1"/>
+				<ord_cmp this="DE1600F4-D000-4000-B0000000000000F4"/>
+				<ord_down this="DE1600F7-D000-4000-B0000000000000F7"/>
+				<ord_price this="DE1600FA-D000-4000-B0000000000000FA"/>
+				<ord_up this="DE1600FD-D000-4000-B0000000000000FD"/>
+				<ord_place this="DE160100-D000-4000-B000000000000100"/>
+				<ord_standing this="DE160103-D000-4000-B000000000000103"/>
+				<btn_amt_down this="DE160106-D000-4000-B000000000000106"/>
+				<btn_amount this="DE160109-D000-4000-B000000000000109"/>
+				<btn_amt_up this="DE16010C-D000-4000-B00000000000010C"/>
+				<ord_qty_down this="DE16010F-D000-4000-B00000000000010F"/>
+				<ord_qty this="DE160112-D000-4000-B000000000000112"/>
+				<ord_qty_up this="DE160115-D000-4000-B000000000000115"/>
+				<ord_cost this="DE160118-D000-4000-B000000000000118"/>
+				<footer_text this="DE16011B-D000-4000-B00000000000011B"/>
+				<footer_text2 this="DE16011E-D000-4000-B00000000000011E"/>
 			</derpy_chd_exchange_panel>
 		</root>
 	</hierarchy>
@@ -1118,20 +1121,281 @@
 				</hover>
 			</states>
 		</derpy_chd_ex_tab_log>
-		<hdr_name
+		<derpy_chd_ex_sub_1
 			this="DE16002B-D000-4000-B00000000000002B"
-			id="hdr_name"
+			id="derpy_chd_ex_sub_1"
 			tooltipslocalised="true"
+			componentleveltooltip="Switch to this view."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE16002B-D000-4000-B00000000000002B"
 			currentstate="DE16002C-D000-4000-B00000000000002C"
 			defaultstate="DE16002C-D000-4000-B00000000000002C">
+			<componentimages>
+				<component_image
+					this="DE16002B-D001-4000-B00000000000002B"
+					uniqueguid="DE16002B-D001-4000-B00000000000002B"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE16002B-D003-4000-B00000000000002B"
+					uniqueguid="DE16002B-D003-4000-B00000000000002B"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="DE16002C-D000-4000-B00000000000002C"
 					name="standard"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE16002C-D000-4000-B00000000000002C">
+					<imagemetrics>
+						<image
+							this="DE16002B-D002-4000-B00000000000002B"
+							uniqueguid="DE16002B-D002-4000-B00000000000002B"
+							componentimage="DE16002B-D001-4000-B00000000000002B"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE16002D-D000-4000-B00000000000002D"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE16002D-D000-4000-B00000000000002D"
+					name="hover"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE16002D-D000-4000-B00000000000002D">
+					<imagemetrics>
+						<image
+							this="DE16002B-D004-4000-B00000000000002B"
+							uniqueguid="DE16002B-D004-4000-B00000000000002B"
+							componentimage="DE16002B-D003-4000-B00000000000002B"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE16002C-D000-4000-B00000000000002C"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</derpy_chd_ex_sub_1>
+		<derpy_chd_ex_sub_2
+			this="DE16002E-D000-4000-B00000000000002E"
+			id="derpy_chd_ex_sub_2"
+			tooltipslocalised="true"
+			componentleveltooltip="Switch to this view."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
+			uniqueguid="DE16002E-D000-4000-B00000000000002E"
+			currentstate="DE16002F-D000-4000-B00000000000002F"
+			defaultstate="DE16002F-D000-4000-B00000000000002F">
+			<componentimages>
+				<component_image
+					this="DE16002E-D001-4000-B00000000000002E"
+					uniqueguid="DE16002E-D001-4000-B00000000000002E"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE16002E-D003-4000-B00000000000002E"
+					uniqueguid="DE16002E-D003-4000-B00000000000002E"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE16002F-D000-4000-B00000000000002F"
+					name="standard"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE16002F-D000-4000-B00000000000002F">
+					<imagemetrics>
+						<image
+							this="DE16002E-D002-4000-B00000000000002E"
+							uniqueguid="DE16002E-D002-4000-B00000000000002E"
+							componentimage="DE16002E-D001-4000-B00000000000002E"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE160030-D000-4000-B000000000000030"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE160030-D000-4000-B000000000000030"
+					name="hover"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160030-D000-4000-B000000000000030">
+					<imagemetrics>
+						<image
+							this="DE16002E-D004-4000-B00000000000002E"
+							uniqueguid="DE16002E-D004-4000-B00000000000002E"
+							componentimage="DE16002E-D003-4000-B00000000000002E"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE16002F-D000-4000-B00000000000002F"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</derpy_chd_ex_sub_2>
+		<derpy_chd_ex_sub_3
+			this="DE160031-D000-4000-B000000000000031"
+			id="derpy_chd_ex_sub_3"
+			tooltipslocalised="true"
+			componentleveltooltip="Switch to this view."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
+			uniqueguid="DE160031-D000-4000-B000000000000031"
+			currentstate="DE160032-D000-4000-B000000000000032"
+			defaultstate="DE160032-D000-4000-B000000000000032">
+			<componentimages>
+				<component_image
+					this="DE160031-D001-4000-B000000000000031"
+					uniqueguid="DE160031-D001-4000-B000000000000031"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE160031-D003-4000-B000000000000031"
+					uniqueguid="DE160031-D003-4000-B000000000000031"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE160032-D000-4000-B000000000000032"
+					name="standard"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160032-D000-4000-B000000000000032">
+					<imagemetrics>
+						<image
+							this="DE160031-D002-4000-B000000000000031"
+							uniqueguid="DE160031-D002-4000-B000000000000031"
+							componentimage="DE160031-D001-4000-B000000000000031"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE160033-D000-4000-B000000000000033"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE160033-D000-4000-B000000000000033"
+					name="hover"
+					width="108"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160033-D000-4000-B000000000000033">
+					<imagemetrics>
+						<image
+							this="DE160031-D004-4000-B000000000000031"
+							uniqueguid="DE160031-D004-4000-B000000000000031"
+							componentimage="DE160031-D003-4000-B000000000000031"
+							offset="0.00,0.00"
+							width="108"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE160032-D000-4000-B000000000000032"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</derpy_chd_ex_sub_3>
+		<hdr_name
+			this="DE160034-D000-4000-B000000000000034"
+			id="hdr_name"
+			tooltipslocalised="true"
+			uniqueguid="DE160034-D000-4000-B000000000000034"
+			currentstate="DE160035-D000-4000-B000000000000035"
+			defaultstate="DE160035-D000-4000-B000000000000035">
+			<states>
+				<standard
+					this="DE160035-D000-4000-B000000000000035"
+					name="standard"
 					width="170"
 					height="20"
-					uniqueguid="DE16002C-D000-4000-B00000000000002C">
+					uniqueguid="DE160035-D000-4000-B000000000000035">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -1146,19 +1410,19 @@
 			</states>
 		</hdr_name>
 		<hdr_price
-			this="DE16002E-D000-4000-B00000000000002E"
+			this="DE160037-D000-4000-B000000000000037"
 			id="hdr_price"
 			tooltipslocalised="true"
-			uniqueguid="DE16002E-D000-4000-B00000000000002E"
-			currentstate="DE16002F-D000-4000-B00000000000002F"
-			defaultstate="DE16002F-D000-4000-B00000000000002F">
+			uniqueguid="DE160037-D000-4000-B000000000000037"
+			currentstate="DE160038-D000-4000-B000000000000038"
+			defaultstate="DE160038-D000-4000-B000000000000038">
 			<states>
 				<standard
-					this="DE16002F-D000-4000-B00000000000002F"
+					this="DE160038-D000-4000-B000000000000038"
 					name="standard"
 					width="90"
 					height="20"
-					uniqueguid="DE16002F-D000-4000-B00000000000002F">
+					uniqueguid="DE160038-D000-4000-B000000000000038">
 					<component_text
 						texthalign="Right"
 						textvalign="Center"
@@ -1173,89 +1437,8 @@
 			</states>
 		</hdr_price>
 		<hdr_sell
-			this="DE160031-D000-4000-B000000000000031"
-			id="hdr_sell"
-			tooltipslocalised="true"
-			uniqueguid="DE160031-D000-4000-B000000000000031"
-			currentstate="DE160032-D000-4000-B000000000000032"
-			defaultstate="DE160032-D000-4000-B000000000000032">
-			<states>
-				<standard
-					this="DE160032-D000-4000-B000000000000032"
-					name="standard"
-					width="74"
-					height="20"
-					uniqueguid="DE160032-D000-4000-B000000000000032">
-					<component_text
-						texthalign="Right"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</hdr_sell>
-		<hdr_supply
-			this="DE160034-D000-4000-B000000000000034"
-			id="hdr_supply"
-			tooltipslocalised="true"
-			uniqueguid="DE160034-D000-4000-B000000000000034"
-			currentstate="DE160035-D000-4000-B000000000000035"
-			defaultstate="DE160035-D000-4000-B000000000000035">
-			<states>
-				<standard
-					this="DE160035-D000-4000-B000000000000035"
-					name="standard"
-					width="60"
-					height="20"
-					uniqueguid="DE160035-D000-4000-B000000000000035">
-					<component_text
-						texthalign="Right"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</hdr_supply>
-		<hdr_trend
-			this="DE160037-D000-4000-B000000000000037"
-			id="hdr_trend"
-			tooltipslocalised="true"
-			uniqueguid="DE160037-D000-4000-B000000000000037"
-			currentstate="DE160038-D000-4000-B000000000000038"
-			defaultstate="DE160038-D000-4000-B000000000000038">
-			<states>
-				<standard
-					this="DE160038-D000-4000-B000000000000038"
-					name="standard"
-					width="36"
-					height="20"
-					uniqueguid="DE160038-D000-4000-B000000000000038">
-					<component_text
-						texthalign="Left"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</hdr_trend>
-		<hdr_spark
 			this="DE16003A-D000-4000-B00000000000003A"
-			id="hdr_spark"
+			id="hdr_sell"
 			tooltipslocalised="true"
 			uniqueguid="DE16003A-D000-4000-B00000000000003A"
 			currentstate="DE16003B-D000-4000-B00000000000003B"
@@ -1264,7 +1447,7 @@
 				<standard
 					this="DE16003B-D000-4000-B00000000000003B"
 					name="standard"
-					width="100"
+					width="74"
 					height="20"
 					uniqueguid="DE16003B-D000-4000-B00000000000003B">
 					<component_text
@@ -1279,10 +1462,10 @@
 						fontcat_name="body_11"/>
 				</standard>
 			</states>
-		</hdr_spark>
-		<hdr_hold
+		</hdr_sell>
+		<hdr_supply
 			this="DE16003D-D000-4000-B00000000000003D"
-			id="hdr_hold"
+			id="hdr_supply"
 			tooltipslocalised="true"
 			uniqueguid="DE16003D-D000-4000-B00000000000003D"
 			currentstate="DE16003E-D000-4000-B00000000000003E"
@@ -1291,7 +1474,7 @@
 				<standard
 					this="DE16003E-D000-4000-B00000000000003E"
 					name="standard"
-					width="100"
+					width="60"
 					height="20"
 					uniqueguid="DE16003E-D000-4000-B00000000000003E">
 					<component_text
@@ -1306,10 +1489,10 @@
 						fontcat_name="body_11"/>
 				</standard>
 			</states>
-		</hdr_hold>
-		<rows_holder
+		</hdr_supply>
+		<hdr_trend
 			this="DE160040-D000-4000-B000000000000040"
-			id="rows_holder"
+			id="hdr_trend"
 			tooltipslocalised="true"
 			uniqueguid="DE160040-D000-4000-B000000000000040"
 			currentstate="DE160041-D000-4000-B000000000000041"
@@ -1318,37 +1501,118 @@
 				<standard
 					this="DE160041-D000-4000-B000000000000041"
 					name="standard"
-					width="880"
-					height="560"
+					width="36"
+					height="20"
 					uniqueguid="DE160041-D000-4000-B000000000000041">
+					<component_text
+						texthalign="Left"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
 				</standard>
 			</states>
-		</rows_holder>
-		<chart_grid_hi
+		</hdr_trend>
+		<hdr_spark
 			this="DE160043-D000-4000-B000000000000043"
-			id="chart_grid_hi"
+			id="hdr_spark"
 			tooltipslocalised="true"
 			uniqueguid="DE160043-D000-4000-B000000000000043"
 			currentstate="DE160044-D000-4000-B000000000000044"
 			defaultstate="DE160044-D000-4000-B000000000000044">
-			<componentimages>
-				<component_image
-					this="DE160043-D001-4000-B000000000000043"
-					uniqueguid="DE160043-D001-4000-B000000000000043"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
 			<states>
 				<standard
 					this="DE160044-D000-4000-B000000000000044"
 					name="standard"
+					width="100"
+					height="20"
+					uniqueguid="DE160044-D000-4000-B000000000000044">
+					<component_text
+						texthalign="Right"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
+				</standard>
+			</states>
+		</hdr_spark>
+		<hdr_hold
+			this="DE160046-D000-4000-B000000000000046"
+			id="hdr_hold"
+			tooltipslocalised="true"
+			uniqueguid="DE160046-D000-4000-B000000000000046"
+			currentstate="DE160047-D000-4000-B000000000000047"
+			defaultstate="DE160047-D000-4000-B000000000000047">
+			<states>
+				<standard
+					this="DE160047-D000-4000-B000000000000047"
+					name="standard"
+					width="100"
+					height="20"
+					uniqueguid="DE160047-D000-4000-B000000000000047">
+					<component_text
+						texthalign="Right"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
+				</standard>
+			</states>
+		</hdr_hold>
+		<rows_holder
+			this="DE160049-D000-4000-B000000000000049"
+			id="rows_holder"
+			tooltipslocalised="true"
+			uniqueguid="DE160049-D000-4000-B000000000000049"
+			currentstate="DE16004A-D000-4000-B00000000000004A"
+			defaultstate="DE16004A-D000-4000-B00000000000004A">
+			<states>
+				<standard
+					this="DE16004A-D000-4000-B00000000000004A"
+					name="standard"
+					width="880"
+					height="560"
+					uniqueguid="DE16004A-D000-4000-B00000000000004A">
+				</standard>
+			</states>
+		</rows_holder>
+		<chart_grid_hi
+			this="DE16004C-D000-4000-B00000000000004C"
+			id="chart_grid_hi"
+			tooltipslocalised="true"
+			uniqueguid="DE16004C-D000-4000-B00000000000004C"
+			currentstate="DE16004D-D000-4000-B00000000000004D"
+			defaultstate="DE16004D-D000-4000-B00000000000004D">
+			<componentimages>
+				<component_image
+					this="DE16004C-D001-4000-B00000000000004C"
+					uniqueguid="DE16004C-D001-4000-B00000000000004C"
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE16004D-D000-4000-B00000000000004D"
+					name="standard"
 					width="800"
 					height="2"
-					uniqueguid="DE160044-D000-4000-B000000000000044">
+					uniqueguid="DE16004D-D000-4000-B00000000000004D">
 					<imagemetrics>
 						<image
-							this="DE160043-D002-4000-B000000000000043"
-							uniqueguid="DE160043-D002-4000-B000000000000043"
-							componentimage="DE160043-D001-4000-B000000000000043"
+							this="DE16004C-D002-4000-B00000000000004C"
+							uniqueguid="DE16004C-D002-4000-B00000000000004C"
+							componentimage="DE16004C-D001-4000-B00000000000004C"
 							offset="0.00,0.00"
 							width="800"
 							height="2"
@@ -1359,93 +1623,8 @@
 			</states>
 		</chart_grid_hi>
 		<chart_grid_mid
-			this="DE160046-D000-4000-B000000000000046"
-			id="chart_grid_mid"
-			tooltipslocalised="true"
-			uniqueguid="DE160046-D000-4000-B000000000000046"
-			currentstate="DE160047-D000-4000-B000000000000047"
-			defaultstate="DE160047-D000-4000-B000000000000047">
-			<componentimages>
-				<component_image
-					this="DE160046-D001-4000-B000000000000046"
-					uniqueguid="DE160046-D001-4000-B000000000000046"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="DE160047-D000-4000-B000000000000047"
-					name="standard"
-					width="800"
-					height="2"
-					uniqueguid="DE160047-D000-4000-B000000000000047">
-					<imagemetrics>
-						<image
-							this="DE160046-D002-4000-B000000000000046"
-							uniqueguid="DE160046-D002-4000-B000000000000046"
-							componentimage="DE160046-D001-4000-B000000000000046"
-							offset="0.00,0.00"
-							width="800"
-							height="2"
-							colour="#C8A05A55"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</chart_grid_mid>
-		<chart_grid_lo
-			this="DE160049-D000-4000-B000000000000049"
-			id="chart_grid_lo"
-			tooltipslocalised="true"
-			uniqueguid="DE160049-D000-4000-B000000000000049"
-			currentstate="DE16004A-D000-4000-B00000000000004A"
-			defaultstate="DE16004A-D000-4000-B00000000000004A">
-			<componentimages>
-				<component_image
-					this="DE160049-D001-4000-B000000000000049"
-					uniqueguid="DE160049-D001-4000-B000000000000049"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="DE16004A-D000-4000-B00000000000004A"
-					name="standard"
-					width="800"
-					height="2"
-					uniqueguid="DE16004A-D000-4000-B00000000000004A">
-					<imagemetrics>
-						<image
-							this="DE160049-D002-4000-B000000000000049"
-							uniqueguid="DE160049-D002-4000-B000000000000049"
-							componentimage="DE160049-D001-4000-B000000000000049"
-							offset="0.00,0.00"
-							width="800"
-							height="2"
-							colour="#C8A05A55"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</chart_grid_lo>
-		<chart
-			this="DE16004C-D000-4000-B00000000000004C"
-			id="chart"
-			tooltipslocalised="true"
-			uniqueguid="DE16004C-D000-4000-B00000000000004C"
-			currentstate="DE16004D-D000-4000-B00000000000004D"
-			defaultstate="DE16004D-D000-4000-B00000000000004D">
-			<states>
-				<standard
-					this="DE16004D-D000-4000-B00000000000004D"
-					name="standard"
-					width="800"
-					height="300"
-					uniqueguid="DE16004D-D000-4000-B00000000000004D">
-				</standard>
-			</states>
-		</chart>
-		<cbar_00
 			this="DE16004F-D000-4000-B00000000000004F"
-			id="cbar_00"
+			id="chart_grid_mid"
 			tooltipslocalised="true"
 			uniqueguid="DE16004F-D000-4000-B00000000000004F"
 			currentstate="DE160050-D000-4000-B000000000000050"
@@ -1460,8 +1639,8 @@
 				<standard
 					this="DE160050-D000-4000-B000000000000050"
 					name="standard"
-					width="16"
-					height="300"
+					width="800"
+					height="2"
 					uniqueguid="DE160050-D000-4000-B000000000000050">
 					<imagemetrics>
 						<image
@@ -1469,17 +1648,17 @@
 							uniqueguid="DE16004F-D002-4000-B00000000000004F"
 							componentimage="DE16004F-D001-4000-B00000000000004F"
 							offset="0.00,0.00"
-							width="16"
-							height="300"
-							colour="#C8A05AFF"
+							width="800"
+							height="2"
+							colour="#C8A05A55"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_00>
-		<cbar_01
+		</chart_grid_mid>
+		<chart_grid_lo
 			this="DE160052-D000-4000-B000000000000052"
-			id="cbar_01"
+			id="chart_grid_lo"
 			tooltipslocalised="true"
 			uniqueguid="DE160052-D000-4000-B000000000000052"
 			currentstate="DE160053-D000-4000-B000000000000053"
@@ -1494,8 +1673,8 @@
 				<standard
 					this="DE160053-D000-4000-B000000000000053"
 					name="standard"
-					width="16"
-					height="300"
+					width="800"
+					height="2"
 					uniqueguid="DE160053-D000-4000-B000000000000053">
 					<imagemetrics>
 						<image
@@ -1503,51 +1682,34 @@
 							uniqueguid="DE160052-D002-4000-B000000000000052"
 							componentimage="DE160052-D001-4000-B000000000000052"
 							offset="0.00,0.00"
-							width="16"
-							height="300"
-							colour="#C8A05AFF"
+							width="800"
+							height="2"
+							colour="#C8A05A55"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_01>
-		<cbar_02
+		</chart_grid_lo>
+		<chart
 			this="DE160055-D000-4000-B000000000000055"
-			id="cbar_02"
+			id="chart"
 			tooltipslocalised="true"
 			uniqueguid="DE160055-D000-4000-B000000000000055"
 			currentstate="DE160056-D000-4000-B000000000000056"
 			defaultstate="DE160056-D000-4000-B000000000000056">
-			<componentimages>
-				<component_image
-					this="DE160055-D001-4000-B000000000000055"
-					uniqueguid="DE160055-D001-4000-B000000000000055"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
 			<states>
 				<standard
 					this="DE160056-D000-4000-B000000000000056"
 					name="standard"
-					width="16"
+					width="800"
 					height="300"
 					uniqueguid="DE160056-D000-4000-B000000000000056">
-					<imagemetrics>
-						<image
-							this="DE160055-D002-4000-B000000000000055"
-							uniqueguid="DE160055-D002-4000-B000000000000055"
-							componentimage="DE160055-D001-4000-B000000000000055"
-							offset="0.00,0.00"
-							width="16"
-							height="300"
-							colour="#C8A05AFF"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_02>
-		<cbar_03
+		</chart>
+		<cbar_00
 			this="DE160058-D000-4000-B000000000000058"
-			id="cbar_03"
+			id="cbar_00"
 			tooltipslocalised="true"
 			uniqueguid="DE160058-D000-4000-B000000000000058"
 			currentstate="DE160059-D000-4000-B000000000000059"
@@ -1578,10 +1740,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_03>
-		<cbar_04
+		</cbar_00>
+		<cbar_01
 			this="DE16005B-D000-4000-B00000000000005B"
-			id="cbar_04"
+			id="cbar_01"
 			tooltipslocalised="true"
 			uniqueguid="DE16005B-D000-4000-B00000000000005B"
 			currentstate="DE16005C-D000-4000-B00000000000005C"
@@ -1612,10 +1774,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_04>
-		<cbar_05
+		</cbar_01>
+		<cbar_02
 			this="DE16005E-D000-4000-B00000000000005E"
-			id="cbar_05"
+			id="cbar_02"
 			tooltipslocalised="true"
 			uniqueguid="DE16005E-D000-4000-B00000000000005E"
 			currentstate="DE16005F-D000-4000-B00000000000005F"
@@ -1646,10 +1808,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_05>
-		<cbar_06
+		</cbar_02>
+		<cbar_03
 			this="DE160061-D000-4000-B000000000000061"
-			id="cbar_06"
+			id="cbar_03"
 			tooltipslocalised="true"
 			uniqueguid="DE160061-D000-4000-B000000000000061"
 			currentstate="DE160062-D000-4000-B000000000000062"
@@ -1680,10 +1842,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_06>
-		<cbar_07
+		</cbar_03>
+		<cbar_04
 			this="DE160064-D000-4000-B000000000000064"
-			id="cbar_07"
+			id="cbar_04"
 			tooltipslocalised="true"
 			uniqueguid="DE160064-D000-4000-B000000000000064"
 			currentstate="DE160065-D000-4000-B000000000000065"
@@ -1714,10 +1876,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_07>
-		<cbar_08
+		</cbar_04>
+		<cbar_05
 			this="DE160067-D000-4000-B000000000000067"
-			id="cbar_08"
+			id="cbar_05"
 			tooltipslocalised="true"
 			uniqueguid="DE160067-D000-4000-B000000000000067"
 			currentstate="DE160068-D000-4000-B000000000000068"
@@ -1748,10 +1910,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_08>
-		<cbar_09
+		</cbar_05>
+		<cbar_06
 			this="DE16006A-D000-4000-B00000000000006A"
-			id="cbar_09"
+			id="cbar_06"
 			tooltipslocalised="true"
 			uniqueguid="DE16006A-D000-4000-B00000000000006A"
 			currentstate="DE16006B-D000-4000-B00000000000006B"
@@ -1782,10 +1944,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_09>
-		<cbar_10
+		</cbar_06>
+		<cbar_07
 			this="DE16006D-D000-4000-B00000000000006D"
-			id="cbar_10"
+			id="cbar_07"
 			tooltipslocalised="true"
 			uniqueguid="DE16006D-D000-4000-B00000000000006D"
 			currentstate="DE16006E-D000-4000-B00000000000006E"
@@ -1816,10 +1978,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_10>
-		<cbar_11
+		</cbar_07>
+		<cbar_08
 			this="DE160070-D000-4000-B000000000000070"
-			id="cbar_11"
+			id="cbar_08"
 			tooltipslocalised="true"
 			uniqueguid="DE160070-D000-4000-B000000000000070"
 			currentstate="DE160071-D000-4000-B000000000000071"
@@ -1850,10 +2012,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_11>
-		<cbar_12
+		</cbar_08>
+		<cbar_09
 			this="DE160073-D000-4000-B000000000000073"
-			id="cbar_12"
+			id="cbar_09"
 			tooltipslocalised="true"
 			uniqueguid="DE160073-D000-4000-B000000000000073"
 			currentstate="DE160074-D000-4000-B000000000000074"
@@ -1884,10 +2046,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_12>
-		<cbar_13
+		</cbar_09>
+		<cbar_10
 			this="DE160076-D000-4000-B000000000000076"
-			id="cbar_13"
+			id="cbar_10"
 			tooltipslocalised="true"
 			uniqueguid="DE160076-D000-4000-B000000000000076"
 			currentstate="DE160077-D000-4000-B000000000000077"
@@ -1918,10 +2080,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_13>
-		<cbar_14
+		</cbar_10>
+		<cbar_11
 			this="DE160079-D000-4000-B000000000000079"
-			id="cbar_14"
+			id="cbar_11"
 			tooltipslocalised="true"
 			uniqueguid="DE160079-D000-4000-B000000000000079"
 			currentstate="DE16007A-D000-4000-B00000000000007A"
@@ -1952,10 +2114,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_14>
-		<cbar_15
+		</cbar_11>
+		<cbar_12
 			this="DE16007C-D000-4000-B00000000000007C"
-			id="cbar_15"
+			id="cbar_12"
 			tooltipslocalised="true"
 			uniqueguid="DE16007C-D000-4000-B00000000000007C"
 			currentstate="DE16007D-D000-4000-B00000000000007D"
@@ -1986,10 +2148,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_15>
-		<cbar_16
+		</cbar_12>
+		<cbar_13
 			this="DE16007F-D000-4000-B00000000000007F"
-			id="cbar_16"
+			id="cbar_13"
 			tooltipslocalised="true"
 			uniqueguid="DE16007F-D000-4000-B00000000000007F"
 			currentstate="DE160080-D000-4000-B000000000000080"
@@ -2020,10 +2182,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_16>
-		<cbar_17
+		</cbar_13>
+		<cbar_14
 			this="DE160082-D000-4000-B000000000000082"
-			id="cbar_17"
+			id="cbar_14"
 			tooltipslocalised="true"
 			uniqueguid="DE160082-D000-4000-B000000000000082"
 			currentstate="DE160083-D000-4000-B000000000000083"
@@ -2054,10 +2216,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_17>
-		<cbar_18
+		</cbar_14>
+		<cbar_15
 			this="DE160085-D000-4000-B000000000000085"
-			id="cbar_18"
+			id="cbar_15"
 			tooltipslocalised="true"
 			uniqueguid="DE160085-D000-4000-B000000000000085"
 			currentstate="DE160086-D000-4000-B000000000000086"
@@ -2088,10 +2250,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_18>
-		<cbar_19
+		</cbar_15>
+		<cbar_16
 			this="DE160088-D000-4000-B000000000000088"
-			id="cbar_19"
+			id="cbar_16"
 			tooltipslocalised="true"
 			uniqueguid="DE160088-D000-4000-B000000000000088"
 			currentstate="DE160089-D000-4000-B000000000000089"
@@ -2122,10 +2284,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_19>
-		<cbar_20
+		</cbar_16>
+		<cbar_17
 			this="DE16008B-D000-4000-B00000000000008B"
-			id="cbar_20"
+			id="cbar_17"
 			tooltipslocalised="true"
 			uniqueguid="DE16008B-D000-4000-B00000000000008B"
 			currentstate="DE16008C-D000-4000-B00000000000008C"
@@ -2156,10 +2318,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_20>
-		<cbar_21
+		</cbar_17>
+		<cbar_18
 			this="DE16008E-D000-4000-B00000000000008E"
-			id="cbar_21"
+			id="cbar_18"
 			tooltipslocalised="true"
 			uniqueguid="DE16008E-D000-4000-B00000000000008E"
 			currentstate="DE16008F-D000-4000-B00000000000008F"
@@ -2190,10 +2352,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_21>
-		<cbar_22
+		</cbar_18>
+		<cbar_19
 			this="DE160091-D000-4000-B000000000000091"
-			id="cbar_22"
+			id="cbar_19"
 			tooltipslocalised="true"
 			uniqueguid="DE160091-D000-4000-B000000000000091"
 			currentstate="DE160092-D000-4000-B000000000000092"
@@ -2224,10 +2386,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_22>
-		<cbar_23
+		</cbar_19>
+		<cbar_20
 			this="DE160094-D000-4000-B000000000000094"
-			id="cbar_23"
+			id="cbar_20"
 			tooltipslocalised="true"
 			uniqueguid="DE160094-D000-4000-B000000000000094"
 			currentstate="DE160095-D000-4000-B000000000000095"
@@ -2258,10 +2420,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_23>
-		<cbar_24
+		</cbar_20>
+		<cbar_21
 			this="DE160097-D000-4000-B000000000000097"
-			id="cbar_24"
+			id="cbar_21"
 			tooltipslocalised="true"
 			uniqueguid="DE160097-D000-4000-B000000000000097"
 			currentstate="DE160098-D000-4000-B000000000000098"
@@ -2292,10 +2454,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_24>
-		<cbar_25
+		</cbar_21>
+		<cbar_22
 			this="DE16009A-D000-4000-B00000000000009A"
-			id="cbar_25"
+			id="cbar_22"
 			tooltipslocalised="true"
 			uniqueguid="DE16009A-D000-4000-B00000000000009A"
 			currentstate="DE16009B-D000-4000-B00000000000009B"
@@ -2326,10 +2488,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_25>
-		<cbar_26
+		</cbar_22>
+		<cbar_23
 			this="DE16009D-D000-4000-B00000000000009D"
-			id="cbar_26"
+			id="cbar_23"
 			tooltipslocalised="true"
 			uniqueguid="DE16009D-D000-4000-B00000000000009D"
 			currentstate="DE16009E-D000-4000-B00000000000009E"
@@ -2360,10 +2522,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_26>
-		<cbar_27
+		</cbar_23>
+		<cbar_24
 			this="DE1600A0-D000-4000-B0000000000000A0"
-			id="cbar_27"
+			id="cbar_24"
 			tooltipslocalised="true"
 			uniqueguid="DE1600A0-D000-4000-B0000000000000A0"
 			currentstate="DE1600A1-D000-4000-B0000000000000A1"
@@ -2394,10 +2556,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_27>
-		<cbar_28
+		</cbar_24>
+		<cbar_25
 			this="DE1600A3-D000-4000-B0000000000000A3"
-			id="cbar_28"
+			id="cbar_25"
 			tooltipslocalised="true"
 			uniqueguid="DE1600A3-D000-4000-B0000000000000A3"
 			currentstate="DE1600A4-D000-4000-B0000000000000A4"
@@ -2428,10 +2590,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_28>
-		<cbar_29
+		</cbar_25>
+		<cbar_26
 			this="DE1600A6-D000-4000-B0000000000000A6"
-			id="cbar_29"
+			id="cbar_26"
 			tooltipslocalised="true"
 			uniqueguid="DE1600A6-D000-4000-B0000000000000A6"
 			currentstate="DE1600A7-D000-4000-B0000000000000A7"
@@ -2462,10 +2624,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_29>
-		<cbar_30
+		</cbar_26>
+		<cbar_27
 			this="DE1600A9-D000-4000-B0000000000000A9"
-			id="cbar_30"
+			id="cbar_27"
 			tooltipslocalised="true"
 			uniqueguid="DE1600A9-D000-4000-B0000000000000A9"
 			currentstate="DE1600AA-D000-4000-B0000000000000AA"
@@ -2496,10 +2658,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_30>
-		<cbar_31
+		</cbar_27>
+		<cbar_28
 			this="DE1600AC-D000-4000-B0000000000000AC"
-			id="cbar_31"
+			id="cbar_28"
 			tooltipslocalised="true"
 			uniqueguid="DE1600AC-D000-4000-B0000000000000AC"
 			currentstate="DE1600AD-D000-4000-B0000000000000AD"
@@ -2530,10 +2692,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_31>
-		<cbar_32
+		</cbar_28>
+		<cbar_29
 			this="DE1600AF-D000-4000-B0000000000000AF"
-			id="cbar_32"
+			id="cbar_29"
 			tooltipslocalised="true"
 			uniqueguid="DE1600AF-D000-4000-B0000000000000AF"
 			currentstate="DE1600B0-D000-4000-B0000000000000B0"
@@ -2564,10 +2726,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_32>
-		<cbar_33
+		</cbar_29>
+		<cbar_30
 			this="DE1600B2-D000-4000-B0000000000000B2"
-			id="cbar_33"
+			id="cbar_30"
 			tooltipslocalised="true"
 			uniqueguid="DE1600B2-D000-4000-B0000000000000B2"
 			currentstate="DE1600B3-D000-4000-B0000000000000B3"
@@ -2598,10 +2760,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_33>
-		<cbar_34
+		</cbar_30>
+		<cbar_31
 			this="DE1600B5-D000-4000-B0000000000000B5"
-			id="cbar_34"
+			id="cbar_31"
 			tooltipslocalised="true"
 			uniqueguid="DE1600B5-D000-4000-B0000000000000B5"
 			currentstate="DE1600B6-D000-4000-B0000000000000B6"
@@ -2632,10 +2794,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_34>
-		<cbar_35
+		</cbar_31>
+		<cbar_32
 			this="DE1600B8-D000-4000-B0000000000000B8"
-			id="cbar_35"
+			id="cbar_32"
 			tooltipslocalised="true"
 			uniqueguid="DE1600B8-D000-4000-B0000000000000B8"
 			currentstate="DE1600B9-D000-4000-B0000000000000B9"
@@ -2666,10 +2828,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_35>
-		<cbar_36
+		</cbar_32>
+		<cbar_33
 			this="DE1600BB-D000-4000-B0000000000000BB"
-			id="cbar_36"
+			id="cbar_33"
 			tooltipslocalised="true"
 			uniqueguid="DE1600BB-D000-4000-B0000000000000BB"
 			currentstate="DE1600BC-D000-4000-B0000000000000BC"
@@ -2700,10 +2862,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_36>
-		<cbar_37
+		</cbar_33>
+		<cbar_34
 			this="DE1600BE-D000-4000-B0000000000000BE"
-			id="cbar_37"
+			id="cbar_34"
 			tooltipslocalised="true"
 			uniqueguid="DE1600BE-D000-4000-B0000000000000BE"
 			currentstate="DE1600BF-D000-4000-B0000000000000BF"
@@ -2734,10 +2896,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_37>
-		<cbar_38
+		</cbar_34>
+		<cbar_35
 			this="DE1600C1-D000-4000-B0000000000000C1"
-			id="cbar_38"
+			id="cbar_35"
 			tooltipslocalised="true"
 			uniqueguid="DE1600C1-D000-4000-B0000000000000C1"
 			currentstate="DE1600C2-D000-4000-B0000000000000C2"
@@ -2768,10 +2930,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_38>
-		<cbar_39
+		</cbar_35>
+		<cbar_36
 			this="DE1600C4-D000-4000-B0000000000000C4"
-			id="cbar_39"
+			id="cbar_36"
 			tooltipslocalised="true"
 			uniqueguid="DE1600C4-D000-4000-B0000000000000C4"
 			currentstate="DE1600C5-D000-4000-B0000000000000C5"
@@ -2802,10 +2964,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</cbar_39>
-		<chart_icon
+		</cbar_36>
+		<cbar_37
 			this="DE1600C7-D000-4000-B0000000000000C7"
-			id="chart_icon"
+			id="cbar_37"
 			tooltipslocalised="true"
 			uniqueguid="DE1600C7-D000-4000-B0000000000000C7"
 			currentstate="DE1600C8-D000-4000-B0000000000000C8"
@@ -2814,20 +2976,122 @@
 				<component_image
 					this="DE1600C7-D001-4000-B0000000000000C7"
 					uniqueguid="DE1600C7-D001-4000-B0000000000000C7"
-					imagepath="ui/campaign ui/effect_bundles/resource_gold.png"/>
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="DE1600C8-D000-4000-B0000000000000C8"
 					name="standard"
-					width="24"
-					height="24"
+					width="16"
+					height="300"
 					uniqueguid="DE1600C8-D000-4000-B0000000000000C8">
 					<imagemetrics>
 						<image
 							this="DE1600C7-D002-4000-B0000000000000C7"
 							uniqueguid="DE1600C7-D002-4000-B0000000000000C7"
 							componentimage="DE1600C7-D001-4000-B0000000000000C7"
+							offset="0.00,0.00"
+							width="16"
+							height="300"
+							colour="#C8A05AFF"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</cbar_37>
+		<cbar_38
+			this="DE1600CA-D000-4000-B0000000000000CA"
+			id="cbar_38"
+			tooltipslocalised="true"
+			uniqueguid="DE1600CA-D000-4000-B0000000000000CA"
+			currentstate="DE1600CB-D000-4000-B0000000000000CB"
+			defaultstate="DE1600CB-D000-4000-B0000000000000CB">
+			<componentimages>
+				<component_image
+					this="DE1600CA-D001-4000-B0000000000000CA"
+					uniqueguid="DE1600CA-D001-4000-B0000000000000CA"
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE1600CB-D000-4000-B0000000000000CB"
+					name="standard"
+					width="16"
+					height="300"
+					uniqueguid="DE1600CB-D000-4000-B0000000000000CB">
+					<imagemetrics>
+						<image
+							this="DE1600CA-D002-4000-B0000000000000CA"
+							uniqueguid="DE1600CA-D002-4000-B0000000000000CA"
+							componentimage="DE1600CA-D001-4000-B0000000000000CA"
+							offset="0.00,0.00"
+							width="16"
+							height="300"
+							colour="#C8A05AFF"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</cbar_38>
+		<cbar_39
+			this="DE1600CD-D000-4000-B0000000000000CD"
+			id="cbar_39"
+			tooltipslocalised="true"
+			uniqueguid="DE1600CD-D000-4000-B0000000000000CD"
+			currentstate="DE1600CE-D000-4000-B0000000000000CE"
+			defaultstate="DE1600CE-D000-4000-B0000000000000CE">
+			<componentimages>
+				<component_image
+					this="DE1600CD-D001-4000-B0000000000000CD"
+					uniqueguid="DE1600CD-D001-4000-B0000000000000CD"
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE1600CE-D000-4000-B0000000000000CE"
+					name="standard"
+					width="16"
+					height="300"
+					uniqueguid="DE1600CE-D000-4000-B0000000000000CE">
+					<imagemetrics>
+						<image
+							this="DE1600CD-D002-4000-B0000000000000CD"
+							uniqueguid="DE1600CD-D002-4000-B0000000000000CD"
+							componentimage="DE1600CD-D001-4000-B0000000000000CD"
+							offset="0.00,0.00"
+							width="16"
+							height="300"
+							colour="#C8A05AFF"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</cbar_39>
+		<chart_icon
+			this="DE1600D0-D000-4000-B0000000000000D0"
+			id="chart_icon"
+			tooltipslocalised="true"
+			uniqueguid="DE1600D0-D000-4000-B0000000000000D0"
+			currentstate="DE1600D1-D000-4000-B0000000000000D1"
+			defaultstate="DE1600D1-D000-4000-B0000000000000D1">
+			<componentimages>
+				<component_image
+					this="DE1600D0-D001-4000-B0000000000000D0"
+					uniqueguid="DE1600D0-D001-4000-B0000000000000D0"
+					imagepath="ui/campaign ui/effect_bundles/resource_gold.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE1600D1-D000-4000-B0000000000000D1"
+					name="standard"
+					width="24"
+					height="24"
+					uniqueguid="DE1600D1-D000-4000-B0000000000000D1">
+					<imagemetrics>
+						<image
+							this="DE1600D0-D002-4000-B0000000000000D0"
+							uniqueguid="DE1600D0-D002-4000-B0000000000000D0"
+							componentimage="DE1600D0-D001-4000-B0000000000000D0"
 							offset="0.00,0.00"
 							width="24"
 							height="24"
@@ -2837,19 +3101,19 @@
 			</states>
 		</chart_icon>
 		<chart_title
-			this="DE1600CA-D000-4000-B0000000000000CA"
+			this="DE1600D3-D000-4000-B0000000000000D3"
 			id="chart_title"
 			tooltipslocalised="true"
-			uniqueguid="DE1600CA-D000-4000-B0000000000000CA"
-			currentstate="DE1600CB-D000-4000-B0000000000000CB"
-			defaultstate="DE1600CB-D000-4000-B0000000000000CB">
+			uniqueguid="DE1600D3-D000-4000-B0000000000000D3"
+			currentstate="DE1600D4-D000-4000-B0000000000000D4"
+			defaultstate="DE1600D4-D000-4000-B0000000000000D4">
 			<states>
 				<standard
-					this="DE1600CB-D000-4000-B0000000000000CB"
+					this="DE1600D4-D000-4000-B0000000000000D4"
 					name="standard"
 					width="850"
 					height="26"
-					uniqueguid="DE1600CB-D000-4000-B0000000000000CB">
+					uniqueguid="DE1600D4-D000-4000-B0000000000000D4">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -2864,19 +3128,19 @@
 			</states>
 		</chart_title>
 		<chart_y_hi
-			this="DE1600CD-D000-4000-B0000000000000CD"
+			this="DE1600D6-D000-4000-B0000000000000D6"
 			id="chart_y_hi"
 			tooltipslocalised="true"
-			uniqueguid="DE1600CD-D000-4000-B0000000000000CD"
-			currentstate="DE1600CE-D000-4000-B0000000000000CE"
-			defaultstate="DE1600CE-D000-4000-B0000000000000CE">
+			uniqueguid="DE1600D6-D000-4000-B0000000000000D6"
+			currentstate="DE1600D7-D000-4000-B0000000000000D7"
+			defaultstate="DE1600D7-D000-4000-B0000000000000D7">
 			<states>
 				<standard
-					this="DE1600CE-D000-4000-B0000000000000CE"
+					this="DE1600D7-D000-4000-B0000000000000D7"
 					name="standard"
 					width="60"
 					height="18"
-					uniqueguid="DE1600CE-D000-4000-B0000000000000CE">
+					uniqueguid="DE1600D7-D000-4000-B0000000000000D7">
 					<component_text
 						texthalign="Right"
 						textvalign="Center"
@@ -2891,19 +3155,19 @@
 			</states>
 		</chart_y_hi>
 		<chart_y_mid
-			this="DE1600D0-D000-4000-B0000000000000D0"
+			this="DE1600D9-D000-4000-B0000000000000D9"
 			id="chart_y_mid"
 			tooltipslocalised="true"
-			uniqueguid="DE1600D0-D000-4000-B0000000000000D0"
-			currentstate="DE1600D1-D000-4000-B0000000000000D1"
-			defaultstate="DE1600D1-D000-4000-B0000000000000D1">
+			uniqueguid="DE1600D9-D000-4000-B0000000000000D9"
+			currentstate="DE1600DA-D000-4000-B0000000000000DA"
+			defaultstate="DE1600DA-D000-4000-B0000000000000DA">
 			<states>
 				<standard
-					this="DE1600D1-D000-4000-B0000000000000D1"
+					this="DE1600DA-D000-4000-B0000000000000DA"
 					name="standard"
 					width="60"
 					height="18"
-					uniqueguid="DE1600D1-D000-4000-B0000000000000D1">
+					uniqueguid="DE1600DA-D000-4000-B0000000000000DA">
 					<component_text
 						texthalign="Right"
 						textvalign="Center"
@@ -2918,89 +3182,8 @@
 			</states>
 		</chart_y_mid>
 		<chart_y_lo
-			this="DE1600D3-D000-4000-B0000000000000D3"
-			id="chart_y_lo"
-			tooltipslocalised="true"
-			uniqueguid="DE1600D3-D000-4000-B0000000000000D3"
-			currentstate="DE1600D4-D000-4000-B0000000000000D4"
-			defaultstate="DE1600D4-D000-4000-B0000000000000D4">
-			<states>
-				<standard
-					this="DE1600D4-D000-4000-B0000000000000D4"
-					name="standard"
-					width="60"
-					height="18"
-					uniqueguid="DE1600D4-D000-4000-B0000000000000D4">
-					<component_text
-						texthalign="Right"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</chart_y_lo>
-		<chart_x_left
-			this="DE1600D6-D000-4000-B0000000000000D6"
-			id="chart_x_left"
-			tooltipslocalised="true"
-			uniqueguid="DE1600D6-D000-4000-B0000000000000D6"
-			currentstate="DE1600D7-D000-4000-B0000000000000D7"
-			defaultstate="DE1600D7-D000-4000-B0000000000000D7">
-			<states>
-				<standard
-					this="DE1600D7-D000-4000-B0000000000000D7"
-					name="standard"
-					width="90"
-					height="18"
-					uniqueguid="DE1600D7-D000-4000-B0000000000000D7">
-					<component_text
-						texthalign="Left"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</chart_x_left>
-		<chart_x_mid
-			this="DE1600D9-D000-4000-B0000000000000D9"
-			id="chart_x_mid"
-			tooltipslocalised="true"
-			uniqueguid="DE1600D9-D000-4000-B0000000000000D9"
-			currentstate="DE1600DA-D000-4000-B0000000000000DA"
-			defaultstate="DE1600DA-D000-4000-B0000000000000DA">
-			<states>
-				<standard
-					this="DE1600DA-D000-4000-B0000000000000DA"
-					name="standard"
-					width="90"
-					height="18"
-					uniqueguid="DE1600DA-D000-4000-B0000000000000DA">
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="11"
-						font_m_colour="#C8B48CFF"
-						font_m_leading="3"
-						fontcat_name="body_11"/>
-				</standard>
-			</states>
-		</chart_x_mid>
-		<chart_x_right
 			this="DE1600DC-D000-4000-B0000000000000DC"
-			id="chart_x_right"
+			id="chart_y_lo"
 			tooltipslocalised="true"
 			uniqueguid="DE1600DC-D000-4000-B0000000000000DC"
 			currentstate="DE1600DD-D000-4000-B0000000000000DD"
@@ -3009,7 +3192,7 @@
 				<standard
 					this="DE1600DD-D000-4000-B0000000000000DD"
 					name="standard"
-					width="90"
+					width="60"
 					height="18"
 					uniqueguid="DE1600DD-D000-4000-B0000000000000DD">
 					<component_text
@@ -3024,10 +3207,10 @@
 						fontcat_name="body_11"/>
 				</standard>
 			</states>
-		</chart_x_right>
-		<chart_axis
+		</chart_y_lo>
+		<chart_x_left
 			this="DE1600DF-D000-4000-B0000000000000DF"
-			id="chart_axis"
+			id="chart_x_left"
 			tooltipslocalised="true"
 			uniqueguid="DE1600DF-D000-4000-B0000000000000DF"
 			currentstate="DE1600E0-D000-4000-B0000000000000E0"
@@ -3036,9 +3219,90 @@
 				<standard
 					this="DE1600E0-D000-4000-B0000000000000E0"
 					name="standard"
+					width="90"
+					height="18"
+					uniqueguid="DE1600E0-D000-4000-B0000000000000E0">
+					<component_text
+						texthalign="Left"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
+				</standard>
+			</states>
+		</chart_x_left>
+		<chart_x_mid
+			this="DE1600E2-D000-4000-B0000000000000E2"
+			id="chart_x_mid"
+			tooltipslocalised="true"
+			uniqueguid="DE1600E2-D000-4000-B0000000000000E2"
+			currentstate="DE1600E3-D000-4000-B0000000000000E3"
+			defaultstate="DE1600E3-D000-4000-B0000000000000E3">
+			<states>
+				<standard
+					this="DE1600E3-D000-4000-B0000000000000E3"
+					name="standard"
+					width="90"
+					height="18"
+					uniqueguid="DE1600E3-D000-4000-B0000000000000E3">
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
+				</standard>
+			</states>
+		</chart_x_mid>
+		<chart_x_right
+			this="DE1600E5-D000-4000-B0000000000000E5"
+			id="chart_x_right"
+			tooltipslocalised="true"
+			uniqueguid="DE1600E5-D000-4000-B0000000000000E5"
+			currentstate="DE1600E6-D000-4000-B0000000000000E6"
+			defaultstate="DE1600E6-D000-4000-B0000000000000E6">
+			<states>
+				<standard
+					this="DE1600E6-D000-4000-B0000000000000E6"
+					name="standard"
+					width="90"
+					height="18"
+					uniqueguid="DE1600E6-D000-4000-B0000000000000E6">
+					<component_text
+						texthalign="Right"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="11"
+						font_m_colour="#C8B48CFF"
+						font_m_leading="3"
+						fontcat_name="body_11"/>
+				</standard>
+			</states>
+		</chart_x_right>
+		<chart_axis
+			this="DE1600E8-D000-4000-B0000000000000E8"
+			id="chart_axis"
+			tooltipslocalised="true"
+			uniqueguid="DE1600E8-D000-4000-B0000000000000E8"
+			currentstate="DE1600E9-D000-4000-B0000000000000E9"
+			defaultstate="DE1600E9-D000-4000-B0000000000000E9">
+			<states>
+				<standard
+					this="DE1600E9-D000-4000-B0000000000000E9"
+					name="standard"
 					width="880"
 					height="20"
-					uniqueguid="DE1600E0-D000-4000-B0000000000000E0">
+					uniqueguid="DE1600E9-D000-4000-B0000000000000E9">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -3053,19 +3317,19 @@
 			</states>
 		</chart_axis>
 		<chart_stats
-			this="DE1600E2-D000-4000-B0000000000000E2"
+			this="DE1600EB-D000-4000-B0000000000000EB"
 			id="chart_stats"
 			tooltipslocalised="true"
-			uniqueguid="DE1600E2-D000-4000-B0000000000000E2"
-			currentstate="DE1600E3-D000-4000-B0000000000000E3"
-			defaultstate="DE1600E3-D000-4000-B0000000000000E3">
+			uniqueguid="DE1600EB-D000-4000-B0000000000000EB"
+			currentstate="DE1600EC-D000-4000-B0000000000000EC"
+			defaultstate="DE1600EC-D000-4000-B0000000000000EC">
 			<states>
 				<standard
-					this="DE1600E3-D000-4000-B0000000000000E3"
+					this="DE1600EC-D000-4000-B0000000000000EC"
 					name="standard"
 					width="880"
 					height="22"
-					uniqueguid="DE1600E3-D000-4000-B0000000000000E3">
+					uniqueguid="DE1600EC-D000-4000-B0000000000000EC">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -3080,19 +3344,19 @@
 			</states>
 		</chart_stats>
 		<chart_note
-			this="DE1600E5-D000-4000-B0000000000000E5"
+			this="DE1600EE-D000-4000-B0000000000000EE"
 			id="chart_note"
 			tooltipslocalised="true"
-			uniqueguid="DE1600E5-D000-4000-B0000000000000E5"
-			currentstate="DE1600E6-D000-4000-B0000000000000E6"
-			defaultstate="DE1600E6-D000-4000-B0000000000000E6">
+			uniqueguid="DE1600EE-D000-4000-B0000000000000EE"
+			currentstate="DE1600EF-D000-4000-B0000000000000EF"
+			defaultstate="DE1600EF-D000-4000-B0000000000000EF">
 			<states>
 				<standard
-					this="DE1600E6-D000-4000-B0000000000000E6"
+					this="DE1600EF-D000-4000-B0000000000000EF"
 					name="standard"
 					width="880"
 					height="22"
-					uniqueguid="DE1600E6-D000-4000-B0000000000000E6">
+					uniqueguid="DE1600EF-D000-4000-B0000000000000EF">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -3107,37 +3371,37 @@
 			</states>
 		</chart_note>
 		<ord_side
-			this="DE1600E8-D000-4000-B0000000000000E8"
+			this="DE1600F1-D000-4000-B0000000000000F1"
 			id="ord_side"
 			tooltipslocalised="true"
 			componentleveltooltip="Buy or sell||Switch this standing order between buying and selling."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
-			uniqueguid="DE1600E8-D000-4000-B0000000000000E8"
-			currentstate="DE1600E9-D000-4000-B0000000000000E9"
-			defaultstate="DE1600E9-D000-4000-B0000000000000E9">
+			uniqueguid="DE1600F1-D000-4000-B0000000000000F1"
+			currentstate="DE1600F2-D000-4000-B0000000000000F2"
+			defaultstate="DE1600F2-D000-4000-B0000000000000F2">
 			<componentimages>
 				<component_image
-					this="DE1600E8-D001-4000-B0000000000000E8"
-					uniqueguid="DE1600E8-D001-4000-B0000000000000E8"
+					this="DE1600F1-D001-4000-B0000000000000F1"
+					uniqueguid="DE1600F1-D001-4000-B0000000000000F1"
 					imagepath="ui/skins/default/button_square_large_text_active.png"/>
 				<component_image
-					this="DE1600E8-D003-4000-B0000000000000E8"
-					uniqueguid="DE1600E8-D003-4000-B0000000000000E8"
+					this="DE1600F1-D003-4000-B0000000000000F1"
+					uniqueguid="DE1600F1-D003-4000-B0000000000000F1"
 					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
-					this="DE1600E9-D000-4000-B0000000000000E9"
+					this="DE1600F2-D000-4000-B0000000000000F2"
 					name="standard"
 					width="100"
 					height="26"
 					interactive="true"
-					uniqueguid="DE1600E9-D000-4000-B0000000000000E9">
+					uniqueguid="DE1600F2-D000-4000-B0000000000000F2">
 					<imagemetrics>
 						<image
-							this="DE1600E8-D002-4000-B0000000000000E8"
-							uniqueguid="DE1600E8-D002-4000-B0000000000000E8"
-							componentimage="DE1600E8-D001-4000-B0000000000000E8"
+							this="DE1600F1-D002-4000-B0000000000000F1"
+							uniqueguid="DE1600F1-D002-4000-B0000000000000F1"
+							componentimage="DE1600F1-D001-4000-B0000000000000F1"
 							offset="0.00,0.00"
 							width="100"
 							height="26"
@@ -3145,7 +3409,7 @@
 					</imagemetrics>
 					<transitionmap>
 						<transition
-							transition_m_target_state="DE1600EA-D000-4000-B0000000000000EA"/>
+							transition_m_target_state="DE1600F3-D000-4000-B0000000000000F3"/>
 					</transitionmap>
 					<component_text
 						texthalign="Center"
@@ -3159,17 +3423,17 @@
 						fontcat_name="body_12"/>
 				</standard>
 				<hover
-					this="DE1600EA-D000-4000-B0000000000000EA"
+					this="DE1600F3-D000-4000-B0000000000000F3"
 					name="hover"
 					width="100"
 					height="26"
 					interactive="true"
-					uniqueguid="DE1600EA-D000-4000-B0000000000000EA">
+					uniqueguid="DE1600F3-D000-4000-B0000000000000F3">
 					<imagemetrics>
 						<image
-							this="DE1600E8-D004-4000-B0000000000000E8"
-							uniqueguid="DE1600E8-D004-4000-B0000000000000E8"
-							componentimage="DE1600E8-D003-4000-B0000000000000E8"
+							this="DE1600F1-D004-4000-B0000000000000F1"
+							uniqueguid="DE1600F1-D004-4000-B0000000000000F1"
+							componentimage="DE1600F1-D003-4000-B0000000000000F1"
 							offset="0.00,0.00"
 							width="100"
 							height="26"
@@ -3178,7 +3442,7 @@
 					<transitionmap>
 						<transition
 							index="1"
-							transition_m_target_state="DE1600E9-D000-4000-B0000000000000E9"/>
+							transition_m_target_state="DE1600F2-D000-4000-B0000000000000F2"/>
 					</transitionmap>
 					<component_text
 						texthalign="Center"
@@ -3194,211 +3458,10 @@
 			</states>
 		</ord_side>
 		<ord_cmp
-			this="DE1600EB-D000-4000-B0000000000000EB"
+			this="DE1600F4-D000-4000-B0000000000000F4"
 			id="ord_cmp"
 			tooltipslocalised="true"
 			componentleveltooltip="At or below / at or above||Whether the order fires once the price falls to this level, or once it rises to it."
-			soundcategory="UI_GBL_TMP_Round_Small_Button"
-			uniqueguid="DE1600EB-D000-4000-B0000000000000EB"
-			currentstate="DE1600EC-D000-4000-B0000000000000EC"
-			defaultstate="DE1600EC-D000-4000-B0000000000000EC">
-			<componentimages>
-				<component_image
-					this="DE1600EB-D001-4000-B0000000000000EB"
-					uniqueguid="DE1600EB-D001-4000-B0000000000000EB"
-					imagepath="ui/skins/default/button_square_large_text_active.png"/>
-				<component_image
-					this="DE1600EB-D003-4000-B0000000000000EB"
-					uniqueguid="DE1600EB-D003-4000-B0000000000000EB"
-					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="DE1600EC-D000-4000-B0000000000000EC"
-					name="standard"
-					width="140"
-					height="26"
-					interactive="true"
-					uniqueguid="DE1600EC-D000-4000-B0000000000000EC">
-					<imagemetrics>
-						<image
-							this="DE1600EB-D002-4000-B0000000000000EB"
-							uniqueguid="DE1600EB-D002-4000-B0000000000000EB"
-							componentimage="DE1600EB-D001-4000-B0000000000000EB"
-							offset="0.00,0.00"
-							width="140"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							transition_m_target_state="DE1600ED-D000-4000-B0000000000000ED"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_12"/>
-				</standard>
-				<hover
-					this="DE1600ED-D000-4000-B0000000000000ED"
-					name="hover"
-					width="140"
-					height="26"
-					interactive="true"
-					uniqueguid="DE1600ED-D000-4000-B0000000000000ED">
-					<imagemetrics>
-						<image
-							this="DE1600EB-D004-4000-B0000000000000EB"
-							uniqueguid="DE1600EB-D004-4000-B0000000000000EB"
-							componentimage="DE1600EB-D003-4000-B0000000000000EB"
-							offset="0.00,0.00"
-							width="140"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							index="1"
-							transition_m_target_state="DE1600EC-D000-4000-B0000000000000EC"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_12"/>
-				</hover>
-			</states>
-		</ord_cmp>
-		<ord_down
-			this="DE1600EE-D000-4000-B0000000000000EE"
-			id="ord_down"
-			tooltipslocalised="true"
-			componentleveltooltip="Adjust the price||Move the order's target price one step up or down. Prices here always move in fixed steps."
-			soundcategory="UI_GBL_TMP_Round_Small_Button"
-			uniqueguid="DE1600EE-D000-4000-B0000000000000EE"
-			currentstate="DE1600EF-D000-4000-B0000000000000EF"
-			defaultstate="DE1600EF-D000-4000-B0000000000000EF">
-			<componentimages>
-				<component_image
-					this="DE1600EE-D001-4000-B0000000000000EE"
-					uniqueguid="DE1600EE-D001-4000-B0000000000000EE"
-					imagepath="ui/skins/default/button_square_large_text_active.png"/>
-				<component_image
-					this="DE1600EE-D003-4000-B0000000000000EE"
-					uniqueguid="DE1600EE-D003-4000-B0000000000000EE"
-					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="DE1600EF-D000-4000-B0000000000000EF"
-					name="standard"
-					width="40"
-					height="26"
-					interactive="true"
-					uniqueguid="DE1600EF-D000-4000-B0000000000000EF">
-					<imagemetrics>
-						<image
-							this="DE1600EE-D002-4000-B0000000000000EE"
-							uniqueguid="DE1600EE-D002-4000-B0000000000000EE"
-							componentimage="DE1600EE-D001-4000-B0000000000000EE"
-							offset="0.00,0.00"
-							width="40"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							transition_m_target_state="DE1600F0-D000-4000-B0000000000000F0"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_12"/>
-				</standard>
-				<hover
-					this="DE1600F0-D000-4000-B0000000000000F0"
-					name="hover"
-					width="40"
-					height="26"
-					interactive="true"
-					uniqueguid="DE1600F0-D000-4000-B0000000000000F0">
-					<imagemetrics>
-						<image
-							this="DE1600EE-D004-4000-B0000000000000EE"
-							uniqueguid="DE1600EE-D004-4000-B0000000000000EE"
-							componentimage="DE1600EE-D003-4000-B0000000000000EE"
-							offset="0.00,0.00"
-							width="40"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							index="1"
-							transition_m_target_state="DE1600EF-D000-4000-B0000000000000EF"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_12"/>
-				</hover>
-			</states>
-		</ord_down>
-		<ord_price
-			this="DE1600F1-D000-4000-B0000000000000F1"
-			id="ord_price"
-			tooltipslocalised="true"
-			uniqueguid="DE1600F1-D000-4000-B0000000000000F1"
-			currentstate="DE1600F2-D000-4000-B0000000000000F2"
-			defaultstate="DE1600F2-D000-4000-B0000000000000F2">
-			<states>
-				<standard
-					this="DE1600F2-D000-4000-B0000000000000F2"
-					name="standard"
-					width="100"
-					height="26"
-					uniqueguid="DE1600F2-D000-4000-B0000000000000F2">
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="13"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_13"/>
-				</standard>
-			</states>
-		</ord_price>
-		<ord_up
-			this="DE1600F4-D000-4000-B0000000000000F4"
-			id="ord_up"
-			tooltipslocalised="true"
-			componentleveltooltip="Adjust the price||Move the order's target price one step up or down. Prices here always move in fixed steps."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE1600F4-D000-4000-B0000000000000F4"
 			currentstate="DE1600F5-D000-4000-B0000000000000F5"
@@ -3417,7 +3480,7 @@
 				<standard
 					this="DE1600F5-D000-4000-B0000000000000F5"
 					name="standard"
-					width="40"
+					width="140"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600F5-D000-4000-B0000000000000F5">
@@ -3427,7 +3490,7 @@
 							uniqueguid="DE1600F4-D002-4000-B0000000000000F4"
 							componentimage="DE1600F4-D001-4000-B0000000000000F4"
 							offset="0.00,0.00"
-							width="40"
+							width="140"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3449,7 +3512,7 @@
 				<hover
 					this="DE1600F6-D000-4000-B0000000000000F6"
 					name="hover"
-					width="40"
+					width="140"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600F6-D000-4000-B0000000000000F6">
@@ -3459,7 +3522,7 @@
 							uniqueguid="DE1600F4-D004-4000-B0000000000000F4"
 							componentimage="DE1600F4-D003-4000-B0000000000000F4"
 							offset="0.00,0.00"
-							width="40"
+							width="140"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3480,12 +3543,12 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</ord_up>
-		<ord_place
+		</ord_cmp>
+		<ord_down
 			this="DE1600F7-D000-4000-B0000000000000F7"
-			id="ord_place"
+			id="ord_down"
 			tooltipslocalised="true"
-			componentleveltooltip="Place the order||Stands until the price crosses the level shown, then fills automatically on a later turn."
+			componentleveltooltip="Adjust the price||Move the order's target price one step up or down. Prices here always move in fixed steps."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE1600F7-D000-4000-B0000000000000F7"
 			currentstate="DE1600F8-D000-4000-B0000000000000F8"
@@ -3504,7 +3567,7 @@
 				<standard
 					this="DE1600F8-D000-4000-B0000000000000F8"
 					name="standard"
-					width="100"
+					width="40"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600F8-D000-4000-B0000000000000F8">
@@ -3514,7 +3577,7 @@
 							uniqueguid="DE1600F7-D002-4000-B0000000000000F7"
 							componentimage="DE1600F7-D001-4000-B0000000000000F7"
 							offset="0.00,0.00"
-							width="100"
+							width="40"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3536,7 +3599,7 @@
 				<hover
 					this="DE1600F9-D000-4000-B0000000000000F9"
 					name="hover"
-					width="100"
+					width="40"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600F9-D000-4000-B0000000000000F9">
@@ -3546,7 +3609,7 @@
 							uniqueguid="DE1600F7-D004-4000-B0000000000000F7"
 							componentimage="DE1600F7-D003-4000-B0000000000000F7"
 							offset="0.00,0.00"
-							width="100"
+							width="40"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3567,10 +3630,10 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</ord_place>
-		<ord_standing
+		</ord_down>
+		<ord_price
 			this="DE1600FA-D000-4000-B0000000000000FA"
-			id="ord_standing"
+			id="ord_price"
 			tooltipslocalised="true"
 			uniqueguid="DE1600FA-D000-4000-B0000000000000FA"
 			currentstate="DE1600FB-D000-4000-B0000000000000FB"
@@ -3579,27 +3642,27 @@
 				<standard
 					this="DE1600FB-D000-4000-B0000000000000FB"
 					name="standard"
-					width="880"
-					height="22"
+					width="100"
+					height="26"
 					uniqueguid="DE1600FB-D000-4000-B0000000000000FB">
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
 						textxoffset="4.00,0.00"
 						textyoffset="8.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#C8B48CFF"
+						font_m_size="13"
+						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_13"/>
 				</standard>
 			</states>
-		</ord_standing>
-		<btn_amt_down
+		</ord_price>
+		<ord_up
 			this="DE1600FD-D000-4000-B0000000000000FD"
-			id="btn_amt_down"
+			id="ord_up"
 			tooltipslocalised="true"
-			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
+			componentleveltooltip="Adjust the price||Move the order's target price one step up or down. Prices here always move in fixed steps."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE1600FD-D000-4000-B0000000000000FD"
 			currentstate="DE1600FE-D000-4000-B0000000000000FE"
@@ -3618,7 +3681,7 @@
 				<standard
 					this="DE1600FE-D000-4000-B0000000000000FE"
 					name="standard"
-					width="26"
+					width="40"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600FE-D000-4000-B0000000000000FE">
@@ -3628,7 +3691,7 @@
 							uniqueguid="DE1600FD-D002-4000-B0000000000000FD"
 							componentimage="DE1600FD-D001-4000-B0000000000000FD"
 							offset="0.00,0.00"
-							width="26"
+							width="40"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3650,7 +3713,7 @@
 				<hover
 					this="DE1600FF-D000-4000-B0000000000000FF"
 					name="hover"
-					width="26"
+					width="40"
 					height="26"
 					interactive="true"
 					uniqueguid="DE1600FF-D000-4000-B0000000000000FF">
@@ -3660,7 +3723,7 @@
 							uniqueguid="DE1600FD-D004-4000-B0000000000000FD"
 							componentimage="DE1600FD-D003-4000-B0000000000000FD"
 							offset="0.00,0.00"
-							width="26"
+							width="40"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3681,12 +3744,12 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</btn_amt_down>
-		<btn_amount
+		</ord_up>
+		<ord_place
 			this="DE160100-D000-4000-B000000000000100"
-			id="btn_amount"
+			id="ord_place"
 			tooltipslocalised="true"
-			componentleveltooltip="Amount per click||How many lots a Buy or Sell moves, and the size a new standing order is placed at. Cycles 1, 5, 10, 25; the - and + beside it step one lot at a time. A lot is 10 of a commodity, 100 of Armaments or Raw Materials, 5 of a house share."
+			componentleveltooltip="Place the order||Stands until the price crosses the level shown, then fills automatically on a later turn."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE160100-D000-4000-B000000000000100"
 			currentstate="DE160101-D000-4000-B000000000000101"
@@ -3705,7 +3768,7 @@
 				<standard
 					this="DE160101-D000-4000-B000000000000101"
 					name="standard"
-					width="130"
+					width="100"
 					height="26"
 					interactive="true"
 					uniqueguid="DE160101-D000-4000-B000000000000101">
@@ -3715,7 +3778,7 @@
 							uniqueguid="DE160100-D002-4000-B000000000000100"
 							componentimage="DE160100-D001-4000-B000000000000100"
 							offset="0.00,0.00"
-							width="130"
+							width="100"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3737,7 +3800,7 @@
 				<hover
 					this="DE160102-D000-4000-B000000000000102"
 					name="hover"
-					width="130"
+					width="100"
 					height="26"
 					interactive="true"
 					uniqueguid="DE160102-D000-4000-B000000000000102">
@@ -3747,7 +3810,7 @@
 							uniqueguid="DE160100-D004-4000-B000000000000100"
 							componentimage="DE160100-D003-4000-B000000000000100"
 							offset="0.00,0.00"
-							width="130"
+							width="100"
 							height="26"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -3768,97 +3831,37 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</btn_amount>
-		<btn_amt_up
+		</ord_place>
+		<ord_standing
 			this="DE160103-D000-4000-B000000000000103"
-			id="btn_amt_up"
+			id="ord_standing"
 			tooltipslocalised="true"
-			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
-			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE160103-D000-4000-B000000000000103"
 			currentstate="DE160104-D000-4000-B000000000000104"
 			defaultstate="DE160104-D000-4000-B000000000000104">
-			<componentimages>
-				<component_image
-					this="DE160103-D001-4000-B000000000000103"
-					uniqueguid="DE160103-D001-4000-B000000000000103"
-					imagepath="ui/skins/default/button_square_large_text_active.png"/>
-				<component_image
-					this="DE160103-D003-4000-B000000000000103"
-					uniqueguid="DE160103-D003-4000-B000000000000103"
-					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
-			</componentimages>
 			<states>
 				<standard
 					this="DE160104-D000-4000-B000000000000104"
 					name="standard"
-					width="26"
-					height="26"
-					interactive="true"
+					width="880"
+					height="22"
 					uniqueguid="DE160104-D000-4000-B000000000000104">
-					<imagemetrics>
-						<image
-							this="DE160103-D002-4000-B000000000000103"
-							uniqueguid="DE160103-D002-4000-B000000000000103"
-							componentimage="DE160103-D001-4000-B000000000000103"
-							offset="0.00,0.00"
-							width="26"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							transition_m_target_state="DE160105-D000-4000-B000000000000105"/>
-					</transitionmap>
 					<component_text
-						texthalign="Center"
+						texthalign="Left"
 						textvalign="Center"
 						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
+						textyoffset="8.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
+						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
 						fontcat_name="body_12"/>
 				</standard>
-				<hover
-					this="DE160105-D000-4000-B000000000000105"
-					name="hover"
-					width="26"
-					height="26"
-					interactive="true"
-					uniqueguid="DE160105-D000-4000-B000000000000105">
-					<imagemetrics>
-						<image
-							this="DE160103-D004-4000-B000000000000103"
-							uniqueguid="DE160103-D004-4000-B000000000000103"
-							componentimage="DE160103-D003-4000-B000000000000103"
-							offset="0.00,0.00"
-							width="26"
-							height="26"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							index="1"
-							transition_m_target_state="DE160104-D000-4000-B000000000000104"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="12"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="3"
-						fontcat_name="body_12"/>
-				</hover>
 			</states>
-		</btn_amt_up>
-		<ord_qty_down
+		</ord_standing>
+		<btn_amt_down
 			this="DE160106-D000-4000-B000000000000106"
-			id="ord_qty_down"
+			id="btn_amt_down"
 			tooltipslocalised="true"
 			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
@@ -3942,10 +3945,10 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</ord_qty_down>
-		<ord_qty
+		</btn_amt_down>
+		<btn_amount
 			this="DE160109-D000-4000-B000000000000109"
-			id="ord_qty"
+			id="btn_amount"
 			tooltipslocalised="true"
 			componentleveltooltip="Amount per click||How many lots a Buy or Sell moves, and the size a new standing order is placed at. Cycles 1, 5, 10, 25; the - and + beside it step one lot at a time. A lot is 10 of a commodity, 100 of Armaments or Raw Materials, 5 of a house share."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
@@ -4029,10 +4032,10 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</ord_qty>
-		<ord_qty_up
+		</btn_amount>
+		<btn_amt_up
 			this="DE16010C-D000-4000-B00000000000010C"
-			id="ord_qty_up"
+			id="btn_amt_up"
 			tooltipslocalised="true"
 			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
@@ -4116,21 +4119,282 @@
 						fontcat_name="body_12"/>
 				</hover>
 			</states>
-		</ord_qty_up>
-		<ord_cost
+		</btn_amt_up>
+		<ord_qty_down
 			this="DE16010F-D000-4000-B00000000000010F"
-			id="ord_cost"
+			id="ord_qty_down"
 			tooltipslocalised="true"
+			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="DE16010F-D000-4000-B00000000000010F"
 			currentstate="DE160110-D000-4000-B000000000000110"
 			defaultstate="DE160110-D000-4000-B000000000000110">
+			<componentimages>
+				<component_image
+					this="DE16010F-D001-4000-B00000000000010F"
+					uniqueguid="DE16010F-D001-4000-B00000000000010F"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE16010F-D003-4000-B00000000000010F"
+					uniqueguid="DE16010F-D003-4000-B00000000000010F"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="DE160110-D000-4000-B000000000000110"
 					name="standard"
+					width="26"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160110-D000-4000-B000000000000110">
+					<imagemetrics>
+						<image
+							this="DE16010F-D002-4000-B00000000000010F"
+							uniqueguid="DE16010F-D002-4000-B00000000000010F"
+							componentimage="DE16010F-D001-4000-B00000000000010F"
+							offset="0.00,0.00"
+							width="26"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE160111-D000-4000-B000000000000111"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE160111-D000-4000-B000000000000111"
+					name="hover"
+					width="26"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160111-D000-4000-B000000000000111">
+					<imagemetrics>
+						<image
+							this="DE16010F-D004-4000-B00000000000010F"
+							uniqueguid="DE16010F-D004-4000-B00000000000010F"
+							componentimage="DE16010F-D003-4000-B00000000000010F"
+							offset="0.00,0.00"
+							width="26"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE160110-D000-4000-B000000000000110"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</ord_qty_down>
+		<ord_qty
+			this="DE160112-D000-4000-B000000000000112"
+			id="ord_qty"
+			tooltipslocalised="true"
+			componentleveltooltip="Amount per click||How many lots a Buy or Sell moves, and the size a new standing order is placed at. Cycles 1, 5, 10, 25; the - and + beside it step one lot at a time. A lot is 10 of a commodity, 100 of Armaments or Raw Materials, 5 of a house share."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
+			uniqueguid="DE160112-D000-4000-B000000000000112"
+			currentstate="DE160113-D000-4000-B000000000000113"
+			defaultstate="DE160113-D000-4000-B000000000000113">
+			<componentimages>
+				<component_image
+					this="DE160112-D001-4000-B000000000000112"
+					uniqueguid="DE160112-D001-4000-B000000000000112"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE160112-D003-4000-B000000000000112"
+					uniqueguid="DE160112-D003-4000-B000000000000112"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE160113-D000-4000-B000000000000113"
+					name="standard"
+					width="130"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160113-D000-4000-B000000000000113">
+					<imagemetrics>
+						<image
+							this="DE160112-D002-4000-B000000000000112"
+							uniqueguid="DE160112-D002-4000-B000000000000112"
+							componentimage="DE160112-D001-4000-B000000000000112"
+							offset="0.00,0.00"
+							width="130"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE160114-D000-4000-B000000000000114"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE160114-D000-4000-B000000000000114"
+					name="hover"
+					width="130"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160114-D000-4000-B000000000000114">
+					<imagemetrics>
+						<image
+							this="DE160112-D004-4000-B000000000000112"
+							uniqueguid="DE160112-D004-4000-B000000000000112"
+							componentimage="DE160112-D003-4000-B000000000000112"
+							offset="0.00,0.00"
+							width="130"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE160113-D000-4000-B000000000000113"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</ord_qty>
+		<ord_qty_up
+			this="DE160115-D000-4000-B000000000000115"
+			id="ord_qty_up"
+			tooltipslocalised="true"
+			componentleveltooltip="One lot at a time||The button between these cycles the round sizes. Use these to reach the ones in between."
+			soundcategory="UI_GBL_TMP_Round_Small_Button"
+			uniqueguid="DE160115-D000-4000-B000000000000115"
+			currentstate="DE160116-D000-4000-B000000000000116"
+			defaultstate="DE160116-D000-4000-B000000000000116">
+			<componentimages>
+				<component_image
+					this="DE160115-D001-4000-B000000000000115"
+					uniqueguid="DE160115-D001-4000-B000000000000115"
+					imagepath="ui/skins/default/button_square_large_text_active.png"/>
+				<component_image
+					this="DE160115-D003-4000-B000000000000115"
+					uniqueguid="DE160115-D003-4000-B000000000000115"
+					imagepath="ui/skins/default/button_square_large_text_hover.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DE160116-D000-4000-B000000000000116"
+					name="standard"
+					width="26"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160116-D000-4000-B000000000000116">
+					<imagemetrics>
+						<image
+							this="DE160115-D002-4000-B000000000000115"
+							uniqueguid="DE160115-D002-4000-B000000000000115"
+							componentimage="DE160115-D001-4000-B000000000000115"
+							offset="0.00,0.00"
+							width="26"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="DE160117-D000-4000-B000000000000117"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</standard>
+				<hover
+					this="DE160117-D000-4000-B000000000000117"
+					name="hover"
+					width="26"
+					height="26"
+					interactive="true"
+					uniqueguid="DE160117-D000-4000-B000000000000117">
+					<imagemetrics>
+						<image
+							this="DE160115-D004-4000-B000000000000115"
+							uniqueguid="DE160115-D004-4000-B000000000000115"
+							componentimage="DE160115-D003-4000-B000000000000115"
+							offset="0.00,0.00"
+							width="26"
+							height="26"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="DE160116-D000-4000-B000000000000116"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="4.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="12"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="body_12"/>
+				</hover>
+			</states>
+		</ord_qty_up>
+		<ord_cost
+			this="DE160118-D000-4000-B000000000000118"
+			id="ord_cost"
+			tooltipslocalised="true"
+			uniqueguid="DE160118-D000-4000-B000000000000118"
+			currentstate="DE160119-D000-4000-B000000000000119"
+			defaultstate="DE160119-D000-4000-B000000000000119">
+			<states>
+				<standard
+					this="DE160119-D000-4000-B000000000000119"
+					name="standard"
 					width="880"
 					height="22"
-					uniqueguid="DE160110-D000-4000-B000000000000110">
+					uniqueguid="DE160119-D000-4000-B000000000000119">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -4145,19 +4409,19 @@
 			</states>
 		</ord_cost>
 		<footer_text
-			this="DE160112-D000-4000-B000000000000112"
+			this="DE16011B-D000-4000-B00000000000011B"
 			id="footer_text"
 			tooltipslocalised="true"
-			uniqueguid="DE160112-D000-4000-B000000000000112"
-			currentstate="DE160113-D000-4000-B000000000000113"
-			defaultstate="DE160113-D000-4000-B000000000000113">
+			uniqueguid="DE16011B-D000-4000-B00000000000011B"
+			currentstate="DE16011C-D000-4000-B00000000000011C"
+			defaultstate="DE16011C-D000-4000-B00000000000011C">
 			<states>
 				<standard
-					this="DE160113-D000-4000-B000000000000113"
+					this="DE16011C-D000-4000-B00000000000011C"
 					name="standard"
 					width="880"
 					height="24"
-					uniqueguid="DE160113-D000-4000-B000000000000113">
+					uniqueguid="DE16011C-D000-4000-B00000000000011C">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
@@ -4172,19 +4436,19 @@
 			</states>
 		</footer_text>
 		<footer_text2
-			this="DE160115-D000-4000-B000000000000115"
+			this="DE16011E-D000-4000-B00000000000011E"
 			id="footer_text2"
 			tooltipslocalised="true"
-			uniqueguid="DE160115-D000-4000-B000000000000115"
-			currentstate="DE160116-D000-4000-B000000000000116"
-			defaultstate="DE160116-D000-4000-B000000000000116">
+			uniqueguid="DE16011E-D000-4000-B00000000000011E"
+			currentstate="DE16011F-D000-4000-B00000000000011F"
+			defaultstate="DE16011F-D000-4000-B00000000000011F">
 			<states>
 				<standard
-					this="DE160116-D000-4000-B000000000000116"
+					this="DE16011F-D000-4000-B00000000000011F"
 					name="standard"
 					width="880"
 					height="24"
-					uniqueguid="DE160116-D000-4000-B000000000000116">
+					uniqueguid="DE16011F-D000-4000-B00000000000011F">
 					<component_text
 						texthalign="Left"
 						textvalign="Center"

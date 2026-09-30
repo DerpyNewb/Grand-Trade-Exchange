@@ -851,6 +851,42 @@ states again for a control that a pair of arrow buttons and a page counter alrea
 
 `[[wh3-hover-state-needs-transitionmap]]` `[[wh3-setstatetext-is-per-state]]`
 
+## Effects on a runtime panel
+
+What the Iron Court uses for "a seat was taken", each seen in game on 2026-09-28 on a component
+created at runtime.
+
+- **A glowing edge is an image LAYER, swapped, not a state.** Ship the layer in the component's
+  state holding `MASK_NONE` (a transparent image), then `SetImagePath(path, index)` writes the
+  glow in and `MASK_NONE` takes it out. Write it on **every** redraw, including the "no edge"
+  case. A list row is recycled from view to view, so a row that is only ever lit keeps the last
+  view's edge.
+- **`glow_pulse_t0` is a layer attribute and it runs on a runtime component.** On the image
+  layer: `shader_name="glow_pulse_t0"` and `shadertechnique_vars="min,max,interval,offset"`. CA's
+  Tower of Zharr furnace uses `1.00,1.30,0.80,0.00`, and it breathes visibly. The layer's
+  `colour` alpha is how you dim one: `#FFFFFF66` for a stalled seat, with no second art file.
+- **A nine-slice margin over half the component's short side is a silent mess.** The top and
+  bottom slices overlap: a 40px-margin glow on a 61px list row painted the whole row and put a
+  full-strength corner block at each end, and nothing warned. Give a short component its own
+  narrower art, and check every layer's margin against the box it is drawn on.
+- **CA's district rim has ROUNDED corners.** On a square card, the corners stay dark. The Iron
+  Court draws its own `seat_rim.png`, 128px nine-slice with a 40px margin, in CA's measured red
+  and alpha profile but with square corners.
+- **A one-shot burst is a SpriteAnimation in its own `.twui.xml`, with no `paused` property.**
+  That is the Hell-Forge's shape, and it plays once from creation. Create it into the host per
+  claim, `MoveTo` its centre, and `Destroy` it from a `cm:callback`. The callback must
+  **re-find everything by name**, since the panel may be closed by then. **Destroy the old burst
+  before creating a new one**: a second click that finds the old burst and returns draws
+  nothing.
+- **`pulse_uicomponent(button, on, strength, false)` on a HUD button is visible**, but faint.
+  Nothing stops it except the same call with `false`, so stop it explicitly when there is
+  nothing left to show.
+- **A flash that must outlive the click's own redraw is STATE, not paint.** In single player the
+  panel redraws right after the answer, and a painted-only flash is wiped before it is seen.
+  Keep it in a table, repaint it from the draw function, and clear the table from the callback.
+- **`[[col:green]]...[[/col]]` inside `SetText` draws nothing itself.** Measure widths with the
+  tags stripped, or a width check fails a line that fits.
+
 ## What you cannot do
 
 - **Widen a panel title plate.** A renamed header clips silently at about 19 characters.
