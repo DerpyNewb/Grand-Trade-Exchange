@@ -236,6 +236,11 @@ EX.fwd_offers = {}
 -- The units are per player.
 EX.SAVE_INDEX       = "zharr_idx_"
 EX.SAVE_INDEX_UNITS = "zharr_idxu"
+-- THEMED FUNDS (2026-09-30; docs/superpowers/specs/2026-09-30-zharr-exchange-themed-funds-design.md).
+-- The index's shape under their own keys, one per fund id: EX.SAVE_FUND world, EX.SAVE_FUND_UNITS
+-- per player. A fund id is a save key - never rename one.
+EX.SAVE_FUND       = "zharr_fund_"
+EX.SAVE_FUND_UNITS = "zharr_fu_"
 
 -- WAR BONDS AND LOANS, PER PLAYER, both of them: this turn's offers (rebuilt every turn and saved
 -- only so a mid-turn reload shows the same page) and the open positions, both sides in one list.
@@ -245,6 +250,9 @@ EX.bonds       = {}
 EX.bond_offers = {}
 EX.INDEX_MIN   = 2
 EX.index_units = 0
+EX.fund_units  = {}   -- fund id -> units, per player (EX.SLICE_TABLES)
+EX.FUND_ROWS   = 4    -- the index plus three: the most any race's list holds
+EX.fund_sel    = 1    -- which fund's members the page lists. View state, never saved.
 
 -- Own-trade impact, moved here from the DB. rituals.percentage_cost_increase_per_use is
 -- invisible to script, so it would make the panel show a price the game does not charge.
@@ -796,7 +804,7 @@ end
 -- ------------------------------------------------------------------------------------------
 
 EX.SLICE_TABLES  = { "shares_held", "offer_until", "LOG", "orders", "deals",
-                     "forwards", "fwd_offers", "bonds", "bond_offers" }
+                     "forwards", "fwd_offers", "bonds", "bond_offers", "fund_units" }
 -- deal_why IS HERE BECAUSE THE PAGE IT EXPLAINS IS (2026-09-29). It is the Deals footer's
 -- reason for an empty page, and EX.post_all_deals now builds one page per human: held in one
 -- shared value it ended every pass as the LAST human's reason, so the local panel explained a
@@ -1426,7 +1434,8 @@ EX.TUNE_NUM = {
 -- never silently disable a feature.
 EX.TUNE_BOOL = { "ai_traders", "ai_gold", "refusal", "war_lock", "warehouse_rent",
                  "hashut_demands", "trade_income", "cross_bloc", "ai_stance", "ai_world",
-                 "world_scarcity", "ai_deals", "world_bundles", "ai_forwards", "ai_bonds" }
+                 "world_scarcity", "ai_deals", "world_bundles", "ai_forwards", "ai_bonds",
+                 "funds" }
 EX.TUNE_BOOL_SET = {}
 for _, k in ipairs(EX.TUNE_BOOL) do EX.TUNE_BOOL_SET[k] = true end
 
@@ -1482,7 +1491,7 @@ EX.PRESETS = {
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = false, hashut_demands = false, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true, ai_forwards = true, ai_bonds = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true, funds = true,
         -- THE ONE DELIBERATE ASYMMETRY. A first campaign should never have a purchase
         -- refused for want of a seller.
         world_scarcity = false,
@@ -1507,7 +1516,7 @@ EX.PRESETS = {
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true, ai_forwards = true, ai_bonds = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true, funds = true,
         world_scarcity = true,
     },
     -- ULTRA CAPITALISM. A quarter spread against a tenth floor, the guild moving five rungs a
@@ -1543,7 +1552,7 @@ EX.PRESETS = {
         ai_traders = true, ai_gold = true, refusal = true, war_lock = true,
         warehouse_rent = true, hashut_demands = true, trade_income = true,
         cross_bloc = true, ai_stance = true, ai_world = true, ai_deals = true,
-        world_bundles = true, ai_forwards = true, ai_bonds = true,
+        world_bundles = true, ai_forwards = true, ai_bonds = true, funds = true,
         world_scarcity = true,
     },
 }
@@ -2750,12 +2759,34 @@ function EX.on_bonds()
     return EX.mode == EX.MODE_HOUSES and EX.house_extra() == EX.HOUSE_BONDS_PAGE
 end
 
--- THE INDEX PAGE'S ROWS: the index, then its members heaviest first, as many as fit.
+-- WHICH FUND'S MEMBERS THE PAGE LISTS. A stale index (the list shrank, the switch went off) falls
+-- back to the house index rather than listing nothing.
+function EX.fund_selected()
+    local funds = EX.funds_for(EX.index_culture())
+    if EX.fund_sel < 1 or EX.fund_sel > math.min(#funds, EX.FUND_ROWS) then EX.fund_sel = 1 end
+    return funds[EX.fund_sel], EX.fund_sel
+end
+
+function EX.fund_row_count()
+    return math.min(#EX.funds_for(EX.index_culture()), EX.FUND_ROWS)
+end
+
+-- THE FUNDS PAGE'S ROWS: the funds, then the selected fund's members heaviest first, as many as
+-- fit. Row 1 is the index's own "_idx" row; the rest are the "_fd2".."_fd4" pool.
 function EX.index_rows()
-    local t = { "idx" }
-    local m = EX.index_by_share(EX.index_culture())
-    for i = 1, math.min(#m, EX.MAX_ROWS - 1) do t[#t + 1] = m[i] end
+    local t = {}
+    for i = 1, EX.fund_row_count() do t[i] = (i == 1) and "idx" or ("fd" .. i) end
+    local m = EX.fund_by_share((EX.fund_selected()))
+    for i = 1, math.min(#m, EX.MAX_ROWS - #t) do t[#t + 1] = m[i] end
     return t
+end
+
+-- THE FUND A ROW IS, or nil: "_idx" is 1, "_fd<n>" is n.
+function EX.fund_of_row(id)
+    if id == EX.ROW .. "_idx" then return 1 end
+    local p = EX.ROW .. "_fd"
+    if string.sub(id, 1, #p) ~= p then return nil end
+    return tonumber(string.sub(id, #p + 1))
 end
 
 -- THE SLICE, AND ITS CLAMP. The clamp lives HERE, not only where the arrows move the index -
@@ -3622,11 +3653,12 @@ function EX.holdings_value()
             end
         end
     end
-    -- AND THE INDEX UNITS, at the index's own sell price - they are paper like the shares.
-    local u = EX.index_units or 0
-    if u > 0 then
-        local px = EX.index_sell_price(EX.index_culture()) or 0
-        total = total + math.floor(u * px / EX.HOUSE_LOT_SIZE)
+    -- AND EVERY FUND'S UNITS, the index first, at each fund's own sell price - paper like shares.
+    for _, F in ipairs(EX.funds_for(EX.index_culture())) do
+        local u = EX.fund_units_of(F)
+        if u > 0 then
+            total = total + math.floor(u * (EX.fund_sell_price(F) or 0) / EX.HOUSE_LOT_SIZE)
+        end
     end
     return total
 end
@@ -4031,25 +4063,7 @@ end
 -- multiplayer game it would hand the Empire player the Chaos Dwarf index.
 function EX.index_culture() return EX.culture_of(EX.who()) end
 
--- The live table in EX.store, or nil. Mutated in place; EX.enc_store tags its float divisor on
--- the way into the save.
-function EX.index_state(c)
-    if not c then return nil end
-    local s = EX.getv(EX.SAVE_INDEX .. c)
-    return type(s) == "table" and s or nil
-end
-
 function EX.index_dead(h) return EX.is_delisted(h) or EX.house_gone(h) end
-
--- SORTED, so two machines holding the house list in different insertion orders build one index.
-function EX.index_eligible(c)
-    local t = {}
-    for _, h in ipairs(EX.houses or {}) do
-        if EX.culture_of(h) == c and not EX.index_dead(h) then t[#t + 1] = h end
-    end
-    table.sort(t)
-    return t
-end
 
 -- A DEAD MEMBER READS AT THE WIND-UP RATE AS SOON AS IT IS DEAD, before any round has removed
 -- it. At its living price the index would sell a corpse at full value for the rest of the turn.
@@ -4057,29 +4071,6 @@ function EX.index_weight(h)
     local p = EX.price(h)
     if EX.index_dead(h) then p = EX.opt_for_culture("windup", EX.culture_of(h)) * p end
     return p
-end
-
-function EX.index_level(c)
-    local s = EX.index_state(c)
-    if not s or #s.m == 0 or not s.d or s.d <= 0 then return nil end
-    local sum = 0
-    for _, h in ipairs(s.m) do sum = sum + EX.index_weight(h) end
-    return sum / s.d
-end
-
--- The members, heaviest first, ties by key so the order is stable between refreshes.
-function EX.index_by_share(c)
-    local s = EX.index_state(c)
-    local t = {}
-    if not s then return t end
-    for _, h in ipairs(s.m) do t[#t + 1] = { h = h, w = EX.index_weight(h) } end
-    table.sort(t, function(x, y)
-        if x.w ~= y.w then return x.w > y.w end
-        return x.h < y.h
-    end)
-    local out = {}
-    for i, e in ipairs(t) do out[i] = e.h end
-    return out
 end
 
 function EX.index_cultures()
@@ -4092,35 +4083,121 @@ function EX.index_cultures()
     return t
 end
 
--- fn bound to each human of culture c: the log lines and the units are theirs.
-function EX.index_holders(c, fn)
+function EX.set_index_units(n)
+    if n < 0 then n = 0 end
+    EX.index_units = n
+    EX.setp(EX.SAVE_INDEX_UNITS, n)
+end
+
+-- THE FUND ENGINE (2026-09-30). The index's own model over any basket: a house fund (the index is
+-- one, over your own culture) or a goods fund. Level = sum of the members' lot prices / divisor.
+-- A join moves the divisor and never the level; a house that dies leaves at the wind-up rate; a
+-- member that leaves alive - a house no longer listed, a good nobody makes - leaves at its price.
+function EX.fund_goods(F) return F.goods ~= nil end
+
+-- The live table in EX.store, or nil. Mutated in place; EX.enc_store tags the float divisor.
+function EX.fund_state(F)
+    if not F or not F.key then return nil end
+    local s = EX.getv(F.key)
+    return type(s) == "table" and s or nil
+end
+
+-- A GOOD NEVER DIES: an unmade one takes the live-leaver branch, at its full price.
+function EX.fund_dead(F, m) return not EX.fund_goods(F) and EX.index_dead(m) end
+
+-- SORTED, so two machines holding the house list in different insertion orders build one fund.
+function EX.fund_eligible(F)
+    local t = {}
+    if EX.fund_goods(F) then
+        for _, r in ipairs(F.goods) do
+            if not EX.unavailable(r) then t[#t + 1] = r end
+        end
+    else
+        local want = {}
+        for _, c in ipairs(F.cultures) do want[c] = true end
+        for _, h in ipairs(EX.houses or {}) do
+            if want[EX.culture_of(h)] and not EX.index_dead(h) then t[#t + 1] = h end
+        end
+    end
+    table.sort(t)
+    return t
+end
+
+-- AN UNMADE GOOD'S LAST TURN-END PRICE (review finding, 2026-09-30). A load rescans supply and
+-- reprices, so a good whose last producer fell during the turn is at the MULT_MAX clamp - no
+-- market value - while it is still a fund member, until step 7b takes it out. EX.deep's last entry
+-- is the rung the last turn settled at, before the loss.
+function EX.settled_price(res)
+    local d = EX.deep and EX.deep[res]
+    if d and #d > 0 then return EX.price_at(d[#d]) end
+    return EX.price(res)
+end
+
+function EX.fund_weight(F, m)
+    if not EX.fund_goods(F) then return EX.index_weight(m) end
+    if EX.unavailable(m) then return EX.settled_price(m) end
+    return EX.price(m)
+end
+
+-- A GOODS FUND WITH NO MEMBER LEFT HOLDS ITS LAST LEVEL (d = 0): its holders can still sell, and
+-- a good made again rejoins at that level. A house fund with none left is ended instead.
+function EX.fund_level(F)
+    local s = EX.fund_state(F)
+    if not s then return nil end
+    if #s.m == 0 then return EX.fund_goods(F) and s.last or nil end
+    if not s.d or s.d <= 0 then return nil end
+    local sum = 0
+    for _, m in ipairs(s.m) do sum = sum + EX.fund_weight(F, m) end
+    return sum / s.d
+end
+
+-- The members, heaviest first, ties by key so the order is stable between refreshes.
+function EX.fund_by_share(F)
+    local s = EX.fund_state(F)
+    local t = {}
+    if not s then return t end
+    for _, m in ipairs(s.m) do t[#t + 1] = { h = m, w = EX.fund_weight(F, m) } end
+    table.sort(t, function(x, y)
+        if x.w ~= y.w then return x.w > y.w end
+        return x.h < y.h
+    end)
+    local out = {}
+    for i, e in ipairs(t) do out[i] = e.h end
+    return out
+end
+
+-- fn bound to each human of the fund's owning culture: the log lines and the units are theirs.
+function EX.fund_holders(F, fn)
     for _, f in ipairs(EX.humans()) do
-        if EX.culture_of(f) == c then EX.with_player(f, fn) end
+        if EX.culture_of(f) == F.owner then EX.with_player(f, fn) end
     end
 end
 
 -- REMOVALS, turn step 7b: after check_delistings, before apply_prices collapses a dead house's
--- price. The dead leave at windup x price, a member that left alive at its full price, and the
--- divisor is re-cut so the level after is exactly the level the dead left behind. Each death
--- is logged with its own fall, the house named at draw time (see EX.log_settlement).
+-- price or clamps an unmade good's. The dead leave at windup x price - each at its OWN culture's
+-- wind-up, as EX.index_weight reads it - a member that left alive at its full price, and the
+-- divisor is re-cut so the level after is exactly the level the dead left behind. Each death is
+-- logged with its own fall, the house named at draw time (see EX.log_settlement).
 --
--- EVERY MEMBER GONE ENDS THE INDEX: its holders are settled at that level and the state is
--- dropped. A divisor cannot carry a level over an empty list, and restarting later at the new
--- houses' average would hand a free rise to every unit still held.
-function EX.index_remove(c)
-    local s = EX.index_state(c)
+-- EVERY MEMBER GONE: a house fund ENDS, its holders settled at that level and the state dropped
+-- - a divisor cannot carry a level over an empty list, and restarting later at the new houses'
+-- average would hand a free rise to every unit still held. A goods fund KEEPS its state at d = 0
+-- with that level as s.last: its goods still exist, and will be made again.
+function EX.fund_remove(F)
+    local s = EX.fund_state(F)
     if not s or #s.m == 0 then return end
     local ok = {}
-    for _, h in ipairs(EX.index_eligible(c)) do ok[h] = true end
-    local wind = EX.opt_for_culture("windup", c)
+    for _, m in ipairs(EX.fund_eligible(F)) do ok[m] = true end
     local keep, dead, alive, full = {}, {}, 0, 0
-    for _, h in ipairs(s.m) do
-        local p = EX.price(h)
+    for _, m in ipairs(s.m) do
+        -- A good at the price it read at live (EX.fund_weight); a house at its living price, the
+        -- dead taking their wind-up cut below.
+        local p = EX.fund_goods(F) and EX.fund_weight(F, m) or EX.price(m)
         full = full + p
-        if EX.index_dead(h) then
-            dead[#dead + 1] = { h, p * (1 - wind) }
-        elseif ok[h] then
-            keep[#keep + 1] = h
+        if EX.fund_dead(F, m) then
+            dead[#dead + 1] = { m, p * (1 - EX.opt_for_culture("windup", EX.culture_of(m))) }
+        elseif ok[m] then
+            keep[#keep + 1] = m
             alive = alive + p
         end
     end
@@ -4128,21 +4205,25 @@ function EX.index_remove(c)
     local lines, at = {}, full / s.d
     for _, x in ipairs(dead) do
         local to = at - x[2] / s.d
-        lines[#lines + 1] = { x[1], "Gone. The index took it at the wind-up rate and fell from "
+        lines[#lines + 1] = { x[1], "Gone. " .. F.the .. " took it at the wind-up rate and fell from "
             .. math.floor(at + 0.5) .. " to " .. math.floor(to + 0.5) .. "." }
         at = to
     end
     local level = at
     if #keep == 0 then
-        EX.setv(EX.SAVE_INDEX .. c, nil)
-        EX.index_holders(c, function()
-            local u = EX.index_units or 0
+        if EX.fund_goods(F) then
+            s.m, s.d, s.last = {}, 0, level
+            return
+        end
+        EX.setv(F.key, nil)
+        EX.fund_holders(F, function()
+            local u = EX.fund_units_of(F)
             local paid = math.floor(u * level / EX.HOUSE_LOT_SIZE)
             if paid > 0 then cm:treasury_mod(EX.who(), paid) end
-            EX.set_index_units(0)
+            EX.set_fund_units(F, 0)
             for _, l in ipairs(lines) do EX.log_add("", l[2], l[1]) end
             if u > 0 then
-                EX.log_add("Index", "Every house in it is gone; your " .. u
+                EX.log_add(F.log, "Every house in it is gone; your " .. u
                     .. " unit(s) settled for " .. paid .. "g.", "")
             end
         end)
@@ -4150,90 +4231,115 @@ function EX.index_remove(c)
     end
     s.m = keep
     s.d = alive / level
-    EX.index_holders(c, function()
+    EX.fund_holders(F, function()
         for _, l in ipairs(lines) do EX.log_add("", l[2], l[1]) end
     end)
 end
 
--- JOINS, turn step 10c: after apply_prices, so a new house joins at its fresh price. The
--- divisor grows by the joiner's price over the level, so the level does not move. A culture
--- with no index gets one when it first has INDEX_MIN houses, opening at their average.
--- Records the trend's two levels last.
-function EX.index_join(c)
-    local elig = EX.index_eligible(c)
-    local s = EX.index_state(c)
+-- JOINS, turn step 10c: after apply_prices, so a new member joins at its fresh price. The
+-- divisor grows by the joiner's price over the level, so the level does not move - including a
+-- goods fund at d = 0, whose level is s.last. A fund with no state opens when it first has
+-- INDEX_MIN members, at their average. Records the trend's two levels last.
+function EX.fund_join(F)
+    local elig = EX.fund_eligible(F)
+    local s = EX.fund_state(F)
     if not s then
         if #elig < EX.INDEX_MIN then return end
         s = { d = #elig, m = elig }
-        EX.setv(EX.SAVE_INDEX .. c, s)
+        EX.setv(F.key, s)
     else
-        local level = EX.index_level(c)
+        local level = EX.fund_level(F)
         local have = {}
-        for _, h in ipairs(s.m) do have[h] = true end
+        for _, m in ipairs(s.m) do have[m] = true end
         local add = 0
-        for _, h in ipairs(elig) do
-            if not have[h] then
-                have[h] = true
-                s.m[#s.m + 1] = h
-                add = add + EX.price(h)
+        for _, m in ipairs(elig) do
+            if not have[m] then
+                have[m] = true
+                s.m[#s.m + 1] = m
+                add = add + EX.price(m)
             end
         end
         if add > 0 and level and level > 0 then
             table.sort(s.m)
-            s.d = s.d + add / level
+            s.d = (s.d or 0) + add / level
         end
     end
     s.prev = s.last
-    s.last = EX.index_level(c)
+    s.last = EX.fund_level(F)
 end
 
--- BOTH PASSES ARE WORLD WORK, unbound, one culture at a time in sorted order.
+-- BOTH PASSES ARE WORLD WORK, unbound: every fund of every culture with a human, cultures in
+-- sorted order and each culture's funds in catalogue order, so every machine walks one sequence.
 function EX.index_sync(join)
     for _, c in ipairs(EX.index_cultures()) do
-        if join then EX.index_join(c) else EX.index_remove(c) end
+        for _, F in ipairs(EX.funds_for(c)) do
+            if join then EX.fund_join(F) else EX.fund_remove(F) end
+        end
     end
 end
 
--- ON LOAD, A MISSING INDEX ONLY (2026-09-30). Step 10c was the one place an index was made, so
--- a save older than the index - every player updating from a build without it - showed "No
--- index: fewer than two houses of your people are listed" over twenty houses until the next
--- turn start. Seen in play on a 09-29 save. An existing index is left alone: index_join also
--- takes new members and rolls the trend, and a reload is not a turn.
+-- ON LOAD, MISSING FUNDS ONLY (2026-09-30). Step 10c was the one place a fund was made, so a
+-- save older than the index - or than the themed funds - showed none until the next turn start:
+-- seen in play on a 09-29 save, "No index: fewer than two houses of your people are listed" over
+-- twenty houses. An existing fund is left alone: fund_join also takes new members and rolls the
+-- trend, and a reload is not a turn.
+--
+-- NO THEMED FUND BEFORE THE SNAPSHOT (review finding, 2026-09-30). A new campaign's first tick
+-- has no frozen settings yet, and MCT may not have loaded, so the switch reads its default: a
+-- fund made here would stay listed all campaign for a player who switched them off. Step 10c
+-- makes them once the snapshot exists; an updated save already carries one.
 function EX.index_open()
     for _, c in ipairs(EX.index_cultures()) do
-        if not EX.index_state(c) then EX.index_join(c) end
+        for _, F in ipairs(EX.funds_for(c)) do
+            if not EX.fund_state(F) and (F.own or EX.snap ~= nil) then EX.fund_join(F) end
+        end
     end
 end
 
-function EX.index_trend(c)
-    local s = EX.index_state(c)
+function EX.fund_trend(F)
+    local s = EX.fund_state(F)
     if not s or not s.last or not s.prev then return EX.TREND_FLAT end
     if s.last > s.prev then return EX.TREND_UP end
     if s.last < s.prev then return EX.TREND_DOWN end
     return EX.TREND_FLAT
 end
 
--- PER LOT. No hostility markup (no single house is selling) and no pressure (buying the index
--- does not move its members), so the spread is the only thing between the two prices.
-function EX.index_buy_price(c)
-    local l = EX.index_level(c)
+-- PER LOT. No hostility markup (no single house is selling) and no pressure (buying a fund does
+-- not move its members), so the spread is the only thing between the two prices.
+function EX.fund_buy_price(F)
+    local l = EX.fund_level(F)
     return l and math.floor(l + 0.5) or nil
 end
 
-function EX.index_sell_price(c)
-    local l = EX.index_level(c)
+function EX.fund_sell_price(F)
+    local l = EX.fund_level(F)
     if not l then return nil end
     local f = 1 - EX.opt("spread")
     if f < EX.opt("sell_floor") then f = EX.opt("sell_floor") end
     return math.floor(l * f)
 end
 
--- REASON, LABEL for a buy, the EX.buy_refusal shape. Selling is never refused here.
-function EX.index_refusal(c)
-    local s = EX.index_state(c)
+-- REASON, LABEL for a buy, the EX.buy_refusal shape; first match wins. Selling is never refused.
+function EX.fund_refusal(F)
+    local s = EX.fund_state(F)
     if not s or #s.m < EX.INDEX_MIN then
-        return "Fewer than two houses of your people are listed, so there is no index to buy. "
-            .. "Selling stays open.", "No index"
+        if F.own then
+            return "Fewer than two houses of your people are listed, so there is no index to buy. "
+                .. "Selling stays open.", "No index"
+        end
+        if EX.fund_goods(F) then
+            return "Fewer than two of these goods are produced on this map. Selling stays open.",
+                "No fund"
+        end
+        if not EX.setting("cross_bloc") then
+            return "Houses of other peoples are not listed in this campaign's settings. Selling "
+                .. "stays open.", "No fund"
+        end
+        return "Fewer than two of their houses are listed. Selling stays open.", "No fund"
+    end
+    if not F.own and not EX.setting("funds") then
+        return "Themed funds are switched off in this campaign's settings. Selling stays open.",
+            "Off"
     end
     if EX.market_closed() then
         return "The Exchange is shut: too much of the guild is at war with you. Selling stays "
@@ -4242,70 +4348,72 @@ function EX.index_refusal(c)
     return nil
 end
 
-function EX.set_index_units(n)
+function EX.fund_units_of(F)
+    if F.own then return EX.index_units or 0 end
+    return EX.fund_units[F.id] or 0
+end
+
+function EX.set_fund_units(F, n)
+    if F.own then return EX.set_index_units(n) end
     if n < 0 then n = 0 end
-    EX.index_units = n
-    EX.setp(EX.SAVE_INDEX_UNITS, n)
+    EX.fund_units[F.id] = n
+    EX.setp(EX.SAVE_FUND_UNITS .. F.id, n)
+end
+
+-- Bound, from EX.restore_player: every id any culture could hold, so a fund held and then
+-- dropped from the list by the switch still loads.
+function EX.load_fund_units()
+    EX.fund_units = {}
+    for _, id in ipairs(EX.all_fund_ids()) do
+        local n = tonumber(EX.getp(EX.SAVE_FUND_UNITS .. id)) or 0
+        if n > 0 then EX.fund_units[id] = n end
+    end
 end
 
 -- N LOTS AT ONE PRICE, one treasury_mod, gold to and from nobody - the share rule (scoping F2).
 -- Returns true when every lot filled, else the reason it stopped, as EX.apply_trade does.
-function EX.index_trade(is_buy, n)
-    local c = EX.index_culture()
+function EX.fund_trade(F, is_buy, n)
     local lot = EX.HOUSE_LOT_SIZE
     if is_buy then
-        local why = EX.index_refusal(c)
+        local why, label = EX.fund_refusal(F)
         if why then
-            EX.log_add("Index", "Buy refused. " .. why, "")
-            return EX.index_state(c) and #EX.index_state(c).m >= EX.INDEX_MIN and "closed"
-                or "noindex"
+            EX.log_add(F.log, "Buy refused. " .. why, "")
+            return (label == "No index" or label == "No fund") and "noindex" or "closed"
         end
     end
-    local px = is_buy and EX.index_buy_price(c) or EX.index_sell_price(c)
+    local px = is_buy and EX.fund_buy_price(F) or EX.fund_sell_price(F)
     if not px then return "noindex" end
     local gold = 0
     pcall(function() gold = cm:get_faction(EX.who()):treasury() end)
+    local have = EX.fund_units_of(F)
     local done, last = 0, true
     for _ = 1, n do
         if is_buy and gold - (done + 1) * px < 0 then last = "afford"; break end
-        if not is_buy and EX.index_units - (done + 1) * lot < 0 then last = "nothold"; break end
+        if not is_buy and have - (done + 1) * lot < 0 then last = "nothold"; break end
         done = done + 1
     end
     local stop = (last ~= true) and EX.TRADE_STOP[last] or nil
     if done > 0 then
         cm:treasury_mod(EX.who(), (is_buy and -1 or 1) * done * px)
-        EX.set_index_units(EX.index_units + (is_buy and 1 or -1) * done * lot)
-        EX.log_add("Index", (is_buy and "Bought " or "Sold ") .. done * lot .. " unit(s) for "
+        EX.set_fund_units(F, have + (is_buy and 1 or -1) * done * lot)
+        EX.log_add(F.log, (is_buy and "Bought " or "Sold ") .. done * lot .. " unit(s) for "
             .. done * px .. "g." .. (stop and (" " .. stop) or ""), "")
     elseif stop then
-        EX.log_add("Index", (is_buy and "Buy refused. " or "Sell refused. ") .. stop, "")
+        EX.log_add(F.log, (is_buy and "Buy refused. " or "Sell refused. ") .. stop, "")
     end
     return last
-end
-
--- The amount rides on the op, as it does for EX.trade.
-function EX.index_send(is_buy)
-    local side = is_buy and "b" or "s"
-    EX.mp_send("idx", side .. tostring(EX.amount))
-end
-
-EX.MP_OPS.idx = function(arg)
-    arg = tostring(arg or "")
-    local side = string.sub(arg, 1, 1)
-    if side ~= "b" and side ~= "s" then return end
-    local why = EX.index_trade(side == "b", EX.clamp_lots(string.sub(arg, 2)))
-    if why ~= true then EX.say("trade", "index trade stopped: " .. tostring(why)) end
-    if is_uicomponent(EX.panel()) then EX.refresh_panel() end
 end
 
 -- EACH MEMBER'S PART, { house, gold }, for u units. THE TOTAL IS FLOORED ONCE - floor(u x the
 -- members' per-share dividends / divisor), the number the Div column promises - and split by
 -- largest remainder, ties by key. Floored per member instead, 21 houses each dropped most of a
 -- gold and ten units were paid 21g against the 40g the row showed. EX.dividend is already 0 at
--- war and a dead member pays nothing, so neither can draw a remainder.
-function EX.index_dues(c, u)
-    local s = EX.index_state(c)
+-- war and a dead member pays nothing, so neither can draw a remainder. A goods fund pays
+-- nothing: its return is price only.
+function EX.fund_dues(F, u)
+    local s = EX.fund_state(F)
     local t = {}
+    if EX.fund_goods(F) then return t end
     if not s or not u or u <= 0 or not s.d or s.d <= 0 then return t end
     local sum, floors = 0, 0
     for _, h in ipairs(s.m) do
@@ -4336,16 +4444,16 @@ function EX.index_dues(c, u)
     return out
 end
 
-function EX.index_due(c, u)
+function EX.fund_due(F, u)
     local n = 0
-    for _, x in ipairs(EX.index_dues(c, u)) do n = n + x[2] end
+    for _, x in ipairs(EX.fund_dues(F, u)) do n = n + x[2] end
     return n
 end
 
--- What one lot is paid a turn, for the row: the same total EX.index_dues splits.
-function EX.index_dividend_lot(c)
-    local s = EX.index_state(c)
-    if not s or not s.d or s.d <= 0 then return 0 end
+-- What one lot is paid a turn, for the row: the same total EX.fund_dues splits.
+function EX.fund_dividend_lot(F)
+    local s = EX.fund_state(F)
+    if EX.fund_goods(F) or not s or not s.d or s.d <= 0 then return 0 end
     local n = 0
     for _, h in ipairs(s.m) do
         if not EX.index_dead(h) then n = n + EX.dividend(h) end
@@ -4353,11 +4461,11 @@ function EX.index_dividend_lot(c)
     return math.floor(EX.HOUSE_LOT_SIZE * n / s.d)
 end
 
--- Bound, beside EX.pay_dividends: the members pay through EX.pay_house, clamped exactly as a
--- share dividend is, and the player is credited only what moved. ai_gold off: paid in full.
-function EX.pay_index_dividends()
+-- Bound: the members pay through EX.pay_house, clamped exactly as a share dividend is, and the
+-- player is credited only what moved. ai_gold off: paid in full.
+function EX.pay_fund_dividends(F)
     local paid = 0
-    for _, x in ipairs(EX.index_dues(EX.index_culture(), EX.index_units)) do
+    for _, x in ipairs(EX.fund_dues(F, EX.fund_units_of(F))) do
         if EX.setting("ai_gold") then
             paid = paid - EX.pay_house(x[1], -x[2])
         else
@@ -4366,8 +4474,190 @@ function EX.pay_index_dividends()
     end
     if paid <= 0 then return end
     cm:treasury_mod(EX.who(), paid)
-    EX.log_add("Index", "The index paid you " .. paid .. "g.", "")
-    EX.say("turn", "index dividends paid " .. paid)
+    EX.log_add(F.log, F.the .. " paid you " .. paid .. "g.", "")
+    EX.say("turn", F.id .. " dividends paid " .. paid)
+end
+
+-- Bound, beside EX.pay_dividends: every house fund of the bound player's culture, index first.
+function EX.pay_index_dividends()
+    for _, F in ipairs(EX.funds_for(EX.index_culture())) do
+        if not EX.fund_goods(F) then EX.pay_fund_dividends(F) end
+    end
+end
+
+-- THE INDEX'S OWN NAMES, one line each, so every caller and every index assertion is untouched.
+function EX.index_state(c) return EX.fund_state(EX.index_fund(c)) end
+function EX.index_level(c) return EX.fund_level(EX.index_fund(c)) end
+function EX.index_remove(c) return EX.fund_remove(EX.index_fund(c)) end
+function EX.index_trend(c) return EX.fund_trend(EX.index_fund(c)) end
+function EX.index_buy_price(c) return EX.fund_buy_price(EX.index_fund(c)) end
+function EX.index_sell_price(c) return EX.fund_sell_price(EX.index_fund(c)) end
+function EX.index_refusal(c) return EX.fund_refusal(EX.index_fund(c)) end
+function EX.index_trade(is_buy, n) return EX.fund_trade(EX.index_fund(EX.index_culture()), is_buy, n) end
+function EX.index_dues(c, u) return EX.fund_dues(EX.index_fund(c), u) end
+function EX.index_due(c, u) return EX.fund_due(EX.index_fund(c), u) end
+function EX.index_dividend_lot(c) return EX.fund_dividend_lot(EX.index_fund(c)) end
+
+-- The amount rides on the op, as it does for EX.trade; a themed fund's id after an "@".
+function EX.fund_send(F, is_buy)
+    local arg = (is_buy and "b" or "s") .. tostring(EX.amount)
+    if not F.own then arg = arg .. "@" .. F.id end
+    EX.mp_send("idx", arg)
+end
+
+-- RESOLVED AGAINST THE BOUND SENDER'S CULTURE: an id that is not one of their funds is refused
+-- and logged, never traded - a crafted or stale op must not reach another culture's fund.
+EX.MP_OPS.idx = function(arg)
+    local side, n, id = string.match(tostring(arg or ""), "^([bs])([^@]*)@?(.*)$")
+    if not side then return end
+    local F = EX.index_fund(EX.index_culture())
+    if id ~= "" then
+        F = EX.fund_by_id(EX.index_culture(), id)
+        if not F or F.own then
+            EX.say("trade", "fund trade refused: " .. id .. " is not a fund of this player")
+            return
+        end
+    end
+    local why = EX.fund_trade(F, side == "b", EX.clamp_lots(n))
+    if why ~= true then EX.say("trade", F.id .. " trade stopped: " .. tostring(why)) end
+    if is_uicomponent(EX.panel()) then EX.refresh_panel() end
+end
+
+-- ---------------------------------------------------------------------------------------
+-- THEMED FUNDS: THE CATALOGUE. Per culture, in the order the page lists them after the index.
+-- A goods fund names commodities; a house fund names other cultures, whose houses are listed
+-- only through EX.BLOC - check_fund_catalogue asserts every one is reachable, because the
+-- first Dark Elf fund (the Vampire Coast, an unlisted undead culture) was empty for good.
+-- ---------------------------------------------------------------------------------------
+EX.FUNDS = {
+    ["wh3_dlc23_chd_chaos_dwarfs"] = {
+        { id = "chd_furnace", name = "Furnace Stock", goods = { "res_rom_iron", "res_rom_timber", "res_rom_lead" } },
+        { id = "chd_hoard", name = "Hashut's Hoard", goods = { "res_gold_idols", "res_gems", "res_obsidian" } }, -- race-own: EX.FUNDS
+        { id = "chd_warbands", name = "Northern Warbands", peoples = "Norsca and the Warriors of Chaos",
+          cultures = { "wh_dlc08_nor_norsca", "wh_main_chs_chaos" } },
+    },
+    ["wh_main_emp_empire"] = {
+        { id = "emp_staples", name = "Reikland Staples", goods = { "res_rom_iron", "res_rom_lead", "res_rom_wine" } },
+        { id = "emp_luxuries", name = "Marienburg Luxuries", goods = { "res_spices", "res_dyes", "res_gems" } },
+        { id = "emp_holds", name = "Karaz Ankor Holds", peoples = "the Dwarfs", cultures = { "wh_main_dwf_dwarfs" } },
+    },
+    ["wh3_main_cth_cathay"] = {
+        { id = "cth_caravan", name = "Caravan Goods", goods = { "res_spices", "res_ivory", "res_dyes" } },
+        { id = "cth_jade", name = "Jade Court Treasures", goods = { "res_gems", "res_rom_marble", "res_gold_idols" } },
+        { id = "cth_kislev", name = "Kislev Trade", peoples = "Kislev", cultures = { "wh3_main_ksl_kislev" } },
+    },
+    ["wh2_main_skv_skaven"] = {
+        { id = "skv_supplies", name = "Clan Supplies", goods = { "res_rom_iron", "res_rom_lead", "res_medicine" } },
+        { id = "skv_scavenged", name = "Scavenged Goods", goods = { "res_trinkets", "res_rom_furs", "res_rom_timber" } },
+    },
+    ["mixer_teb_southern_realms"] = {
+        { id = "teb_condottieri", name = "Condottieri Supply", goods = { "res_rom_iron", "res_rom_marble", "res_gems" } },
+        { id = "teb_araby", name = "Arabyan Imports", goods = { "res_ivory", "res_dyes", "res_animals" } },
+        { id = "teb_empire", name = "Imperial Neighbours", peoples = "the Empire", cultures = { "wh_main_emp_empire" } },
+    },
+    ["wh_main_dwf_dwarfs"] = {
+        { id = "dwf_staples", name = "Hold Staples", goods = { "res_rom_glass", "res_rom_iron", "res_rom_lead" } },
+        { id = "dwf_gold", name = "Ancestor Gold", goods = { "res_gems", "res_gold_idols", "res_rom_marble" } },
+        { id = "dwf_empire", name = "Imperial Allies", peoples = "the Empire", cultures = { "wh_main_emp_empire" } },
+    },
+    ["wh2_main_hef_high_elves"] = {
+        { id = "hef_luxuries", name = "Ulthuan Luxuries", goods = { "res_gems", "res_spices", "res_rom_wine" } },
+        { id = "hef_colonies", name = "Far Colonies", goods = { "res_ivory", "res_dyes", "res_animals" } },
+        { id = "hef_empire", name = "Old World Partners", peoples = "the Empire", cultures = { "wh_main_emp_empire" } },
+    },
+    ["wh2_main_def_dark_elves"] = {
+        { id = "def_stores", name = "Black Ark Stores", goods = { "res_rom_iron", "res_rom_timber", "res_dyes" } },
+        { id = "def_plunder", name = "Corsair Plunder", goods = { "res_gold_idols", "res_gems", "res_trinkets" } },
+        { id = "def_zharr", name = "Zharr-Naggrund Trade", peoples = "the Chaos Dwarfs",
+          cultures = { "wh3_dlc23_chd_chaos_dwarfs" } },
+    },
+}
+
+-- EVERY OTHER CULTURE IN EX.CULTURE_WANTS gets one derived goods fund named "<this> Wants".
+-- check_fund_catalogue asserts this covers exactly those cultures, no more and no fewer.
+EX.WANTS_NAME = {
+    ["wh_main_grn_greenskins"] = "Greenskin", ["wh_main_brt_bretonnia"] = "Bretonnian",
+    ["wh_main_vmp_vampire_counts"] = "Sylvanian", ["wh3_dlc29_nag_undead_legions"] = "Nagashi",
+    ["wh_main_chs_chaos"] = "Chaos", ["wh_dlc08_nor_norsca"] = "Norscan",
+    ["wh_dlc03_bst_beastmen"] = "Beastmen", ["wh_dlc05_wef_wood_elves"] = "Wood Elf",
+    ["wh2_main_lzd_lizardmen"] = "Lustrian", ["wh2_dlc09_tmb_tomb_kings"] = "Nehekharan",
+    ["wh2_dlc11_cst_vampire_coast"] = "Vampire Coast", ["wh3_main_ksl_kislev"] = "Kislevite",
+    ["wh3_main_pro_ksl_kislev"] = "Kislevite", ["wh3_main_ogr_ogre_kingdoms"] = "Ogre",
+    ["wh3_main_kho_khorne"] = "Khornate", ["wh3_main_sla_slaanesh"] = "Slaaneshi",
+    ["wh3_main_tze_tzeentch"] = "Tzeentchian", ["wh3_main_nur_nurgle"] = "Nurglite",
+    ["wh3_main_dae_daemons"] = "Daemonic",
+}
+
+-- THE HOUSE INDEX AS A FUND: fund #1 of every list, on its own unchanged keys. A nil culture
+-- (no local faction yet) gives a fund with no key, which every reader treats as no state.
+function EX.index_fund(c)
+    return { id = "idx", own = true, owner = c, name = "Index", log = "Index", the = "The index",
+             peoples = "your people", cultures = { c }, key = c and (EX.SAVE_INDEX .. c) or nil }
+end
+
+-- THE THREE HIGHEST POSITIVE APPETITES, ties by commodity key, so every machine builds the same
+-- fund. Fewer than two positive appetites is no fund - one good is just that good.
+function EX.derived_fund(c)
+    local w = EX.CULTURE_WANTS[c]
+    if not w or not EX.WANTS_NAME[c] then return nil end
+    local t = {}
+    for r, v in pairs(w) do
+        if v > 0 then t[#t + 1] = { r = r, v = v } end
+    end
+    if #t < EX.INDEX_MIN then return nil end
+    table.sort(t, function(a, b)
+        if a.v ~= b.v then return a.v > b.v end
+        return a.r < b.r
+    end)
+    local goods = {}
+    for i = 1, math.min(3, #t) do goods[i] = t[i].r end
+    return { id = "want_" .. c, name = EX.WANTS_NAME[c] .. " Wants", goods = goods }
+end
+
+-- A CATALOGUE ENTRY COMPLETED, as a new table: the shared catalogue is never written to.
+function EX.fund_def(c, e)
+    return { id = e.id, name = e.name, owner = c, log = e.name, the = e.name, peoples = e.peoples,
+             goods = e.goods, cultures = e.cultures, key = EX.SAVE_FUND .. e.id }
+end
+
+-- CULTURE c's FUNDS, the index first. A themed fund is offered while the switch is on and kept
+-- while the save holds it - the contracts and bonds rule: the switch stops new ones only.
+function EX.funds_for(c)
+    local t = { EX.index_fund(c) }
+    if not c then return t end
+    local list = EX.FUNDS[c]
+    if not list then
+        local d = EX.derived_fund(c)
+        list = d and { d } or {}
+    end
+    for _, e in ipairs(list) do
+        local F = EX.fund_def(c, e)
+        if EX.setting("funds") or EX.getv(F.key) ~= nil then t[#t + 1] = F end
+    end
+    return t
+end
+
+function EX.fund_by_id(c, id)
+    for _, F in ipairs(EX.funds_for(c)) do
+        if F.id == id then return F end
+    end
+    return nil
+end
+
+-- EVERY THEMED FUND ID A PLAYER COULD HOLD, sorted: the units loader walks it on every machine.
+function EX.all_fund_ids()
+    local t = {}
+    for _, list in pairs(EX.FUNDS) do
+        for _, e in ipairs(list) do t[#t + 1] = e.id end
+    end
+    for c in pairs(EX.CULTURE_WANTS) do
+        if not EX.FUNDS[c] then
+            local d = EX.derived_fund(c)
+            if d then t[#t + 1] = d.id end
+        end
+    end
+    table.sort(t)
+    return t
 end
 
 -- ---------------------------------------------------------------------------------------
@@ -4546,6 +4836,7 @@ function EX.restore_player()
     -- The escalation has to survive a reload, or every load resets the altar's appetite.
     EX.offerings_made = EX.getp(EX.SAVE_OFFERINGS) or 0
     EX.index_units = tonumber(EX.getp(EX.SAVE_INDEX_UNITS)) or 0
+    EX.load_fund_units()
 end
 
 -- ONE STORE, TWO LENGTHS. The deep buffer is appended to and the sparkline is taken as
@@ -7656,6 +7947,10 @@ function EX.build_panel()
     end
     -- AND THE INDEX'S ONE ROW. Its members draw on their own house rows.
     holder:CreateComponent(EX.ROW .. "_idx", EX.ROW_FILE)
+    -- AND THE THEMED FUNDS' ROWS, the index's row being the first of EX.FUND_ROWS.
+    for i = 2, EX.FUND_ROWS do
+        holder:CreateComponent(EX.ROW .. "_fd" .. i, EX.ROW_FILE)
+    end
     -- AND THE BONDS PAGE'S: bond_max offers a side above EX.BOND_OPEN_MAX open a side.
     for i = 1, 2 * EX.opt("bond_max") + 2 * EX.BOND_OPEN_MAX do
         holder:CreateComponent(EX.ROW .. "_bd" .. i, EX.ROW_FILE)
@@ -8049,8 +8344,8 @@ EX.HELP_PAGES = {
         -- FORWARD CONTRACTS (2026-09-29), page 2 of the Deals tab.
         { "Contract",     "A price agreed now for goods delivered later. Nothing moves until that turn." },
         { "Short",        "Lots nobody can deliver are paid in gold at the gap to market. War does not cancel them." },
-        -- THE INDEX FUND (2026-09-29), the last page of the Houses tab.
-        { "Index",        "One lot of every house of your people. A house that dies leaves at the wind-up rate." },
+        -- THE FUNDS (2026-09-30), the Houses tab's Funds page: the index and the themed funds.
+        { "Fund",         "One lot of every house or good in a basket. A house that dies leaves at the wind-up rate." },
         -- WAR BONDS AND LOANS (2026-09-29), the page after the index.
         { "Bond",         "Gold you lend a house at war. It pays you each turn and the whole sum at the end." },
         { "Loan",         "Gold a house at peace lends you. You pay it each turn and the whole sum at the end." },
@@ -10264,57 +10559,98 @@ function EX.gold_short(px)
     return "You have " .. gold .. "g; one lot costs " .. px .. "g.", "No gold"
 end
 
-function EX.index_cells()
-    local c = EX.index_culture()
-    local s = EX.index_state(c)
+-- "Iron, Timber and Salt" - display names, joined the way a sentence joins them.
+function EX.name_list(keys)
+    local t = {}
+    for i, r in ipairs(keys) do t[i] = EX.instrument_name(r) end
+    if #t < 2 then return t[1] or "" end
+    return table.concat(t, ", ", 1, #t - 1) .. " and " .. t[#t]
+end
+
+-- WHAT THE MEMBER ROWS BELOW ARE, for the footer: the goods by name, heaviest first as listed,
+-- or how many houses and whose.
+function EX.fund_listing(F, n)
+    if EX.fund_goods(F) then
+        return (n > 0) and EX.name_list(EX.fund_by_share(F)) or "none made on this map"
+    end
+    return n .. (n == 1 and " house of " or " houses of ") .. F.peoples
+end
+
+-- "Holds Iron, Timber and Salt. Click to list them below."
+function EX.fund_tip(F)
+    local what
+    if EX.fund_goods(F) then
+        what = EX.name_list(F.goods)
+    else
+        what = "one lot of every listed house of " .. F.peoples
+    end
+    return "Holds " .. what .. ". Click to list them below."
+end
+
+-- A FUND ROW'S CELLS, out of the draw for EX.deal_cells' reason. The fund whose members are
+-- listed has its name in yellow - only while there is a choice, so a race with the index alone
+-- reads as it always did. [[col:yellow]] is CA's most used colour tag in its own text (2,043 of
+-- the 241,972 loc entries, ahead of red), read offline 2026-09-30.
+function EX.fund_cells(F)
+    local s = EX.fund_state(F)
     local n = s and #s.m or 0
-    local u = EX.index_units or 0
-    local due = EX.index_due(c, u)
+    local u = EX.fund_units_of(F)
+    local due = EX.fund_due(F, u)
     local lot = EX.HOUSE_LOT_SIZE * EX.clamp_lots(EX.amount)
-    local px = EX.index_buy_price(c)
-    local why, label = EX.index_refusal(c)
+    local px = EX.fund_buy_price(F)
+    local why, label = EX.fund_refusal(F)
     if not why then why, label = EX.gold_short(px) end
+    local name = F.own and ("Index of " .. n .. (n == 1 and " house" or " houses")) or F.name
+    local sel = EX.fund_selected()
+    if EX.fund_row_count() > 1 and sel and sel.id == F.id then
+        name = "[[col:yellow]]" .. name .. "[[/col]]"
+    end
+    -- SHARE READS THE MEMBER COUNT: a fund is 100 percent of itself, which says nothing.
+    local one, many = " house", " houses"
+    if EX.fund_goods(F) then one, many = " good", " goods" end
     return {
-        name     = "Index of " .. n .. (n == 1 and " house" or " houses"),
+        name     = name,
+        name_tip = EX.fund_tip(F),
         price    = px and tostring(px) or "-",
-        div      = s and ("+" .. EX.index_dividend_lot(c)) or "-",
-        share    = s and "100%" or "-",
-        trend    = EX.index_trend(c),
+        div      = (s and not EX.fund_goods(F)) and ("+" .. EX.fund_dividend_lot(F)) or "-",
+        share    = s and (n .. (n == 1 and one or many)) or "-",
+        trend    = EX.fund_trend(F),
         held     = tostring(u) .. ((due > 0) and ("  +" .. due .. "g") or ""),
         buy      = label or ("Buy " .. lot),
         buy_why  = why,
         sell     = "Sell " .. lot,
-        sell_off = u < EX.HOUSE_LOT_SIZE or EX.index_sell_price(c) == nil,
+        sell_off = u < EX.HOUSE_LOT_SIZE or EX.fund_sell_price(F) == nil,
     }
 end
 
--- A MEMBER ROW: the house's own numbers, and its share of the index.
-function EX.index_member_cells(h)
-    local c = EX.index_culture()
+-- A MEMBER ROW: the house's or the good's own numbers, and its share of the fund.
+function EX.fund_member_cells(F, m)
     local sum = 0
-    for _, m in ipairs((EX.index_state(c) or { m = {} }).m) do sum = sum + EX.index_weight(m) end
-    local dead = EX.index_dead(h)
-    local share = (sum > 0) and math.floor(EX.index_weight(h) * 100 / sum + 0.5) or 0
+    for _, x in ipairs((EX.fund_state(F) or { m = {} }).m) do sum = sum + EX.fund_weight(F, x) end
+    local dead = EX.fund_dead(F, m)
+    local goods = EX.fund_goods(F)
+    local share = (sum > 0) and math.floor(EX.fund_weight(F, m) * 100 / sum + 0.5) or 0
     return {
-        name  = EX.faction_display(h),
-        price = dead and "-" or tostring(EX.price(h)),
-        div   = dead and "-" or ("+" .. EX.dividend(h)),
+        name  = goods and EX.instrument_name(m) or EX.faction_display(m),
+        price = dead and "-" or tostring(EX.price(m)),
+        div   = (dead or goods) and "-" or ("+" .. EX.dividend(m)),
         share = share .. "%",
-        trend = dead and "-" or EX.trend_arrow(h),
-        held  = tostring(EX.held(h)),
+        trend = dead and "-" or EX.trend_arrow(m),
+        held  = tostring(EX.held(m)),
     }
 end
 
-function EX.draw_index_row(row)
+function EX.draw_fund_row(row, F)
     if not is_uicomponent(row) then return end
-    local c = EX.index_cells()
+    local c = EX.fund_cells(F)
     set_text(row, "row_name", c.name)
+    set_tip(find_uicomponent(row, "row_name"), c.name_tip)
     set_text(row, "row_price", c.price)
     set_text(row, "row_sell", c.div)
     set_text(row, "row_supply", c.share)
     set_text(row, "row_trend", c.trend)
     set_text(row, "row_hold", c.held)
-    -- NO ICON AND NO SPARKLINE: the index keeps no price history of its own (spec s7).
+    -- NO ICON AND NO SPARKLINE: a fund keeps no price history of its own (spec s6).
     for _, id in ipairs({ "icon", "spark" }) do
         local x = find_uicomponent(row, id)
         if is_uicomponent(x) then x:SetVisible(false) end
@@ -10329,11 +10665,13 @@ function EX.draw_index_row(row)
     set_tip(bs, c.sell_off and EX.TIP_SELL_NONE or EX.TIP_SELL)
 end
 
--- BUTTONS HIDDEN, not greyed: a member is traded on the list pages, and a live-looking Buy
--- here would read as buying the index.
-function EX.draw_index_member(row, h)
+function EX.draw_index_row(row) return EX.draw_fund_row(row, EX.index_fund(EX.index_culture())) end
+
+-- BUTTONS HIDDEN, not greyed: a member is traded on its own page, and a live-looking Buy here
+-- would read as buying the fund.
+function EX.draw_fund_member(row, F, m)
     if not is_uicomponent(row) then return end
-    local c = EX.index_member_cells(h)
+    local c = EX.fund_member_cells(F, m)
     set_text(row, "row_name", c.name)
     set_text(row, "row_price", c.price)
     set_text(row, "row_sell", c.div)
@@ -10342,41 +10680,75 @@ function EX.draw_index_member(row, h)
     set_text(row, "row_hold", c.held)
     local ic = find_uicomponent(row, "icon")
     if is_uicomponent(ic) then
-        local path = EX.icon(h)
+        local path = EX.icon(m)
         if path then ic:SetImagePath(path, 0) end
         ic:SetVisible(path ~= nil)
     end
-    EX.draw_spark(row, h)
+    EX.draw_spark(row, m)
     for _, id in ipairs({ "btn_buy", "btn_sell" }) do
         local x = find_uicomponent(row, id)
         if is_uicomponent(x) then x:SetVisible(false) end
     end
 end
 
-function EX.index_footer()
-    local c = EX.index_culture()
-    local s = EX.index_state(c)
+function EX.draw_index_member(row, h) return EX.draw_fund_member(row, (EX.fund_selected()), h) end
+
+function EX.fund_footer(F)
+    local s = EX.fund_state(F)
+    local goods = EX.fund_goods(F)
     local l1
     if not s then
-        l1 = "No index: fewer than two houses of your people are listed."
+        if F.own then
+            l1 = "No index: fewer than two houses of your people are listed."
+        elseif goods then
+            l1 = F.name .. ": fewer than two of its goods are produced on this map."
+        else
+            l1 = F.name .. ": fewer than two of its houses are listed."
+        end
     else
         local n = #s.m
-        local u = EX.index_units or 0
-        local worth = math.floor(u * (EX.index_sell_price(c) or 0) / EX.HOUSE_LOT_SIZE)
-        l1 = "Index " .. (EX.index_buy_price(c) or 0) .. " a lot, " .. n
-            .. (n == 1 and " house" or " houses") .. ". You hold " .. u .. " units, worth "
-            .. worth .. "g"
-        local due = EX.index_due(c, u)
-        if due > 0 then l1 = l1 .. ", paying +" .. due .. "g a turn" end
-        l1 = l1 .. "."
-        if n < EX.INDEX_MIN then l1 = l1 .. " Buying needs two houses." end
+        local u = EX.fund_units_of(F)
+        local worth = math.floor(u * (EX.fund_sell_price(F) or 0) / EX.HOUSE_LOT_SIZE)
+        local one, many = " house", " houses"
+        if goods then one, many = " good", " goods" end
+        local held = "hold " .. u .. " units, worth " .. worth .. "g"
+        local due = EX.fund_due(F, u)
+        if due > 0 then held = held .. ", paying +" .. due .. "g a turn" end
+        -- WITH A CHOICE OF FUNDS the line opens with what the rows above it are. The index alone
+        -- keeps its old line: there is nothing else it could be listing.
+        if EX.fund_row_count() > 1 then
+            l1 = "Listing " .. (F.own and "the index" or F.name) .. ": " .. EX.fund_listing(F, n)
+                .. ". " .. (EX.fund_buy_price(F) or 0) .. " a lot; you " .. held .. "."
+        else
+            l1 = F.name .. " " .. (EX.fund_buy_price(F) or 0) .. " a lot, " .. n
+                .. (n == 1 and one or many) .. ". You " .. held .. "."
+        end
+        if n < EX.INDEX_MIN then l1 = l1 .. " Buying needs two" .. many .. "." end
     end
-    local l2 = "A new house joins without moving the price. One that dies leaves at the wind-up rate."
-    local cut = (s and #s.m or 0) - (EX.MAX_ROWS - 1)
+    local l2 = goods and "Goods nothing makes leave the fund at their price, and rejoin when made again."
+        or "A new house joins without moving the price. One that dies leaves at the wind-up rate."
+    local cut = (s and #s.m or 0) - (EX.MAX_ROWS - EX.fund_row_count())
     if cut > 0 then
-        l2 = cut .. (cut == 1 and " smaller house" or " smaller houses") .. " not shown. " .. l2
+        local noun = goods and (cut == 1 and " good" or " goods")
+            or (cut == 1 and " smaller house" or " smaller houses")
+        l2 = cut .. noun .. " not shown. " .. l2
     end
     return l1, l2
+end
+
+function EX.index_footer() return EX.fund_footer((EX.fund_selected())) end
+
+-- THE FUNDS PAGE'S ROWS, out of refresh_panel so the layout harness can run it. Returns the two
+-- footer lines for refresh_panel to fit and set.
+function EX.draw_funds(rows_holder)
+    local funds = EX.funds_for(EX.index_culture())
+    local F = EX.fund_selected()
+    local nf = EX.fund_row_count()
+    for i, key in ipairs(EX.mode_instruments()) do
+        local row = EX.row(rows_holder, key)
+        if i <= nf then EX.draw_fund_row(row, funds[i]) else EX.draw_fund_member(row, F, key) end
+    end
+    return EX.fund_footer(F)
 end
 
 -- THE TWO FOOTER LINES OF THE DEALS TAB, both pages. Out of the draw for EX.deal_cells' reason.
@@ -10548,7 +10920,7 @@ function EX.refresh_panel()
         if stats then t = nm .. ": Ownership"
         elseif offer then t = (EX.race and EX.race.offer_title) or "Offerings"
         elseif houses then
-            t = nm .. (EX.on_index() and ": Index" or EX.on_bonds() and ": Bonds" or ": Houses")
+            t = nm .. (EX.on_index() and ": Funds" or EX.on_bonds() and ": Bonds" or ": Houses")
         elseif EX.mode == EX.MODE_INTRO then t = EX.the_name()
         elseif EX.mode == EX.MODE_HELP then t = "How the " .. nm .. " works"
         elseif EX.mode == EX.MODE_DEALS then
@@ -10660,13 +11032,9 @@ function EX.refresh_panel()
         return
     end
 
-    -- THE INDEX PAGE. Row 1 is the index, the rest its members on their own house rows.
+    -- THE FUNDS PAGE. The fund rows, then the selected fund's members - EX.draw_funds.
     if EX.on_index() then
-        for i, key in ipairs(EX.mode_instruments()) do
-            local row = EX.row(rows_holder, key)
-            if i == 1 then EX.draw_index_row(row) else EX.draw_index_member(row, key) end
-        end
-        local l1, l2 = EX.index_footer()
+        local l1, l2 = EX.draw_funds(rows_holder)
         local xf1 = find_uicomponent(panel, "footer_text")
         local xf2 = find_uicomponent(panel, "footer_text2")
         if is_uicomponent(xf1) then xf1:SetStateText(fit(xf1, l1)) end
@@ -11186,7 +11554,7 @@ EX.ROW_LAYOUT_HOUSES = {
     { "row_name",    34,  5, 184 },
     { "row_price",  222,  5,  52 },
     { "row_sell",   278,  5,  38 },
-    { "row_supply", 320,  5,  54 },
+    { "row_supply", 320,  5,  64 },
     { "row_trend",  386,  5,  30 },
     { "spark",      450,  1 },
     { "row_hold",   560,  5,  88 },
@@ -11303,8 +11671,7 @@ end
 EX.SECTIONS = {
     houses = {
         { "houses", "Houses", "Shares in the houses of your people, one row a house." },
-        { "index", "Index", "One lot of every house of your people, bought and sold with one "
-            .. "button." },
+        { "index", "Funds", "Baskets of houses or goods, each bought and sold with one button." },
         { "bonds", "Bonds", "Lend gold to houses of your people at war, or borrow from those "
             .. "at peace. Paid back a little every turn." },
     },
@@ -11343,6 +11710,8 @@ function EX.sub_click(i)
         EX.deal_page = EX.SECTION_PAGE[s[1]]
     end
     EX.sort_col, EX.sort_dir = nil, 1
+    -- THE FUNDS PAGE OPENS ON THE HOUSE INDEX, whichever fund was listed last visit.
+    if s[1] == "index" then EX.fund_sel = 1 end
     EX.layout()
     EX.refresh_panel()
 end
@@ -14134,11 +14503,17 @@ function EX.row_click(s, row_id)
         if k and k <= #EX.bond_offers and s == "btn_buy" then EX.bond_send(k) end
         return
     end
-    -- THE INDEX PAGE: only the index row trades. A member's buttons are hidden, but a hidden
-    -- button is still a component, and a name click must not chart a house from here.
+    -- THE FUNDS PAGE: a fund row's name selects it, its buttons trade it. A member's buttons are
+    -- hidden but still components, and a member name must not chart anything from here.
     if EX.on_index() then
-        if row_id == EX.ROW .. "_idx" and (s == "btn_buy" or s == "btn_sell") then
-            EX.index_send(s == "btn_buy")
+        local k = EX.fund_of_row(row_id)
+        local F = k and k <= EX.fund_row_count() and EX.funds_for(EX.index_culture())[k]
+        if F and s == "row_name" then
+            EX.fund_sel = k
+            EX.layout()
+            EX.refresh_panel()
+        elseif F and (s == "btn_buy" or s == "btn_sell") then
+            EX.fund_send(F, s == "btn_buy")
         end
         return
     end

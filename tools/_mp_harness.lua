@@ -528,6 +528,35 @@ for _, f in ipairs(EX.humans()) do
 end
 print("idx_mp_div_moved " .. table.concat(moved, ","))
 
+-- THEMED FUNDS BY ID (2026-09-30): the fund rides on the idx op after an "@", resolved against
+-- the SENDER's culture - a Chaos Dwarf fund id from the Empire player is refused, not traded.
+EX.snap = nil
+EX.index_sync(true)
+MP = true
+EX.mp_apply(EX.faction_by_cqi(12), "idx", "b1@chd_furnace")   -- alpha, Chaos Dwarf: buys
+EX.mp_apply(EX.faction_by_cqi(13), "idx", "b1@chd_furnace")   -- mid, Empire: not theirs
+EX.mp_apply(EX.faction_by_cqi(13), "idx", "b1@emp_staples")   -- mid: buys their own
+MP = false
+local fu = {}
+for _, f in ipairs(EX.humans()) do
+    EX.with_player(f, function()
+        local t = {}
+        for id, n in pairs(EX.fund_units) do
+            if n > 0 then t[#t + 1] = id .. ":" .. n end
+        end
+        table.sort(t)
+        fu[#fu + 1] = f .. "=" .. table.concat(t, ",")
+    end)
+end
+print("fund_mp_units " .. table.concat(fu, " "))
+print("fund_mp_subject_after " .. tostring(EX.who()))
+local fk = {}
+for k in pairs(EX.store) do
+    if string.sub(k, 1, #EX.SAVE_FUND) == EX.SAVE_FUND then fk[#fk + 1] = string.sub(k, #EX.SAVE_FUND + 1) end
+end
+table.sort(fk)
+print("fund_mp_states " .. table.concat(fk, ","))
+
 -- A DEATH, LOGGED TO THE CULTURE THAT HOLDS THE INDEX. The pass itself runs unbound, and the
 -- index that loses a member here is the EMPIRE's - a second Empire house gives mid_player one -
 -- so a log written unbound lands in alpha_player's, the local slice, and not in mid's.

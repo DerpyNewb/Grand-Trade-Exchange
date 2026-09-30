@@ -558,6 +558,64 @@ panel:SetInteractive(visible)    -- follows visibility; NEVER a literal true
 that nothing on screen explains, and that no player would ever file against your mod. Write the
 flag in the one place visibility is written, from the same variable.
 
+## Pinning UI to the campaign map
+
+Measured on the Iron Court's Governors view (2026-09-30). A pin that follows a settlement
+as the camera moves is a component with one callback and a context, nothing more:
+
+```xml
+<callbackwithcontextlist>
+    <callback_with_context callback_id="ContextWorldSpaceComponent"
+        context_object_id="CcoCampaignSettlement" context_function_id="Position">
+        <child_m_user_properties>
+            <property name="depth_disabled" value="1"/>
+        </child_m_user_properties>
+    </callback_with_context>
+</callbackwithcontextlist>
+```
+
+- **CA's own, verbatim**: `dlc25_black_towers.twui.xml`'s `template_black_tower_slot` and
+  `kislev_atamans.twui.xml`. Kislev's template carries no `offset_x/y/z`. Set the context from Lua
+  with `component:SetContextObject(cco("CcoCampaignSettlement", settlement_cqi))`.
+- **No `ContextOpacitySetter`.** CA's black-tower slot carries a fade; copy it and the pin draws
+  NOTHING. The fade reads the component's own screen y, and a pin made from Lua starts at its
+  holder's corner, y = 0: 0/50 is fully transparent (build A06C68A6, 2026-09-29 - the marker
+  tracked its settlement and took clicks, and was invisible). 26 of CA's 28 pinned layouts carry
+  no fade.
+- **Stand it on the point with CA's map-pin anchor**, `component_anchor_point="0.50,1.00"` - the
+  box's bottom centre, as `worldroots_forest` and `dlc27_nor_seafang_overlay` do. It works on a
+  runtime-made component: the pin's tip touched its settlement (build 7F0D1A29). A box's height
+  is then what sets how far above the point its art draws.
+- **The holder is the panel's FIRST child and takes no clicks.** Children draw in declaration
+  order and a component made at runtime is its parent's LAST child: made straight into the panel,
+  the pins drew over the column and took its clicks. Declared first, everything the file declares
+  after it draws over them, and bare map beside a pin still takes the click.
+- **Repaint a pin in place; never remake it per refresh.** A new one starts at the holder's
+  corner until the engine places it, so remaking every pin on every click flashes them all there.
+  Destroy only the pin whose settlement moved or went.
+- **A runtime child lands at its parent's origin** (measured 2026-09-04), so sibling components
+  with identical boxes, the same anchor and the same context stand on the same point. That is how
+  the pin carries a masked face, two text plates and a badge that are not its children - five
+  siblings, made in draw order: pin, face, name plate, loyalty plate, badge.
+- **`maskimage`** is a component-level attribute, between `uniqueguid` and `currentstate`. Its
+  value is the GUID of the component's own mask `componentimage`, listed LAST in every state (CA's
+  `drag_icon` in `kislev_atamans.twui.xml`). It clips the WHOLE component, so a badge meant to
+  sit over a masked face is a sibling, not a layer. The face drew round in game (build 6D8BE636).
+  TWUI Studio's rasteriser has no maskimage: the preview draws that face square.
+- **`textyoffset` is (top, bottom) PADDING, not a shift.** CA sets both figures in 2,236 text
+  blocks (`"4.00,8.00"`, `"0.00,12.00"`); a negative value is clamped to nothing (build 7F0D1A29).
+  To put one line on a plate inside a taller box, centre it with no padding and size the box so
+  the plate is its middle.
+- **Letting the map have the mouse:** `panel:SetInteractive(false)` and the backdrop, image 0,
+  cleared to a transparent file. With both, drag, edge-scroll, zoom and the camera keys all work
+  through the open panel (build 6D8BE636). A pin whose art covers its settlement takes that
+  settlement's click - stand it above the point. **Open:** the game's own map tooltips did not
+  appear over bare map with the court open; hiding the HUD (`show_hud(false)` hides every visible
+  root child) is the suspect, since CA's world-space UI lives under `root > 3d_ui_parent`
+  (`wh_campaign_interventions.lua`). Unprobed.
+- **No script call tints a map region** - CA's docs and all 7,540 shipped scripts offer
+  `highlight_*` and no colour. A party's colour went on the pin's name plate instead.
+
 ## Clicks
 
 One global listener, filtered on the component id, because `ComponentLClickUp` fires for every

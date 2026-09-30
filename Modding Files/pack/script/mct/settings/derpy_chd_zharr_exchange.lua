@@ -127,6 +127,12 @@ o_ai_bonds:set_tooltip_text("Houses at war sell you bonds: you lend them gold an
 o_ai_bonds:set_default_value(true)
 o_ai_bonds:set_assigned_section("systems")
 
+local o_funds = m:add_new_option("funds", "checkbox")
+o_funds:set_text("Themed funds")
+o_funds:set_tooltip_text("Each people has baskets of goods, and some a basket of a friendly people's houses, bought and sold as one on the Funds tab. Off: none are offered; funds you already hold can still be sold.")
+o_funds:set_default_value(true)
+o_funds:set_assigned_section("systems")
+
 local o_world_bundles = m:add_new_option("world_bundles", "checkbox")
 o_world_bundles:set_text("Positions supply armies")
 o_world_bundles:set_tooltip_text("A faction holding iron, timber and obsidian replenishes its armies faster; one that has sold them short replenishes slower, and being at war doubles it either way. Applies to the other factions of the world, not to you or the rival houses. Off: no supply effect is applied to anyone, and any left over from a previous save is removed.")
@@ -470,16 +476,17 @@ local ECONOMIC = {
     "ai_traders", "ai_gold", "refusal", "war_lock",
     "warehouse_rent", "hashut_demands", "trade_income", "cross_bloc",
     "ai_stance", "ai_world", "world_scarcity", "ai_deals",
-    "ai_forwards", "ai_bonds", "world_bundles", "ladder_step",
-    "spread", "l2_sell", "sell_floor", "pressure_per_rung",
-    "carry_per_unit", "ai_gain", "ai_max_rungs", "book_per_rung",
-    "book_max", "hostile_max", "friendly_max", "guild_close",
-    "refuse_share", "house_cash_max", "div_yield", "buyout_premium",
-    "windup", "seat_lost", "demand_first_turn", "demand_cooldown",
-    "demand_chance", "shock_gain", "shock_max", "shock_decay",
-    "race_strength", "world_cash_max", "world_trade_max", "world_gain",
-    "deal_max", "deal_edge", "fwd_max", "fwd_turns",
-    "bond_max", "bond_turns", "bond_rate", "pos_step",
+    "ai_forwards", "ai_bonds", "funds", "world_bundles",
+    "ladder_step", "spread", "l2_sell", "sell_floor",
+    "pressure_per_rung", "carry_per_unit", "ai_gain", "ai_max_rungs",
+    "book_per_rung", "book_max", "hostile_max", "friendly_max",
+    "guild_close", "refuse_share", "house_cash_max", "div_yield",
+    "buyout_premium", "windup", "seat_lost", "demand_first_turn",
+    "demand_cooldown", "demand_chance", "shock_gain", "shock_max",
+    "shock_decay", "race_strength", "world_cash_max", "world_trade_max",
+    "world_gain", "deal_max", "deal_edge", "fwd_max",
+    "fwd_turns", "bond_max", "bond_turns", "bond_rate",
+    "pos_step",
 }
 
 local function relock()

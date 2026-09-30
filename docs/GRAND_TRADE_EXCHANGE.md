@@ -9,9 +9,9 @@ This is the **reference for what shipped**.
 | | |
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
-| Size / md5 | 1,713,739 B / `5a916e00b89306192fd52746b57d282c` (2026-09-30: contracts, the index, bonds and loans, the logic-sweep fixes, who caused a trade disruption with the located bulletin, the 09-30 fault fixes, the Houses/Deals sub-tabs, the index opening on load, and No gold on the index and house Buy - §12, §11.1, §17, §18; deployed to the Workshop folder and the restore overlay, byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
+| Size / md5 | 1,733,633 B / `c58588eb` (2026-09-30: contracts, the index, bonds and loans, the logic-sweep fixes, who caused a trade disruption with the located bulletin, the 09-30 fault fixes, the Houses/Deals sub-tabs, the index opening on load, No gold on the index and house Buy, and themed funds on the Funds tab with the listed fund in yellow, member counts and a Listing footer - §12, §11.1, §17, §18; deployed to the Workshop folder and the restore overlay, byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
 | Rows | 681 DB across 10 tables, plus 1,776 loc = 2,457 |
-| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 14,794 lines, 453 `EX.*` functions (813 `EX.*` names in all, every one read — `check_no_orphans`) |
+| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 15,169 lines, 488 `EX.*` functions (855 `EX.*` names in all, every one read — `check_no_orphans`) |
 | Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
 | Workshop | *Derpy's Grand Trade Exchange*, item 3798516851. In game it is still the Zharr Exchange |
 | Hard dependency | none |
@@ -185,8 +185,9 @@ Holdings are **save state**, not a pooled resource: there is no DB row for a hou
 `cm:faction_add_pooled_resource` would be a silent no-op and the position would vanish on
 reload.
 
-**The index fund** (2026-09-29) holds every house of your culture in one lot, on the page after
-the house list - see "The Index page" in §12.
+**The index fund** (2026-09-29) holds every house of your culture in one lot, and since
+2026-09-30 it is the first of each race's **themed funds** - baskets of goods, or of a friendly
+people's houses - on the Houses tab's Funds page. See "The Index page" and "Themed funds" in §12.
 
 **War bonds and loans** (2026-09-29): a house of your culture at war with somebody borrows from
 you; one at war with nobody lends to you. Real gold both ways, a payment every turn, the whole
@@ -1967,9 +1968,53 @@ while offers wait there. The opener's tooltip says when a contract delivers next
 "Short". The Log carries taken, delivered, settled and cancelled lines, the faction named at draw
 time (`EX.log_add("", ..., faction)`), never at turn start.
 
+### Themed funds (2026-09-30)
+
+The Index sub-tab is now
+**Funds**. The index below is fund #1; the engine is the index's own, generalised: `EX.fund_*` over
+a fund definition `F`, the `EX.index_*` names kept only where something still calls them.
+
+| Race | Goods fund 1 | Goods fund 2 | House fund |
+|---|---|---|---|
+| Chaos Dwarfs | Furnace Stock (Iron, Timber, Salt) | Hashut's Hoard (Golden Idols, Gemstones, Carved Obsidian) | Northern Warbands (Norsca, Warriors of Chaos) |
+| Empire | Reikland Staples (Iron, Salt, Wine) | Marienburg Luxuries (Spices, Dyes, Gemstones) | Karaz Ankor Holds (Dwarfs) |
+| Cathay | Caravan Goods (Spices, Tusks, Dyes) | Jade Court Treasures (Gemstones, Marble, Golden Idols) | Kislev Trade (Kislev) |
+| Skaven | Clan Supplies (Iron, Salt, Medicinal Plants) | Scavenged Goods (Elven Trinkets, Furs, Timber) | none |
+| Southern Realms | Condottieri Supply (Iron, Marble, Gemstones) | Arabyan Imports (Tusks, Dyes, Exotic Animals) | Imperial Neighbours (Empire) |
+| Dwarfs | Hold Staples (Dwarf Beer, Iron, Salt) | Ancestor Gold (Gemstones, Golden Idols, Marble) | Imperial Allies (Empire) |
+| High Elves | Ulthuan Luxuries (Gemstones, Spices, Wine) | Far Colonies (Tusks, Dyes, Exotic Animals) | Old World Partners (Empire) |
+| Dark Elves | Black Ark Stores (Iron, Timber, Dyes) | Corsair Plunder (Golden Idols, Gemstones, Elven Trinkets) | Zharr-Naggrund Trade (Chaos Dwarfs) |
+
+- **Derived funds.** The 19 other cultures in `EX.CULTURE_WANTS` get one goods fund,
+  "<`EX.WANTS_NAME`> Wants", over their three highest positive appetites, ties by key. Cultures
+  outside `EX.CULTURE_WANTS` keep the index only, and their page reads as it always did.
+- **A house fund** is the index over other cultures' listed houses, dividends included. Those houses
+  are listed only through `EX.BLOC`, so a house fund needs `cross_bloc` on, and
+  `check_fund_catalogue` fails the build on any house fund whose cultures can never be listed -
+  the first Dark Elf fund, over the unlisted Vampire Coast, was that.
+- **A goods fund** holds the goods that are produced (`EX.unavailable` false). One nobody makes
+  leaves at its price, and rejoins when made again, the level unmoved both times. It reads at
+  `EX.settled_price` - the last turn-end rung, from `EX.deep` - while unmade, because a load's
+  rescan has already repriced it to the MULT_MAX clamp. Every good gone keeps the state at
+  `d = 0` with `s.last` as the level: holders keep their units and can sell. No dividend, no rent.
+- **The switch** `funds` (MCT "Themed funds", on, frozen with the other switches). Off: none
+  created or offered; one the save already holds stays listed with Buy "Off" and Sell open. No
+  themed fund is made on load before the snapshot exists (a new campaign's first tick).
+- **Page**: the fund rows (`_idx`, `_fd2`.. `_fd4`), then the selected fund's members. A click on
+  a fund's name selects it (`EX.fund_sel`, view state, back to the index each time the tab is
+  entered); while there is a choice the selected name is drawn `[[col:yellow]]` (CA's most used
+  colour tag). The name's tooltip lists the holdings. A fund row's Share is its member count ("21
+  houses", "3 goods"), not 100%. Footer line 1 is the selected fund - with a choice it opens
+  "Listing <fund>: <what it holds>." (`EX.fund_listing`: a house fund's count and peoples, a goods
+  fund's names in share order via `EX.name_list`), without one it keeps the index's old line -
+  and line 2 its rule and the cut count. `row_supply` is 64 wide (54 before) to fit "21 houses".
+- **Save and MP**: `zharr_fund_<id>` world, `zharr_fu_<id>` per player (`EX.fund_units`, sliced).
+  The `idx` op carries `b<n>@<id>`; an id that is not one of the sender's funds is refused.
+
 ### The Index page (index fund)
 
-The Houses tab's Index sub-tab since 2026-09-30 (the page after the house list from 09-29).
+The Houses tab's Funds sub-tab since 2026-09-30 (Index until the themed funds; the page after the
+house list from 09-29). The index is now fund #1 of that page - see "Themed funds" above.
 One instrument over **your
 own culture's listed houses** (`EX.culture_of(EX.who())`, never `EX.HOUSE_CULTURE`, which is the
 local client's): not delisted, not gone, at least two of them, or there is no index.
@@ -2015,12 +2060,12 @@ dropped most of a gold and ten units were paid 21g against the 40g the row showe
 **The page** keeps the Houses layouts. `EX.view()` answers `"index"`; headers Name, Price, Div,
 Share, Trend, Last 12 turns, Held; no sort. Row 1 is `..._idx`, created in `EX.build_panel`: "Index
 of N houses", buy price and dividend per lot, 100%, trend, no icon, no sparkline, units and "+Ng"
-a turn, Buy/Sell with the amount. Rows 2.. are the members, heaviest first, on their own house row
+a turn, Buy/Sell with the amount (Share now reads "N houses", see "Themed funds"). Rows 2.. are the members, heaviest first, on their own house row
 components with **both buttons hidden** - a member is traded on the list pages, and a live button
 here would read as buying the index - capped at `EX.MAX_ROWS - 1`; footer 2 names how many were
-cut. Title "<race name>: Index". Cells from `EX.index_cells` / `EX.index_member_cells`, rows from
-`EX.draw_index_row` / `EX.draw_index_member`, footers from `EX.index_footer`. Guide page 2 has an
-"Index" line.
+cut. Title "<race name>: Funds". Cells from `EX.fund_cells` / `EX.fund_member_cells`, rows from
+`EX.draw_fund_row` / `EX.draw_fund_member` (the `EX.draw_index_*` names are wrappers), footers from
+`EX.fund_footer`. Guide page 2 has a "Fund" line.
 
 **The page is `EX.house_page == EX.HOUSE_INDEX_PAGE` (-1)**, not "one past the last list page".
 `EX.on_index` feeds `EX.view`, and the house list's own sort reads `EX.view` through
@@ -2114,7 +2159,7 @@ agrees.
 behind the arrows and were not found. Three slots, `derpy_chd_ex_sub_1..3`, in the title bar at
 x 484/600/716, y 16, 108 wide - after `title_text`'s 400px box, clear of `btn_help` at 838, above
 the amount cluster at 46 (`gen_exchange_ui.py` asserts all three). Labelled per view from
-`EX.SECTIONS`: Houses | Index | Bonds, Deals | Contracts. **Slots, not a component per section**,
+`EX.SECTIONS`: Houses | Funds | Bonds, Deals | Contracts. **Slots, not a component per section**,
 because the bonds page draws on the Deals layout, so `PANEL_LAYOUT_DEALS` places all three and
 `EX.draw_sections` hides the third on Deals. The current section and a locked one are greyed
 (`EX.section_locked`: bonds or contracts switched off with none open); a live one's tooltip is
@@ -3211,6 +3256,9 @@ list of those cultures, unbound. The units are per player; the `idx` op carries 
 applied as the sender, whose culture - not the local machine's - picks the index. The dividend
 runs inside the per-human block. Deaths are logged to every human of that culture through
 `EX.index_holders`, which binds each in turn.
+
+**Themed funds** ride the same passes and the same op (`b<n>@<id>`), resolved against the
+sender's culture - `fund_mp_units` has the Empire player refused a Chaos Dwarf fund id.
 
 **Checked by** `_mp_harness.lua` section 8d: the index is built for the Chaos Dwarf humans only;
 alpha_player (Chaos Dwarf, local) buys and mid_player (Empire, no index) is refused - with both

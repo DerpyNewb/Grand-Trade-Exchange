@@ -21,7 +21,7 @@ What you can do with gold in it:
 - **Take a deal.** Each turn a few factions with real money and a real need post an offer - over the market for what they lack, under it for what they are dumping.
 - **Leave a standing order** - buy when a good falls to your price, sell when it rises to it. Twelve can wait at once.
 - **Sign a contract** - a price agreed now for goods delivered turns later. Lots nobody can deliver settle in gold at the gap to the market, and war does not cancel one.
-- **Buy the index** - one lot of every trading house of your own people, at the sum of their prices, paying all their dividends. A house that dies leaves it at the wind-up rate.
+- **Buy a fund** - the index, one lot of every trading house of your own people paying all their dividends, or a themed fund per race: two baskets of goods and one of a friendly people's houses (Chaos Dwarfs back Norsca and the Warriors of Chaos). A house that dies leaves at the wind-up rate.
 - **Lend and borrow** - houses at war sell you bonds, houses at peace offer you loans; a payment every turn, the whole amount at the end, and real gold on both sides.
 
 And two things that happen whether you trade or not:
@@ -37,12 +37,12 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 | | lines |
 |---|---:|
-| Python generators (`tools/`) | 27,573 |
-| Campaign + settings Lua (`Modding Files/pack/script/`) | 16,205 |
-| Lua test harnesses (`tools/_*_harness.lua`) | 5,351 |
+| Python generators (`tools/`) | 28,000 |
+| Campaign + settings Lua (`Modding Files/pack/script/`) | 16,587 |
+| Lua test harnesses (`tools/_*_harness.lua`) | 5,484 |
 | UI layouts (`.twui.xml`) | 5,513 |
 | Generated DB + localisation (TSV) | 2,457 rows |
-| Documentation | 271 KB |
+| Documentation | 279 KB |
 
 The mod itself is 10 DB tables, 681 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
@@ -86,7 +86,7 @@ py tools/gen_exchange_ui.py --selftest
 
 It asserts, among ~70 other things:
 
-- every one of the 790 `EX.*` names the script defines is read somewhere - no orphans
+- every one of the 855 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
 - every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters

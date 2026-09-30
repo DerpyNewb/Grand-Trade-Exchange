@@ -217,6 +217,14 @@ local function build_rows()
     for _, cell in ipairs(EX.ROW_CELLS) do
         HOLDER.kids[EX.ROW .. "_idx"]:CreateComponent(cell)
     end
+    -- AND THE THEMED FUNDS' ROWS, mirroring EX.build_panel's fd loop (2026-09-30).
+    for i = 2, EX.FUND_ROWS do
+        local name = EX.ROW .. "_fd" .. i
+        HOLDER:CreateComponent(name)
+        for _, cell in ipairs(EX.ROW_CELLS) do
+            HOLDER.kids[name]:CreateComponent(cell)
+        end
+    end
     -- AND THE BONDS PAGE'S, mirroring EX.build_panel's bd loop (2026-09-29).
     for i = 1, 2 * EX.opt("bond_max") + 2 * EX.BOND_OPEN_MAX do
         local name = EX.ROW .. "_bd" .. i
@@ -828,7 +836,7 @@ local function ib(r, n)
 end
 print("idx_row name=" .. us(cell(IR, "row_name")) .. " price=" .. cell(IR, "row_price")
     .. " div=" .. cell(IR, "row_sell") .. " divmodel=+" .. EX.index_dividend_lot("cc")
-    .. " share=" .. cell(IR, "row_supply") .. " held=" .. us(cell(IR, "row_hold"))
+    .. " share=" .. us(cell(IR, "row_supply")) .. " held=" .. us(cell(IR, "row_hold"))
     .. " buy=" .. ib(IR, "btn_buy") .. " sell=" .. ib(IR, "btn_sell")
     .. " spark=" .. tostring(find_uicomponent(IR, "spark").vis)
     .. " icon=" .. tostring(find_uicomponent(IR, "icon").vis))
@@ -898,6 +906,102 @@ EX.house_gone, EX.price, EX.culture_cache = real_gone_i, real_price_i, real_cult
 EX.market_closed = real_closed_i
 EX.house_page = 1
 EX.mode = EX.MODE_TRADE
+
+-- THEMED FUNDS ON THE FUNDS TAB (2026-09-30) -------------------------------------------------
+-- The index scene's world plus two funds injected for "cc": three real commodities, and a house
+-- fund over the 20 "zz" clans - three more than fit under three fund rows, so the cut shows.
+EX.mode = EX.MODE_HOUSES
+EX.houses = HOUSES
+EX.house_set = nil
+local real_gone_f, real_price_f, real_cult_f = EX.house_gone, EX.price, EX.culture_cache
+local real_closed_f, real_unav_f = EX.market_closed, EX.unavailable
+EX.house_gone = function() return false end
+EX.market_closed = function() return nil end
+EX.unavailable = function() return false end
+EX.culture_cache = { player = "cc" }
+local PXF = {}
+for i = 1, #HOUSES do
+    EX.culture_cache[HOUSES[i]] = (i <= 21) and "cc" or "zz"
+    PXF[HOUSES[i]] = 1000 + i * 10
+end
+-- TIMBER ABOVE IRON, so the share order (Timber, Iron, Salt) is not the catalogue order.
+PXF.res_rom_iron, PXF.res_rom_timber, PXF.res_rom_lead = 1200, 1300, 600
+EX.price = function(r) return PXF[r] or real_price_f(r) end
+EX.FUNDS.cc = {
+    { id = "t_goods", name = "Tg", goods = { "res_rom_iron", "res_rom_timber", "res_rom_lead" } },
+    { id = "t_house", name = "Th", peoples = "the Zz", cultures = { "zz" } },
+}
+EX.snap = { funds = true }
+for _, k in ipairs({ EX.SAVE_INDEX .. "cc", EX.SAVE_FUND .. "t_goods", EX.SAVE_FUND .. "t_house" }) do
+    EX.store[k] = nil
+end
+EX.human_list = nil
+EX.index_sync(true)
+EX.house_page = 1
+EX.fund_sel = 3
+EX.sub_click(2)
+local frows = EX.mode_instruments()
+print("fund_rows n=" .. #frows .. " max=" .. EX.MAX_ROWS .. " a=" .. frows[1] .. " b=" .. frows[2]
+    .. " c=" .. frows[3] .. " d=" .. tostring(frows[4]) .. " sel=" .. EX.fund_sel)
+local IRF = HOLDER.kids[EX.ROW .. "_idx"]
+local FD2 = HOLDER.kids[EX.ROW .. "_fd2"]
+local FD3 = HOLDER.kids[EX.ROW .. "_fd3"]
+local il1 = EX.draw_funds(HOLDER)
+print("fund_ifoot l1=" .. us(il1))
+print("fund_row idx=" .. us(cell(IRF, "row_name")) .. " name=" .. us(cell(FD2, "row_name"))
+    .. " ishare=" .. us(cell(IRF, "row_supply")) .. " share=" .. us(cell(FD2, "row_supply"))
+    .. " div=" .. cell(FD2, "row_sell") .. " buy=" .. ib(FD2, "btn_buy")
+    .. " tip=" .. us(find_uicomponent(FD2, "row_name").tip)
+    .. " house=" .. us(cell(FD3, "row_name")))
+-- A NAME CLICK SELECTS THE FUND and lists its members, heaviest first, buttons hidden.
+EX.row_click("row_name", EX.ROW .. "_fd2")
+local g = EX.mode_instruments()
+local gm = {}
+for i = 4, #g do gm[#gm + 1] = g[i] end
+print("fund_goods n=" .. #g .. " sel=" .. EX.fund_sel .. " members=" .. table.concat(gm, ","))
+local gl1, gl2 = EX.draw_funds(HOLDER)
+local GM = EX.row(HOLDER, "res_rom_lead")
+print("fund_gm name=" .. us(cell(GM, "row_name")) .. " price=" .. cell(GM, "row_price")
+    .. " div=" .. cell(GM, "row_sell") .. " share=" .. cell(GM, "row_supply")
+    .. " buttons=" .. tostring(find_uicomponent(GM, "btn_buy").vis)
+    .. " sel=" .. us(cell(FD2, "row_name")))
+print("fund_gfoot l1=" .. us(gl1) .. " l2=" .. us(gl2))
+EX.row_click("row_name", EX.ROW .. "_fd3")
+local hh = EX.mode_instruments()
+local _hl1, hl2 = EX.draw_funds(HOLDER)
+print("fund_hfund n=" .. #hh .. " sel=" .. EX.fund_sel .. " l1=" .. us(_hl1) .. " l2=" .. us(hl2))
+-- THE CLICK: a fund's Buy sends its id; the index's does not; a member's sends nothing.
+local FSENT = {}
+local real_send_f = EX.mp_send
+EX.mp_send = function(op, arg) FSENT[#FSENT + 1] = op .. "/" .. tostring(arg) end
+EX.amount = 5
+EX.row_click("btn_buy", EX.ROW .. "_fd2")
+EX.row_click("btn_sell", EX.ROW .. "_idx")
+EX.row_click("btn_buy", EX.ROW .. "_" .. EX.short(hh[4]))
+EX.mp_send = real_send_f
+EX.amount = 1
+print("fund_click sent=" .. table.concat(FSENT, ","))
+-- LEAVING AND COMING BACK starts on the index again.
+EX.sub_click(1)
+EX.sub_click(2)
+print("fund_reset sel=" .. EX.fund_sel)
+-- NO HOUSES OF THEIRS LISTED: the house fund's Buy says so.
+EX.store[EX.SAVE_FUND .. "t_house"] = nil
+EX.draw_funds(HOLDER)
+print("fund_nofund buy=" .. ib(FD3, "btn_buy"))
+-- AND OFF THIS PAGE THE FUND ROWS ARE HIDDEN.
+EX.mode = EX.MODE_TRADE
+EX.layout()
+print("fund_hidden fd2=" .. tostring(FD2.vis))
+for _, k in ipairs({ EX.SAVE_INDEX .. "cc", EX.SAVE_FUND .. "t_goods", EX.SAVE_FUND .. "t_house" }) do
+    EX.store[k] = nil
+end
+EX.FUNDS.cc = nil
+EX.snap = nil
+EX.fund_sel = 1
+EX.house_gone, EX.price, EX.culture_cache = real_gone_f, real_price_f, real_cult_f
+EX.market_closed, EX.unavailable = real_closed_f, real_unav_f
+EX.house_page = 1
 
 -- THE BONDS PAGE, after the index on the Houses tab (2026-09-29) ------------------------------
 -- Turn 10. Three offers - two bond issues, one loan - and three positions, one per status: a

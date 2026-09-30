@@ -3502,6 +3502,11 @@ def check_no_patron_literals():
             # the Chaos Dwarf save-compatibility argument rests on the CHD strings not moving.
             # check_race_bind proves each one actually IS rewritten, by running the bind.
             continue
+        if "race-own: EX.FUNDS" in line:
+            # A THEMED FUND OF ONE RACE (2026-09-30): EX.FUNDS is keyed by culture and
+            # EX.funds_for(c) shows a culture its own entries only - check_fund_catalogue's
+            # fund_for_chd pins that - so the name is only ever read by that race's player.
+            continue
         for g in gods:
             if '"' not in code:
                 continue
@@ -4195,6 +4200,8 @@ def check_layout():
     eq_l("idx_row_div", have.get("idx_row_divmodel"),
          "the index row's Div is not the model's dividend per lot")
     eq_l("idx_row_div", "+20", "21 houses at 1010..1210 pay 4 a share each: 5 x 84 / 21 = 20 a lot")
+    eq_l("idx_row_share", "21_houses",
+         "a fund row's Share must say how many members it holds, not a constant 100%")
     eq_l("idx_row_held", "10__+40g",
          "ten units are two lots at +20: the Held cell must show the units and +40g. Less is "
          "the per-member floor paying about half what the Div column promises")
@@ -4241,6 +4248,61 @@ def check_layout():
     eq_l("idx_none_l1", "No_index:_fewer_than_two_houses_of_your_people_are_listed.",
          "with no index the footer must say why")
 
+    # THEMED FUNDS ON THE FUNDS TAB (2026-09-30).
+    mx = int(have["fund_rows_max"])
+    eq_l("fund_rows_n", str(mx), "the fund rows plus members must fill the page and no more")
+    eq_l("fund_rows_a", "idx", "row 1 of the Funds page is not the house index")
+    eq_l("fund_rows_b", "fd2", "row 2 is not the first themed fund")
+    eq_l("fund_rows_c", "fd3", "row 3 is not the second themed fund")
+    eq_l("fund_rows_d", "skv_clan_21", "the index's members do not follow the fund rows")
+    eq_l("fund_rows_sel", "1", "entering the tab must select the house index, whatever was left")
+    eq_l("fund_row_idx", "[[col:yellow]]Index_of_21_houses[[/col]]",
+         "the fund whose members are listed must have its name in yellow")
+    eq_l("fund_row_ishare", "21_houses", "the index row's Share must count its houses")
+    eq_l("fund_row_share", "3_goods", "a goods fund's Share must count its goods")
+    assert have.get("fund_ifoot_l1", "").startswith(
+        "Listing_the_index:_21_houses_of_your_people._1110_a_lot;_you_hold_0_units,_worth_0g."), (
+        "with a choice of funds, the footer must open with what is listed: %r"
+        % have.get("fund_ifoot_l1"))
+    eq_l("fund_row_name", "Tg", "a themed fund's row does not carry its name")
+    eq_l("fund_row_div", "-", "a goods fund showed a dividend")
+    eq_l("fund_row_buy", "Buy_5/Buy_5/false", "a themed fund's Buy is not live")
+    assert have.get("fund_row_tip", "").startswith("Holds_Iron,_Timber_and_Salt."), (
+        "the fund name's tooltip does not list its goods by display name: %r"
+        % have.get("fund_row_tip"))
+    eq_l("fund_row_house", "Th", "the house fund's row does not carry its name")
+    eq_l("fund_goods_n", "6", "a goods fund's page is three fund rows and three goods")
+    eq_l("fund_goods_sel", "2", "a name click did not select the fund")
+    eq_l("fund_goods_members", "res_rom_timber,res_rom_iron,res_rom_lead",
+         "the goods are not listed heaviest first")
+    eq_l("fund_gm_name", "Salt", "a goods member does not use the commodity's display name")
+    eq_l("fund_gm_price", "600", "a goods member does not show its lot price")
+    eq_l("fund_gm_div", "-", "a goods member showed a dividend")
+    eq_l("fund_gm_share", "19%", "a goods member's share is not its price over the sum")
+    eq_l("fund_gm_buttons", "false", "a member row left a live-looking Buy on the Funds page")
+    eq_l("fund_gm_sel", "[[col:yellow]]Tg[[/col]]", "the selected fund's name is not in yellow")
+    eq_l("fund_gfoot_l1", "Listing_Tg:_Timber,_Iron_and_Salt._1033_a_lot;_you_hold_0_units,_worth_0g.",
+         "the goods fund's footer line 1")
+    eq_l("fund_gfoot_l2",
+         "Goods_nothing_makes_leave_the_fund_at_their_price,_and_rejoin_when_made_again.",
+         "the goods fund's rule")
+    eq_l("fund_hfund_n", str(mx), "a house fund's members must fill the page")
+    assert have.get("fund_hfund_l1", "").startswith("Listing_Th:_20_houses_of_the_Zz._"), (
+        "a house fund's footer must open with its houses and whose they are: %r"
+        % have.get("fund_hfund_l1"))
+    eq_l("fund_hfund_sel", "3", "the house fund was not selected")
+    cut = 20 - (mx - 3)
+    assert have.get("fund_hfund_l2", "").startswith("%d_smaller_houses_not_shown." % cut), (
+        "the house fund's footer does not count the %d cut members: %r"
+        % (cut, have.get("fund_hfund_l2")))
+    eq_l("fund_click_sent", "idx/b5@t_goods,idx/s5",
+         "a fund's Buy must send its id on the idx op, the index's none, a member's nothing")
+    eq_l("fund_reset_sel", "1", "coming back to the Funds tab kept the last selection")
+    eq_l("fund_nofund_buy", "No_fund/No_fund/true", "an empty house fund's Buy is not refused")
+    eq_l("fund_hidden_fd2", "false", "a fund row stayed on screen off the Funds page")
+    fcode = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    assert '": Funds"' in fcode and '": Index"' not in fcode, "the page title still reads Index"
+
     # THE BONDS PAGE (2026-09-29): after the index. Turn 10, 4000g in the treasury, three
     # offers and three positions - a loan due next turn, a bond at war with you, a matured bond
     # 500g behind. Rows are the offers, then bonds, then loans, whatever order they were taken in.
@@ -4258,13 +4320,13 @@ def check_layout():
     eq_l("sub_draw_contracts", "Deals:on,Contracts:off,hidden",
          "the Deals tab's sub-tabs: the section on screen greyed, the other live, and the third "
          "slot hidden - it is placed, because the bonds page shares this layout")
-    eq_l("sub_draw_locked", "Houses:on,Index:off,Bonds:off",
+    eq_l("sub_draw_locked", "Houses:on,Funds:off,Bonds:off",
          "with bonds off and none held the Bonds sub-tab must grey, and the index show as current")
     eq_l("sub_draw_tip", "Bonds_and_loans_are_switched_off_in_this_campaign's_settings.",
          "a locked sub-tab must say why, not invite a click that does nothing")
-    eq_l("sub_draw_bonds", "Houses:on,Index:on,Bonds:off", "the bonds page's sub-tabs")
+    eq_l("sub_draw_bonds", "Houses:on,Funds:on,Bonds:off", "the bonds page's sub-tabs")
     eq_l("sub_draw_tip3", "You_are_looking_at_this_page.", "the current sub-tab's tooltip")
-    assert have.get("sub_draw_tip2", "").startswith("Index||"), (
+    assert have.get("sub_draw_tip2", "").startswith("Funds||"), (
         "a live sub-tab's tooltip must name the section and say what is on it: %r"
         % have.get("sub_draw_tip2"))
     eq_l("sub_draw_trade", "hidden,hidden,hidden", "a view with no sections showed a sub-tab")
@@ -6165,6 +6227,8 @@ def check_lua_mp():
                   "SAVE_FWD", "SAVE_FWD_OFFERS",
                   # Index units (2026-09-29). PER PLAYER: they are one player's position.
                   "SAVE_INDEX_UNITS",
+                  # Themed fund units (2026-09-30). PER PLAYER for SAVE_INDEX_UNITS' reason.
+                  "SAVE_FUND_UNITS",
                   # Bonds and loans, open and offered (2026-09-29). PER PLAYER: each moves one
                   # player's gold, and the offers are posted to one player.
                   "SAVE_BONDS", "SAVE_BOND_OFFERS"}
@@ -6189,7 +6253,10 @@ def check_lua_mp():
              # The index's divisor and members, per culture (2026-09-29). WORLD: every
              # machine computes it from the same houses, and a per-player divisor would give
              # two players of one culture two prices for one index.
-             "SAVE_INDEX"}
+             "SAVE_INDEX",
+             # Each themed fund's divisor and members, per fund id (2026-09-30). WORLD for
+             # SAVE_INDEX's reason: one fund, one price, whoever holds it.
+             "SAVE_FUND"}
 
     declared = set(re.findall(r"^EX\.(SAVE_[A-Z_]+)", code, re.M))
     assert declared == PER_PLAYER | WORLD, (
@@ -6257,6 +6324,14 @@ def check_lua_mp():
     wget_used |= set(re.findall(r"#EX\.(SAVE_[A-Z_]+)", code))
     wset_used |= set(re.findall(r"cm:save_named_value\(EX\.(SAVE_[A-Z_]+)", code))
     wget_used |= set(re.findall(r"cm:load_named_value\(EX\.(SAVE_[A-Z_]+)", code))
+    #   A FUND DEFINITION'S KEY (2026-09-30): EX.index_fund / EX.fund_def build `key = EX.SAVE_X ..`
+    #   and the fund engine reads and writes it as EX.getv(F.key / EX.setv(F.key. Counted only
+    #   while the engine really does both, so an engine that stopped saving still fails here.
+    fund_keys = set(re.findall(r"key = [^\n]*?EX\.(SAVE_[A-Z_]+) \.\.", code))
+    if "EX.setv(F.key" in code:
+        wset_used |= fund_keys
+    if "EX.getv(F.key" in code:
+        wget_used |= fund_keys
     assert WORLD <= wset_used, (
         "these world keys are never written through EX.setv or cm:save_named_value: %s"
         % sorted(WORLD - wset_used))
@@ -6308,6 +6383,10 @@ def check_lua_mp():
     assert "EX.unpack_bond_offers(" in rp.group(0), (
         "EX.restore_player no longer restores this turn's bond and loan offers")
     assigned |= {"bonds", "bond_offers"}
+    # AND THE THEMED FUNDS' UNITS (2026-09-30), through EX.load_fund_units.
+    assert "EX.load_fund_units()" in rp.group(0), (
+        "EX.restore_player no longer restores themed fund units")
+    assigned.add("fund_units")
     assert assigned == slice_names, (
         "EX.restore_player restores %s but the slice lists carry %s. A value in one and not "
         "the other is a value that does not follow the subject - it belongs to whichever "
@@ -6583,6 +6662,14 @@ def check_lua_mp():
     eq("idx_mp_subject_after", "alpha_player", "the idx op left another player bound")
     eq("idx_mp_div_moved", "alpha_player",
        "the index dividend went to the wrong human, or to none")
+    eq("fund_mp_units",
+       "alpha_player=chd_furnace:5 mid_player=emp_staples:5 omega_player= zeta_player=",
+       "a fund bought by id must land with the sender only, and a fund of another culture's "
+       "catalogue must be refused")
+    eq("fund_mp_subject_after", "alpha_player", "the fund op left another player bound")
+    states = set(have["fund_mp_states"].split(","))
+    assert {"chd_furnace", "chd_hoard", "emp_staples", "emp_luxuries"} <= states, (
+        "the join pass did not build both humans' goods funds as world state: %r" % states)
     eq("idx_mp_death_told", "mid_player",
        "an Empire member's death was logged to the wrong humans. It belongs in the log of every "
        "human of that index's culture and nobody else's - written unbound, it lands in the "
@@ -7216,6 +7303,10 @@ MCT_OPTIONS = [
      "Houses at war sell you bonds: you lend them gold and they pay you back a little each "
      "turn, then the whole amount. Houses at peace lend to you on the same terms. Off: no new "
      "offers; bonds and loans you already hold still pay."),
+    ("funds", "Themed funds",
+     "Each people has baskets of goods, and some a basket of a friendly people's houses, "
+     "bought and sold as one on the Funds tab. Off: none are offered; funds you already hold "
+     "can still be sold."),
     ("world_bundles", "Positions supply armies",
      "A faction holding iron, timber and obsidian replenishes its armies faster; one that "
      "has sold them short replenishes slower, and being at war doubles it either way. "
@@ -16390,6 +16481,218 @@ TREASURY = {}
 PAID = {}
 
 -- ===========================================================================================
+-- THEMED FUNDS: THE CATALOGUE (2026-09-30). docs/superpowers/specs/2026-09-30-zharr-exchange-themed-funds-design.md.
+-- NO PERCENT SIGN ANYWHERE IN THIS BLOCK: the harness is a Python format string.
+-- ===========================================================================================
+do
+    local real_w, real_n = EX.CULTURE_WANTS, EX.WANTS_NAME
+    EX.CULTURE_WANTS = { qq = { res_b = 0.5, res_a = 0.5, res_c = 0.9, res_d = 0.2, res_e = -1 },
+                         q1 = { res_a = 0.9, res_b = -0.5 } }
+    EX.WANTS_NAME = { qq = "Qq", q1 = "Q1" }
+    local d = EX.derived_fund("qq")
+    print("fund_derived " .. d.id .. "/" .. d.name .. "/" .. table.concat(d.goods, ","))
+    print("fund_derived_one " .. tostring(EX.derived_fund("q1")))
+    EX.CULTURE_WANTS, EX.WANTS_NAME = real_w, real_n
+end
+do
+    local function ids(c)
+        local t = {}
+        for _, F in ipairs(EX.funds_for(c)) do t[#t + 1] = F.id end
+        return table.concat(t, ",")
+    end
+    local chd = "wh3_dlc23_chd_chaos_dwarfs"
+    EX.snap = { funds = true }
+    print("fund_for_chd " .. ids(chd))
+    EX.snap = { funds = false }
+    print("fund_for_off " .. ids(chd))
+    EX.store[EX.SAVE_FUND .. "chd_hoard"] = { d = 2, m = { "res_gems", "res_gold_idols" } }
+    print("fund_for_kept " .. ids(chd))
+    EX.store[EX.SAVE_FUND .. "chd_hoard"] = nil
+    EX.snap = nil
+    print("fund_for_none " .. ids("zz"))
+    print("fund_idx_key " .. EX.index_fund("cc").key .. "/" .. tostring(EX.index_fund("cc").own))
+end
+do
+    local rows = {}
+    for c, list in pairs(EX.FUNDS) do
+        for _, e in ipairs(list) do
+            rows[#rows + 1] = c .. "|" .. e.id .. "|" .. (e.goods and ("g:" .. table.concat(e.goods, ","))
+                or ("h:" .. table.concat(e.cultures, ",")))
+        end
+    end
+    table.sort(rows)
+    print("fund_cat " .. table.concat(rows, ";"))
+    local miss, extra = {}, {}
+    for c in pairs(EX.CULTURE_WANTS) do
+        if not EX.FUNDS[c] and not EX.WANTS_NAME[c] then miss[#miss + 1] = c end
+    end
+    for c in pairs(EX.WANTS_NAME) do
+        if EX.FUNDS[c] or not EX.CULTURE_WANTS[c] then extra[#extra + 1] = c end
+    end
+    table.sort(miss)
+    table.sort(extra)
+    print("fund_wants " .. table.concat(miss, ",") .. "/" .. table.concat(extra, ","))
+    print("fund_ids " .. table.concat(EX.all_fund_ids(), ","))
+end
+
+-- ===========================================================================================
+-- THEMED FUNDS: THE ENGINE (2026-09-30). A goods fund and a two-culture house fund, injected for
+-- culture "cc", so every number is arithmetic on the prices written here. Levels in thousandths.
+-- NO PERCENT SIGN ANYWHERE IN THIS BLOCK: the harness is a Python format string.
+-- ===========================================================================================
+do
+local REAL_UNAV_F, REAL_PRICE_F, REAL_GONE_F = EX.unavailable, EX.price, EX.house_gone
+local REAL_CULT_F, REAL_CLOSED_F, REAL_TIER_F = EX.culture_cache, EX.market_closed, EX.treaty_tier
+local UNAV, PXF, GONEF = {}, {}, {}
+-- EX.settled_price, UNSTUBBED FIRST: the last remembered rung's price, else the live price.
+do
+    local real_deep = EX.deep
+    EX.deep = { zq = { 5, 7 } }
+    print("fund_last_price " .. tostring(EX.settled_price("zq") == EX.price_at(7)) .. "/"
+          .. tostring(EX.settled_price("zz_none") == EX.price("zz_none")))
+    EX.deep = real_deep
+end
+local REAL_LASTP_F, LASTP = EX.settled_price, {}
+EX.settled_price = function(r) return LASTP[r] or EX.price(r) end
+EX.unavailable = function(r) return UNAV[r] == true end
+EX.price = function(r) return PXF[r] or 0 end
+EX.house_gone = function(h) return GONEF[h] == true end
+EX.market_closed = function() return nil end
+EX.treaty_tier = function() return "free" end
+EX.culture_cache = { player = "cc", z1 = "zz", z2 = "zz", y1 = "yy", c1 = "cc" }
+EX.human_list = nil
+EX.FUNDS.cc = {
+    { id = "t_goods", name = "Tg", goods = { "g1", "g2", "g3" } },
+    { id = "t_house", name = "Th", peoples = "the Zz and the Yy", cultures = { "zz", "yy" } },
+}
+EX.snap = { windup = 0.5, funds = true }
+EX.delisted = {}
+EX.houses = { "c1", "z1", "z2", "y1" }
+PXF = { g1 = 1000, g2 = 2000, g3 = 3000, z1 = 1000, z2 = 2000, y1 = 3000, c1 = 500 }
+TREASURY = { player = 100000, z1 = 100000, z2 = 100000, y1 = 100000 }
+local G, H = EX.fund_by_id("cc", "t_goods"), EX.fund_by_id("cc", "t_house")
+local function fl(F) local l = EX.fund_level(F) return l and math.floor(l * 1000 + 0.5) end
+local function fs(F)
+    local s = EX.fund_state(F)
+    if not s then return "none" end
+    return #s.m .. "/" .. table.concat(s.m, ",") .. "/" .. tostring(fl(F))
+end
+EX.store[G.key], EX.store[H.key] = nil, nil
+EX.index_sync(true)
+print("fund_open " .. fs(G) .. "|" .. fs(H))
+-- AN EXISTING CAMPAIGN UPDATING: no fund key yet, and the load must make it.
+EX.store[G.key] = nil
+EX.index_open()
+print("fund_open_load " .. fs(G))
+-- A NEW CAMPAIGN'S FIRST TICK: the switch is not frozen yet, so no themed fund is made on load -
+-- step 10c makes them once the snapshot exists (review finding, 2026-09-30).
+do
+    local keep = EX.snap
+    EX.snap = nil
+    EX.store[G.key] = nil
+    EX.index_open()
+    local a = fs(G)
+    EX.snap = keep
+    EX.index_open()
+    print("fund_open_nosnap " .. a .. "|" .. fs(G))
+end
+-- A GOOD NOBODY MAKES LEAVES AT ITS PRICE: the level holds. A load's rescan has already repriced
+-- it to the clamp (review finding, 2026-09-30), so it must read at its last turn-end price -
+-- live, and in the removal.
+UNAV.g3 = true
+PXF.g3 = 5054
+LASTP.g3 = 3000
+print("fund_goods_unmade_live " .. tostring(fl(G)))
+EX.index_sync(false)
+print("fund_goods_leave " .. fs(G))
+PXF.g3 = 3000
+-- ...AND REJOINS WHEN MADE AGAIN, at its price, the level unmoved: 3600 / 1.5 = 2400.
+PXF.g1 = 1600
+UNAV.g3 = nil
+EX.index_sync(true)
+print("fund_goods_rejoin " .. fs(G))
+do
+    EX.set_fund_units(G, 5)
+    local w5 = EX.holdings_value()
+    EX.set_fund_units(G, 0)
+    local w0 = EX.holdings_value()
+    print("fund_worth " .. tostring(w5 - w0))
+end
+-- EVERY GOOD UNMADE: the fund holds its last level, Buy is refused, Sell still pays.
+UNAV.g1, UNAV.g2, UNAV.g3 = true, true, true
+local was = fl(G)
+EX.index_sync(false)
+print("fund_goods_empty " .. fs(G) .. "/" .. tostring(was) .. "/"
+      .. tostring(EX.fund_refusal(G) ~= nil))
+EX.set_fund_units(G, 10)
+PAID = {}
+print("fund_goods_sell_empty " .. tostring(EX.fund_trade(G, false, 1)) .. "/"
+      .. EX.fund_units_of(G) .. "/" .. tostring(PAID.player))
+UNAV.g1, UNAV.g2 = nil, nil
+EX.index_sync(true)
+print("fund_goods_back " .. fs(G))
+print("fund_goods_div " .. EX.fund_dividend_lot(G) .. "/" .. #EX.fund_dues(G, 10))
+-- THE SWITCH OFF, WITH THE FUND HELD: listed, Buy "Off", Sell open; and no new fund made.
+EX.snap.funds = false
+do
+    local _w, lab = EX.fund_refusal(G)
+    PAID = {}
+    local b = EX.fund_trade(G, true, 1)
+    local s = EX.fund_trade(G, false, 1)
+    print("fund_off " .. tostring(lab) .. "/" .. tostring(b) .. "/" .. tostring(s))
+end
+EX.store[H.key] = nil
+EX.index_sync(true)
+print("fund_off_new " .. fs(H))
+EX.snap.funds = true
+-- CROSS_BLOC OFF: a house fund's refusal must name the setting, not "fewer than two".
+EX.snap.cross_bloc = false
+do
+    local why = EX.fund_refusal(H)
+    print("fund_bloc_off " .. tostring(string.find(tostring(why), "campaign's settings", 1, true) ~= nil))
+end
+EX.snap.cross_bloc = nil
+EX.index_sync(true)
+print("fund_house_open " .. fs(H))
+-- A HOUSE MEMBER DIES at the wind-up rate: 2000 - 1000 / 3.
+GONEF.z2 = true
+EX.delisted.z2 = true
+EX.LOG = {}
+EX.index_sync(false)
+print("fund_house_dead " .. fs(H))
+do
+    local e = EX.LOG[1]
+    print("fund_house_log " .. tostring(e ~= nil and e[4] == "z2"
+        and string.find(tostring(e[3]), "Th took it", 1, true) ~= nil
+        and string.find(tostring(e[3]), "2000 to 1667", 1, true) ~= nil))
+end
+-- ITS DIVIDEND, paid beside the index's, in full from rich members.
+EX.set_fund_units(H, 10)
+PAID = {}
+EX.pay_index_dividends()
+print("fund_house_paid " .. tostring(PAID.player or 0) .. "/" .. tostring(EX.fund_due(H, 10)))
+-- UNITS PER PLAYER, and the loader reads them back.
+EX.set_fund_units(G, 15)
+local saved = EX.getp(EX.SAVE_FUND_UNITS .. "t_goods")
+EX.fund_units = {}
+EX.load_fund_units()
+print("fund_units_loaded " .. tostring(saved) .. "/" .. EX.fund_units_of(G))
+EX.unavailable, EX.price, EX.house_gone = REAL_UNAV_F, REAL_PRICE_F, REAL_GONE_F
+EX.settled_price = REAL_LASTP_F
+EX.culture_cache, EX.market_closed, EX.treaty_tier = REAL_CULT_F, REAL_CLOSED_F, REAL_TIER_F
+EX.store[G.key], EX.store[H.key] = nil, nil
+EX.set_fund_units(G, 0)
+EX.set_fund_units(H, 0)
+EX.fund_units = {}
+EX.FUNDS.cc = nil
+EX.snap = nil
+EX.houses = {}
+EX.delisted = {}
+TREASURY = {}
+PAID = {}
+end
+
+-- ===========================================================================================
 -- WAR BONDS AND LOANS (2026-09-29). docs/superpowers/specs/2026-09-29-zharr-exchange-war-bonds-design.md.
 -- b1..b3 are at war with somebody else (issuers), b4..b6 at war with nobody (lenders), b7 at war
 -- with the player, x1 another culture. Amounts come from EX.key_hash: at turn 10, b1 draws 3 lots,
@@ -16827,6 +17130,128 @@ def check_index(have):
           "alive leaves at full value, it survives the save, and ends by settling its holders "
           "when every member dies; buys at the level and sells under it, refused under the war lock, no gold to "
           "any house; members pay the dividend, clamped and nothing at war")
+
+
+def check_fund_catalogue(have):
+    """Themed funds (2026-09-30): the catalogue, the derived funds and the switch's listing.
+
+    Spec: docs/superpowers/specs/2026-09-30-zharr-exchange-themed-funds-design.md. Culture and
+    commodity keys fail silently forever, and a house fund over a culture the blocs never list is
+    empty in every campaign - the first Dark Elf fund, over the Vampire Coast, was exactly that."""
+    from read_vanilla_cache import load
+
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+            why, key, want, have.get(key))
+
+    eq("fund_derived", "want_qq/Qq Wants/res_c,res_a,res_b",
+       "a derived fund must hold the three highest POSITIVE appetites, ties by key")
+    eq("fund_derived_one", "nil", "a culture with one positive appetite got a one-good fund")
+    eq("fund_for_chd", "idx,chd_furnace,chd_hoard,chd_warbands",
+       "the Chaos Dwarf list is the index then the catalogue, in catalogue order")
+    eq("fund_for_off", "idx", "with the switch off a themed fund was still offered")
+    eq("fund_for_kept", "idx,chd_hoard",
+       "with the switch off a fund the save already holds must stay listed, so it can be sold")
+    eq("fund_for_none", "idx", "a culture with no catalogue and no appetites must keep the index only")
+    eq("fund_idx_key", "zharr_idx_cc/true", "the house index moved off its saved key")
+
+    crows, _ = load("cultures")
+    cultures = set(r["key"] for r in crows if r["key"] != "*") | {"mixer_teb_southern_realms"}
+    code = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    goods = set(re.findall(r'"(res_[a-z_]+)"',
+                           re.search(r"EX\.COMMODITIES = \{(.*?)\}", code, re.S).group(1)))
+    bloc = dict(re.findall(r'\["([a-z0-9_]+)"\]\s*=\s*"(order|destr|any)"',
+                           re.search(r"EX\.BLOC = \{(.*?)\n\}", code, re.S).group(1)))
+    races = {"wh3_dlc23_chd_chaos_dwarfs", "wh_main_emp_empire", "wh3_main_cth_cathay",
+             "wh2_main_skv_skaven", "mixer_teb_southern_realms", "wh_main_dwf_dwarfs",
+             "wh2_main_hef_high_elves", "wh2_main_def_dark_elves"}
+    seen, owners = set(), set()
+    for row in have["fund_cat"].split(";"):
+        c, fid, members = row.split("|")
+        assert c in cultures, "EX.FUNDS is keyed by a culture that does not exist: %s" % c
+        assert fid not in seen, "fund id %s is used twice, and it is a save key" % fid
+        seen.add(fid)
+        owners.add(c)
+        kind, keys = members.split(":", 1)
+        keys = keys.split(",")
+        if kind == "g":
+            # TWO GOODS AT LEAST. A house fund may name one culture: its members are houses.
+            assert len(keys) >= 2, "a goods fund with fewer than two goods can never open: %s" % row
+            bad = [k for k in keys if k not in goods]
+            assert not bad, "%s names goods that are not in EX.COMMODITIES: %r" % (fid, bad)
+        else:
+            for x in keys:
+                assert x in cultures, "%s names a culture that does not exist: %s" % (fid, x)
+                assert x != c, "%s names its own culture - that is the index" % fid
+                # EX.is_house_culture lists x's houses for a c player only through the blocs.
+                ok = x in bloc and c in bloc and (
+                    bloc[x] == bloc[c] or "any" in (bloc[x], bloc[c]))
+                assert ok, ("%s: %s houses are never listed for a %s player (blocs %s / %s), so "
+                            "the fund is empty in every campaign" % (fid, x, c, bloc.get(x),
+                                                                      bloc.get(c)))
+    assert owners == races, "EX.FUNDS races %r, want the eight %r" % (sorted(owners), sorted(races))
+    eq("fund_wants", "/",
+       "EX.WANTS_NAME must name exactly the cultures that get a derived fund (missing/extra)")
+    ids = have["fund_ids"].split(",")
+    assert len(ids) == len(set(ids)), "EX.all_fund_ids repeats an id: %r" % ids
+    assert seen <= set(ids), "EX.all_fund_ids misses a catalogue fund: %r" % (seen - set(ids))
+    assert ids == sorted(ids), "EX.all_fund_ids is not sorted: every machine must load one order"
+    print("  fund catalogue: %d hand-written funds over 8 races, %d ids in all; every key real, "
+          "every house fund listable through the blocs, derived funds the top three appetites"
+          % (len(seen), len(ids)))
+
+
+def check_funds(have):
+    """Themed funds (2026-09-30): the engine the index now runs on, over goods and over houses.
+
+    Spec: docs/superpowers/specs/2026-09-30-zharr-exchange-themed-funds-design.md. Prices are
+    stubbed per key, so every level is arithmetic on figures in the harness, in thousandths."""
+    def eq(key, want, why):
+        assert have.get(key) == want, "%s (%s: expected [%s], got [%s])" % (
+            why, key, want, have.get(key))
+
+    eq("fund_open", "3/g1,g2,g3/2000000|3/y1,z1,z2/2000000",
+       "a goods fund opens over its produced goods, a house fund over its cultures' houses and "
+       "no other (c1 is the player's own), both at the average")
+    eq("fund_open_load", "3/g1,g2,g3/2000000",
+       "a save with the index and no fund must get its funds on load, at the average")
+    eq("fund_last_price", "true/true",
+       "EX.settled_price must read the last remembered rung, and the live price with no history")
+    eq("fund_open_nosnap", "none|3/g1,g2,g3/2000000",
+       "a themed fund was made on load before the switch was frozen - a new campaign's first "
+       "tick - so a player who switched them off still gets them")
+    eq("fund_goods_unmade_live", "2000000",
+       "an unmade good repriced to the clamp by a load's rescan moved the fund's live level")
+    eq("fund_goods_leave", "2/g1,g2/2000000",
+       "a good nobody makes must leave at its price, the level unmoved - never at the clamp")
+    eq("fund_goods_rejoin", "3/g1,g2,g3/2400000",
+       "a good made again must rejoin without moving the level (3600 / 1.5 = 2400)")
+    eq("fund_worth", "2160", "the footer's Worth leaves out a themed fund's units")
+    eq("fund_goods_empty", "0//2400000/2400000/true",
+       "with every good unmade the fund must keep its units and its last level, and refuse Buy")
+    eq("fund_goods_sell_empty", "true/5/2160",
+       "a holder must still sell at the last level when no good is made")
+    eq("fund_goods_back", "2/g1,g2/2400000",
+       "goods made again must rejoin an emptied fund at its last level")
+    eq("fund_goods_div", "0/0", "a goods fund paid a dividend; its return is price only")
+    eq("fund_off", "Off/closed/true",
+       "switch off with a fund held: Buy must read Off and be refused, Sell must still work")
+    eq("fund_off_new", "none", "with the switch off a new fund was created")
+    eq("fund_bloc_off", "true",
+       "with cross_bloc off a house fund's Buy must give the settings reason")
+    eq("fund_house_open", "3/y1,z1,z2/2000000", "the house fund did not reopen with the switch on")
+    eq("fund_house_dead", "2/y1,z1/1666667",
+       "a house member that dies must leave at the wind-up rate: 2000 - 1000 / 3")
+    eq("fund_house_log", "true", "the death was not logged against the house, naming the fund")
+    paid, due = have["fund_house_paid"].split("/")
+    assert int(due) > 0 and paid == due, (
+        "a house fund's dividend was not paid in full beside the index's: paid %s, due %s"
+        % (paid, due))
+    eq("fund_units_loaded", "15/15", "a themed fund's units were not saved or not loaded per player")
+    print("  themed funds: goods and house funds open at the average, a good leaves and rejoins "
+          "at its price with the level held, an emptied goods fund keeps its holders' units at "
+          "its last level, a house dies at the wind-up rate, house funds pay dividends and goods "
+          "funds none, and the switch stops new funds and Buy but never Sell")
 
 
 def check_forwards(have):
@@ -19613,6 +20038,8 @@ def check_lua_books():
           % have["war_keys_count"])
     check_forwards(have)
     check_index(have)
+    check_fund_catalogue(have)
+    check_funds(have)
     check_bonds(have)
 
 
@@ -21599,7 +22026,7 @@ def check_nav_cycle():
     assert have["sub_foreign"] == "nil,nil,nil", (
         "EX.sub_slot claimed a component that is not a slot (%s) - it is the listener's filter, "
         "so that is a click anywhere in the game read as a sub-tab" % have["sub_foreign"])
-    assert have["sub_houses"] == "houses=Houses,index=Index,bonds=Bonds", have["sub_houses"]
+    assert have["sub_houses"] == "houses=Houses,index=Funds,bonds=Bonds", have["sub_houses"]
     assert have["sub_to_index"] == "index,1/1,nil", (
         "the Index sub-tab from list page 2 gave %s: want the index view, a one-page counter, "
         "and the list's sort dropped - a sort is per view" % have["sub_to_index"])
