@@ -103,7 +103,12 @@ SCRIPTS = ["script/campaign/mod/zzz_derpy_chd_exchange.lua",
            "script/mct/settings/derpy_chd_zharr_exchange.lua",
            "ui/campaign ui/derpy_chd_exchange_panel.twui.xml",
            "ui/campaign ui/derpy_chd_exchange_row.twui.xml",
-           "ui/campaign ui/derpy_chd_exchange_button.twui.xml"]
+           "ui/campaign ui/derpy_chd_exchange_button.twui.xml",
+           # THE DERPY HUD HUB's copy for this pack (tools/sync_derpy_hub.py).
+           "script/campaign/mod/derpy_hub_ex.lua",
+           "ui/campaign ui/derpy_hub_ex.twui.xml",
+           "ui/campaign ui/derpy_hub_plate_ex.twui.xml",
+           "ui/derpy_hub/plate.png"]
 
 
 def run_selftests():
@@ -120,6 +125,10 @@ def run_selftests():
     asking.
     """
     import subprocess
+    import sync_derpy_hub
+    drift = sync_derpy_hub.check()
+    if drift:
+        raise SystemExit("the hub copy has drifted from its source:\n  " + "\n  ".join(drift))
     here = os.path.dirname(os.path.abspath(__file__))
     for gen in ("gen_zharr_exchange.py", "gen_exchange_ui.py"):
         r = subprocess.run([sys.executable, os.path.join(here, gen), "--selftest"],

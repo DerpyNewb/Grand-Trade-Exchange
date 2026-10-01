@@ -11195,6 +11195,9 @@ local ROOT = {
         -- has to accept it. It is READ BACK below: a per-race tooltip that never gets set is
         -- the static "The Zharr Exchange" a Skaven player was shown.
         BTN.SetTooltipText = function(_, t) BTN.tip = t end
+        BTN.SetDisabled = function() end
+        BTN.ShaderTechniqueSet = function() end
+        BTN.ShaderVarsSet = function() end
     end,
 }
 function find_uicomponent(_root, name)
@@ -11317,6 +11320,31 @@ EX.place_button(1)
 print("wild " .. BTN.x .. "," .. BTN.y)
 print("wild_visible " .. tostring(BTN.vis))
 print("wild_queue " .. #QUEUE)
+
+-- THE HUB (spec 2026-10-01). Managed, place_button still makes the button and writes its
+-- tooltip; neither it nor the follow poll moves or shows it.
+BAR_PRESENT, BAR_Y, QUEUE = true, -4, {}
+BTN.x, BTN.y, BTN.vis, BTN.tip = -1, -1, false, nil
+EX.button_at = nil
+DERPY_HUB = {version = 1, manages = function(key) return key == "ex" end}
+EX.place_button(1)
+print("hub_placed " .. BTN.x .. "," .. BTN.y)
+print("hub_visible " .. tostring(BTN.vis))
+print("hub_tip " .. tostring(BTN.tip ~= nil))
+print("hub_queue " .. #QUEUE)
+EX.button_at = "placed"
+BAR_W = 98
+EX.follow_bar()
+print("hub_follow " .. BTN.x .. "," .. BTN.y)
+DERPY_HUB = nil
+BAR_W = 48
+local mine
+for _, e in ipairs(DERPY_HUB_QUEUE or {}) do if e.key == "ex" then mine = e end end
+print("hub_reg " .. tostring(mine ~= nil and mine.button == EX.BUTTON and mine.order == 3))
+EX.gate_button(false)
+print("hub_live_grey " .. tostring(mine and mine.live()))
+EX.gate_button(true)
+print("hub_live_on " .. tostring(mine and mine.live()))
 """
 
 
@@ -12704,6 +12732,19 @@ def check_lua_button():
                       if not l.lstrip().startswith("--"))
     assert "EX.start_follow()" in code_nc and "repeat_real_callback" in code_nc, (
         "nothing starts the follow poll, so the button only moves at turn start")
+
+    # THE HUB. Managed: made and given its tooltip, never moved, shown or re-queued.
+    assert vals["hub_placed"] == "-1,-1", (
+        "managed by the hub, place_button still moved the button to %s" % vals["hub_placed"])
+    assert vals["hub_visible"] == "false", "managed by the hub, place_button showed the button"
+    assert vals["hub_tip"] == "true", "managed by the hub, the tooltip was never written"
+    assert vals["hub_queue"] == "0", "managed by the hub, place_button queued a retry"
+    assert vals["hub_follow"] == "-1,-1", (
+        "managed by the hub, the follow poll moved the button to %s" % vals["hub_follow"])
+    assert vals["hub_reg"] == "true", "no ex registration in DERPY_HUB_QUEUE"
+    assert vals["hub_live_grey"] == "false" and vals["hub_live_on"] == "true", (
+        "the hub's live() does not follow gate_button: %s / %s"
+        % (vals["hub_live_grey"], vals["hub_live_on"]))
 
     # After the first success the guard must leave it alone, not restart the chain.
     assert vals["reschedules_after_placed"] == "0", (

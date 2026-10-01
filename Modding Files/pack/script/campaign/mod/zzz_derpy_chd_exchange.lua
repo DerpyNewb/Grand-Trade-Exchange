@@ -2173,6 +2173,17 @@ end
 
 EX.BUTTON_SIZE = 48     -- must match build_button() in tools/gen_exchange_ui.py
 EX.BUTTON_GAP  = 4      -- clear space between the button and its anchor's visible left
+
+-- THE HUB (tools/sync_derpy_hub.py, spec 2026-10-01). With a second Derpy opener on the
+-- HUD, one hub button takes this slot and shows this button in a row on hover. While the
+-- hub manages it, the hub owns its place and visibility; this file still makes it, writes
+-- its tooltip and greys it.
+EX.HUB_KEY = "ex"
+
+function EX.hubbed()
+    return DERPY_HUB ~= nil and DERPY_HUB.manages ~= nil
+        and DERPY_HUB.manages(EX.HUB_KEY) == true
+end
 -- HOW LONG THE OPENER BUTTON KEEPS TRYING. It used to be a flat 8 attempts - a 14-second
 -- window from first tick - and that is a race the mod loses at random. resources_bar is
 -- ANIMATED: it slides off the top of the screen for the intro, cutscenes and end-turn, and
@@ -11844,6 +11855,7 @@ end
 -- around the hole. The click listener refuses the press regardless (see EX.player_turn there) -
 -- this is the affordance, not the guard, and the two are deliberately independent.
 function EX.gate_button(on)
+    EX.button_live = on and true or false       -- what the hub's live() reads
     local b = find_uicomponent(core:get_ui_root(), EX.BUTTON)
     EX.set_off(b, not on)
 end
@@ -14017,6 +14029,7 @@ EX.FOLLOW_MS = 300
 
 function EX.follow_bar()
     if not EX.button_at then return end
+    if EX.hubbed() then return end              -- the hub owns its place
     local b = find_uicomponent(core:get_ui_root(), EX.BUTTON)
     if not is_uicomponent(b) then return end
     local x, y, anchor = EX.button_anchor()
@@ -14064,6 +14077,12 @@ function EX.place_button(attempt)
         if not retry() then
             EX.say("error", "gave up creating the opener button")
         end
+        return
+    end
+    -- THE HUB PLACES IT while it manages this button. The tooltip is still this file's to
+    -- write; the place and visibility are the hub's alone.
+    if EX.hubbed() then
+        b:SetTooltipText(EX.button_tip(), true)
         return
     end
     -- RECOMPUTED EVERY CALL, deliberately. The previous version cached the first good answer,
@@ -14167,6 +14186,15 @@ function EX.place_button(attempt)
         EX.say("ui", "opener button at " .. where)
     end
 end
+
+-- THE HUB'S REGISTRATION. A plain table, so load order against the hub copies does not
+-- matter. The label is read on hover, after bind_race has named this race's market.
+DERPY_HUB_QUEUE = DERPY_HUB_QUEUE or {}
+table.insert(DERPY_HUB_QUEUE, {
+    key = EX.HUB_KEY, button = EX.BUTTON, order = 3,
+    label = function() return EX.the_name() end,
+    live = function() return EX.button_live ~= false end,
+})
 
 -- ===========================================================================================
 -- THE TREASURY BAR
