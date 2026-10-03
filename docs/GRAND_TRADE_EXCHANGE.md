@@ -459,6 +459,13 @@ omits it still gets the live read, so keep passing it. `check_lua_books` fails i
 reprice makes more than 80 power reads. Confirmed live the same day: click, "bought" and
 "repriced" arrived inside 0.1s on a 227-instrument board, where they had taken about 1.8s.
 
+The same hold now covers `EX.layout` (a wrapper over `EX.layout_held`) and each player's pass
+of `EX.post_all_deals`. Layout sorts the list, and the Buy and Sell sort keys are
+`EX.buy_price` / `EX.sell_price`, so an unheld header click walked the guild once per row:
+measured live 2026-10-03, 4.06s per click at 148 houses, against 0.27s for the held refresh.
+The deals page prices every candidate the same way, the likeliest cause of a 70-80s pause
+after the last faction's turn. The selftest counts the walks both save.
+
 ### Who is on the other side
 
 Every commodity trade settles against a real faction through
@@ -3347,6 +3354,120 @@ against `derpy_chd_ex_prev` at 774, and it is written out in all ten `EX.PANEL_L
 also needs `EX.HEADERS` (a missing entry takes the whole refresh down), `EX.TIPS`,
 `EX.SORT_VALUE`, a `PANEL_LAYOUT_*` / `ROW_LAYOUT_*` pair and both `EX.panel_layout` /
 `EX.row_layout` branches, plus `TAB_MODES` and a `check_mode` call in `gen_exchange_ui.py`.
+
+**Resource Overhaul's goods (2026-10-01)** - Derpy Resource Overhaul adds 37 tradeable goods, and they
+join this market only when that mod is installed. Without it, nothing below runs and the
+Exchange is the 17-good market it always was.
+
+- **Joined per good at init.** `EX.join_more_resources()` runs before the first scan and before
+  `EX.restore`. It appends a good to `EX.COMMODITIES`, `EX.INFO` and `EX.BOON` where
+  `common.get_localised_string("resources_onscreen_text_<key>")` is non-empty. Resource Overhaul
+  ships that loc key and nothing else does. The vanilla 17 stay first, and `EX.BASE_COUNT` (17)
+  marks where they end.
+- **Supply comes from the buildings' own effect lists.** Resource Overhaul gates each production row
+  by a lore condition on the region, so one port chain makes pearls at Lothern and amber at
+  Erengrad. An `EX_PRODUCTION`-style map would be wrong both ways. `EX.region_goods` makes one
+  `common.get_context_value("CcoCampaignSettlement", cqi, EX.MR_EXPR)` call per region. It reads
+  `BuildingContext.EffectList`, which holds only the rows whose condition holds, at their real
+  value. The call is pcall-wrapped. Measured on IEE: 749 regions in 0.064s.
+- **The vanilla 17 stay the anchor.** The price median and trade income (Option B, §10) read
+  only `EX.COMMODITIES[1..EX.BASE_COUNT]`. Most rare goods have no producer on turn one. If the
+  median included them, it would fall towards zero and price every vanilla good as a glut. If
+  trade income included them, the Salted Fish glut (every port makes it) would put a penalty on
+  nearly every coastal faction. Resource Overhaul's goods already trade through CA's trade
+  agreements.
+- **The goods list pages.** 55 rows do not fit 20 slots. `EX.goods_pages()` sorts first and
+  pages second. Trade gets one `"list"` entry per page ahead of the chart and the ledger in
+  `EX.trade_pages()`. Stats and Offerings page through `EX.goods_page`. With 19 rows this is
+  one page, so nothing moves without the mod.
+- **The DB rows ship in this pack, always.** Each good gets a holding pool, a factor junction,
+  three warehouse bundles, one offering per race, the demand text per race and tier, and a
+  shock bulletin. That is 26 rows and 98 loc lines per good. The rows are keyed on our own
+  prefix and name nothing of Resource Overhaul's, so the pack loads cleanly without it.
+  `ALL_GOODS = COMMODITIES + MR_COMMODITIES` drives them in the generator. `COMMODITIES` stays
+  the vanilla 17, so every check pinned to it still pins it.
+- **Each good burns as a vanilla commodity.** `MR_OFFERING` maps each good to a vanilla
+  commodity, and the good takes that commodity's effect, scope and boon. Food maps to
+  replenishment, metal and hides to armour, luxuries to tariffs. That keeps the verification
+  `OFFERING_EFFECTS` was counted out of vanilla with. The offering text is the vanilla
+  commodity's effect text.
+- **Demand text is shared across the races.** `MR_FLAVOUR` has one patron-neutral line per good,
+  used by all eight races. Each race's own tier title and closing line sit either side of it.
+- **Checked by** `check_more_resources()` and `tools/_resource_overhaul_harness.lua`. The harness
+  runs the shipped file once without `common` and once with every name but Wool resolving. It
+  measures the join, idempotence, the parsed supply string, a throwing read, the median, trade
+  income, paging, the chart found by name, and the wrap and reset of the arrows. Mutation-tested
+  2026-10-01 against the median, trade-income and paging guards.
+- **Not done.** No `EX.CULTURE_WANTS`, `WAR_APPETITE` or `BUILD_APPETITE` entry names these
+  goods, and no fund names them. All of those reads are nil-guarded, so the goods simply have no
+  appetite. Per-race demand flavour has not been written.
+
+---
+
+### Scrolling lists and Trade's sections (2026-10-01)
+
+Resource Overhaul took the goods list from 19 rows to 56, so Trade, Stats and Offerings paged, and
+the chart and the ledger ended up as pages 4 and 5 behind the same arrows. Asked for from play:
+a scroll bar instead of pages, buttons for the chart and the standing orders, and the scroll bar
+on every other long list.
+
+| View | Now |
+|---|---|
+| Trade goods, Stats, Offerings, Houses list, Log | scroll bar and mouse wheel |
+| Trade chart, Trade ledger | Goods / Chart / Orders buttons in the title bar (`EX.SECTIONS.trade`) |
+| Funds, Bonds, Deals, Contracts | unchanged, one page each |
+| Help | the only view the arrows and the page counter still show on |
+
+- **Drawn whole, scrolled by moving (2026-10-02).** The first build drew one window of rows and
+  redrew the panel (25-200ms) for each new scroll position: a drag froze the game, and the fix
+  for that (redraw once the bar stops) left the rows lagging behind it. Asked for from play:
+  "rendered all at once and the scrollbar will navigate the already rendered list". Now a built
+  list draws EVERY item once, row i at `holder y + (i-1) * ROW_PITCH`, and `rows_holder` is as
+  tall as the list. `EX.scroll_slice` hands back everything while `EX.list_key` is set and the
+  top `MAX_ROWS` when it is not (a list that broke - nothing can scroll or clip it).
+- **The scroll is one MoveTo.** `list_box` holds one empty row per item at the same pitch, so
+  `rows_holder` belongs exactly where `list_box` is. A 16ms `cm:repeat_real_callback` poll
+  (`EX.scroll_poll` -> `EX.follow_list`) reads `list_box`'s y and moves `rows_holder` there; the
+  holder carries every row, because a parent's `MoveTo` moves its children (measured in game
+  2026-10-02 on three vanilla HUD components). No layout, no refresh, no move at all on a tick
+  where nothing moved. Registered once, never removed (`remove_real_callback` leaks a record per
+  call); closing the panel clears `EX.list_key`, so the poll returns at once.
+- **What is already on screen is not written again.** `set_text` keeps `EX.drawn[row id/cell]`
+  and skips a write whose text is unchanged; `EX.draw_spark` skips a sparkline whose history is
+  unchanged (12 bars, each a Resize and a MoveTo). ROW cells only: panel cells are also written
+  directly (`EX.clear_ticket`, `EX.draw_chart`), which would leave the memo stale.
+  `EX.build_panel` empties it - a new panel is new components with nothing written on them.
+  Whether the Lua that WORKS OUT each row also needs skipping is unmeasured: time
+  `EX.refresh_panel` in game before adding that.
+- **The Log has its own row pool**, `row_lg1`..`row_lg120` (`EX.LOG_MAX`), one per entry, newest
+  first. It used to borrow one goods row per line, which capped it at the goods count and painted
+  each line onto a goods row - a click on a line's name charted that row's commodity.
+  `EX.scroll_n` caps the log's list at the pool, for an older save carrying more.
+- **The list is CA's listview** (`ui/campaign ui/derpy_chd_ex_list.twui.xml`, emitted by
+  `gen_exchange_ui.build_list` with the Great Guilds' emitter), holding one EMPTY row
+  (`derpy_chd_ex_sp`) per item; `rows_holder` is moved into `list_clip` with `Adopt`, over them.
+- **`rows_holder` goes back to the panel before any `Destroy`** - Destroy takes every row with
+  it. If the engine refuses that hand-back the list stays (hiding it would hide the rows) and only
+  its scroll bar goes; if it refuses the rows at build time the empty list is destroyed (it would
+  sit over the rows and take their clicks). Either way `EX.list_broken` stops further builds and
+  the lists draw their top 20, unscrolled.
+- **Rebuilt, never rewound.** `EX.scroll_key()` is view, item count, sort column and direction;
+  any change rebuilds at the top. Every opening of the panel does too. An unchanged key keeps the
+  list, and `EX.ensure_list` puts the holder back where the list is scrolled to after `place()`
+  moved it to the top.
+- **The Log is scanned before its list is sized** (a scan after it would rebuild the list at the
+  top on the first scroll), and `rows_holder` is pinned to its own position after each `Adopt`,
+  because whether `Adopt` keeps the screen position is undocumented.
+- **Checked by** `check_scroll_lists()` and `tools/_scroll_harness.lua` (what each list hands
+  back built and unbuilt; the UI calls against stub components whose `MoveTo` carries children,
+  as the engine's does; and the text and sparkline memo across a rebuilt panel), the house-list
+  scene in `_layout_harness.lua`, `_sort_harness.lua`, `_log_harness.lua`,
+  `_resource_overhaul_harness.lua`, and Trade's sections in `_nav_harness.lua`. 24 planted faults,
+  24 caught (2026-10-02); the 25th, a special case for `lg` keys in `EX.short`, survived because
+  the line did nothing, and was deleted.
+- **To confirm in game:** the rows following the bar smoothly; rows below the window clipped by
+  `list_clip`, and not taking clicks through it; the wheel reaching the list through
+  `rows_holder`.
 
 ---
 

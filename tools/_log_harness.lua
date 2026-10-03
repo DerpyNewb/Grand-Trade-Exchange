@@ -48,7 +48,10 @@ print("cap_keeps_newest " .. EX.LOG[1][3])
 -- WHAT THE PANEL DRAWS ------------------------------------------------------------------
 -- The renderer walks EX.mode_instruments() and takes one line per entry, so that count IS the
 -- number of rows the view has. Printed alongside so the check compares the two rather than a
--- constant that was right when it was written.
+-- constant that was right when it was written. On the Log with its list built: since
+-- 2026-10-02 the log has a row of its own per entry and is drawn whole.
+EX.mode = EX.MODE_LOG
+EX.list_key = "built"
 print("rows_available " .. #EX.mode_instruments())
 local lines = EX.log_lines()
 print("drawn " .. #lines)

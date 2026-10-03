@@ -165,6 +165,10 @@ comp(EX.BUTTON, ROOT)
 -- 1600x900 is the small end - today's 920x736 layout to the pixel, 20 rows a page. Every scene
 -- below is written against that. The far-end scenes at the bottom of this file change it.
 EX.screen = function() return 1600, 900 end
+-- THE SCROLLING LIST IS NOT BUILT HERE: these stub components cannot host one.
+-- tools/_scroll_harness.lua measures the list; this file measures where EX.layout puts the
+-- rows, with EX.list_key set by hand for a built list and nil for none.
+EX.ensure_list = function() end
 EX.built = true
 EX.place_button = function() end
 local REAL_REFRESH = EX.refresh_panel      -- for the one scene that asks the real one
@@ -280,9 +284,22 @@ EX.house_page = 1
 EX.layout()
 report("houses_p1")
 
-EX.house_page = 2
+-- WITH ITS LIST BUILT the house list is drawn WHOLE (2026-10-02) - every house at its own
+-- index under the holder, the holder as tall as the list - and scrolled by moving the holder.
+EX.list_key = "built"
 EX.layout()
-report("houses_p2")
+report("houses_all")
+do
+    local listed = EX.listed_houses()
+    local at = true
+    for i, h in ipairs(listed) do
+        local r = HOLDER.kids[EX.ROW .. "_" .. EX.short(h)]
+        if not (r and r.vis and r.y == HOLDER.y + (i - 1) * EX.ROW_PITCH) then at = false end
+    end
+    print("houses_all_rows " .. #listed .. "," .. tostring(at) .. ","
+          .. tostring(HOLDER.h == #listed * EX.ROW_PITCH))
+end
+EX.list_key = nil
 
 -- NOW PRUNE, the way EX.prune_houses does at turn start, and lay out again WITHOUT rebuilding
 -- the row components. This is the shape the screenshot showed: rows that are no longer in the
@@ -1047,6 +1064,10 @@ print("sub_draw bonds=" .. subs() .. " tip3=" .. us(PANEL.kids[EX.sub_name(3)].t
 EX.mode = EX.MODE_TRADE
 EX.draw_sections(PANEL)
 print("sub_draw trade=" .. subs())
+-- A VIEW WITH NO SECTIONS hides all three slots (Trade has its own since 2026-10-01).
+EX.mode = EX.MODE_STATS
+EX.draw_sections(PANEL)
+print("sub_draw stats=" .. subs())
 EX.mode = EX.MODE_HOUSES
 print("bd_nav pages=" .. bpg_on .. "/" .. bpg_off .. "/" .. bpg_open .. " view=" .. EX.view()
     .. " nav=" .. EX.nav_label() .. " gone=" .. bgone .. "/" .. bgone2
@@ -1304,9 +1325,6 @@ do
         .. " kids=" .. tostring(PANEL.kids_too) .. "/" .. tostring(HOLDER.kids_too) .. "/"
         .. tostring(row.kids_too))
 end
-EX.house_page = 2
-EX.layout()
-report("far_p2")
 
 -- AND BACK: a player who drops UI Scale with the panel open gets the small panel on the next
 -- tab click, not a 1472px one on a 1600px screen.

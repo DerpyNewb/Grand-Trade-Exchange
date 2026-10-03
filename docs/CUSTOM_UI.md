@@ -56,6 +56,20 @@ DE16xxxx  derpy_chd_exchange_panel
 DE17xxxx  derpy_chd_exchange_row
 DE18xxxx  derpy_chd_exchange_button
 GG21xxxx  derpy_gg_panel / _card / _row   (The Great Guilds, claimed 2026-09-10)
+DH01xxxx  derpy_hub_ic   } the Derpy HUD hub, one copy per mod (claimed 2026-10-01)
+DH02xxxx  derpy_hub_gg   }
+DH03xxxx  derpy_hub_ex   }
+DH04xxxx  derpy_hub_plate_ic  } the hub's plate behind its column, one per mod (2026-10-01)
+DH05xxxx  derpy_hub_plate_gg  }
+DH06xxxx  derpy_hub_plate_ex  }
+DH07xxxx  derpy_hub_mr        } the hub copy and plate for Resource Overhaul (2026-10-02)
+DH08xxxx  derpy_hub_plate_mr  }
+MR01xxxx  derpy_mr_stores_panel   } Resource Overhaul's Stores panel (claimed 2026-10-02)
+MR02xxxx  derpy_mr_stores_row     }
+MR03xxxx  derpy_mr_stores_button  }
+MR04xxxx  derpy_mr_stores_list    }
+MR05xxxx  derpy_mr_stores_sp      }
+MR06xxxx  derpy_mr_stores_bar     } the Stores panel's history-chart bar (claimed 2026-10-02)
 ```
 
 ## The file skeleton
@@ -246,20 +260,115 @@ box:Layout()          -- without this the rows sit stacked at the box's origin
 box pinned to the window's height has nothing below the fold, so there is nothing to scroll to
 and the slider is correct to refuse to move.
 
-### A row in the list must have NO children
+### Which way to fill it
 
-This follows straight from `dockpoint` being ignored. Every child in your panel is placed by
-absolute `MoveTo`, which is fine for a card that never moves again — but **the engine moves a
-scrolled row itself, and raises no event you can re-run a layout pass on**. A child cell would
-keep the screen position it was given while its row travelled out from under it: the fourth
-faction's name left hanging in the middle of the panel.
+| Your rows are | Build | Status |
+|---|---|---|
+| one line of text each | text rows straight into `list_box` ("Filling it from Lua" above); a row is ONE component, icons go in its text as `[[img:<path>]][[/img]]` | confirmed, Great Guilds faction list |
+| cards or columns - cells, icons, buttons, a sparkline | **drawn whole**, below: empty rows in `list_box`, the real rows under a holder in `list_clip`, the holder moved after `list_box` | **confirmed in game 2026-10-02**, Zharr Exchange |
+| (do not build) a pool of cards refilled per scroll position | the windowed version of the above | works, and lags; see the end of this section |
 
-So a row is **one component**, and anything that would have been a child icon goes inside its
-text with `[[img:<full path>]][[/img]]` markup — measured working from Lua-built strings, not
-just from loc. The cost is real and worth stating: a proportional font cannot be padded into
-columns, so a row reads as one line rather than aligned columns.
-
+Why a card cannot simply go into `list_box`: the engine scrolls a list by moving its rows
+itself and raises no event, and nobody has yet measured whether a scrolled row carries its
+`MoveTo`'d cells along. A plain parent `MoveTo` DOES carry them - measured 2026-10-02, three
+vanilla HUD components moved 7px over the bridge and every child moved 7px with them
+(`[[wh3-moveto-carries-children]]`) - but the list engine may re-place its rows by another
+route. Until a card is tried inside `list_box` in game, keep cards out of it.
 `[[wh3-twui-img-markup-from-lua]]`, `[[wh3-layout-group-overrides-moveto]]`
+
+### Drawn whole: how to build a scrolling list of cards
+
+**Confirmed in game 2026-10-02** on the Zharr Exchange's five lists (56 goods, every house, a
+120-entry log): the rows follow the bar smoothly, and a click on a row's cell inside the list
+reaches it (the script log shows the click's path through
+`derpy_chd_ex_list > list_clip > rows_holder > row`). The mouse wheel reaching the list
+through the holder is not yet separately confirmed.
+
+The idea: the engine scrolls `list_box`; `list_box` holds one invisible row per item, so it
+has the list's length; your real rows are drawn ONCE, all of them, under one holder at the
+same pitch; and every frame the holder is put exactly where `list_box` is. One `MoveTo` carries
+every row. Nothing is redrawn to scroll.
+
+```
+listview                 (Listview)              your container, MoveTo'd
+  list_clip              clipchildren="true"     MoveTo'd and sized to the window
+    list_box             (List, sizetocontent)   NEVER MoveTo'd - the engine scrolls it
+      spacer_1..spacer_n                         empty rows, width x pitch
+    rows_holder                                  Adopted in, then MoveTo'd to list_box's y
+      row_a, row_b, ...                          every row, at holder y + (i-1) * pitch
+  vslider                (VSlider)               MoveTo'd and sized beside the window
+    handle               (VSliderHandle)         NEVER MoveTo'd
+```
+
+1. **Emit the listview at your width** with the five names and four callbacks above. CA's
+   template is 300 wide with a baked column; the Exchange's `gen_exchange_ui.build_list` and
+   the Guilds' `gen_guilds_ui` emit their own.
+2. **A spacer row file**: one component, no image, no text, no children, not interactive. Make
+   one per item into `list_box`, size each `width x pitch`, then `box:Layout()` - without it they
+   stack at the box's origin.
+3. **Size the window and the slider.** `list_clip` and the container to `width x rows * pitch`;
+   `vslider` to `16 x rows * pitch` at the window's right edge. The slider's travel is a
+   NUMBER, not a size - `slider:SetProperty("maxValue", h - handle_h)` and
+   `handle:SetProperty("max_height", h - handle_h)`; `Resize` never reaches it. Hide the slider
+   when `n <= rows`. Keep every row cell out of the slider's last 16px.
+4. **Put the holder in the clip.** `clip:Adopt(holder:Address())`, then `holder:MoveTo(x, y)` -
+   whether `Adopt` keeps the screen position or the old parent-relative offset is undocumented,
+   so pin it. If `Adopt` errors, destroy the empty list (it would sit over the rows and take
+   their clicks) and draw the top `rows` items unscrolled from then on.
+5. **Draw every item once**, row i at `holder y + (i-1) * pitch`, and size the holder to
+   `max(rows, n) * pitch`. Every row the view does not list is hidden, as for any view.
+6. **Follow, every frame.** One `cm:repeat_real_callback` at 16ms, registered once and never
+   removed (`remove_real_callback` leaks a record per call):
+
+   ```lua
+   function follow(panel)
+       local clip = find_uicomponent(find_uicomponent(panel, "listview") or panel, "list_clip")
+       if not is_uicomponent(clip) then return end
+       local box, holder = find_uicomponent(clip, "list_box"), find_uicomponent(clip, "rows_holder")
+       if not (is_uicomponent(box) and is_uicomponent(holder)) then return end
+       local hx, hy = holder:Position()
+       local _, by = box:Position()
+       if hy ~= by then holder:MoveTo(hx, by) end     -- no move on a still frame
+   end
+   ```
+
+   The poll returns at once when no list is built or the panel is hidden - clear the built
+   flag on close, since this runs for the whole campaign. It reads stored state only: never
+   recount or re-sort the list inside it.
+7. **Rebuild, never rewind.** Nothing documented scrolls a list from script, so keep a key of
+   whatever changes the list's contents or order (view, item count, sort column, direction) and
+   destroy and rebuild on any change - it opens at the top. On an UNCHANGED key, any layout pass
+   that put the holder back at its panel position must call `follow` before placing rows, or the
+   rows jump to the top of a scrolled list.
+8. **Before any `Destroy`, Adopt the holder back** to the panel and pin its position; destroy
+   the list only once `find_uicomponent(list, "rows_holder")` comes back empty. `Destroy` takes
+   every descendant with it. If the hand-back is refused, never hide the list - the rows are in
+   it - hide only the slider and stop building lists.
+9. **Size from data that is final.** Anything the refresh adds to the list after the list was
+   built (the Exchange's log scan) changes its length, which changes the key, which rebuilds
+   it at the top on the player's first scroll. Run it before computing the key.
+10. **Skip writes whose text is already on screen**, because a drawn-whole list rewrites every
+   row on every refresh. Keep `memo[row id .. "/" .. cell] = text` and return early on a match;
+   the same for anything drawn from a series (a sparkline keyed by its values). Memo ROW cells
+   only - a cell also written directly elsewhere makes the memo lie - and empty it when the panel
+   is rebuilt, because new components have nothing written on them.
+
+`EX.ensure_list`, `EX.drop_list`, `EX.follow_list`, `EX.scroll_poll` and `set_text` in
+`zzz_derpy_chd_exchange.lua`; `tools/_scroll_harness.lua` tests it against stub components
+whose `MoveTo` carries children, as the engine's does. `docs/GRAND_TRADE_EXCHANGE.md` s19.
+
+### The windowed version, and why not
+
+The first Exchange build (2026-10-01) and the Iron Court's Governors column draw a fixed pool
+of cards, read `floor((clip_y - box_y) / pitch + 0.5)` on a 50ms poll, and refill the cards
+when the first visible item changes. It scrolls - and every new position is a full redraw.
+Measured on the Exchange: 25-200ms a redraw, so redrawing per tick froze the game during a
+drag, and waiting for the drag to stop instead left the rows trailing the bar. Drawn whole
+replaced it, and the Iron Court's Governors column was ported to drawn whole the same day
+(`ICUI.gm_list` / `gm_follow` / `gm_scroll_poll` in `zzz_derpy_iron_court_ui_map.lua`). Its
+holder is CREATED in `list_clip` (from the empty-row file `derpy_ic_gm_sp`) rather than adopted,
+because its cards exist only for the list: when the list is rebuilt the holder and the cards go
+with it, so steps 4 and 8's hand-back never arises. Not yet seen in game.
 
 ### What to position, and what to leave alone
 
@@ -315,14 +424,19 @@ through as a grid of seams. It also must be smaller than half the component: mar
 `panel_back_tile.png` at margin 5 and `panel_back_border.png` at margin 30, both at
 `priority="60"`. One flat image stretched to panel size reads as no background at all.
 
+**Inset the ground under `panel_back_border.png`.** Its outer 3px are transparent (alpha
+0,0,0,25, then 255 at pixel 4, all sides and corners), so a picture drawn to the component's
+edge shows past the brown line and the frame looks 5-10px inside the panel. The Great Guilds
+draws tile, art, smoke and scrim at offset (4,4), size -8 (`GROUND_INSET`, 2026-09-30).
+
 ### Changing that background at runtime
 
 **A panel's ground can be swapped from Lua, and the swap is addressed by INDEX.**
 `SetImagePath(path, index)` replaces one of the images in the component's
 `<componentimages>` list, counted in the order they are declared — CA's own words are that
 an index set here "takes precedence over any set `script_icon_index` property", and with no
-index at all it swaps image 0. The Great Guilds' panel declares four (tile, art, scrim,
-frame) and the campaign Lua repaints image **1** as the player pages from guild to guild,
+index at all it swaps image 0. The Great Guilds' panel declares five (tile, art, smoke,
+scrim, frame) and the campaign Lua repaints image **1** as the player pages from guild to guild,
 which is what makes the hall behind the text change with the guild on screen.
 
 Three things follow, and each of them fails in silence:
@@ -771,6 +885,18 @@ of the centre itself. The Guilds and Exchange buttons did this briefly on 2026-0
 player had it reverted: they want the buttons BESIDE the bar and accept that they move
 with it. Ask before moving an opener off the top row.
 
+**With two or three of the openers installed, a hub takes over (2026-10-01).** One 48px
+hub button sits in the Exchange's old slot, and hovering it shows the mods' own buttons in a
+COLUMN under it on a plate, unfolding out of the hub over 125ms and folding back into it when the mouse has been gone for one 100ms poll. **The plate is baked, not referenced:** drawn straight from CA's 256px `panel_stack`, the nine-slice squeezed the top and bottom frame 8:1 into a 76px box and both edges blurred in game. `tools/sync_derpy_hub.py` joins the file's edges down to 76x128 as `ui/derpy_hub/plate.png` (each pack ships the same bytes), so nothing is scaled across. The plate is interactive, so the gaps between buttons count as hovered, and it is `Adopt`ed in front of the hub and buttons in the root's child list so it draws behind them. **Hover is
+polled, not heard:** version 1 opened on `ComponentMouseOn`/`MouseOff` and in game the column
+only ever opened on a click (2026-10-01). Version 2 asks `IsMouseOverChildren()` every 100ms,
+on the hub and on the open column's buttons, and counts a hidden one as not hovered. The hub is `Modding Files/source/derpy_hub/derpy_hud_hub.lua`, copied into
+each pack as `derpy_hub_<ic|gg|ex>.lua` by `tools/sync_derpy_hub.py`, and the copy with the
+highest `HUB_VERSION` serves all three. Each mod appends `{key, button, order, label, live,
+wants}` to `DERPY_HUB_QUEUE` and has ONE guard: while `DERPY_HUB.manages(key)` is true it
+neither moves nor shows its button. The hub's poll only ever HIDES column buttons, because
+`ICUI.show_hud` restores every root child when the court closes.
+
 **What they do instead is FOLLOW the end.** No event fires when a component changes size,
 so placement at load and turn start leaves the button where the end used to be, and it
 jumps later. `cm:repeat_real_callback` (the UI clock, local, MP-safe for a pure MoveTo)
@@ -923,6 +1049,15 @@ created at runtime.
   layer: `shader_name="glow_pulse_t0"` and `shadertechnique_vars="min,max,interval,offset"`. CA's
   Tower of Zharr furnace uses `1.00,1.30,0.80,0.00`, and it breathes visibly. The layer's
   `colour` alpha is how you dim one: `#FFFFFF66` for a stalled seat, with no second art file.
+- **The main menu's drifting smoke is `smoke_overlay_t0`, and it is undocumented** - absent
+  from the shader table in `uicomponent.html`, so copy CA's values rather than deriving them.
+  The main menu's idle state uses `8,10,0,0`, and its hover, selected and new states drop the
+  first number to 4, 2 and 1. At 8 on a 790px panel it drew a dense orange mottle; the Great
+  Guilds ships `2.00,10.00,0.00,0.00` with colour `#FF822E3C` (2026-09-30, seen in campaign at
+  8). The main menu's mask `porthole_back.png` is opaque grey and would cover a panel's art;
+  `ui/skins/default/panel_back_smoke.png` (flat black, alpha 102) is CA's panel-sized one. On an
+  `<image>` the attribute is `shadertechnique_vars`; on a `<state>` it is `shadervars` and
+  applies to every layer. Put the layer where it does not renumber a runtime-swapped index.
 - **A nine-slice margin over half the component's short side is a silent mess.** The top and
   bottom slices overlap: a 40px-margin glow on a 61px list row painted the whole row and put a
   full-strength corner block at each end, and nothing warned. Give a short component its own

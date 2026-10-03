@@ -104,6 +104,9 @@ SCRIPTS = ["script/campaign/mod/zzz_derpy_chd_exchange.lua",
            "ui/campaign ui/derpy_chd_exchange_panel.twui.xml",
            "ui/campaign ui/derpy_chd_exchange_row.twui.xml",
            "ui/campaign ui/derpy_chd_exchange_button.twui.xml",
+           # The scrolling list and its empty row (2026-10-01), created at runtime.
+           "ui/campaign ui/derpy_chd_ex_list.twui.xml",
+           "ui/campaign ui/derpy_chd_ex_sp.twui.xml",
            # THE DERPY HUD HUB's copy for this pack (tools/sync_derpy_hub.py).
            "script/campaign/mod/derpy_hub_ex.lua",
            "ui/campaign ui/derpy_hub_ex.twui.xml",
@@ -191,7 +194,8 @@ def main():
     # reached for cbar_00 forever and nothing anywhere said why.
     import gen_exchange_ui as U
     for name, fn, comment in U.FILES:
-        built = U.layout(fn(), comment)
+        got = fn()     # the scrolling list comes back as text, every other file as a tree
+        built = got if isinstance(got, str) else U.layout(got, comment)
         path = os.path.join(U.OUT, name)
         if not os.path.isfile(path):
             raise SystemExit("%s has never been written - run gen_exchange_ui.py" % name)

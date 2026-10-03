@@ -83,12 +83,11 @@ end
 print("tab_reach " .. tostring(ok_reach))
 
 -- THE PAGE COUNT -------------------------------------------------------------------------
--- Fill the log past one page so the log's count is a real number and not an empty-log 1.
+-- SINCE 2026-10-01 THE LISTS SCROLL (tools/_scroll_harness.lua measures them), so the arrows
+-- page the guide and Trade's sections only. The log is filled past one window anyway, so a
+-- count of 1 here is the scroll and not an empty log.
 EX.LOG = {}
 for i = 1, 45 do EX.LOG[i] = { i, "s" .. i, "d" .. i, "" } end
-local per = EX.log_per_page()
-print("per_page " .. per)
-print("log_pages " .. EX.log_pages())
 
 local counts = {}
 for _, m in ipairs(EX.MODES) do
@@ -99,18 +98,7 @@ EX.mode = EX.MODE_HELP
 counts[#counts + 1] = "help=" .. EX.page_count()
 print("page_counts " .. table.concat(counts, ","))
 
--- THE ARROWS PAGE, AND DO NOT CHANGE VIEW ------------------------------------------------
-EX.mode = EX.MODE_LOG
-EX.log_page = 1
-EX.nav_click(EX.MODE_BTN)
-print("log_fwd " .. EX.log_page .. "," .. tostring(EX.mode))
-EX.log_page = 1
-EX.nav_click(EX.MODE_PREV)
-print("log_back_wrap " .. EX.log_page)
-EX.log_page = EX.log_pages()
-EX.nav_click(EX.MODE_BTN)
-print("log_fwd_wrap " .. EX.log_page)
-
+-- THE ARROWS PAGE THE GUIDE, AND DO NOT CHANGE VIEW ---------------------------------------
 EX.mode = EX.MODE_HELP
 EX.help_page = 1
 EX.nav_click(EX.MODE_PREV)
@@ -119,16 +107,14 @@ EX.help_page = 1
 EX.nav_click(EX.MODE_BTN)
 print("help_fwd " .. EX.help_page)
 
--- ONE STEP EACH WAY IS A NO-OP, on both paging views.
+-- ONE STEP EACH WAY IS A NO-OP.
 local ok_rt = true
-for _, pair in ipairs({ { EX.MODE_LOG, "log_page" }, { EX.MODE_HELP, "help_page" } }) do
-    EX.mode = pair[1]
-    for p = 1, EX.page_count() do
-        EX[pair[2]] = p
-        EX.nav_click(EX.MODE_BTN)
-        EX.nav_click(EX.MODE_PREV)
-        if EX[pair[2]] ~= p then ok_rt = false end
-    end
+EX.mode = EX.MODE_HELP
+for p = 1, EX.page_count() do
+    EX.help_page = p
+    EX.nav_click(EX.MODE_BTN)
+    EX.nav_click(EX.MODE_PREV)
+    if EX.help_page ~= p then ok_rt = false end
 end
 print("roundtrip " .. tostring(ok_rt))
 
@@ -146,43 +132,15 @@ end
 print("single_page_noop " .. tostring(ok_single))
 
 -- THE COUNTER reads index/count for every view, including the ones with a single page.
-EX.log_page, EX.help_page = 1, 1   -- the wrap tests above left both mid-list
+EX.help_page = 1
 local lab = {}
 for _, m in ipairs(EX.MODES) do
     EX.mode = m
     lab[#lab + 1] = EX.nav_label()
 end
 print("labels " .. table.concat(lab, ","))
-EX.mode = EX.MODE_LOG
-EX.log_page = 2
-print("log_label " .. EX.nav_label())
 
--- WHAT THE PAGE ACTUALLY DRAWS. Nothing pinned EX.help_lines to EX.help_page once and the
--- counter read "2/2" over page one's text; the same hole in the log would leave 41 of its 60
--- entries unreachable with the arrows looking like they worked.
-EX.mode = EX.MODE_LOG
-EX.log_page = 1
-local p1 = EX.log_lines()
-EX.log_page = 2
-local p2 = EX.log_lines()
-print("page1_first " .. p1[1][1])
-print("page2_first " .. p2[1][1])
-print("page2_differs " .. tostring(p1[1][1] ~= p2[1][1]))
-print("last_page_len " .. (function()
-    EX.log_page = EX.log_pages()
-    return #EX.log_lines()
-end)())
--- AN OUT-OF-RANGE PAGE CLAMPS rather than drawing an empty list, which reads exactly like a
--- log that recorded nothing.
-EX.log_page = EX.log_pages() + 9
-print("log_overflow_len " .. #EX.log_lines() .. "," .. EX.log_page)
-
--- ENTERING A VIEW OPENS ITS FIRST PAGE ----------------------------------------------------
-EX.mode = EX.MODE_LOG
-EX.log_page = 3
-EX.set_mode(EX.MODE_TRADE)
-EX.set_mode(EX.MODE_LOG)
-print("log_reset " .. EX.log_page)
+-- ENTERING THE GUIDE OPENS ITS FIRST PAGE.
 EX.mode = EX.MODE_HELP
 EX.help_page = 2
 EX.set_mode(EX.MODE_TRADE)
@@ -191,24 +149,17 @@ print("help_reset " .. EX.help_page)
 
 -- WHICH ARROW GOES WHICH WAY. EX.step_page takes a direction and would be just as happy with
 -- the two arrows wired backwards; EX.nav_click is the piece that decides which name means
--- which way, and it is the only piece a player can get wrong from the outside. Measured by
--- mutation 2026-09-07: with the direction inlined at the click site, swapping the two arrows
--- passed every check in the suite.
-EX.mode = EX.MODE_LOG
-EX.log_page = 2
+-- which way. Measured by mutation 2026-09-07: with the direction inlined at the click site,
+-- swapping the arrows passed every check in the suite. The guide has two pages, where both
+-- directions land on the same page, so the direction is read off the call itself.
+local real_step, step_got = EX.step_page, nil
+EX.step_page = function(d) step_got = d end
 EX.nav_click(EX.MODE_PREV)
-print("press_prev " .. EX.log_page)
-EX.log_page = 2
+print("press_prev " .. tostring(step_got))
 EX.nav_click(EX.MODE_BTN)
-print("press_next " .. EX.log_page)
+print("press_next " .. tostring(step_got))
+EX.step_page = real_step
 
--- =========================================================================================
--- THE HOUSES VIEW PAGES. Until 2026-09-08 it TRUNCATED: `while #t > EX.MAX_ROWS do t[#t] =
--- nil end` against an ALPHABETICALLY SORTED list, so 39 Empire factions would have listed
--- Averland through Nordland and silently dropped Reikland, Stirland and Talabecland. It is
--- already a live fault at 20 Chaos Dwarf houses - 10 vanilla plus the lords pack's 10,
--- sitting exactly on the limit.
--- =========================================================================================
 local function houses(n)
     EX.houses = {}
     for i = 1, n do EX.houses[i] = string.format("house_%%03d", i) end
@@ -216,69 +167,12 @@ local function houses(n)
     EX.mode = EX.MODE_HOUSES
 end
 
-houses(41)                      -- Skaven, the deepest list in the game
-print("h_pages " .. EX.house_pages())
-print("h_count " .. EX.page_count())
-EX.house_page = 1
-print("h_first " .. EX.mode_instruments()[1])
-print("h_len1 " .. #EX.mode_instruments())
-EX.house_page = 3
-local hlast = EX.mode_instruments()
-print("h_last " .. hlast[#hlast] .. "," .. #hlast)
-
--- EVERY HOUSE IS REACHABLE, which is the entire reason this task exists. Walk the pages and
--- assert the union is the whole list, in order, with nothing repeated.
-local seen, dupe, order_ok, prev, uniq = {}, false, true, "", 0
-for pg = 1, EX.house_pages() do
-    EX.house_page = pg
-    for _, h in ipairs(EX.mode_instruments()) do
-        if seen[h] then dupe = true end
-        if h <= prev then order_ok = false end
-        prev = h
-        seen[h] = true
-    end
-end
-for _ in pairs(seen) do uniq = uniq + 1 end
-print("h_union " .. uniq .. "," .. tostring(dupe) .. "," .. tostring(order_ok))
-
--- THE CLAMP, and it is not inherited from the log. A house can DIE while the player sits on
--- page 3 - EX.check_delistings runs at turn start and EX.prune_houses can shorten the list -
--- and an out-of-range page draws an empty view that reads exactly like a market with no
--- houses in it. The log clamps INSIDE its render function, not only where the arrows move it.
-EX.house_page = 3
-houses(4)
-print("h_shrunk " .. #EX.mode_instruments() .. "," .. EX.house_page)
-EX.house_page = 99
-print("h_overflow " .. #EX.mode_instruments() .. "," .. EX.house_page)
-EX.house_page = 0
-print("h_under " .. #EX.mode_instruments() .. "," .. EX.house_page)
-
--- AN EMPTY MARKET. Zero houses is ONE page, not zero: a zero makes nav_label read "1/0" and
--- step_page take a modulo of nothing.
-houses(0)
-print("h_empty " .. EX.house_pages() .. "," .. #EX.mode_instruments())
-
--- ENTERING THE VIEW OPENS PAGE 1, like the log and the guide.
+-- ENTERING THE HOUSES VIEW OPENS THE LIST, whichever section was up last visit.
 houses(41)
-EX.house_page = 3
+EX.house_page = EX.HOUSE_INDEX_PAGE
 EX.set_mode(EX.MODE_TRADE)
 EX.set_mode(EX.MODE_HOUSES)
 print("h_reset " .. EX.house_page)
-
--- THE ARROWS PAGE HOUSES AND DO NOT LEAVE THE VIEW.
-EX.mode = EX.MODE_HOUSES
-EX.house_page = 1
-EX.nav_click(EX.MODE_BTN)
-print("h_fwd " .. EX.house_page .. "," .. tostring(EX.mode))
-EX.house_page = 1
-EX.nav_click(EX.MODE_PREV)
-print("h_back_wrap " .. EX.page_index() .. "," .. EX.view())
--- THE ARROWS PAGE THE LIST AND NOTHING ELSE (2026-09-30): Next from the last list page wraps
--- to page 1. The index and the bonds page used to follow the list here, pages 4/5 and 5/5,
--- and a player never found them; they are sub-tabs now.
-EX.house_page = EX.house_pages()
-EX.nav_click(EX.MODE_BTN)
-print("h_fwd_wrap " .. EX.page_index() .. "," .. EX.view())
 
 -- THE SUB-TABS ----------------------------------------------------------------------------
 -- A slot's component name maps back to its number, and nothing else does - the listener's
@@ -342,11 +236,39 @@ EX.sub_click(2)
 print("sub_contracts_locked " .. EX.view() .. "," .. tostring(EX.section_locked("contracts") ~= nil))
 EX.forwards = keep_fw
 EX.snap = nil
--- A VIEW WITH NO SECTIONS ignores every slot.
-EX.mode = EX.MODE_TRADE
+-- TRADE'S SECTIONS (2026-10-01): Goods, Chart, Orders, one button each, under every
+-- combination of the two switches. A locked section's button changes nothing.
+local real_feature = EX.feature
+local function sections_under(deep, ord)
+    EX.feature = function(k)
+        if k == "deep_history" then return deep end
+        if k == "orders" then return ord end
+        return true
+    end
+    EX.mode = EX.MODE_TRADE
+    local got = {}
+    for i = 1, 3 do
+        EX.trade_page = 1
+        EX.sub_click(i)
+        got[#got + 1] = tostring(EX.section_on and EX.section_on())
+    end
+    return table.concat(got, ",")
+end
+print("tsec_both " .. sections_under(true, true))
+print("tsec_nodeep " .. sections_under(false, true))
+print("tsec_noord " .. sections_under(true, false))
+print("tsec_neither " .. sections_under(false, false))
+-- A NAME CLICK LIGHTS THE CHART BUTTON, or Orders when there is no chart.
+local function name_click(deep)
+    sections_under(deep, true)
+    EX.trade_page = 1
+    local cp = EX.selection_page_index()
+    if cp then EX.trade_page = cp end
+    return tostring(EX.section_on and EX.section_on())
+end
+print("tsec_name " .. name_click(true) .. "," .. name_click(false))
+EX.feature = real_feature
 EX.trade_page = 1
-EX.sub_click(2)
-print("sub_trade " .. tostring(EX.sections()) .. "," .. EX.trade_page .. "," .. EX.mode)
 EX.mode = EX.MODE_HOUSES
 
 -- THE LIST SHRINKING UNDER THE INDEX PAGE KEEPS THE PLAYER ON IT.
@@ -360,31 +282,15 @@ print("h_index_reset " .. tostring(EX.on_index()))
 houses(41)
 EX.house_page = 1
 
--- EXACTLY AT THE LIMIT IS ONE PAGE. 20 houses in 20 slots must not produce a second, empty
--- page - the off-by-one this ceiling invites, and the number Chaos Dwarfs sit on today.
-houses(EX.MAX_ROWS)
-print("h_exact " .. EX.house_pages() .. "," .. #EX.mode_instruments())
-houses(EX.MAX_ROWS + 1)
-print("h_over_by_one " .. EX.house_pages())
-
--- TRADE HAS TWO PAGES: the 19-row list, and the deep price chart. It must never page for row
--- overflow (19 rows against 20 slots) - the second page is a different KIND of content, the
--- way the guide's two pages are.
+-- THE ARROWS PAGE THE GUIDE ALONE (2026-10-01): the lists scroll and Trade's chart and
+-- ledger are buttons. Every tab view is one page, and an arrow on Trade moves nothing.
+local pc = {}
+for _, m in ipairs(EX.MODES) do EX.mode = m; pc[#pc + 1] = EX.page_count() end
+print("arrows_pages " .. table.concat(pc, ","))
 EX.mode = EX.MODE_TRADE
 EX.trade_page = 1
-print("h_trade_pages " .. EX.page_count())
-
--- AND THE ARROWS MUST ACTUALLY REACH IT. Every assertion above is about the page COUNT, and a
--- count is not a route: with EX.step_page and EX.page_index both missing their trade branch
--- the counter still reads 1/2, the arrows are still un-greyed, and pressing them does nothing
--- at all. Both of those shipped as surviving mutants on 2026-09-09 before this was written -
--- the chart was unreachable and the whole suite passed.
 EX.nav_click(EX.MODE_BTN)
-print("t_fwd " .. EX.page_index() .. "," .. tostring(EX.on_chart()))
-EX.nav_click(EX.MODE_BTN)
-print("t_wrap " .. EX.page_index() .. "," .. tostring(EX.on_chart()))
-EX.nav_click(EX.MODE_PREV)
-print("t_back " .. EX.page_index() .. "," .. tostring(EX.on_chart()))
+print("arrows_trade_noop " .. EX.trade_page)
 -- THE CHART PAGE DRAWS NO ROWS, which is what takes the list off screen: EX.layout builds its
 -- keep-set from this list, so anything it still named would be left sitting on top of the chart.
 EX.trade_page = 2
@@ -462,12 +368,13 @@ EX.trade_page = 1
 print("hdr1_price " .. tostring((EX.HEADERS[EX.view()] or {}).hdr_price))
 print("sort1 " .. tostring(EX.sort_fn("hdr_price") ~= nil))
 
--- THE COUNTER CANNOT READ "3/2". EX.trade_kind clamps and EX.page_index did not, so throwing
+-- THE SECTION ON SCREEN CANNOT BE ONE THAT IS GONE (its button is what lights since
+-- 2026-10-01; the counter shows on the guide only). THE COUNTER CANNOT READ "3/2". EX.trade_kind clamps and EX.page_index did not, so throwing
 -- a switch while standing on the page it removes left the label naming a page that no longer
 -- existed until an arrow was pressed.
 EX.trade_page = 3
 EX.feature = function(k) if k == "orders" then return false end return true end
-print("idx_clamped " .. EX.page_index())
+print("idx_clamped " .. EX.section_on())
 print("nav_clamped " .. EX.nav_label())
 EX.feature = function() return true end
 EX.trade_page = 1

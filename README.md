@@ -46,7 +46,7 @@ Full reference: **[docs/GRAND_TRADE_EXCHANGE.md](docs/GRAND_TRADE_EXCHANGE.md)**
 
 The mod itself is 10 DB tables, 681 rows and 1,776 localisation strings, plus the
 Lua and the UI. Everything under `Modding Files/` is **generated** - the TSVs, the
-three `.twui.xml` files and the settings Lua are outputs, committed so the repo is
+five `.twui.xml` files and the settings Lua are outputs, committed so the repo is
 readable without running anything.
 
 ## The interesting part: nothing here is hand-authored
@@ -57,7 +57,7 @@ curve, every table row and every localised string in one place, and generates:
 
 - the 10 DB table fragments and the loc, as TSV
 - the MCT settings Lua (a difficulty preset, 52 tunable knobs, feature switches)
-- and, via `gen_exchange_ui.py`, the three `.twui.xml` panels - 360 GUIDs, all
+- and, via `gen_exchange_ui.py`, the five `.twui.xml` files - 375 GUIDs, all
   allocated and paired by the generator, because a duplicate or mismatched GUID in
   that format is a silent non-draw with no error anywhere
 
@@ -66,7 +66,7 @@ Which means the committed artefacts can be checked against their source:
 ```
 py tools/gen_zharr_exchange.py             # regenerate the TSVs
 py tools/gen_zharr_exchange.py --selftest  # also rewrites the settings Lua and production map
-py tools/gen_exchange_ui.py                # regenerate the three .twui.xml panels
+py tools/gen_exchange_ui.py                # regenerate the five .twui.xml files
 git diff                                   # empty, or the generator and the repo disagree
 ```
 
@@ -77,7 +77,7 @@ library, no way to import a module - and a runtime error inside a listener is
 dropped silently, with no log line. So the checks run outside the game instead.
 
 `--selftest` runs **the shipped Lua file itself** under a local Lua 5.1.5 against
-stubbed campaign interfaces, through 16 harnesses in `tools/_*_harness.lua`:
+stubbed campaign interfaces, through 20 harnesses in `tools/_*_harness.lua`:
 
 ```
 py tools/gen_zharr_exchange.py --selftest
@@ -86,12 +86,12 @@ py tools/gen_exchange_ui.py --selftest
 
 It asserts, among ~70 other things:
 
-- every one of the 855 `EX.*` names the script defines is read somewhere - no orphans
+- every one of the 875 `EX.*` names the script defines is read somewhere - no orphans
 - prices agree between the Python model and the Lua that ships
-- every one of the 6 views is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
+- every view is reachable in one click from every other, paging clamps at both ends, and the drawn slice actually changes
 - every label fits its box: 32 headers measured against their neighbours, footers bounded at 118 characters, the widest price cell 8 of 10 characters
 - multiplayer paths route through the right entry points
-- the UI generator's 360 GUIDs are unique and hierarchy-paired
+- the UI generator's 375 GUIDs are unique and hierarchy-paired
 
 This is what most of the Python line count is. The generator is smaller than the
 suite that proves it right.
@@ -108,7 +108,8 @@ installed copy of the game to resolve icon paths against - it caches those into 
 gitignored `.skilltree_cache/`. `import_zharr_exchange.py` additionally needs
 [RPFM](https://github.com/Frodo45127/rpfm) running, since a `.pack` is a binary
 container that only RPFM writes. The generator runs above need
-neither RPFM nor a running game.
+neither RPFM nor a running game. Resource Overhaul's commodity icons are not published,
+so the selftest skips its check that they exist when it runs in a git clone.
 
 **Some things here are deliberately load-bearing weirdness.** `read_vanilla_loc.py`
 reads the game's localisation with RPFM shut, because the format turned out to be
@@ -123,7 +124,13 @@ hit; [docs/CUSTOM_UI.md](docs/CUSTOM_UI.md) collects the UI ones.
 ```
 tools/
   gen_zharr_exchange.py       the generator - all data, all rows, all strings
-  gen_exchange_ui.py          emits the three .twui.xml panels
+  gen_exchange_ui.py          emits the five .twui.xml files
+  preview_exchange.py         renders views to PNG by running the shipped Lua headless
+  gen_resource_overhaul.py    the sibling mod's goods list, which the Exchange trades when
+                              that mod is installed (with read_vanilla_db.py and
+                              survey_resource_map.py, which it imports)
+  gen_guilds_ui.py            the sibling Great Guilds' UI generator; the scrolling list
+                              reuses its slider parts (with gen_great_guilds.py)
   gen_exchange_diagrams.py    the Workshop screenshots, as generated PNGs
   import_zharr_exchange.py    pushes the generated files into a .pack via RPFM
   import_house_ancillaries.py the RPFM client the importer calls (shared with a sibling mod,
@@ -134,7 +141,7 @@ tools/
   read_pack_index.py          lists the contents of any .pack offline
   check_lua_api.py            flags calls CA does not document
   check_lua_undeclared.py     flags globals nothing declares
-  _*_harness.lua              16 test harnesses, run under real Lua 5.1
+  _*_harness.lua              20 test harnesses, run under real Lua 5.1
 Modding Files/
   pack/                       1:1 mirror of the in-pack layout (generated)
   source/zharr_exchange/      the generated DB and loc, as TSV

@@ -50,7 +50,7 @@ EX.CHART_BAR_W = 16
 -- bottom of the box, and a label at the box bottom would be 6px out from its own data.
 EX.CHART_FLOOR = 6
 -- WHICH INSTRUMENT THE CHART IS SHOWING, and which page of the Trade view is up. Both are
--- VIEW STATE and neither is ever saved - the same rule EX.log_page and EX.house_page
+-- VIEW STATE and neither is ever saved - the same rule EX.house_page
 -- follow. A saved selection would reopen the panel on a commodity the player last looked
 -- at four sessions ago, or on a house that has since been delisted.
 EX.selected    = nil
@@ -2337,6 +2337,128 @@ function EX.display(res)
     return i and i[1] or EX.short(res)
 end
 
+-- DERPY MORE RESOURCES (2026-10-01). Its goods trade here when that mod is installed, and only
+-- then: EX.join_more_resources appends each one to EX.COMMODITIES at init where the good's own
+-- name resolves in the loc, which More Resources ships and nothing else does - measured in game,
+-- common.get_localised_string answers "Salted Fish" with it installed and "" for a key nobody
+-- ships. Without it this table is never read and the market is the 17 above.
+--
+-- { key, name, icon, boon }. GENERATED from tools/gen_more_resources.py's GOODS by
+-- tools/gen_zharr_exchange.py (MR_COMMODITIES, MR_OFFERING); check_more_resources() reads it
+-- back and fails on any drift. Every per-good DB row a good needs - its holding pool, its
+-- warehouse and offering bundles, its demand and shock text - ships in THIS pack, and the boon
+-- is the one of the vanilla commodity it burns as.
+EX.MR = {
+    { "res_derpy_amber", "Amber", "ui/campaign ui/effect_bundles/resource_derpy_amber.png",
+      "+6% trade tariffs" },
+    { "res_derpy_black_lotus", "Black Lotus", "ui/campaign ui/effect_bundles/resource_derpy_black_lotus.png",
+      "+2 hero capacity" },
+    { "res_derpy_blackpowder", "Blackpowder", "ui/campaign ui/effect_bundles/resource_derpy_blackpowder.png",
+      "-6% recruit cost" },
+    { "res_derpy_books", "Books", "ui/campaign ui/effect_bundles/resource_derpy_books.png",
+      "+4 research points" },
+    { "res_derpy_brass", "Brass", "ui/campaign ui/effect_bundles/resource_derpy_brass.png",
+      "+4 armour, all armies" },
+    { "res_derpy_brimstone", "Brimstone", "ui/campaign ui/effect_bundles/resource_derpy_brimstone.png",
+      "+10 winds of magic reserve" },
+    { "res_derpy_carpets", "Arabyan Carpets", "ui/campaign ui/effect_bundles/resource_derpy_carpets.png",
+      "+6% trade tariffs" },
+    { "res_derpy_coal", "Coal", "ui/campaign ui/effect_bundles/resource_derpy_coal.png",
+      "-6% construction cost" },
+    { "res_derpy_dragon_bone", "Dragon Bone", "ui/campaign ui/effect_bundles/resource_derpy_dragon_bone.png",
+      "+2 hero capacity" },
+    { "res_derpy_feathers", "Griffon and Pegasus Feathers", "ui/campaign ui/effect_bundles/resource_derpy_feathers.png",
+      "+6% movement range" },
+    { "res_derpy_glassware", "Glassware", "ui/campaign ui/effect_bundles/resource_derpy_glassware.png",
+      "+6% trade tariffs" },
+    { "res_derpy_grain", "Grain", "ui/campaign ui/effect_bundles/resource_derpy_grain.png",
+      "+6% replenishment" },
+    { "res_derpy_gromril", "Gromril", "ui/campaign ui/effect_bundles/resource_derpy_gromril.png",
+      "+4 armour, all armies" },
+    { "res_derpy_incense", "Incense", "ui/campaign ui/effect_bundles/resource_derpy_incense.png",
+      "+10 winds of magic reserve" },
+    { "res_derpy_ithilmar", "Ithilmar", "ui/campaign ui/effect_bundles/resource_derpy_ithilmar.png",
+      "+4 armour, all armies" },
+    { "res_derpy_jade", "Jade", "ui/campaign ui/effect_bundles/resource_derpy_jade.png",
+      "+6% trade tariffs" },
+    { "res_derpy_kvas", "Kvas", "ui/campaign ui/effect_bundles/resource_derpy_kvas.png",
+      "+4 public order" },
+    { "res_derpy_lustrian_plumes", "Lustrian Plumes", "ui/campaign ui/effect_bundles/resource_derpy_lustrian_plumes.png",
+      "+6% trade tariffs" },
+    { "res_derpy_mead", "Mead", "ui/campaign ui/effect_bundles/resource_derpy_mead.png",
+      "+4 public order" },
+    { "res_derpy_olive_oil", "Olive Oil", "ui/campaign ui/effect_bundles/resource_derpy_olive_oil.png",
+      "+4 public order" },
+    { "res_derpy_pearls", "Pearls", "ui/campaign ui/effect_bundles/resource_derpy_pearls.png",
+      "+6% trade tariffs" },
+    { "res_derpy_pipeweed", "Pipeweed", "ui/campaign ui/effect_bundles/resource_derpy_pipeweed.png",
+      "+4 public order" },
+    { "res_derpy_porcelain", "Porcelain", "ui/campaign ui/effect_bundles/resource_derpy_porcelain.png",
+      "+6% trade tariffs" },
+    { "res_derpy_quicksilver", "Quicksilver", "ui/campaign ui/effect_bundles/resource_derpy_quicksilver.png",
+      "+4 research points" },
+    { "res_derpy_rhinox_hides", "Rhinox Hides", "ui/campaign ui/effect_bundles/resource_derpy_rhinox_hides.png",
+      "+4 armour, all armies" },
+    { "res_derpy_rum", "Rum", "ui/campaign ui/effect_bundles/resource_derpy_rum.png",
+      "+4 public order" },
+    { "res_derpy_salted_fish", "Salted Fish", "ui/campaign ui/effect_bundles/resource_derpy_salted_fish.png",
+      "+6% replenishment" },
+    { "res_derpy_salted_meat", "Salted Meat", "ui/campaign ui/effect_bundles/resource_derpy_salted_meat.png",
+      "+6% replenishment" },
+    { "res_derpy_sea_dragon_hide", "Sea Dragon Hide", "ui/campaign ui/effect_bundles/resource_derpy_sea_dragon_hide.png",
+      "+4 armour, all armies" },
+    { "res_derpy_silk", "Silk", "ui/campaign ui/effect_bundles/resource_derpy_silk.png",
+      "+6% trade tariffs" },
+    { "res_derpy_silver", "Silver", "ui/campaign ui/effect_bundles/resource_derpy_silver.png",
+      "+6% trade tariffs" },
+    { "res_derpy_starwood", "Starwood", "ui/campaign ui/effect_bundles/resource_derpy_starwood.png",
+      "+10 winds of magic reserve" },
+    { "res_derpy_tea", "Tea", "ui/campaign ui/effect_bundles/resource_derpy_tea.png",
+      "+4 public order" },
+    { "res_derpy_warhorses", "Warhorses", "ui/campaign ui/effect_bundles/resource_derpy_warhorses.png",
+      "+6% movement range" },
+    { "res_derpy_whale_oil", "Whale Oil", "ui/campaign ui/effect_bundles/resource_derpy_whale_oil.png",
+      "+4 public order" },
+    { "res_derpy_wool", "Wool", "ui/campaign ui/effect_bundles/resource_derpy_wool.png",
+      "+6% movement range" },
+    { "res_derpy_wyvern_scales", "Wyvern Scales", "ui/campaign ui/effect_bundles/resource_derpy_wyvern_scales.png",
+      "+4 armour, all armies" },
+}
+
+-- THE VANILLA 17 ARE THE PRICE ANCHOR. EX.apply_prices takes its median over the first
+-- EX.BASE_COUNT entries only: most of More Resources' goods are made by buildings nobody has
+-- built on turn one, and a median dragged towards zero by them would price every vanilla good
+-- as a glut. Against the 17, a rare good with little supply reads dear, which is what it is.
+EX.BASE_COUNT = #EX.COMMODITIES
+EX.mr_joined = nil
+
+-- ONCE, from EX.init, before the first scan and before EX.restore reads a saved price for each
+-- instrument. Idempotent. The loc read is pcall-wrapped in a closure so a harness with no
+-- `common` simply joins nothing.
+function EX.join_more_resources()
+    if EX.mr_joined then return EX.mr_joined end
+    EX.mr_joined = 0
+    for _, r in ipairs(EX.MR) do
+        local ok, name = pcall(function()
+            return common.get_localised_string("resources_onscreen_text_" .. r[1])
+        end)
+        if ok and type(name) == "string" and name ~= "" then
+            EX.COMMODITIES[#EX.COMMODITIES + 1] = r[1]
+            EX.INFO[r[1]] = { r[2], r[3] }
+            EX.BOON[r[1]] = r[4]
+            EX.mr_joined = EX.mr_joined + 1
+        end
+    end
+    EX.commodity_set = nil
+    return EX.mr_joined
+end
+
+-- THE SETTLEMENT'S PRODUCTION OF MORE RESOURCES' GOODS, as "<effect>=<value>" pairs. See
+-- EX.region_goods.
+EX.MR_EXPR = 'BuildingSlotList.JoinString(BuildingContext.EffectList.Filter('
+    .. 'EffectKey.StartsWith("derpy_effect_region_resource_")).JoinString('
+    .. 'EffectKey + "=" + Value, ","), ",")'
+
 function EX.icon(res)
     local i = EX.INFO[res]
     if i then return i[2] end
@@ -2641,8 +2763,8 @@ end
 -- discovered and vanilla alone ships about eleven Chaos Dwarf factions with the lords pack
 -- adding ten more. The Houses footer says how many are not shown, which is the honest answer -
 -- a row drawn off the bottom edge is invisible AND clickable, which is worse than absent.
--- WHICH PAGE OF HOUSES IS SHOWING. VIEW STATE ONLY, never saved - same as EX.log_page and
--- EX.help_page. A saved page would reopen the view three pages away from the house the
+-- WHICH SECTION OF HOUSES IS SHOWING: 1 the list, negative Funds or Bonds. VIEW STATE ONLY,
+-- never saved - same as EX.help_page. A saved page would reopen the view three pages away from the house the
 -- player clicked "Houses" to look at.
 EX.house_page = 1
 
@@ -2655,8 +2777,8 @@ EX.house_page = 1
 -- answer; a filter is the expensive half and is deliberately not built.
 EX.HOUSE_LIST_MAX = 60
 
--- THE HOUSES THE BOARD ACTUALLY LISTS, in the order it lists them. EX.house_pages and
--- EX.house_slice must BOTH read this, or the page counter names pages the slice cannot reach.
+-- THE HOUSES THE BOARD ACTUALLY LISTS, in the order it lists them. EX.scroll_n and
+-- EX.house_slice must BOTH read this, or the scroll bar reaches rows the slice cannot return.
 --
 -- THREE STEPS, IN THIS ORDER:
 --   1. Sort, by whatever column the player picked. EX.sorted returns EX.houses itself when
@@ -2712,12 +2834,6 @@ function EX.listed_houses()
     return mine
 end
 
-function EX.house_pages()
-    local n = math.ceil(#EX.listed_houses() / EX.MAX_ROWS)
-    if n < 1 then n = 1 end
-    return n
-end
-
 -- THE HOUSES TAB'S SECTIONS: the house list, then the extra pages in EX.house_extra_pages'
 -- order, each its own sub-tab since 2026-09-30 (EX.SECTIONS). They were pages 4/5 and 5/5 of
 -- the arrows until then, and the player did not find them. The index is always there, so a
@@ -2751,17 +2867,6 @@ function EX.house_extra()
     return t[#t]
 end
 --
--- A LIST PAGE IS CLAMPED, EX.deal_page_at's rule: the list can shorten under a player standing
--- past its end. Unclamped, the counter read "3/2" (ZHARR_EXCHANGE.md s17). An extra page's
--- sentinel is negative, so the same clamp reads it as page 1 of its one-page section.
-function EX.house_page_at()
-    local n = EX.house_pages()
-    local at = EX.house_page or 1
-    if at < 1 then at = 1 end
-    if at > n then at = n end
-    return at
-end
-
 function EX.on_index()
     return EX.mode == EX.MODE_HOUSES and EX.house_extra() == EX.HOUSE_INDEX_PAGE
 end
@@ -2806,23 +2911,10 @@ end
 -- be past the end by the time this runs, and an out-of-range page draws an empty view that
 -- reads exactly like a market with no houses in it.
 function EX.house_slice()
-    local pages = EX.house_pages()
-    if EX.house_page > pages then EX.house_page = pages end
-    if EX.house_page < 1 then EX.house_page = 1 end
-    -- SORTED FIRST, PAGED SECOND. The other way round orders the twenty rows on whichever
-    -- page the player happens to be on and leaves the rest untouched, which looks like sorting
-    -- and is not. The sort, the own-people-first split and the power cap all live in
-    -- EX.listed_houses, which EX.house_pages above reads too - the page counter and this slice
-    -- MUST walk one list or the counter names a page the slice returns empty.
-    local all = EX.listed_houses()
-    local out = {}
-    local from = (EX.house_page - 1) * EX.MAX_ROWS
-    for j = 1, EX.MAX_ROWS do
-        local h = all[from + j]
-        if not h then break end
-        out[#out + 1] = h
-    end
-    return out
+    -- SCROLLED SINCE 2026-10-01 (EX.scroll_slice), every house at once. The sort, the own-people-first split and
+    -- the power cap all live in EX.listed_houses, which EX.scroll_n reads too - the scroll
+    -- bar's length and this slice MUST walk one list.
+    return EX.scroll_slice(EX.listed_houses(), EX.MAX_ROWS)
 end
 
 function EX.mode_instruments()
@@ -2862,6 +2954,13 @@ function EX.mode_instruments()
         for i = 1, #EX.bond_offers + #EX.bonds do t[#t + 1] = string.format("bd%d", i) end
         return t
     end
+    -- THE LOG, ON ITS OWN POOL since 2026-10-02: one row per entry, newest first, so the whole
+    -- log is drawn once and scrolled. It used to borrow one goods row per line and redraw them
+    -- for every scroll position. An empty log still lists one row, for its placeholder line.
+    if EX.mode == EX.MODE_LOG then
+        for i = 1, math.max(1, EX.scroll_n()) do t[i] = "lg" .. i end
+        return EX.scroll_slice(t, EX.MAX_ROWS)
+    end
     if EX.mode == EX.MODE_HOUSES then
         -- PAGED, NOT TRUNCATED. The old `while #t > EX.MAX_ROWS do t[#t] = nil end` ran
         -- against an ALPHABETICALLY SORTED list, so everything past slot 20 was dropped for
@@ -2872,10 +2971,18 @@ function EX.mode_instruments()
     end
     for _, r in ipairs(EX.COMMODITIES) do t[#t + 1] = r end
     for _, r in ipairs(EX.LAYER2) do t[#t + 1] = r end
-    -- The commodity list is 19 at most - 17 plus the Chaos Dwarf pair - against 20 slots, so
-    -- this can only ever be a no-op. Kept as the guard it is.
-    while #t > EX.MAX_ROWS do t[#t] = nil end
-    return EX.sorted(t)
+    t = EX.sorted(t)
+    -- THE GOODS VIEWS SCROLL (EX.scroll_slice). The guide and the introduction borrow the
+    -- first MAX_ROWS rows for their lines, so they get the top of the list.
+    if EX.mode == EX.MODE_TRADE or EX.mode == EX.MODE_STATS or EX.mode == EX.MODE_OFFER then
+        return EX.scroll_slice(t, EX.MAX_ROWS)
+    end
+    local out = {}
+    for j = 1, EX.MAX_ROWS do
+        if not t[j] then break end
+        out[j] = t[j]
+    end
+    return out
 end
 
 function EX.median(t)
@@ -5123,6 +5230,27 @@ function EX.region_goods(region)
             end
         end
     end
+
+    -- MORE RESOURCES' GOODS, READ OFF THE BUILDINGS THEMSELVES. Their production rows carry a
+    -- lore condition on the region (building_effects_junction.context_requirement), so a
+    -- building -> goods map like EX_PRODUCTION would be wrong both ways: one port chain makes
+    -- pearls at Lothern and amber at Erengrad. The settlement's BuildingContext.EffectList is
+    -- what the building tooltip draws - only the rows whose condition holds, at the value the
+    -- building actually has. Measured 2026-10-01 on IEE: 749 regions in 0.064s, one call each.
+    if (EX.mr_joined or 0) > 0 then
+        local ok, got = pcall(function()
+            return common.get_context_value("CcoCampaignSettlement",
+                tostring(region:settlement():cqi()), EX.MR_EXPR)
+        end)
+        if ok and type(got) == "string" then
+            for good, n in string.gmatch(got, "derpy_effect_region_resource_([%w_]+)_production=(%d+)") do
+                local res = "res_derpy_" .. good
+                if EX.is_commodity(res) then
+                    out_list[#out_list + 1] = { res, tonumber(n) }
+                end
+            end
+        end
+    end
     return out_list
 end
 
@@ -7306,7 +7434,9 @@ function EX.apply_prices()
     -- concentration is purely RELATIVE - the typical commodity still prices at 1000, and only
     -- being more cartelised than the rest of the map makes a thing dear.
     local counts, raws = {}, {}
-    for _, res in ipairs(EX.COMMODITIES) do
+    -- THE VANILLA 17 ONLY - see EX.BASE_COUNT.
+    for i = 1, EX.BASE_COUNT do
+        local res = EX.COMMODITIES[i]
         counts[#counts + 1] = EX.effective_supply(supply[res] or 0,
                                                   EX.hhi(owners[res] or {}))
         raws[#raws + 1] = supply[res] or 0
@@ -7364,7 +7494,11 @@ end
 -- economy, and the number says so.
 function EX.trade_income_level(fname)
     local regions, sum = 0, 0
-    for _, res in ipairs(EX.COMMODITIES) do
+    -- THE VANILLA 17 ONLY, EX.BASE_COUNT's rule. More Resources' goods already trade through
+    -- CA's own trade agreements, and a glut of one (every port makes Salted Fish) would hand
+    -- nearly every coastal faction on the map a trade-income penalty for installing it.
+    for i = 1, EX.BASE_COUNT do
+        local res = EX.COMMODITIES[i]
         local n = ((EX.owners or {})[res] or {})[fname]
         if n and n > 0 then
             regions = regions + n
@@ -7393,8 +7527,8 @@ function EX.apply_trade_income()
     if not EX.setting("trade_income") then return end
     if not EX.owners then return end
     local seen = {}
-    for _, res in ipairs(EX.COMMODITIES) do
-        for fname, _ in pairs((EX.owners or {})[res] or {}) do seen[fname] = true end
+    for i = 1, EX.BASE_COUNT do
+        for fname, _ in pairs((EX.owners or {})[EX.COMMODITIES[i]] or {}) do seen[fname] = true end
     end
 
     local function set(fname, want)
@@ -7923,6 +8057,7 @@ function EX.build_panel()
         EX.say("error", "rows_holder missing from the panel layout")
         return false
     end
+    EX.drawn = {}
 
     for i, res in ipairs(EX.instruments()) do
         local name = EX.ROW .. "_" .. EX.short(res)
@@ -7961,6 +8096,10 @@ function EX.build_panel()
     -- AND THE THEMED FUNDS' ROWS, the index's row being the first of EX.FUND_ROWS.
     for i = 2, EX.FUND_ROWS do
         holder:CreateComponent(EX.ROW .. "_fd" .. i, EX.ROW_FILE)
+    end
+    -- AND THE LOG'S, one per entry it can hold, so the whole log is drawn once and scrolled.
+    for i = 1, EX.LOG_MAX do
+        holder:CreateComponent(EX.ROW .. "_lg" .. i, EX.ROW_FILE)
     end
     -- AND THE BONDS PAGE'S: bond_max offers a side above EX.BOND_OPEN_MAX open a side.
     for i = 1, 2 * EX.opt("bond_max") + 2 * EX.BOND_OPEN_MAX do
@@ -8060,6 +8199,10 @@ EX.PANEL_LAYOUT = {
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
+    -- TRADE'S SECTION BUTTONS (2026-10-01), where Houses and Deals carry theirs.
+    { "derpy_chd_ex_sub_1", 484,  16, 108 },
+    { "derpy_chd_ex_sub_2", 600,  16, 108 },
+    { "derpy_chd_ex_sub_3", 716,  16, 108 },
 }
 
 -- TRADE PAGE 2. Names no header and no row cell, so EX.layout hides every one of them, and
@@ -8125,6 +8268,10 @@ EX.PANEL_LAYOUT_CHART = {
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
+    -- TRADE'S SECTION BUTTONS (2026-10-01), where Houses and Deals carry theirs.
+    { "derpy_chd_ex_sub_1", 484,  16, 108 },
+    { "derpy_chd_ex_sub_2", 600,  16, 108 },
+    { "derpy_chd_ex_sub_3", 716,  16, 108 },
 }
 
 -- EMPTY ON PURPOSE. Every row cell is hidden by EX.layout because nothing names it, and
@@ -8172,6 +8319,10 @@ EX.PANEL_LAYOUT_ORDERS = {
     { "derpy_chd_ex_prev", 774, 696 },
     { "nav_page",     816, 701,  44 },
     { "derpy_chd_ex_mode", 876, 696 },
+    -- TRADE'S SECTION BUTTONS (2026-10-01), where Houses and Deals carry theirs.
+    { "derpy_chd_ex_sub_1", 484,  16, 108 },
+    { "derpy_chd_ex_sub_2", 600,  16, 108 },
+    { "derpy_chd_ex_sub_3", 716,  16, 108 },
 }
 
 -- btn_buy IS THE CANCEL BUTTON, and btn_sell is deliberately not placed. Same idiom as the
@@ -8597,10 +8748,6 @@ EX.LOG = {}
 -- Built with string.char rather than written as escapes or as the literal bytes: an editor that
 -- cannot show byte 30 cannot show you it was deleted either, and this file has already had a
 -- pair of escapes silently rewritten in transit once.
--- WHICH PAGE OF THE LOG IS SHOWING. View state, never saved - the same reasoning as
--- EX.help_page: the log opens on its newest page, which is what a player who just clicked
--- "Log" is asking about.
-EX.log_page = 1
 EX.SAVE_LOG = "zharr_log"
 -- WHAT A LOG LINE CALLS ITS INSTRUMENT. Houses and commodities have different accessors and
 -- the log carries both, so this is the one place that knows which to ask.
@@ -8672,39 +8819,12 @@ function EX.log_add(subject, detail, key)
     pcall(function() EX.setp(EX.SAVE_LOG, EX.pack_log()) end)
 end
 
--- WHAT THE PANEL DRAWS: {left, right} per row, newest first, capped to the rows that exist.
---
--- THE CAP COMES FROM EX.mode_instruments(), which is the list the render loop iterates - not
--- from EX.MAX_ROWS. The two are not the same number: this view borrows one row per instrument
--- and there are 19 of those against 20 slots, so a flat MAX_ROWS cap handed back a 20th line
--- that no row existed to draw AND made the footer claim it had drawn it. Reading the cap off
--- the same list the renderer walks is the only shape where they cannot drift apart.
--- HOW MANY PAGES THE LOG HAS. At least one, so an empty log still draws its placeholder
--- page and the counter reads 1/1 rather than 1/0.
-function EX.log_per_page()
-    local n = #EX.mode_instruments()
-    if n < 1 then n = 1 end
-    return n
-end
-function EX.log_pages()
-    local n = math.ceil(#EX.LOG / EX.log_per_page())
-    if n < 1 then n = 1 end
-    return n
-end
-
+-- WHAT THE PANEL DRAWS: {left, right, key} per entry, newest first - EVERY entry. Line i goes
+-- on row "lg" .. i (EX.mode_instruments), and the renderer zips the two lists, so a line with
+-- no row (a log past the pool) is simply not drawn.
 function EX.log_lines()
     local out = {}
-    local cap = EX.log_per_page()
-    -- CLAMPED HERE, not only where the arrows move it. EX.LOG shrinks on a new campaign and
-    -- grows on every trade, so a page index that was valid when it was set can be past the
-    -- end by the time this runs - and an out-of-range page draws an empty log, which reads
-    -- exactly like a log that recorded nothing.
-    if EX.log_page > EX.log_pages() then EX.log_page = EX.log_pages() end
-    if EX.log_page < 1 then EX.log_page = 1 end
-    local from = (EX.log_page - 1) * cap
-    for j = 1, cap do
-        local i = from + j
-        if i > #EX.LOG then break end
+    for i = 1, #EX.LOG do
         local e = EX.LOG[i]
         -- AN EMPTY SUBJECT IS RESOLVED HERE, from the key. Entries written from a turn handler
         -- defer the name rather than reach common.get_localised_string at turn 1 - see
@@ -8934,6 +9054,187 @@ function EX.trade_pages()
     if EX.feature("deep_history") then t[#t + 1] = "chart" end
     if EX.feature("orders") then t[#t + 1] = "orders" end
     return t
+end
+
+-- THE SCROLLING LISTS (2026-10-01, docs/superpowers/specs/2026-10-01-zharr-exchange-scroll-
+-- lists-design.md). Asked for from play: "add a scroll bar instead of the next page", then
+-- "add the scroll bar as well to the other panels that has alot of listed items". More
+-- Resources' 37 goods took the goods list from 19 rows to 56, and the chart and the ledger
+-- ended up as pages 4 and 5 behind the same arrows.
+--
+-- DRAWN WHOLE SINCE 2026-10-02. The list first drew one window of rows and redrew the panel
+-- (25-200ms) for each new scroll position, which froze the game during a drag and then lagged
+-- behind the bar. Asked for from play: "rendered all at once and the scrollbar will navigate the
+-- already rendered list". So a built list draws EVERY item once, at its own index under
+-- rows_holder, and a scroll only moves rows_holder (EX.follow_list): one MoveTo carries every
+-- row, because a parent's MoveTo moves its children (measured in game 2026-10-02). There is no
+-- scroll position to keep: every way into a view rebuilds the list, at the top.
+
+-- WHICH VIEWS SCROLL: the goods list in Trade, Stats and Offerings, the house list, the log.
+function EX.scrolls()
+    if EX.mode == EX.MODE_TRADE then return EX.trade_kind() == "list" end
+    if EX.mode == EX.MODE_HOUSES then return EX.house_extra() == nil end
+    return EX.mode == EX.MODE_STATS or EX.mode == EX.MODE_OFFER or EX.mode == EX.MODE_LOG
+end
+
+-- HOW MANY ITEMS the scrolling list on screen holds. The log's is capped to its row pool: an
+-- older save can carry more than EX.LOG_MAX entries, and an empty row with nothing drawn over
+-- it is a blank stretch at the bottom of the list.
+function EX.scroll_n()
+    if EX.mode == EX.MODE_LOG then return math.min(#EX.LOG, EX.LOG_MAX) end
+    if EX.mode == EX.MODE_HOUSES then return #EX.listed_houses() end
+    return #EX.COMMODITIES + #EX.LAYER2
+end
+
+-- WHAT A SCROLLING VIEW DRAWS: all of it while its list is built, else the top `rows` - a view
+-- whose list broke, which nothing can scroll and nothing clips. SORTED FIRST, SLICED SECOND:
+-- the other way round orders the window and leaves the rest untouched, which looks like sorting.
+function EX.scroll_slice(all, rows)
+    if EX.list_key then return all end
+    local out = {}
+    for j = 1, math.min(rows, #all) do out[j] = all[j] end
+    return out
+end
+
+-- THE LIST ITSELF: CA's listview, made at runtime, holding one EMPTY row per item - a row
+-- inside a list must have no children, and ours have eleven (docs/CUSTOM_UI.md, Scrolling
+-- lists). rows_holder is ADOPTED into list_clip, over the empty rows, so the wheel over a row
+-- reaches the list through its parents. Nothing documented scrolls a list from script, so a
+-- list that must start at the top is destroyed and made again.
+EX.LIST      = "derpy_chd_ex_list"
+EX.LIST_FILE = "ui/campaign ui/derpy_chd_ex_list"
+EX.SP        = "derpy_chd_ex_sp"
+EX.SP_FILE   = "ui/campaign ui/derpy_chd_ex_sp"
+-- 16ms: the poll runs every frame, because the rows trail the bar by up to one tick.
+EX.SLIDER_W, EX.HANDLE_H, EX.SCROLL_MS = 16, 40, 16
+EX.list_key = nil           -- what the built list is (EX.scroll_key), nil while none is
+EX.list_broken = nil
+
+-- WHAT THE LIST ON SCREEN IS. A change in any part rebuilds it, at the top.
+function EX.scroll_key()
+    return table.concat({ EX.view(), EX.scroll_n(), tostring(EX.sort_col),
+                          tostring(EX.sort_dir) }, "|")
+end
+
+-- THE HOLDER GOES HOME BEFORE ANY DESTROY. Destroy takes a component's children with it, and
+-- rows_holder's children are every row component the panel has. If the holder cannot be got
+-- out, the list stays - HIDING it would hide the rows inside it - and only its scroll bar
+-- goes: the lists draw from the top, unscrolled, and the list is never built again.
+function EX.drop_list(panel)
+    EX.list_key = nil
+    local list = find_uicomponent(panel, EX.LIST)
+    if not is_uicomponent(list) then return end
+    -- find_uicomponent searches descendants, so this finds the holder inside the list too.
+    local holder = find_uicomponent(panel, "rows_holder")
+    if is_uicomponent(holder) and is_uicomponent(find_uicomponent(list, "rows_holder")) then
+        -- PINNED BACK WHERE IT WAS: whether Adopt keeps the screen position or the old
+        -- parent-relative offset is not documented, and every row is placed from it.
+        local hx, hy = holder:Position()
+        pcall(function()
+            panel:Adopt(holder:Address())
+            holder:MoveTo(hx, hy)
+        end)
+    end
+    if not is_uicomponent(find_uicomponent(list, "rows_holder")) then
+        pcall(function() list:Destroy() end)
+    else
+        local slider = find_uicomponent(list, "vslider")
+        if is_uicomponent(slider) then slider:SetVisible(false) end
+        EX.list_broken = true
+        EX.say("error", "the scrolling list could not hand its rows back - lists draw unscrolled")
+    end
+end
+
+function EX.ensure_list(panel)
+    if EX.list_broken or not is_uicomponent(panel) then return end
+    if not EX.scrolls() then EX.drop_list(panel) return end
+    -- THE LOG IS SCANNED BEFORE IT IS SIZED. EX.refresh_panel scans after EX.layout, and the
+    -- first scan of a session can add entries; a list sized before it would rebuild at the top
+    -- on the player's first scroll. EX.log_scan records changes only, so twice is harmless.
+    if EX.mode == EX.MODE_LOG then pcall(EX.log_scan) end
+    local key = EX.scroll_key()
+    if key == EX.list_key and is_uicomponent(find_uicomponent(panel, EX.LIST)) then
+        -- KEPT, AND STILL SCROLLED: EX.layout's place() has just put the holder at the top.
+        EX.follow_list(panel)
+        return
+    end
+    EX.drop_list(panel)
+    if EX.list_broken then return end
+    local holder = find_uicomponent(panel, "rows_holder")
+    if not is_uicomponent(holder) then return end
+    pcall(function() panel:CreateComponent(EX.LIST, EX.LIST_FILE) end)
+    local list = find_uicomponent(panel, EX.LIST)
+    if not is_uicomponent(list) then return end
+    local function sized(c, w, h)
+        c:SetCanResizeWidth(true)
+        c:SetCanResizeHeight(true)
+        c:Resize(w, h, false)
+    end
+    local n, rows = EX.scroll_n(), EX.MAX_ROWS
+    local x, y = holder:Position()
+    local w, h = EX.sc(880), rows * EX.ROW_PITCH
+    list:MoveTo(x, y)
+    sized(list, w, h)
+    local clip = find_uicomponent(list, "list_clip")
+    local box = find_uicomponent(list, "list_box")
+    local slider = find_uicomponent(list, "vslider")
+    if not (is_uicomponent(clip) and is_uicomponent(box)) then return end
+    clip:MoveTo(x, y)
+    sized(clip, w, h)
+    if is_uicomponent(slider) then
+        slider:MoveTo(x + w - EX.SLIDER_W, y)
+        sized(slider, EX.SLIDER_W, h)
+        -- THE TRAVEL IS A NUMBER, not a size: Resize never reaches it (ICUI.gm_list).
+        pcall(function() slider:SetProperty("maxValue", h - EX.HANDLE_H) end)
+        local handle = find_uicomponent(slider, "handle")
+        if is_uicomponent(handle) then
+            pcall(function() handle:SetProperty("max_height", h - EX.HANDLE_H) end)
+        end
+        slider:SetVisible(n > rows)
+    end
+    for i = 1, n do
+        local name = EX.SP .. "_" .. i
+        pcall(function() box:CreateComponent(name, EX.SP_FILE) end)
+        local sp = find_uicomponent(box, name)
+        if is_uicomponent(sp) then sized(sp, w, EX.ROW_PITCH) end
+    end
+    pcall(function() box:Layout() end)   -- without it the rows sit stacked at the box's origin
+    -- THE ROWS NEVER ARRIVED: the empty list would sit over them and take their clicks, so it
+    -- goes, and is not built again.
+    if not pcall(function()
+        clip:Adopt(holder:Address())
+        holder:MoveTo(x, y)              -- pinned, as in EX.drop_list
+    end) then
+        EX.drop_list(panel)
+        EX.list_broken = true
+        EX.say("error", "the scrolling list could not take its rows - lists draw unscrolled")
+        return
+    end
+    EX.list_key = key
+end
+
+-- THE ROWS FOLLOW THE LIST. Every row is already drawn under rows_holder at its own index, and
+-- list_box holds one empty row per item at the same pitch, so rows_holder belongs exactly where
+-- list_box is: the engine scrolls the box, this puts the holder after it, and the holder's one
+-- MoveTo carries every row. Two reads and at most one move a tick, however long the list.
+function EX.follow_list(panel)
+    local clip = find_uicomponent(find_uicomponent(panel, EX.LIST) or panel, "list_clip")
+    if not is_uicomponent(clip) then return end
+    local box, holder = find_uicomponent(clip, "list_box"), find_uicomponent(clip, "rows_holder")
+    if not (is_uicomponent(box) and is_uicomponent(holder)) then return end
+    local hx, hy = holder:Position()
+    local _, by = box:Position()
+    if hy ~= by then holder:MoveTo(hx, by) end
+end
+
+-- THE POLL: there is no scroll event and no Lua wheel event. UI-only and local - it moves what
+-- is drawn, never the model - so it is safe in multiplayer. NOTHING IS REDRAWN HERE: a redraw
+-- is the whole panel (measured 25-200ms in game, 2026-10-01), and per tick it froze the game.
+function EX.scroll_poll()
+    if not EX.list_key then return end
+    local panel = EX.panel()
+    if not is_uicomponent(panel) or not panel:Visible() then return end
+    EX.follow_list(panel)
 end
 
 -- CLAMPS RATHER THAN RETURNING NIL. A switch can be turned off while the player is standing
@@ -9226,9 +9527,10 @@ function EX.sort_click(hid)
     else
         EX.sort_col, EX.sort_dir = nil, 1
     end
-    -- BACK TO PAGE 1. Re-sorting a paged list while the player sits on page 2 shows them the
-    -- middle of the new order, which is the one part of it that means nothing.
-    if EX.mode == EX.MODE_HOUSES then EX.house_page = 1 end
+    -- BACK TO THE TOP. Re-sorting a scrolled list shows the player the middle of the new
+    -- order, which is the one part of it that means nothing - so the sort is part of
+    -- EX.scroll_key, and the list rebuilds at the top. The page is left alone: a sort on the
+    -- ledger must not throw the player off it.
     -- EX.layout AND refresh_panel, the same pair EX.set_mode uses. The header tooltip carries
     -- the sort direction and what the next click does, and EX.apply_tips runs from layout
     -- only - refresh_panel alone would leave it describing the sort just clicked away from.
@@ -9673,7 +9975,21 @@ local function place(parent, tbl, ox, oy)
     end
 end
 
+-- ONE STANCE VECTOR FOR THE WHOLE PASS, the way EX.refresh_panel and EX.apply_trade hold one.
+-- Layout sorts the goods list through EX.mode_instruments several times, and a Buy or Sell
+-- sort asks EX.hostility per commodity - unheld, each ask walks the guild. Measured live
+-- 2026-10-03: a header click spent 4.06s here, then 0.27s in the held refresh. An outer hold
+-- is left alone (hold_guild would replace it), and an error frees ours and still propagates.
 function EX.layout()
+    if EX.guild_hold then return EX.layout_held() end
+    EX.hold_guild()
+    local ok, r = pcall(EX.layout_held)
+    EX.free_guild()
+    if not ok then error(r, 0) end
+    return r
+end
+
+function EX.layout_held()
     -- The row set is the bound player's (EX.deals, EX.forwards, EX.bonds); see EX.refresh_panel.
     if EX.who() ~= EX.me() then return end
     local sw, sh = EX.screen()
@@ -9735,15 +10051,21 @@ function EX.layout()
         end
     end
 
+    -- THE SCROLLING LIST, built or dropped for this view before the rows are placed: the
+    -- holder is where the panel layout just put it, then where the list is scrolled to.
+    EX.ensure_list(panel)
+
     local holder = find_uicomponent(panel, "rows_holder")
     if not is_uicomponent(holder) then return end
     local hx, hy = holder:Position()
     -- THE HOLDER AND EVERY ROW SPAN THE WIDENED ROW. Nothing is drawn on either, but a parent
     -- narrower than the children placed across it is not a shape to leave the engine to
     -- interpret. 880 and 40 are ROW_W and ROW_H in tools/gen_exchange_ui.py.
+    -- AS TALL AS WHAT IT HOLDS: a built list draws every item (EX.scroll_slice).
+    local list = EX.mode_instruments()
     holder:SetCanResizeWidth(true)
     holder:SetCanResizeHeight(true)
-    holder:Resize(EX.sc(880), EX.MAX_ROWS * EX.ROW_PITCH, false)
+    holder:Resize(EX.sc(880), math.max(EX.MAX_ROWS, #list) * EX.ROW_PITCH, false)
     local rl = EX.row_layout()
     local shown = {}
     for _, e in ipairs(rl) do shown[e[1]] = true end
@@ -9762,7 +10084,6 @@ function EX.layout()
     -- only the ones this view lists, because a row this view does not draw keeps the last
     -- view's coordinates and draws over whatever the new one put there - the fault that put
     -- 19 commodity rows on top of the Houses view.
-    local list = EX.mode_instruments()
     local draw = {}
     local keep = {}
     for _, res in ipairs(list) do
@@ -9844,10 +10165,25 @@ EX.TWO_STATE_CELLS = { btn_buy = true, btn_sell = true,
 for _, m in ipairs(EX.MODES) do EX.TWO_STATE_CELLS[EX.tab_name(m)] = true end
 for i = 1, EX.SUB_SLOTS do EX.TWO_STATE_CELLS[EX.sub_name(i)] = true end
 
+-- WHAT EACH ROW CELL ALREADY SAYS, by row and cell name: a built list redraws every row on a
+-- trade, and most of them have not changed. EX.build_panel empties it, because a new panel is
+-- new components with nothing written on them.
+--
+-- ROW CELLS ONLY. Nothing writes a row cell but set_text, so nothing can make the memo stale;
+-- a PANEL cell is also written directly (EX.clear_ticket blanks the ticket, EX.draw_chart its
+-- axes), and a memo there would skip rewriting text that is no longer on screen.
+EX.drawn = {}
+
 local function set_text(parent, child, text)
     local c = find_uicomponent(parent, child)
     if not is_uicomponent(c) then return end
     c:SetVisible(true)
+    local id = parent:Id()
+    if string.sub(id, 1, #EX.ROW) == EX.ROW then
+        local key = id .. "/" .. child
+        if EX.drawn[key] == text then return end
+        EX.drawn[key] = text
+    end
     if not EX.TWO_STATE_CELLS[child] then
         c:SetStateText(text)
         return
@@ -9873,6 +10209,12 @@ function EX.draw_spark(row, res)
     local spark = find_uicomponent(row, "spark")
     if not is_uicomponent(spark) then return end
     local h = EX.history[res] or {}
+    -- DRAWN ONCE PER HISTORY: twelve bars a row, each a Resize and a MoveTo. The bars are the
+    -- spark cell's children, so a row moved by a layout or a scroll carries them along.
+    local sig = table.concat(h, ",", math.max(1, #h - EX.SPARK_BARS + 1))
+    local key = row:Id() .. "/spark"
+    if EX.drawn[key] == sig then return end
+    EX.drawn[key] = sig
     -- Scale to the range actually visited, not the full 42 rungs, or every sparkline is flat.
     local lo, hi = EX.RUNGS, 1
     for _, v in ipairs(h) do
@@ -10981,13 +11323,17 @@ function EX.refresh_panel()
     -- AND THE ARROWS, which page the view rather than cycling views since the tabs arrived.
     -- A view with one page has nothing for them to do, so they grey out and say so instead of
     -- sitting there live and doing nothing when clicked.
-    local pages = EX.page_count()
-    for _, nm in ipairs({ EX.MODE_PREV, EX.MODE_BTN }) do
+    -- THE ARROWS PAGE THE GUIDE AND NOTHING ELSE since 2026-10-01: the lists scroll, and
+    -- Trade's chart and ledger are buttons. Hidden, not greyed, elsewhere - a greyed control
+    -- with nothing it could ever do is noise.
+    local paging = (EX.mode == EX.MODE_HELP)
+    for _, nm in ipairs({ EX.MODE_PREV, EX.MODE_BTN, EX.NAV_PAGE }) do
         local a = find_uicomponent(panel, nm)
         if is_uicomponent(a) then
-            EX.set_off(a, pages < 2)
-            set_tip(a, pages < 2 and "This view has a single page."
-                    or "Page through this view. The tabs below change view.")
+            a:SetVisible(paging)
+            if paging and nm ~= EX.NAV_PAGE then
+                set_tip(a, "Page through the guide. The tabs below change view.")
+            end
         end
     end
 
@@ -11084,9 +11430,8 @@ function EX.refresh_panel()
         local lf1 = find_uicomponent(panel, "footer_text")
         local lf2 = find_uicomponent(panel, "footer_text2")
         if is_uicomponent(lf1) then
-            lf1:SetStateText(fit(lf1, "Page " .. EX.log_page .. " of " .. EX.log_pages()
-                .. ", " .. #lines .. " of " .. #EX.LOG .. " recorded events, newest first. "
-                .. "The arrows page this list."))
+            lf1:SetStateText(fit(lf1, #EX.LOG .. " recorded events, newest first. Scroll the "
+                .. "list for older ones."))
         end
         if is_uicomponent(lf2) then
             lf2:SetStateText(fit(lf2, "Refusal depends on rival holdings - who holds the goods - "
@@ -11581,36 +11926,12 @@ EX.ROW_LAYOUT_HOUSES = {
 -- the counter and the arrows read one pair of numbers instead of branching per view.
 function EX.page_count()
     if EX.mode == EX.MODE_HELP then return #EX.HELP_PAGES end
-    if EX.mode == EX.MODE_LOG then return EX.log_pages() end
-    -- THE SECTION ON SCREEN'S PAGES: the list's, or one on the index and the bonds page.
-    if EX.mode == EX.MODE_HOUSES then return EX.house_extra() and 1 or EX.house_pages() end
-    -- TRADE'S COUNT IS #EX.trade_pages(), NOT A FIXED NUMBER. It used to read "always two,
-    -- even with nothing selected" back when the chart was the only optional page; the orders
-    -- ledger made that false the moment it shipped as a second switch - with two switches
-    -- there are four combinations and 1-3 pages, and EX.trade_pages is the one place that
-    -- already gets all four right, so this only has to defer to it rather than repeat it.
-    if EX.mode == EX.MODE_TRADE then
-        -- ONE ENTRY PER ENABLED PAGE. Both switches grey the arrows by shortening this list
-        -- rather than by arithmetic - see EX.trade_pages.
-        return #EX.trade_pages()
-    end
-    -- DEALS HAS NO BRANCH: its two pages are sub-tabs since 2026-09-30, one page each.
+    -- THE LISTS SCROLL SINCE 2026-10-01 (EX.scrolls), so Stats, Offerings, Houses and the log
+    -- have one page. DEALS HAS NO BRANCH: its two pages are sub-tabs since 2026-09-30, one page each.
     return 1
 end
 function EX.page_index()
     if EX.mode == EX.MODE_HELP then return EX.help_page end
-    if EX.mode == EX.MODE_LOG then return EX.log_page end
-    if EX.mode == EX.MODE_HOUSES then return EX.house_page_at() end
-    -- CLAMPED, exactly as EX.trade_kind clamps and for the same reason: a switch can be
-    -- thrown while the player stands on the page it removes. Unclamped this read "3/2" until
-    -- an arrow was pressed, while trade_kind was already correctly showing page 2.
-    if EX.mode == EX.MODE_TRADE then
-        local n = #EX.trade_pages()
-        local at = EX.trade_page or 1
-        if at < 1 then at = 1 end
-        if at > n then at = n end
-        return at
-    end
     return 1
 end
 
@@ -11634,12 +11955,6 @@ function EX.step_page(delta)
     local at = ((EX.page_index() - 1 + delta) % n) + 1
     if EX.mode == EX.MODE_HELP then
         EX.help_page = at
-    elseif EX.mode == EX.MODE_LOG then
-        EX.log_page = at
-    elseif EX.mode == EX.MODE_HOUSES then
-        EX.house_page = at
-    elseif EX.mode == EX.MODE_TRADE then
-        EX.trade_page = at
     end
     EX.layout()
     EX.refresh_panel()   -- NOT EX.refresh: the function is EX.refresh_panel (see :3499)
@@ -11680,6 +11995,14 @@ end
 -- EACH VIEW'S SECTIONS: the EX.view() it lands on, the label, and the tooltip's line. The
 -- first is the view's own list, so the labels match the title's ": Houses" / ": Deals".
 EX.SECTIONS = {
+    -- TRADE'S SECTIONS (2026-10-01), asked for from play: "rather can the single commodity
+    -- viewing and standing order be buttons instead of arrows and next page?" The keys are
+    -- EX.trade_pages()' own, so a click finds its page by name whatever the switches say.
+    trade = {
+        { "list", "Goods", "Every good, its price, and what the map makes of it." },
+        { "chart", "Chart", "One good's price over the last turns, and its order ticket." },
+        { "orders", "Orders", "Your standing orders to buy or sell at a price." },
+    },
     houses = {
         { "houses", "Houses", "Shares in the houses of your people, one row a house." },
         { "index", "Funds", "Baskets of houses or goods, each bought and sold with one button." },
@@ -11697,6 +12020,14 @@ EX.SECTION_PAGE = { houses = 1, index = EX.HOUSE_INDEX_PAGE, bonds = EX.HOUSE_BO
 
 function EX.sections() return EX.SECTIONS[EX.mode] end
 
+-- THE SECTION ON SCREEN, for lighting its button. NOT EX.view(): that answers "trade" on the
+-- chart on purpose, because every per-view table (HEADERS, TIPS, SORT_VALUE) hands the chart
+-- Trade's entries. Changing it would relabel the chart's columns.
+function EX.section_on()
+    if EX.mode == EX.MODE_TRADE then return EX.trade_kind() end
+    return EX.view()
+end
+
 -- WHY A SECTION IS UNAVAILABLE, or nil. The pages' own rule: a switch stops new offers, and a
 -- position still open keeps its page (EX.house_extra_pages, EX.deals_pages).
 function EX.section_locked(v)
@@ -11706,6 +12037,12 @@ function EX.section_locked(v)
     if v == "contracts" and #EX.deals_pages() < 2 then
         return "Contracts are switched off in this campaign's settings."
     end
+    if v == "chart" and not EX.feature("deep_history") then
+        return "The price chart is switched off in this campaign's settings."
+    end
+    if v == "orders" and not EX.feature("orders") then
+        return "Standing orders are switched off in this campaign's settings."
+    end
     return nil
 end
 
@@ -11714,8 +12051,14 @@ end
 -- as it does on a tab click - it belongs to one view's columns.
 function EX.sub_click(i)
     local s = (EX.sections() or {})[i]
-    if not s or s[1] == EX.view() or EX.section_locked(s[1]) then return end
-    if EX.mode == EX.MODE_HOUSES then
+    if not s or s[1] == EX.section_on() or EX.section_locked(s[1]) then return end
+    if EX.mode == EX.MODE_TRADE then
+        -- BY NAME, NOT EX.SECTION_PAGE: the chart's and ledger's indices move with the two
+        -- switches (EX.trade_pages).
+        for j, kind in ipairs(EX.trade_pages()) do
+            if kind == s[1] then EX.trade_page = j end
+        end
+    elseif EX.mode == EX.MODE_HOUSES then
         EX.house_page = EX.SECTION_PAGE[s[1]]
     else
         EX.deal_page = EX.SECTION_PAGE[s[1]]
@@ -11732,7 +12075,7 @@ end
 -- set_text shows what it writes, and the Deals layout places all three for the bonds page.
 function EX.draw_sections(panel)
     local secs = EX.sections() or {}
-    local v = EX.view()
+    local v = EX.section_on()
     for i = 1, EX.SUB_SLOTS do
         local c = find_uicomponent(panel, EX.sub_name(i))
         if is_uicomponent(c) then
@@ -11815,13 +12158,13 @@ function EX.set_mode(mode)
     -- EVERY VIEW OPENS ON ITS FIRST PAGE. Persisting one would reopen the log three pages
     -- back from the event the player clicked "Log" to read, and the guide on a page about a
     -- system they have since switched off in MCT.
-    if mode == EX.MODE_LOG then EX.log_page = 1 end
     if mode == EX.MODE_HELP then EX.help_page = 1 end
     if mode == EX.MODE_HOUSES then EX.house_page = 1 end
     -- Trade reopens on the list, not on whatever chart was last up.
     if mode == EX.MODE_TRADE then EX.trade_page = 1 end
     if mode == EX.MODE_DEALS then EX.deal_page = 1 end
-    -- AND THE SORT, for the reason written beside EX.SORT_VALUE.
+    -- AND THE SORT, for the reason written beside EX.SORT_VALUE. The scroll starts at the top
+    -- because the new view's list is built new.
     EX.sort_col, EX.sort_dir = nil, 1
     EX.mode = mode
     EX.layout()
@@ -11875,8 +12218,20 @@ function EX.show(visible)
         -- anything can click the opener, and every line of the page names the race, the
         -- market or the patron.
         if not EX.intro_seen() then EX.mode = EX.MODE_INTRO end
+        -- EVERY OPENING STARTS THE LIST AT THE TOP, and the poll starts once. Registered once
+        -- rather than removed on close: CA's remove_real_callback leaks a record per call
+        -- (HANDOFF_20261001_HUD_HUB_PLAN), and the poll returns at once while the panel is hidden.
+        EX.list_key = nil
+        if not EX.scroll_polling then
+            EX.scroll_polling = true
+            cm:repeat_real_callback(function() pcall(EX.scroll_poll) end, EX.SCROLL_MS,
+                                    "derpy_chd_ex_scroll")
+        end
         EX.layout()
         EX.refresh_panel()
+    else
+        -- AND A CLOSED ONE HAS NO LIST TO FOLLOW: the poll runs every frame of the campaign.
+        EX.list_key = nil
     end
     panel:SetVisible(visible)
     -- AND IT EATS THE MOUSE WHILE IT IS UP. Without this the panel is scenery: the cursor
@@ -12920,9 +13275,18 @@ end
 -- A NAMED FUNCTION, not a loop inside EX.turn_round, so _mp_harness.lua runs the shipped loop.
 -- EX.turn_round is a closure inside EX.init and no harness can call it; the harness used to
 -- write this loop itself, which is how it proved a shape the game never ran.
+-- ONE STANCE VECTOR PER PAGE, taken INSIDE the binding because the memo is the bound player's
+-- (see EX.apply_trade). post_deals prices every buy candidate its walk does not skip, and that
+-- walk can reach every actor x commodity pair - unheld, 6.8ms an ask at 148 houses (measured
+-- live 2026-10-03), the size of the 70-80s pause logged after the last faction.
 function EX.post_all_deals()
     for _, f in ipairs(EX.humans()) do
-        EX.with_player(f, function() EX.post_deals() end)
+        EX.with_player(f, function()
+            EX.hold_guild()
+            local ok, r = pcall(EX.post_deals)
+            EX.free_guild()
+            if not ok then error(r, 0) end
+        end)
     end
 end
 
@@ -14420,15 +14784,40 @@ function EX.dec_store(v)
     return v
 end
 
-cm:add_loading_game_callback(function(context)
+-- FIRST IN CA'S LISTS, NOT APPENDED (2026-10-02). cm:saving_game and cm:loading_game call every
+-- mod's callback in one unprotected loop, so a mod that throws ahead of this one stops the loop:
+-- on 2026-10-01 !zorbaz_kiki threw and the save went out with no zharr_state - every holding, the
+-- log, the orders and the price history gone, with nothing logged. A load skipped the same way
+-- starts the store empty, and the next save writes that over everything. A SavingGame listener of
+-- our own would not help: core runs listeners unprotected too, and CA's is registered first.
+-- Falls back to CA's append if the lists are ever renamed. check_save_first().
+function EX.first_callback(kind, fn)
+    local list = cm[kind .. "_game_callbacks"]
+    if type(list) == "table" then
+        table.insert(list, 1, fn)
+    elseif kind == "saving" then
+        cm:add_saving_game_callback(fn)
+    else
+        cm:add_loading_game_callback(fn)
+    end
+end
+
+EX.first_callback("loading", function(context)
     local ok, t = pcall(function()
         return EX.dec_store(cm:load_named_value(EX.SAVE_STORE, {}, context))
     end)
     EX.store = (ok and type(t) == "table") and t or {}
+    if not ok then EX.say("error", "could not load the Exchange's state: " .. tostring(t)) end
 end)
 
-cm:add_saving_game_callback(function(context)
-    pcall(function() cm:save_named_value(EX.SAVE_STORE, EX.enc_store(EX.store), context) end)
+EX.first_callback("saving", function(context)
+    local ok, err = pcall(function()
+        cm:save_named_value(EX.SAVE_STORE, EX.enc_store(EX.store), context)
+    end)
+    if not ok then
+        EX.say("error", "could not save the Exchange's state - this save will load without "
+               .. "it: " .. tostring(err))
+    end
 end)
 
 -- THE TICKET-CLICK TAIL, LIFTED OUT OF THE LISTENER for the same reason EX.row_click is
@@ -14725,6 +15114,9 @@ function EX.init()
         return
     end
 
+    -- BEFORE THE FIRST SCAN AND BEFORE EX.restore, which reads a saved price per instrument.
+    local mr = EX.join_more_resources()
+    if mr > 0 then EX.say("turn", "More Resources installed: " .. mr .. " more goods trade") end
     EX.rescan()
     -- Validate our keys once. resource_exists_anywhere returns false for an INVALID key, which
     -- is the only free runtime key validator available here.
@@ -14742,7 +15134,10 @@ function EX.init()
         end
     end
     local rm = cm:model():world():region_manager()
-    for _, res in ipairs(EX.COMMODITIES) do
+    -- THE VANILLA 17 ONLY. More Resources' goods have no deposit anywhere by design, and their
+    -- producers are read off the buildings, not EX_PRODUCTION - every one would report here.
+    for i = 1, EX.BASE_COUNT do
+        local res = EX.COMMODITIES[i]
         if not rm:resource_exists_anywhere(res) then
             if producible[res] then
                 EX.say("error", "no deposits of " .. res

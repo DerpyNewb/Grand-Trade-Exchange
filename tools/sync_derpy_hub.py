@@ -1,13 +1,13 @@
-"""The Derpy HUD hub: one source, three shipped copies.
+"""The Derpy HUD hub: one source, four shipped copies.
 
-    py tools/sync_derpy_hub.py             write the three Lua copies, six .twui.xml and the
+    py tools/sync_derpy_hub.py             write the four Lua copies, eight .twui.xml and the
                                            plate .png (needs the game installed)
     py tools/sync_derpy_hub.py --check     exit 1 if a shipped file differs from the source
     py tools/sync_derpy_hub.py --selftest  run the hub harness on the source and the copies,
                                            and prove --check sees drift
 
 Edit only Modding Files/source/derpy_hub/derpy_hud_hub.lua. Each mod ships its own copy
-under its own path (derpy_hub_ic / _gg / _ex), so every installed copy loads, and the
+under its own path (derpy_hub_ic / _gg / _ex / _mr), so every installed copy loads, and the
 highest HUB_VERSION serves all three at runtime. The copies differ from the source in ONE
 line, `local HUB_TAG = "<tag>"`, which names that copy's own .twui.xml. Each .twui.xml has
 its own GUID prefix, because a GUID that collides with another file's is a silent non-draw.
@@ -32,8 +32,8 @@ HARNESS = os.path.join(ROOT, "tools", "_hub_harness.lua")
 LUA = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 
 # tag -> GUID prefix. Registered in docs/CUSTOM_UI.md's prefix table.
-TAGS = {"ic": "DH01", "gg": "DH02", "ex": "DH03"}
-PLATE_TAGS = {"ic": "DH04", "gg": "DH05", "ex": "DH06"}
+TAGS = {"ic": "DH01", "gg": "DH02", "ex": "DH03", "mr": "DH07"}
+PLATE_TAGS = {"ic": "DH04", "gg": "DH05", "ex": "DH06", "mr": "DH08"}
 HUB_W = HUB_H = 48          # must match HUB.SIZE in the source; check() asserts it
 # Chosen by the author from tools/hub_icon_sheet.py's contact sheet (#212), 2026-10-01.
 ICON = "ui/skins/default/tech_tree_tab_chd_sorcery.png"

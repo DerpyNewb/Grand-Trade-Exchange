@@ -1275,11 +1275,158 @@ def _units():
 UNITS = _units()
 
 
+# ------------------------------------------------------------------------------------------
+# DERPY MORE RESOURCES (2026-10-01). Its 37 goods trade here when that mod is installed: the
+# script joins them to EX.COMMODITIES at init only where the good's own name resolves in the
+# loc (EX.join_more_resources), so without the mod nothing below is ever reached and the
+# Exchange is the 17-good market it always was.
+#
+# COMMODITIES STAYS THE VANILLA 17, so every check pinned to that list still pins it. ALL_GOODS
+# is what the per-good DB rows and loc are generated over. The rows are ours, keyed on our
+# prefix, and name nothing of More Resources' - the Exchange pack loads cleanly without it.
+# ------------------------------------------------------------------------------------------
+import gen_resource_overhaul as _mr
+
+MR_PREFIX = "res_derpy_"
+MR_COMMODITIES = sorted(_mr.key(g) for g in _mr.GOODS)
+ALL_GOODS = COMMODITIES + MR_COMMODITIES
+
+# EACH GOOD BURNS AS A VANILLA COMMODITY DOES: same effect, same scope, same boon. Every
+# pairing in OFFERING_EFFECTS was counted out of vanilla's own scopes, and reusing one keeps
+# that verification - a new pairing would be a guess, and a wrong scope is a row that quietly
+# does nothing. Chosen by what the good is FOR: food fills the ranks, metal hardens the plate,
+# luxuries buy favour in the markets, drink keeps the peace.
+MR_OFFERING = {
+    "salted_fish": "res_rom_lead", "salted_meat": "res_rom_lead", "grain": "res_medicine",
+    "whale_oil": "res_rom_wine", "rum": "res_rom_wine", "olive_oil": "res_rom_wine",
+    "kvas": "res_rom_glass", "mead": "res_rom_glass", "pipeweed": "res_spices",
+    "tea": "res_spices",
+    "sea_dragon_hide": "res_rom_iron", "gromril": "res_rom_iron", "brass": "res_rom_iron",
+    "ithilmar": "res_rom_iron", "rhinox_hides": "res_rom_iron", "wyvern_scales": "res_rom_iron",
+    "amber": "res_gems", "jade": "res_gems", "silver": "res_gems", "pearls": "res_gems",
+    "silk": "res_dyes", "carpets": "res_dyes", "lustrian_plumes": "res_trinkets",
+    "glassware": "res_trinkets", "porcelain": "res_trinkets",
+    "warhorses": "res_rom_furs", "wool": "res_rom_furs", "feathers": "res_rom_furs",
+    "books": "res_ivory", "quicksilver": "res_ivory",
+    "coal": "res_rom_timber", "blackpowder": "res_rom_textiles",
+    "brimstone": "res_obsidian", "incense": "res_obsidian", "starwood": "res_obsidian",
+    "dragon_bone": "res_gold_idols", "black_lotus": "res_gold_idols",
+}
+
+# THE DEMAND TEXT, ONE LINE PER GOOD FOR EVERY RACE. It sits between the race's own tier title
+# and its "wants %d" line, so it names no patron and no god - "the priests" reads wrong from
+# the Celestial Bureaucracy and the Council of Thirteen alike. The race's voice is in the lines
+# either side of it.
+MR_FLAVOUR = {
+    "salted_fish": "Salted fish feeds sailors, soldiers and the poor through the lean months. "
+                   "Your barrels have been counted.",
+    "whale_oil": "Lamp oil burns in every hall that can afford the light. Yours is sitting in "
+                 "barrels in the dark.",
+    "sea_dragon_hide": "Sea dragon hide turns a blade, and there is less of it every year. "
+                       "Somebody knows how much of it you hold.",
+    "rum": "Rum keeps crews at sea and quiet ashore. Your kegs have been noticed by people "
+           "who keep lists.",
+    "amber": "Amber is prized by jewellers and wizards alike. Your chests of it have not gone "
+             "unremarked.",
+    "grain": "Grain is bread for the cities and fodder for the armies. Your granaries are "
+             "full while others are not.",
+    "warhorses": "A warhorse eats every day it is not ridden. Your stables are full, and the "
+                 "count has been taken.",
+    "pipeweed": "Pipeweed is smoked in every tavern from Altdorf to Marienburg. Your bales are "
+                "known to more than the tax-man.",
+    "books": "Books are knowledge, and knowledge is owed. Your crates of them have been "
+             "catalogued by somebody else.",
+    "olive_oil": "Olive oil lights the lamps and dresses the bread of the Middle Sea. Your "
+                 "barrels have been tallied.",
+    "silk": "Silk is what the Ivory Road carries west. Your bolts have been measured by "
+            "somebody other than your factor.",
+    "tea": "Tea is poured at every audience worth attending. Your chests of it have been "
+           "weighed.",
+    "jade": "Jade is carved into charms, seals and statues. Your slabs of it are on a list.",
+    "coal": "Every forge and furnace burns coal. Yours is stacked in sacks while other fires "
+            "go hungry.",
+    "silver": "Silver is coin, plate and a blade-edge against the dead. Your ingots have been "
+              "weighed twice.",
+    "gromril": "Gromril is the hardest metal there is and the scarcest. Nobody has forgotten "
+               "that you hold some.",
+    "quicksilver": "Every alchemist and engineer wants quicksilver. Your flasks have been "
+                   "counted.",
+    "brimstone": "Brimstone feeds the furnace and the powder mill both. Your sacks of it have "
+                 "not gone unnoticed.",
+    "brass": "Brass is cast for gears, guns and idols. Your ingots are written into a ledger "
+             "that is not yours.",
+    "blackpowder": "Blackpowder is the cannon's bread. Your kegs are known, and so is how dry "
+                   "you are keeping them.",
+    "ithilmar": "Ithilmar is found in one land only, and every ingot outside it is accounted "
+                "for. Yours included.",
+    "dragon_bone": "Dragon bone grows rarer every century. Your crates of it are a matter of "
+                   "record.",
+    "lustrian_plumes": "Lustrian plumes are worth their weight in gold at court. Yours have "
+                       "been counted feather by feather.",
+    "black_lotus": "Black lotus is sought by assassins and healers alike. Somebody knows "
+                   "exactly how many ounces you hold.",
+    "incense": "Incense burns in every temple and every tomb. Your sacks of it can be smelled "
+               "from the street.",
+    "salted_meat": "Salted meat keeps, and armies march on it. Your barrels have been "
+                   "counted.",
+    "carpets": "Arabyan carpets are knotted in patterns older than the Empire. Your rolls have "
+               "been unrolled and priced.",
+    "kvas": "Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and that has "
+            "been noticed.",
+    "rhinox_hides": "Rhinox hide is tough enough to make armour of. Your stacks of it have "
+                    "been counted.",
+    "mead": "Mead is drunk from horns before every raid. Your kegs have been counted by "
+            "thirsty men.",
+    "glassware": "Fine glass is easily broken and dearly bought. Your crates of it have been "
+                 "counted, carefully.",
+    "wool": "Wool is spun and woven in every town. Your bales are stacked to the rafters and "
+            "somebody has climbed up to count them.",
+    "porcelain": "Porcelain is fired in Cathay and treasured everywhere else. Your crates of "
+                 "it are on a list.",
+    "pearls": "Pearls come up from the warm seas and go round the neck of anyone who can pay. "
+              "Yours have been counted.",
+    "starwood": "Starwood is given by the trees of Athel Loren and never cut. That you hold "
+                "any at all has been noticed.",
+    "feathers": "Griffon and pegasus feathers are gathered from the high eyries at some risk. "
+                "Your bundles have been counted.",
+    "wyvern_scales": "Wyvern scales are taken at great cost from the nesting peaks. Yours have "
+                     "been counted.",
+}
+
+
+def mr_good(res):
+    """More Resources' own name for a good: res_derpy_amber -> amber."""
+    return res[len(MR_PREFIX):]
+
+
+def flavour(text, res):
+    """The demand flavour for one race and good: the race's own line, else the shared one."""
+    if res in text["flavour"]:
+        return text["flavour"][res]
+    return MR_FLAVOUR[mr_good(res)]
+
+
+def mr_instruments():
+    """More Resources' goods, instruments()'s shape. Every one mints a pool."""
+    return [(res, short(res), _mr.GOODS[mr_good(res)]["unit"], hold_key(res), True, LOT_SIZE)
+            for res in MR_COMMODITIES]
+
+
+def mr_icon(res):
+    return "ui/campaign ui/effect_bundles/%s.png" % _mr.icon(mr_good(res))
+
+
+def mr_boon(res):
+    return OFFERING_BOON[MR_OFFERING[mr_good(res)]]
+
+
 def display_name(res):
     """CA's on-screen name for a resource. THE KEY IS NOT THE NAME - res_rom_lead is "Salt",
     res_rom_glass is "Dwarf Beer", res_rom_textiles is "Pottery". resources_tables has no name
     column at all, so this has to come out of the loc."""
     from read_vanilla_loc import load
+    if res in MR_COMMODITIES:
+        return _mr.GOODS[mr_good(res)]["name"]
     if res in dict((k, d) for k, _n, d in LAYER2):
         return dict((k, d) for k, _n, d in LAYER2)[res]
     return load("resources")["resources_onscreen_text_" + res]
@@ -2167,8 +2314,18 @@ RACE_TEXT = {
 }
 
 
+def stock_effect(res):
+    """The (effect, scope, base) a good's warehouse ramp grants: its offering's, shared by
+    every race."""
+    if res in MR_COMMODITIES:
+        res = MR_OFFERING[mr_good(res)]
+    return OFFERING_EFFECTS[res]
+
+
 def offering_effect(culture, res):
     """The (effect, scope, base) this race's offering of `res` grants."""
+    if res in MR_COMMODITIES:
+        res = MR_OFFERING[mr_good(res)]
     over = OFFERING_OVERRIDE.get(culture, {}).get(res)
     if over:
         return over[0], over[1], over[2]
@@ -2195,7 +2352,7 @@ def build():
     # EX.strip_legacy_bundles stays too, and its cm:remove_effect_bundle calls are individually
     # pcall-wrapped, so a save arriving from an older build still gets swept whether or not the
     # key resolves any more.
-    for res, name, _unit, hold, mint, _lot in instruments():
+    for res, name, _unit, hold, mint, _lot in instruments() + mr_instruments():
         if mint:
             pools.append({"key": hold, "maximum": 1000000, "minimum": 0, "ai_ignored": True,
                           "default_factor": "other",
@@ -2276,7 +2433,8 @@ def build():
     # not an error - it is a row that quietly does nothing. Reusing the offering's scope means
     # these 51 rows inherit that verification for free; picking a "tidier" one here would throw
     # it away silently.
-    for res, (eff_key, eff_scope, base) in sorted(OFFERING_EFFECTS.items()):
+    stock = sorted(OFFERING_EFFECTS.items()) + [(r, stock_effect(r)) for r in MR_COMMODITIES]
+    for res, (eff_key, eff_scope, base) in stock:
         for tier, (_units, mult, label) in enumerate(STOCK_TIERS, 1):
             key = stock_bundle(res, tier)
             bundles.append({
@@ -2306,7 +2464,7 @@ def build():
     for culture, race in sorted(race_table().items()):
         seg, text = race["seg"], RACE_TEXT[culture]
 
-        for res in sorted(COMMODITIES):
+        for res in sorted(ALL_GOODS):
             eff_key, eff_scope, base = offering_effect(culture, res)
             key = "%s%soffering_%s" % (PREFIX, seg, short(res))
             bundles.append({
@@ -2345,7 +2503,7 @@ def build():
         # ONE MESSAGE PER (TIER, COMMODITY), for exactly the reason there were once 51
         # dilemma rows: the amount and the goods have to appear in the text, and that text is
         # a static loc string.
-        for res in COMMODITIES:
+        for res in ALL_GOODS:
             name = display_name(res)
             for (sfx, tier_title, closer), (_s, mult, _t, _w, _T, _c) in zip(
                     text["tiers"], DEMAND_TIERS):
@@ -2353,7 +2511,7 @@ def build():
                 key = "%s%sdem_%s_%s" % (PREFIX, seg, sfx, short(res))
                 loc.append((key + "_title", "%s: %s" % (tier_title, name)))
                 loc.append((key + "_primary", "%s %s %s"
-                            % (text["flavour"][res], text["wants_fmt"] % amount, closer)))
+                            % (flavour(text, res), text["wants_fmt"] % amount, closer)))
                 loc.append((key + "_secondary",
                             "Sacrifice %d %s in the %s within %d turns, or answer for it."
                             % (amount, name, text["market"], DEMAND_GRACE)))
@@ -2369,7 +2527,7 @@ def build():
     # The shock bulletin, one per commodity. Keyed on short(), which is the same function
     # EX.short mirrors in the script - the Lua builds this key at runtime and a mismatch here
     # is a message that resolves to nothing and draws an empty feed entry.
-    for res in COMMODITIES:
+    for res in ALL_GOODS:
         name = display_name(res)
         loc.append((SHOCK_MSG + short(res) + "_title", SHOCK_MSG_TEXT[0] % name))
         loc.append((SHOCK_MSG + short(res) + "_primary", SHOCK_MSG_TEXT[1] % name))
@@ -2644,7 +2802,7 @@ def selftest():
 
     # one holdings pool per commodity, non-negative floor since shorting is cut from v1
     pools = t["pooled_resources_tables"][1]
-    assert len(pools) == len(COMMODITIES)
+    assert len(pools) == len(ALL_GOODS)
     assert all(p["minimum"] == 0 for p in pools), "shorting is not in v1"
     assert all(p["scope"] == "FACTION" for p in pools)
 
@@ -2653,7 +2811,7 @@ def selftest():
     # is what cm:faction_add_pooled_resource needs. Measured: passing the junction unique_id to
     # that call instead of the factor key "other" succeeds and moves NOTHING.
     fj = t["pooled_resource_factor_junctions_tables"][1]
-    assert {f["resource"] for f in fj} == {i[3] for i in instruments()}
+    assert {f["resource"] for f in fj} == {i[3] for i in instruments() + mr_instruments()}
     assert all(f["minimum"] < 0 < f["maximum"] for f in fj),         "a one-directional clamp silently eats either the buy or the sell"
 
     # LAYER 2 trades the faction's REAL pooled resources, so no new pool is minted for them
@@ -2669,10 +2827,10 @@ def selftest():
     pool_keys = {p["key"] for p in t["pooled_resources_tables"][1]}
     l2_pools = {pool for pool, _n, _d in LAYER2}
     assert not (l2_pools & pool_keys), "layer 2 must reuse CA's pools, not clone them"
-    assert len(pool_keys) == len(COMMODITIES), "only layer 1 mints pools"
+    assert len(pool_keys) == len(ALL_GOODS), "only layer 1 mints pools"
 
     reg = {r["resource"] for r in t["campaign_group_pooled_resources_tables"][1]}
-    assert reg == {hold_key(r) for r in COMMODITIES}, "unregistered pool is invisible"
+    assert reg == {hold_key(r) for r in ALL_GOODS}, "unregistered pool is invisible"
     # CA already registers the layer 2 pools; a second row would duplicate them
     assert not (l2_pools & reg)
     # THE GOODS ARE NOT IN THE COST RECORD, AND MUST NOT BE.
@@ -2729,9 +2887,9 @@ def selftest():
         "that has no row" % (len(pleasedb), len(_races)))
     assert len(wrathb) == len(_races), (
         "%d refusal bundles for %d races" % (len(wrathb), len(_races)))
-    assert len(offerb) == len(COMMODITIES) * len(_races), (
+    assert len(offerb) == len(ALL_GOODS) * len(_races), (
         "%d offering bundles for %d races x %d commodities"
-        % (len(offerb), len(_races), len(COMMODITIES)))
+        % (len(offerb), len(_races), len(ALL_GOODS)))
     # EVERY bundle we ship must be visible in the Faction Effects panel. is_global_effect is
     # a display flag (see the note in build()); False means the buff applies and the player is
     # never told, which is indistinguishable from a broken mechanic and was read as one.
@@ -2783,14 +2941,14 @@ def selftest():
     # THE WAREHOUSE RAMP. One bundle per (commodity, tier), and every one of these would fail
     # silently: a missing tier is a bonus that never arrives, and a wrong value is a bonus the
     # player cannot tell is wrong because nothing states the expected number anywhere else.
-    assert len(stockb) == len(COMMODITIES) * len(STOCK_TIERS), (
+    assert len(stockb) == len(ALL_GOODS) * len(STOCK_TIERS), (
         "%d warehouse bundles for %d commodities x %d tiers"
-        % (len(stockb), len(COMMODITIES), len(STOCK_TIERS)))
+        % (len(stockb), len(ALL_GOODS), len(STOCK_TIERS)))
     junc_by_key = {}
     for j in t["effect_bundles_to_effects_junctions_tables"][1]:
         junc_by_key.setdefault(j["effect_bundle_key"], []).append(j)
-    for res in COMMODITIES:
-        eff_key, eff_scope, base = OFFERING_EFFECTS[res]
+    for res in ALL_GOODS:
+        eff_key, eff_scope, base = stock_effect(res)
         for tier, (_units, mult, _label) in enumerate(STOCK_TIERS, 1):
             key = stock_bundle(res, tier)
             rows = junc_by_key.get(key)
@@ -2909,9 +3067,9 @@ def selftest():
     assert set(OFFERING_EFFECTS) == set(COMMODITIES), (
         "every commodity needs an offering effect: missing %s"
         % (set(COMMODITIES) - set(OFFERING_EFFECTS)))
-    assert len(offerb) == len(COMMODITIES) * len(_races)
+    assert len(offerb) == len(ALL_GOODS) * len(_races)
     assert all(b["localised_title"] and b["localised_description"] for b in offerb)
-    for res in COMMODITIES:
+    for res in ALL_GOODS:
         assert offering_bundle(res) != hold_key(res), (
             "offering bundle key collides with the POOLED RESOURCE key for %s" % res)
     # An offering that costs less than a lot could be bought and burned in one click for free
@@ -2949,14 +3107,14 @@ def selftest():
     # steps are shared. Getting that split wrong in either direction is what this counts.
     assert len(bj) == (len(TRADE_STEPS)
                        + len(POS_TIERS)
-                       + len(COMMODITIES) * len(_races)
-                       + len(COMMODITIES) * len(STOCK_TIERS)
+                       + len(ALL_GOODS) * len(_races)
+                       + len(ALL_GOODS) * len(STOCK_TIERS)
                        + (len(WRATH_EFFECTS) + len(PLEASED_EFFECTS)) * len(_races)), len(bj)
     assert all(j["advancement_stage"] == STAGE for j in bj), "empty here is a startup refusal"
     # key -> (culture, commodity), so the junction can be checked against the effect THAT
     # RACE's offering grants - which is not OFFERING_EFFECTS for every race any more.
     offer_keys = dict(("%s%soffering_%s" % (PREFIX, r["seg"], short(res)), (c, res))
-                      for c, r in _races.items() for res in COMMODITIES)
+                      for c, r in _races.items() for res in ALL_GOODS)
     oj = [j for j in bj if j["effect_bundle_key"] in offer_keys]
     assert len(oj) == len(offerb)
     for j in oj:
@@ -3025,7 +3183,7 @@ def selftest():
     assert ({trade_bundle(x) for x in TRADE_STEPS}
             | {pos_bundle(x) for x in POS_TIERS}
             | set(offer_keys)
-            | {stock_bundle(r, i) for r in COMMODITIES
+            | {stock_bundle(r, i) for r in ALL_GOODS
                for i in range(1, len(STOCK_TIERS) + 1)}
             | set(r["wrath"] for r in _races.values())
             | set(r["pleased"] for r in _races.values())) == {b["key"] for b in bun}
@@ -3101,11 +3259,14 @@ def selftest():
     check_house_flag_icon()
     check_house_discovery()
     check_save_store()
+    check_save_first()
     check_lua_log()
     check_price_cell()
     check_init_hardening()
     check_lua_placeholder()
     check_nav_cycle()
+    check_scroll_lists()
+    check_more_resources(t)
     check_lua_button()
     check_finance_recolour()
     check_hud_income()
@@ -3718,7 +3879,7 @@ def check_layout():
     # removed row on screen was invisible to the suite: EX.layout runs between them. "intro" and "after_intro" are asserted separately, further down, and are
     # deliberately never added here - see the closing print, which reads len(scenes) rather
     # than a literal for exactly this reason.
-    scenes = ("houses_p1", "houses_p2", "after_prune", "after_discover", "trade_after",
+    scenes = ("houses_p1", "houses_all", "after_prune", "after_discover", "trade_after",
               "chart_p2", "trade_p1_back", "orders_p3", "trade_p1_orders_back", "ticket_p2",
               "orders_ladder_cancel1", "orders_ladder_cancel2", "contracts_p2", "index_p",
               "bonds_p")
@@ -3836,11 +3997,18 @@ def check_layout():
             "commodity list on page 1 while the row count above stayed 0."
             % (tag, have[tag]["pstale"], have[tag].get("pfirst", "?")))
 
-    # A full page is a full page. 41 houses, 20 to a page: both pages fill, and the page after
-    # a prune still fills rather than showing the 20 minus the 5 that were dropped.
-    for tag in ("houses_p1", "houses_p2", "after_prune", "after_discover"):
+    # A full window is a full window. 41 houses, 20 rows, no list built: the top fills, and
+    # the window after a prune still fills rather than showing 20 minus the 5 dropped.
+    for tag in ("houses_p1", "after_prune", "after_discover"):
         assert have[tag]["visible"] == "20", (
             "%s drew %s rows on a page that holds 20" % (tag, have[tag]["visible"]))
+    # WITH THE LIST BUILT, ALL 41, each at its own index under a holder as tall as the list.
+    assert have["houses_all"]["visible"] == "41", (
+        "the built house list drew %s of 41 rows - it is drawn whole and scrolled by moving "
+        "rows_holder" % have["houses_all"]["visible"])
+    assert got.count("houses_all_rows 41,true,true") == 1, (
+        "a built list's row i must sit at holder y + (i-1) * ROW_PITCH, and the holder must be "
+        "as tall as the list, or the rows and list_box's empty rows scroll apart")
 
     # ...and the trade view draws its commodities and NOTHING else. The count is the shipped
     # list's own length, so this does not go stale when a commodity is added.
@@ -4329,7 +4497,9 @@ def check_layout():
     assert have.get("sub_draw_tip2", "").startswith("Funds||"), (
         "a live sub-tab's tooltip must name the section and say what is on it: %r"
         % have.get("sub_draw_tip2"))
-    eq_l("sub_draw_trade", "hidden,hidden,hidden", "a view with no sections showed a sub-tab")
+    eq_l("sub_draw_trade", "Goods:off,Chart:on,Orders:on",
+         "Trade's section buttons: Goods greyed as the page on screen, Chart and Orders live")
+    eq_l("sub_draw_stats", "hidden,hidden,hidden", "a view with no sections showed a sub-tab")
     eq_l("bd_nav_rows", "6", "the bonds page must list three offers and three positions")
     eq_l("bonds_p_visible", "6", "EX.layout did not show the six bond rows")
     eq_l("bd_draw_o1", "Borrows_3000g_for_8_turns/+60g/2.0%/in_8_turns/Lend/Lend/false",
@@ -4475,15 +4645,14 @@ def check_layout():
         got = "%s %s %s %s" % (f["box"], f["pw"], f["ph"], f["rows"])
         assert got == want, (
             "EX.fit on a %s screen gave box/panel w/panel h/rows %s, want %s" % (scr, got, want))
-    for tag in ("far_p1", "far_p2", "near_again"):
+    for tag in ("far_p1", "near_again"):
         assert (have[tag]["clashes"], have[tag]["stale"], have[tag]["pstale"]) == (
             "0", "0", "0"), (
             "%s: clashes=%s stale=%s pstale=%s - the grown layout left rows or cells on top of "
             "each other" % (tag, have[tag]["clashes"], have[tag]["stale"], have[tag]["pstale"]))
-    assert (have["far_p1"]["visible"], have["far_p2"]["visible"]) == ("35", "6"), (
-        "41 houses at 35 rows a page drew %s then %s, want 35 then 6. EX.MAX_ROWS must follow "
-        "the panel's height, and EX.house_slice pages by it"
-        % (have["far_p1"]["visible"], have["far_p2"]["visible"]))
+    assert have["far_p1"]["visible"] == "35", (
+        "41 houses in a 35-row window drew %s; EX.MAX_ROWS must follow the panel's height"
+        % have["far_p1"]["visible"])
     # 3840x2160: box 2560, panel 1472x1178 at (3840-1472)/2, (2160-1178)/2. close_button sticks
     # right (876 + 552), footers move down by E = 442, hdr_name (184 on the Houses view the
     # scene is on, so 294) and the tabs widen, hdr_spark
@@ -5862,9 +6031,9 @@ def check_sorting():
             ("cap_held", "b_own,f1,f2,f4",
              "a HELD position was capped out of the list. f1 is the weakest house on the "
              "board and the player owns paper in it; dropping the row hides a live position"),
-            ("cap_pages", "2",
-             "EX.house_pages counted the uncapped list. The counter would then promise a page "
-             "EX.house_slice returns empty, which reads as a market with no houses in it"),
+            ("cap_pages", "4",
+             "EX.scroll_n counted the uncapped list. The scroll bar would then reach past the "
+             "last row EX.house_slice can return"),
     ):
         assert have.get(key) == want, (
             "%s: expected %r got %r - %s" % (key, want, have.get(key), why))
@@ -5914,25 +6083,21 @@ def check_sorting():
         "the sort survived a view change, so the next view re-sorts on a column the player "
         "never clicked: %s" % have.get("after_set_mode"))
 
-    # Houses: prices h1=50 .. h5=10, two rows a page.
+    # Houses: prices h1=50 .. h5=10, two rows a window.
     assert have.get("houses_default_p1") == "h1,h2", have.get("houses_default_p1")
-    assert have.get("houses_asc_p1", "").startswith("h5,h4 page=1"), (
-        "the houses view does not sort ascending, or the sort left the player off page 1: %s"
+    assert have.get("houses_asc_p1") == "h5,h4", (
+        "the houses view does not sort ascending, or sorted inside the window: %s"
         % have.get("houses_asc_p1"))
-    assert have.get("houses_asc_p2") == "h3,h2", (
-        "page 2 is not the SECOND slice of the sorted list - the sort ran inside the page "
-        "instead of across the list: %s" % have.get("houses_asc_p2"))
-    assert have.get("houses_asc_p3") == "h1", have.get("houses_asc_p3")
-    assert have.get("resort_page", "").startswith("1 h1,h2"), (
-        "re-sorting left the player on their old page, looking at the middle of the new "
-        "order: %s" % have.get("resort_page"))
+    assert have.get("houses_asc_all") == "h5,h4,h3,h2,h1", (
+        "the built house list is not the whole list in sorted order: %s"
+        % have.get("houses_asc_all"))
     assert have.get("identity") == "true", (
         "the unsorted path copies the list instead of handing back the same table")
     print("  sorting: 3-click cycle, ties stable over 20 reads, 6 columns by accessor, "
-          "houses sorted across pages not within one, trend ordered by its own glyphs "
+          "houses sorted across the list not within the window, trend ordered by its own glyphs "
           "(Hi ^ - v Lo), erroring accessor survives; and the Houses list groups own people "
           "first under the name column both ways and under a numeric one, caps the foreign "
-          "tail on power while exempting a held position, and pages the capped list")
+          "tail on power while exempting a held position, and scrolls the capped list")
 
 
 def check_pool_reach(t):
@@ -8041,14 +8206,16 @@ def check_features():
     assert 'EX.feature("orders")' in m.group(1), \
         "EX.trade_pages does not read the orders switch"
 
-    for fn in ("EX.on_chart", "EX.page_count"):
-        m = re.search(r"function " + re.escape(fn) + r"\(\)(.*?)" + NL + "end", body, re.S)
+    # EX.sub_click, NOT EX.page_count, since 2026-10-01: the section buttons are the route to
+    # the chart and the ledger, and the arrows page the guide only.
+    for fn in ("EX.on_chart", "EX.sub_click"):
+        m = re.search(r"function " + re.escape(fn) + r"\((?:i)?\)(.*?)" + NL + "end", body, re.S)
         assert m, "%s is gone" % fn
         assert "EX.trade_pages()" in m.group(1) or "EX.trade_kind()" in m.group(1), (
             "%s no longer reads the page list, so the two switches half-work: %s"
             % (fn, "the page is unreachable but the panel still draws it"
                if fn == "EX.on_chart" else
-               "the panel refuses to draw a page the arrows still offer"))
+               "the panel refuses to draw a page its button still offers"))
 
     # ORDERS' SECOND READER. EX.trade_pages is checked above; EX.fill_orders is the half that
     # stops the model RUNNING rather than the page being REACHED, and it reads the switch
@@ -11795,7 +11962,7 @@ def check_help_lines():
     assert "row:SetVisible(line ~= nil)" in code, (
         "the guide no longer hides the rows it has no line for - a blanked row still draws "
         "its divider, leaving a ruled empty band under the last line of the guide")
-    lay = re.search(r"function EX\.layout\(\)(.*?)" + NL + "end", code, re.S)
+    lay = re.search(r"function EX\.layout_held\(\)(.*?)" + NL + "end", code, re.S)
     assert lay and "row:SetVisible(true)" in lay.group(1), (
         "EX.layout no longer re-shows every row, so nothing undoes the guide's hiding")
     sm = re.search(r"function EX\.set_mode\((.*?)" + NL + "end", code, re.S)
@@ -11963,7 +12130,7 @@ def check_tooltips():
             "has to say which it is." % (hid, text, HOUSE_LOT_SIZE))
 
     # AND IT HAS TO BE WIRED, AND INTERACTIVE. Either half missing is a silent no-op.
-    lay = re.search(r"function EX\.layout\(\).*?" + chr(10) + r"end", lua, re.S)
+    lay = re.search(r"function EX\.layout_held\(\).*?" + chr(10) + r"end", lua, re.S)
     assert lay and "EX.apply_tips(" in lay.group(0), (
         "EX.layout does not call EX.apply_tips, so the tooltips are defined and never applied")
     tip_fn = re.search(r"local function set_tip\(.*?" + chr(10) + r"end", lua, re.S)
@@ -13481,6 +13648,62 @@ GF_CALLS = 0
 EX.hold_guild()
 print("memo_build_calls " .. GF_CALLS)
 EX.free_guild()
+-- AND EX.layout HOLDS ONE TOO (2026-10-03). It sorts the goods list through EX.mode_instruments
+-- several times per pass, and a Buy or Sell sort asks EX.hostility per commodity: unheld, a
+-- header click spent 4.06s in layout (measured live, 204 instruments) before refresh_panel's
+-- own hold made the rest take 0.27s. The body is swapped for four_asks so this measures the
+-- wrapper rather than a UI the harness has no panel for.
+do
+    local body = EX.layout_held
+    local inside, held_inside
+    EX.layout_held = function()
+        held_inside = EX.guild_hold ~= nil
+        GF_CALLS = 0
+        four_asks()
+        inside = GF_CALLS
+    end
+    EX.free_guild()
+    EX.layout()
+    print("layout_calls " .. tostring(inside))
+    print("layout_held " .. tostring(held_inside))
+    print("layout_freed " .. tostring(EX.guild_hold == nil))
+    -- AN OUTER HOLD SURVIVES: layout must not free a hold it did not open.
+    EX.hold_guild()
+    local outer = EX.guild_hold
+    EX.layout()
+    print("layout_keeps_outer " .. tostring(EX.guild_hold == outer))
+    EX.free_guild()
+    -- AN ERROR FREES IT AND STILL PROPAGATES - a stranded hold prices every later tooltip off
+    -- this click's diplomacy.
+    EX.layout_held = function() error("boom", 0) end
+    local ok, err = pcall(EX.layout)
+    print("layout_err_freed " .. tostring((not ok) and err == "boom" and EX.guild_hold == nil))
+    EX.layout_held = body
+end
+-- AND THE DEALS PAGE (2026-10-03). EX.post_deals prices every unskipped buy candidate through
+-- EX.buy_price, and its walk can visit every actor x commodity pair: unheld, 6.8ms an ask on a
+-- 148-house guild, which is the size of the 70-80s pause logged after the last faction.
+do
+    local body = EX.post_deals
+    local inside, held_inside, runs = nil, nil, 0
+    EX.post_deals = function()
+        runs = runs + 1
+        held_inside = EX.guild_hold ~= nil
+        GF_CALLS = 0
+        four_asks()
+        inside = GF_CALLS
+    end
+    EX.free_guild()
+    EX.post_all_deals()
+    print("deals_calls " .. tostring(inside))
+    print("deals_held " .. tostring(held_inside and runs > 0))
+    print("deals_freed " .. tostring(EX.guild_hold == nil))
+    EX.post_deals = function() error("boom", 0) end
+    -- EX.with_player logs and swallows a failed pass by design, so only the freeing is asserted.
+    pcall(EX.post_all_deals)
+    print("deals_err_freed " .. tostring(EX.guild_hold == nil))
+    EX.post_deals = body
+end
 
 -- -------------------------------------------------------------------------------------------
 -- THE BUY-CLICK HANG AND THE WRONG NAME, both reported 2026-09-23.
@@ -17585,7 +17808,8 @@ def check_lua_books():
     pad = re.search(r"function EX\.post_all_deals\(\).*?\n" + "end", code, re.S)
     assert pad, "EX.post_all_deals is gone"
     assert re.search(r"for _, f in ipairs\(EX\.humans\(\)\) do\s*EX\.with_player\(f, "
-                     r"function\(\) EX\.post_deals\(\) end\)", pad.group(0)), (
+                     r"function\(\)\s*EX\.hold_guild\(\)\s*local ok, r = pcall\(EX\.post_deals\)",
+                     pad.group(0)), (
         "EX.post_all_deals no longer calls EX.post_deals inside EX.with_player for each "
         "human. Unbound, every page lands in the local player's slice.")
     i_deals = body.index("EX.post_all_deals()")
@@ -18089,6 +18313,22 @@ def check_lua_books():
         "EX.hold_guild made %s cm:get_faction calls over 14 friendly houses - the friendly "
         "rank's denominator is walked per house, O(houses^2) on every refresh"
         % have["memo_build_calls"])
+    # THE SORT-CLICK HANG, 2026-10-03: EX.layout sorted the goods list unheld.
+    assert have["layout_calls"] == "0" and have["layout_held"] == "true", (
+        "EX.layout runs its body without the stance memo: four hostility() asks made %s "
+        "cm:get_faction calls. A Buy or Sell header click spent 4s in layout before this."
+        % have["layout_calls"])
+    assert have["layout_freed"] == "true", "EX.layout leaves its stance memo standing"
+    assert have["layout_keeps_outer"] == "true", "EX.layout freed a hold it did not open"
+    assert have["layout_err_freed"] == "true", (
+        "an error inside EX.layout strands the hold or is swallowed")
+    assert have["deals_held"] == "true" and have["deals_calls"] == "0", (
+        "EX.post_all_deals runs EX.post_deals without the stance memo (%s cm:get_faction "
+        "calls for four asks) - its walk prices every unskipped buy candidate"
+        % have["deals_calls"])
+    assert have["deals_freed"] == "true", "EX.post_all_deals leaves its stance memo standing"
+    assert have["deals_err_freed"] == "true", (
+        "an error inside EX.post_deals strands the hold or is swallowed")
     # THE BUY-CLICK HANG AND THE WRONG NAME, 2026-09-23 - see the harness section.
     assert have["source_named"] == "house1", (
         "the markup names %s. house1 is the only house that dislikes you; house2 likes you at "
@@ -21090,6 +21330,45 @@ def check_lua_houses():
           % (BUYOUT_PREMIUM, WINDUP, alive, floor))
 
 
+def check_save_first():
+    """The Exchange's save and load callbacks run FIRST in CA's lists (2026-10-02).
+
+    cm:saving_game and cm:loading_game call every mod's callback in one unprotected loop, so a
+    mod that throws ahead of ours stops the loop and the Exchange is left out of the save - on
+    2026-10-01 !zorbaz_kiki threw and the save carried no zharr_state at all - or out of the
+    load, after which the next save writes the empty store over everything. A separate
+    SavingGame listener would not help: core's listeners are unprotected too, and CA's comes
+    first. Runs the shipped Lua with a throwing callback already in both lists.
+    """
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped save-first run: no lua.exe)")
+        return
+    import subprocess, tempfile
+    harness = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "_savefirst_harness.lua"), encoding="utf-8").read()
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness % LUA_SCRIPT.replace("\\", "\\\\"))
+        tmp = fh.name
+    try:
+        run = subprocess.run([LUA_EXE, tmp], capture_output=True, universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    have = dict(l.strip().partition(" ")[::2] for l in run.stdout.splitlines() if l.strip())
+    assert have.get("saved") == "1", (
+        "another mod's saving callback threw ahead of the Exchange's and the save carries no "
+        "zharr_state (%s) - register it FIRST in cm.saving_game_callbacks. %s"
+        % (have.get("saved"), run.stderr[-300:]))
+    assert have.get("loaded") == "7", (
+        "another mod's loading callback threw ahead of the Exchange's and the store came up "
+        "empty (%s) - the next save then writes that over everything. Register it FIRST in "
+        "cm.loading_game_callbacks" % have.get("loaded"))
+    assert have.get("said") == "true,true", (
+        "a save or load that fails must log an error, not pass silently (save,load = %s)"
+        % have.get("said"))
+    print("  save first: the Exchange saves and loads ahead of a mod that throws, and says so "
+          "when its own save or load fails")
+
+
 def check_save_store():
     """The mod's private save store, and the two ways it fails silently.
 
@@ -21115,18 +21394,20 @@ def check_save_store():
     lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
     code = NL.join(l for l in lua.splitlines() if not l.lstrip().startswith("--"))
 
-    load_at = code.find("cm:add_loading_game_callback(")
-    save_at = code.find("cm:add_saving_game_callback(")
+    # EX.first_callback since 2026-10-02 (check_save_first); its fallback carries the add_*
+    # text, so the REGISTRATIONS are what is found.
+    load_at = code.find('EX.first_callback("loading",')
+    save_at = code.find('EX.first_callback("saving",')
     tick_at = code.find("function EX.init()")
     assert load_at > 0, "no loading-game callback: nothing ever reads the store back"
     assert save_at > 0, "no saving-game callback: nothing ever writes the store"
     assert tick_at > 0, "EX.init is gone - the startup body has moved somewhere unknown"
     assert load_at < tick_at, (
-        "cm:add_loading_game_callback is registered at or inside EX.init (offset "
+        "the loading callback is registered at or inside EX.init (offset "
         "%d vs %d). LoadingGame fires BEFORE the first tick, so it never runs and every load "
         "silently starts from an empty store." % (load_at, tick_at))
     assert save_at < tick_at, (
-        "cm:add_saving_game_callback is inside EX.init, so a save can be missed")
+        "the saving callback is inside EX.init, so a save can be missed")
 
     live = [l.strip() for l in lua.splitlines()
             if "cm:set_saved_value(" in l and not l.lstrip().startswith("--")]
@@ -21319,10 +21600,9 @@ def check_lua_log():
        "the cap dropped the NEWEST entries instead of the oldest")
 
     assert have.get("drawn") == have.get("rows_available"), (
-        "log_lines returned %s lines but the render loop walks %s rows. It borrows one row per "
-        "instrument, so a line past that count is handed back, never drawn, and still counted "
-        "in the footer's \"the newest N\". Take the cap from EX.mode_instruments(), not from a "
-        "constant." % (have.get("drawn"), have.get("rows_available")))
+        "log_lines returned %s lines but the built log lists %s rows. Every entry has a row "
+        "of its own (the lg pool, EX.LOG_MAX of them), so a full log draws every line - a "
+        "line with no row is never drawn." % (have.get("drawn"), have.get("rows_available")))
     eq("drawn_left", "T%d  Gems" % (log_max + 25),
        "the row label lost its turn stamp or its subject")
     eq("empty_rows", "1",
@@ -21378,7 +21658,12 @@ def check_lua_log():
     log_row = log_row[:log_row.find(chr(10) + "}")]   # first "}" is the divider ROW, not the table
     assert '"icon"' in log_row, (
         "the log rows place no icon cell, so EX.layout hides it and the view is back to text")
-    log_draw = code[code.find("if EX.mode == EX.MODE_LOG then"):]
+    # THE DRAWING BRANCH, found by the scan it runs first: EX.scroll_n and EX.scroll_rows open
+    # with the same `if` and sit earlier in the file (2026-10-01).
+    # The scan that is followed by the line fetch: EX.ensure_list scans too (2026-10-01).
+    draw_at = re.search(r"pcall\(EX\.log_scan\)\s+local lines = EX\.log_lines\(\)", code)
+    assert draw_at, "the log's drawing branch no longer scans and then fetches its lines"
+    log_draw = code[code.rfind("if EX.mode == EX.MODE_LOG then", 0, draw_at.start()):]
     log_draw = log_draw[:log_draw.find("if EX.mode == EX.MODE_HELP then")]
     assert "EX.icon(line[3])" in log_draw and "SetImagePath" in log_draw, (
         "the log branch does not paint the icon from the LINE's key. The row it borrowed was "
@@ -21765,6 +22050,127 @@ def check_lua_placeholder():
     print("  placeholder: no plain-flag find, %r carries no pattern magic" % ph)
 
 
+def check_more_resources(t):
+    """Derpy More Resources' 37 goods: the Lua's EX.MR table, the rows and text each one needs,
+    and the shipped file RUN with and without the mod (_resource_overhaul_harness.lua).
+
+    EVERY ONE OF THESE FAILS SILENTLY IN GAME. A good the Lua joins with no holding pool buys
+    into nothing; one with no offering bundle burns the goods for no boon; one whose demand or
+    shock text is missing draws an empty feed entry; a boon in EX.MR that is not its offering's
+    promises one thing on the panel and grants another.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    m = re.search(r"EX\.MR = \{(.*?)\n\}", lua.replace(chr(13), ""), re.S)
+    assert m, "EX.MR is gone from the script"
+    rows = re.findall(r'\{ "([^"]+)", "([^"]+)", "([^"]+)",\s*"([^"]+)" \}', m.group(1))
+    want = [(r, display_name(r), mr_icon(r), mr_boon(r)) for r in MR_COMMODITIES]
+    assert rows == want, (
+        "EX.MR has drifted from gen_more_resources.GOODS / MR_OFFERING: %s"
+        % sorted(set(rows) ^ set(want))[:4])
+    assert not set(MR_COMMODITIES) & set(COMMODITIES)
+    # The icon is More Resources' own file. It ships in THAT pack, so it is checked against
+    # the generator's copy rather than the game's packs. The public repo is a git clone and
+    # publishes no art, so there it is skipped; the workspace is not a git repo.
+    if os.path.isdir(os.path.join(ROOT, ".git")):
+        print("  more resources icons: skipped, the public repo carries no art")
+    for r in ([] if os.path.isdir(os.path.join(ROOT, ".git")) else MR_COMMODITIES):
+        rel = mr_icon(r)
+        assert os.path.isfile(os.path.join(ROOT, "Modding Files", "pack", *rel.split("/"))), rel
+
+    pools = {p["key"] for p in t["pooled_resources_tables"][1]}
+    factors = {f["resource"] for f in t["pooled_resource_factor_junctions_tables"][1]}
+    bundles = {b["key"] for b in t["effect_bundles_tables"][1]}
+    loc = {k for k, _v, _t in t["loc"][1]}
+    races = race_table()
+    for r in MR_COMMODITIES:
+        assert hold_key(r) in pools and hold_key(r) in factors, r
+        assert "pooled_resources_display_name_" + hold_key(r) in loc, r
+        for i in range(1, len(STOCK_TIERS) + 1):
+            assert stock_bundle(r, i) in bundles, stock_bundle(r, i)
+        for culture, race in races.items():
+            assert "%s%soffering_%s" % (PREFIX, race["seg"], short(r)) in bundles, (culture, r)
+            for sfx, _m, _t, _w, _T, _c in DEMAND_TIERS:
+                for part in ("_title", "_primary", "_secondary"):
+                    assert demand_key(r, sfx, race["seg"]) + part in loc, (culture, r, sfx)
+        for part in ("_title", "_primary", "_secondary"):
+            assert SHOCK_MSG + short(r) + part in loc, r
+
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped more resources run: no lua.exe)")
+        return
+    import subprocess, tempfile
+    harness = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "_resource_overhaul_harness.lua"), encoding="utf-8").read()
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness % LUA_SCRIPT.replace(chr(92), chr(92) * 2))
+        tmp = fh.name
+    try:
+        got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    have = {}
+    for line in got.splitlines():
+        k, _, v = line.strip().partition(" ")
+        if k:
+            have[k] = v
+    n17, n_mr = len(COMMODITIES), len(MR_COMMODITIES)
+    rows_all = n17 + n_mr - 1 + len(LAYER2)          # wool is the good the stub leaves out
+
+    # WITHOUT THE MOD the Exchange is the 17-good market it was: nothing joins, one page.
+    assert have["r1_join"] == "0", "joined %s goods with no More Resources" % have["r1_join"]
+    assert have["r1_n"] == "%d %d" % (n17, n17), have["r1_n"]
+    assert have["r1_mr_rows"] == str(n_mr), have["r1_mr_rows"]
+    assert n17 + 2 <= 20, "the vanilla goods no longer fit one 20-row window"
+    for view in ("r1_trade", "r1_stats"):
+        assert have[view] == "%d %d %d" % (n17 + 2, n17 + 2, n17 + 2), (
+            "with no More Resources the list is the 17 goods and the layer-2 pair (%s)"
+            % have[view])
+    assert have["r1_median"] == "100", have["r1_median"]
+
+    # WITH IT, per good: the one whose name does not resolve stays out.
+    assert have["r2_join"] == str(n_mr - 1), (
+        "joined %s, expected %d - the join is per good, by its own name" % (have["r2_join"], n_mr - 1))
+    assert have["r2_again"] == "%d %d" % (n_mr - 1, n17 + n_mr - 1), (
+        "a second join appended again (%s)" % have["r2_again"])
+    assert have["r2_n"] == "%d %d" % (n17 + n_mr - 1, n17), have["r2_n"]
+    assert have["r2_first17"] == "%s %s" % (COMMODITIES[-1], MR_COMMODITIES[0]), (
+        "the vanilla 17 must stay first: EX.BASE_COUNT and every index-1 test read them "
+        "there (%s)" % have["r2_first17"])
+    assert have["r2_wool"] == "false nil", have["r2_wool"]
+    assert have["r2_amber"] == "true Amber | " + mr_boon(MR_PREFIX + "amber"), have["r2_amber"]
+
+    # SUPPLY: what the settlement's effect list names, a multi-word good parsed whole, and a
+    # good that did not join dropped. A throwing read is no production, never an error.
+    assert have["r2_goods"] == ("res_derpy_amber=6,res_derpy_black_lotus=12,"
+                                "res_derpy_pearls=6"), have["r2_goods"]
+    assert have["r2_asked"] == "CcoCampaignSettlement|42|true", have["r2_asked"]
+    assert have["r2_throws"] == "true 0", have["r2_throws"]
+
+    # THE MEDIAN IS THE VANILLA 17's. 36 goods at zero supply would drag it to 0 and price
+    # every vanilla good as a glut.
+    assert have["r2_median"] == "100", (
+        "the price median moved to %s once More Resources joined - it must stay the vanilla "
+        "17's" % have["r2_median"])
+
+    # TRADE INCOME TOO: a coastal faction must not lose income for More Resources' fish glut.
+    assert have["r2_income"] == "0 -0.5", (
+        "trade income read a More Resources good (%s) - only the vanilla 17 drive it"
+        % have["r2_income"])
+
+    # SCROLLING. The built list draws every good once, and the chart is still found by name.
+    for view in ("r2_trade", "r2_stats", "r2_offer"):
+        assert have[view] == "%d %d %d" % (rows_all, rows_all, rows_all), (
+            "%s: %s, want all %d goods drawn, each once, on a list %d long"
+            % (view, have[view], rows_all, rows_all))
+    assert have["r2_chart"] == "2 list,chart,orders", (
+        "the chart is the second Trade section, after the one goods list (%s)" % have["r2_chart"])
+    assert have["r2_nav"] == "1/1", (
+        "a goods view must not page: the arrows' counter read %s" % have["r2_nav"])
+    print("  more resources: %d goods, EX.MR agrees, every row and line present; without it "
+          "17 and no scrolling, with it %d joined on a %d-row list drawn whole, median the "
+          "vanilla 17's" % (n_mr, n_mr - 1, rows_all))
+
+
 def check_nav_cycle():
     """The bottom strip: five view tabs on the left, two arrows and a page counter right.
 
@@ -21824,44 +22230,21 @@ def check_nav_cycle():
         "some view is not reachable in one click from some other view. That is the whole ask: "
         "Houses used to be three presses of an arrow away from Trade")
 
-    # THE PAGE COUNTS. The harness fills the log to 45 entries against 19 rows.
-    per = int(have["per_page"])
-    assert per >= 2, "the log draws %d rows a page" % per
-    assert have["log_pages"] == "3", (
-        "45 entries at %d a page is 3 pages, not %s" % (per, have["log_pages"]))
+    # THE PAGE COUNTS. Since 2026-10-01 the lists scroll (check_scroll_lists measures them),
+    # so every view but the guide and Trade's sections is one page and greys the arrows.
     counts = dict(x.split("=") for x in have["page_counts"].split(","))
-    # A VIEW WITH ONE PAGE GREYS THE ARROWS, so a count of 1 here is the assertion that they
-    # are not live controls with nothing to control. Ownership and Offerings are single-page
-    # lists and must stay that way; Houses pages on row overflow; the log and the guide page
-    # by construction.
-    for m in ("stats", "offer"):
+    for m in ("stats", "offer", "houses", "log"):
         assert counts.get(m) == "1", (
-            "%s reports %s pages. It is a single-page list, so the arrows would be live "
-            "controls with nothing to control" % (m, counts.get(m)))
-    # TRADE HAS THREE WITH BOTH SWITCHES ON (the shipped default here: neither harness switch
-    # is stubbed at this point in the file) - the list, the deep chart, and the orders ledger.
-    # Not "however many when something is selected": the arrows are the only affordance that
-    # says the extra pages exist, so a count that collapsed with nothing chosen would hide a
-    # feature from every player who had not already found it. All four switch combinations are
-    # covered on their own further down, under "pages_both" etc - this is just the default.
-    assert counts.get("trade") == "3", (
-        "trade reports %s pages, want 3 - the list, the deep price chart and the orders "
-        "ledger, both switches on by default. Fewer means EX.page_count lost a branch and "
-        "that page is unreachable, with nothing on screen to say so." % counts.get("trade"))
-    assert int(counts["log"]) > 1 and int(counts["help"]) > 1, (
-        "the log and the guide must both page - %s" % have["page_counts"])
+            "%s reports %s pages. It scrolls now; an arrow that pages it is a second control "
+            "for one job" % (m, counts.get(m)))
+    # TRADE'S CHART AND LEDGER ARE BUTTONS since 2026-10-01 (tsec_* below), so Trade is one
+    # page to the arrows too.
+    assert counts.get("trade") == "1", (
+        "trade reports %s pages - its chart and ledger are sub-tab buttons now, and an arrow "
+        "that also reaches them is a second control for one job" % counts.get("trade"))
+    assert int(counts["help"]) > 1, "the guide must page - %s" % have["page_counts"]
 
-    # THE ARROWS PAGE AND NEVER SWITCH VIEW. This is the regression the change itself invites:
-    # an unconverted branch still walking EX.MODES would move the player off the log entirely.
-    assert have["log_fwd"] == "2,log", (
-        "the forward arrow on the log went to %s. It must page the log, not leave it - "
-        "leaving is what the tabs are for now" % have["log_fwd"])
-    assert have["log_back_wrap"] == have["log_pages"], (
-        "stepping back from page 1 landed on page %s, not the last page (%s). Lua indexes "
-        "from 1, so (at - 1) %% n is 0 there and an off-by-one indexes nil"
-        % (have["log_back_wrap"], have["log_pages"]))
-    assert have["log_fwd_wrap"] == "1", (
-        "stepping forward from the last page landed on %s, not page 1" % have["log_fwd_wrap"])
+    # THE ARROWS PAGE AND NEVER SWITCH VIEW.
     assert have["help_back_wrap"] == "%s,true" % counts["help"], (
         "the guide's back arrow from page 1 gave %s - it must wrap to the last page and stay "
         "in the guide" % have["help_back_wrap"])
@@ -21872,48 +22255,19 @@ def check_nav_cycle():
     assert have["single_page_noop"] == "true", (
         "an arrow moved something on a ONE-PAGE view. Before 2026-09-07 the arrows cycled "
         "views; a branch left unconverted takes the player off the view they are reading")
-    assert have["press_prev"] == "1" and have["press_next"] == "3", (
-        "the arrows are wired backwards: from page 2, Previous went to %s and Next to %s. "
-        "Both arrows page correctly in SOME direction either way, so nothing else notices - "
-        "measured by mutation 2026-09-07, with the direction inlined at the click site a "
-        "swap passed the whole suite" % (have["press_prev"], have["press_next"]))
+    assert have["press_prev"] == "-1" and have["press_next"] == "1", (
+        "the arrows are wired backwards: Previous stepped %s and Next %s. Both arrows page "
+        "correctly in SOME direction either way, so nothing else notices - measured by "
+        "mutation 2026-09-07" % (have["press_prev"], have["press_next"]))
 
-    # THE COUNTER.
-    #
-    # DERIVED FROM counts, not hardcoded to "every view but the log has one page". That form
-    # was already a fiction - Houses pages on row overflow - and it broke the moment Trade
-    # gained its chart page, reporting the counter as wrong when the counter was right.
-    # THE VIEW LIST COMES FROM EX.MODES, NOT FROM A TUPLE HERE. The counts above are already
-    # derived rather than hardcoded, and the comment says why - but the ORDER was still a
-    # literal five-view tuple, so adding the Deals page failed this as "the counter reads
-    # 1/3,1/1,1/1,1/1,1/1,1/3" against a five-entry want. The probe walks EX.MODES; so does this.
+    # THE COUNTER, derived from counts and the view order in EX.MODES, not a literal tuple.
     nav_modes = re.findall(r'"(\w+)"', re.search(
         r"EX\.MODES = \{(.*?)\}", io.open(LUA_SCRIPT, encoding="utf-8").read()).group(1))
     want = ",".join("1/" + counts[m] for m in nav_modes)
     assert have["labels"] == want, (
         "the counter reads %s, not %s" % (have["labels"], want))
-    assert have["log_label"] == "2/" + counts["log"], (
-        "the log's counter reads %s on page 2" % have["log_label"])
 
-    # AND THE PAGE THE VIEW ACTUALLY DRAWS, not just the number the counter prints. This is
-    # the hole the guide had: EX.help_lines hardcoded to page 1 passed every assertion above
-    # while page 2 stayed unreachable and the counter cheerfully read "2/2".
-    assert have["page2_differs"] == "true", (
-        "log page 2 draws the same first line as page 1 (%s). The counter advances, the "
-        "arrows look like they work, and 41 of the 60 kept entries are unreachable - which "
-        "is the exact fault reported against the log" % have["page1_first"])
-    assert have["last_page_len"] == str(45 - 2 * per), (
-        "the last page drew %s lines; 45 entries at %d a page leaves %d on it"
-        % (have["last_page_len"], per, 45 - 2 * per))
-    assert have["log_overflow_len"] == "%d,%s" % (45 - 2 * per, have["log_pages"]), (
-        "a page index past the end gave %s. It must clamp - an out-of-range page draws an "
-        "empty list, which reads exactly like a log that recorded nothing"
-        % have["log_overflow_len"])
-
-    # ENTERING A VIEW OPENS PAGE 1.
-    assert have["log_reset"] == "1", (
-        "the log reopened on page %s. A player who has just clicked Log is asking about the "
-        "newest events, not the ones three pages back" % have["log_reset"])
+    # ENTERING A VIEW OPENS ITS FIRST PAGE.
     assert have["help_reset"] == "1", (
         "the guide reopened on page %s - which may be a page about a system the player has "
         "since switched off in MCT, and EX.help_page is deliberately never saved"
@@ -21978,9 +22332,14 @@ def check_nav_cycle():
         "a locked tab does not get its reason as a tooltip - the file's own standard is "
         "disabled AND explained, and it is the only thing distinguishing a gated control "
         "from a broken one")
-    assert re.search(r"EX\.set_off\(a, pages < 2\)", code), (
-        "the arrows stay live on a one-page view. A control that does nothing when clicked is "
-        "what EX.gate_button and the refused Buy button both exist not to be")
+    # THE ARROWS AND THE COUNTER SHOW ON THE GUIDE ONLY (2026-10-01): every other view scrolls
+    # or has section buttons, and a control that does nothing when clicked is what
+    # EX.gate_button and the refused Buy button both exist not to be.
+    assert re.search(r"local paging = \(EX\.mode == EX\.MODE_HELP\)", code) and \
+        re.search(r"\{ EX\.MODE_PREV, EX\.MODE_BTN, EX\.NAV_PAGE \}", code) and \
+        "a:SetVisible(paging)" in code, (
+        "the arrows and the page counter are no longer hidden off the guide - they would sit "
+        "live on views that scroll, doing nothing")
     # THE SUB-TABS' WIRING, the same three halves as the tabs': the filter admits them, the
     # dispatch routes them, and the click redraws. Each is invisible to the harness.
     assert "or EX.sub_slot(s) ~= nil" in code, (
@@ -22009,55 +22368,11 @@ def check_nav_cycle():
                 "%s places no sub-tab slot %d - it keeps its placeholder offset on that view"
                 % (tname, i))
     # ===================================================================================
-    # THE HOUSES VIEW PAGES. Until 2026-09-08 it TRUNCATED - `while #t > EX.MAX_ROWS do
-    # t[#t] = nil end` against an ALPHABETICALLY SORTED list - so 39 Empire factions would
-    # have listed Averland through Nordland and silently dropped Reikland, Stirland and
-    # Talabecland. Already a live fault at 20 Chaos Dwarf houses, sitting on the limit.
+    # THE HOUSES VIEW SCROLLS since 2026-10-01 (check_scroll_lists). Re-entering it opens
+    # the list, whichever section was up last visit.
     # ===================================================================================
-    assert have["h_pages"] == "3", (
-        "41 houses at %s a page is 3, not %s" % (have["per_page"], have["h_pages"]))
-    # THE LIST ONLY (2026-09-30). The index and the bonds page were pages 4/5 and 5/5 behind
-    # the list, and the player never found them; they are sub-tabs now, so they are not pages.
-    assert have["h_count"] == have["h_pages"], (
-        "EX.page_count answers %s for the Houses list but it has %s pages. The index and the "
-        "bonds page are sub-tabs, not pages the arrows walk into"
-        % (have["h_count"], have["h_pages"]))
-    assert have["h_first"] == "house_001", have["h_first"]
-    assert have["h_len1"] == "20", (
-        "page 1 drew %s rows against a 20-slot holder" % have["h_len1"])
-    assert have["h_last"] == "house_041,1", (
-        "the last page ended at %s. 41 houses over 3 pages of 20 leaves exactly ONE on page "
-        "3; anything else is an off-by-one in the slice" % have["h_last"])
-    assert have["h_union"] == "41,false,true", (
-        "walking every page gave %s (count,duplicate,ascending). Every house must appear "
-        "exactly once and in order - that is the whole point of paging over truncation, "
-        "which listed Averland through Nordland and dropped Reikland in silence."
-        % have["h_union"])
-    assert have["h_shrunk"] == "4,1", (
-        "the house list shrank under a player sitting on page 3 and the view drew %s. A "
-        "house dies whenever EX.check_delistings runs, and an out-of-range page draws an "
-        "empty view that reads exactly like a market with no houses in it - so the clamp "
-        "belongs INSIDE the slice, not only where the arrows move the index."
-        % have["h_shrunk"])
-    assert have["h_overflow"] == "4,1", have["h_overflow"]
-    assert have["h_under"] == "4,1", (
-        "page 0 gave %s - clamp both ends, the way EX.log_lines does" % have["h_under"])
-    assert have["h_empty"] == "1,0", (
-        "an empty market reports %s pages. Zero makes nav_label read '1/0' and step_page "
-        "take a modulo of nothing." % have["h_empty"])
     assert have["h_reset"] == "1", (
-        "re-entering the Houses view opened page %s. Every view opens on its first page - "
-        "the log and the guide already do." % have["h_reset"])
-    assert have["h_fwd"] == "2,houses", (
-        "the forward arrow on the Houses view gave %s. It must page the view, not leave it - "
-        "leaving is what the tabs are for." % have["h_fwd"])
-    last = int(have["h_pages"])
-    assert have["h_back_wrap"] == "%d,houses" % last, (
-        "stepping back from page 1 landed on %s, not the list's last page (%d)"
-        % (have["h_back_wrap"], last))
-    assert have["h_fwd_wrap"] == "1,houses", (
-        "Next from the list's last page gave %s, want page 1 of the list. The arrows walking "
-        "on into the index is the 4/5 and 5/5 the player never found" % have["h_fwd_wrap"])
+        "re-entering the Houses view opened section %s, not the list" % have["h_reset"])
 
     # THE SUB-TABS (2026-09-30), asked for from play: "theres bonds and index, but its not too
     # visible to the player, maybe have a tab system for the House panel? instead of using
@@ -22075,11 +22390,11 @@ def check_nav_cycle():
         "an arrow moved the player off the index page (%s). A section has its own pages; the "
         "sub-tabs change section" % have["sub_index_arrows"])
     assert have["sub_to_bonds"] == "bonds,1/1", have["sub_to_bonds"]
-    assert have["sub_to_list"] == "houses,1/3", (
-        "the Houses sub-tab gave %s, want page 1 of the three-page list" % have["sub_to_list"])
-    assert have["sub_here"] == "houses,2/3", (
+    assert have["sub_to_list"] == "houses,1/1", (
+        "the Houses sub-tab gave %s, want the list, which scrolls" % have["sub_to_list"])
+    assert have["sub_here"] == "houses,1/1", (
         "a click on the section already on screen gave %s. Its button is greyed; a click that "
-        "still arrives must leave the player on page 2" % have["sub_here"])
+        "still arrives must leave the player on the list" % have["sub_here"])
     assert have["sub_bonds_locked"] == "houses,true,false", (
         "with bonds switched off and none held, the Bonds sub-tab gave %s: it must be locked, "
         "say why, and not be entered; the index is never locked" % have["sub_bonds_locked"])
@@ -22093,40 +22408,27 @@ def check_nav_cycle():
         % have["sub_deals_slot3"])
     assert have["sub_to_deals"] == "deals", have["sub_to_deals"]
     assert have["sub_contracts_locked"] == "deals,true", have["sub_contracts_locked"]
-    assert have["sub_trade"] == "nil,1,trade", (
-        "a slot click on a view with no sections did something: %s" % have["sub_trade"])
+    # TRADE'S SECTIONS (2026-10-01): "rather can the single commodity viewing and standing
+    # order be buttons instead of arrows and next page?" Every switch combination, by name.
+    assert have["tsec_both"] == "list,chart,orders", have["tsec_both"]
+    assert have["tsec_nodeep"] == "list,list,orders", (
+        "with the chart off, its button must be locked and change nothing: %s"
+        % have["tsec_nodeep"])
+    assert have["tsec_noord"] == "list,chart,list", have["tsec_noord"]
+    assert have["tsec_neither"] == "list,list,list", have["tsec_neither"]
+    assert have["tsec_name"] == "chart,orders", (
+        "a click on a good's name must light the Chart button, or Orders with the chart "
+        "off: %s" % have["tsec_name"])
+    assert set(have["arrows_pages"].split(",")) == {"1"}, (
+        "only the guide pages now - every tab view must report one page: %s"
+        % have["arrows_pages"])
+    assert have["arrows_trade_noop"] == "1", "an arrow still pages Trade"
     assert have["h_index_shrunk"] == "1/1,true", (
         "the list shrank to one page under a player on the index page and the view gave %s. "
         "They must stay on the index, and it is one page" % have["h_index_shrunk"])
     assert have["h_index_reset"] == "false", (
         "re-entering the Houses view reopened the index page. Every view opens on its first "
         "page")
-    assert have["h_exact"] == "1,20", (
-        "20 houses against 20 slots reported %s. Chaos Dwarfs sit exactly on this number "
-        "today - 10 vanilla plus the lords pack's 10 - so an off-by-one here ships a second, "
-        "empty page to the only race currently playing." % have["h_exact"])
-    assert have["h_over_by_one"] == "2", have["h_over_by_one"]
-    # THREE WITH BOTH SWITCHES ON, and none of them is row overflow. The trade list is 19 rows
-    # against 20 slots and must never page for that reason - pages 2 and 3 are the deep chart
-    # and the orders ledger, a different KIND of content each, the way the guide's pages are.
-    # If this ever reads 4 the list has started overflowing into a page a switch used to own.
-    assert have["h_trade_pages"] == "3", (
-        "the trade view reports %s pages, want 3: the list, the deep chart and orders, both "
-        "switches on by default. Fewer means a page is unreachable; a 4 means the 19-row "
-        "list has started overflowing into a page a switch used to own." % have["h_trade_pages"])
-    # THE ARROWS ACTUALLY REACH THE CHART. A page COUNT is not a route: with the trade branch
-    # missing from EX.step_page and EX.page_index the counter still reads 1/2 and the arrows
-    # are still un-greyed, and pressing them does nothing whatever. Both shipped as surviving
-    # mutants before this existed - the chart was unreachable and every other check passed.
-    assert have["t_fwd"] == "2,true", (
-        "pressing Next on the trade list landed on %s, want page 2 with EX.on_chart() true. "
-        "The chart is unreachable and the counter says otherwise." % have["t_fwd"])
-    assert have["t_wrap"] == "3,false", (
-        "Next again from the chart page landed on %s, want page 3 (orders) with the chart's "
-        "own flag false - three pages now, so a second Next moves forward, not a wrap"
-        % have["t_wrap"])
-    assert have["t_back"] == "2,false" or have["t_back"] == "2,true", (
-        "Previous from page 3 landed on %s, want page 2 (the chart)" % have["t_back"])
     assert have["t_rows"] == "0", (
         "the chart page lists %s rows. EX.layout builds its hide keep-set from this list, so "
         "any row still named is left drawing on top of the chart - the fault that once put 19 "
@@ -22210,12 +22512,12 @@ def check_nav_cycle():
         "been routed over the top of it" % (have["hdr1_price"], have["sort1"]))
 
     # THE PAGE COUNTER.
-    assert have["idx_clamped"] == "2", (
-        "with the player on page 3 and the orders switch thrown off, EX.page_index answers "
-        "%r against a 2-page list. EX.trade_kind clamps and this must clamp with it, or the "
-        "counter names a page that is gone" % have["idx_clamped"])
-    assert have["nav_clamped"] == "2/2", (
-        "the nav label reads %r - it read '3/2' until 2026-09-10" % have["nav_clamped"])
+    assert have["idx_clamped"] == "chart", (
+        "with the player on the ledger and the orders switch thrown off, the lit section is "
+        "%r. EX.trade_kind clamps to the chart, and the button that lights must be the page "
+        "on screen" % have["idx_clamped"])
+    assert have["nav_clamped"] == "1/1", (
+        "the nav label reads %r on Trade - it pages the guide only now" % have["nav_clamped"])
 
     assert have["kind1"] == "list" and have["kind2"] == "chart" and have["kind3"] == "orders"
     assert have["onchart2"] == "true" and have["onorders3"] == "true"
@@ -22255,9 +22557,150 @@ def check_nav_cycle():
     fixed_desc = ", ".join("%s %s" % (m, counts[m]) for m in
                            ("trade", "stats", "offer", "houses"))
     print("  view nav: %d tabs, each view one click from every other and the current one "
-          "greyed, arrows page instead of cycling (%s, log %s, guide %s pages), both wrap, "
-          "the drawn slice really changes and clamps past the end, and every view opens on "
-          "page 1" % (n, fixed_desc, counts["log"], counts["help"]))
+          "greyed, arrows page instead of cycling (%s, log %s, guide %s pages), both wrap "
+          "and point the right way, and every view opens on its first page"
+          % (n, fixed_desc, counts["log"], counts["help"]))
+
+
+def check_scroll_lists():
+    """The Exchange's scrolling lists (2026-10-01, drawn whole since 2026-10-02): a built
+    list hands back every item, the rows follow list_box with no redraw, and a rebuild starts
+    at the top. Run against the shipped Lua, not restated - see tools/_scroll_harness.lua."""
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped scroll run: no lua.exe)")
+        return
+    import subprocess, tempfile
+    harness = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "_scroll_harness.lua"), encoding="utf-8").read()
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness % LUA_SCRIPT.replace(chr(92), chr(92) * 2))
+        tmp = fh.name
+    # NOT check_output: a fault that kills the harness half way (a Destroy that took the rows
+    # with it) must still meet the named assertion on what was printed before it died.
+    try:
+        run = subprocess.run([LUA_EXE, tmp], capture_output=True, universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    got = run.stdout
+    import collections
+    # A PROBE THE HARNESS DIED BEFORE reads as that, inside the assertion that wanted it.
+    have = collections.defaultdict(
+        lambda: "<missing - the harness died: %s>" % run.stderr.strip()[-300:])
+    have.update(l.strip().partition(" ")[::2] for l in got.splitlines() if l.strip())
+
+    for m in ("trade", "stats", "offer"):
+        n, sn, sc = have["s_%s_n" % m].split(",")
+        assert n == sn and int(n) > 20 and sc == "true", (m, have["s_%s_n" % m])
+        got_, want = have["s_%s_all" % m].split("|")
+        assert got_ == want, (
+            "%s with its list built must hand back EVERY good, in the list's order - the "
+            "list is drawn whole and scrolled by moving the rows: %s, want %s" % (m, got_, want))
+        got_, want = have["s_%s_top" % m].split("|")
+        assert got_ == want, (
+            "%s with no list (a list that broke) must draw the top %s rows: %s"
+            % (m, want.split(",")[-1], got_))
+    assert have["s_houses_all"] == "41,41,true", (
+        "the built house list must hand back every listed house, in EX.listed_houses' order: %s"
+        % have["s_houses_all"])
+    got_, want = have["s_houses_top"].split("|")
+    assert got_ == want, "the unbuilt house list draws the top 20: %s" % have["s_houses_top"]
+    assert have["s_index_scrolls"] == "false", "the Funds page must not scroll"
+    assert have["s_log"] == "45,45,lg1,lg45,45,true,true", (
+        "the built log must list one row of its own pool per entry, newest first, with a line "
+        "for each: %s" % have["s_log"])
+    assert have["s_log_top"] == "20", "the unbuilt log draws 20 rows: %s" % have["s_log_top"]
+    cnt, n, cap = have["s_log_cap"].split(",")
+    assert cnt == n == cap, (
+        "a log longer than EX.LOG_MAX must list no more rows than the pool holds, and its "
+        "scroll list must be as long as what it lists: %s" % have["s_log_cap"])
+    assert have["s_log_empty"] == "1,lg1,Nothing yet,0", (
+        "an empty log draws its placeholder on one row and has nothing to scroll: %s"
+        % have["s_log_empty"])
+    assert have["s_short"] == "lg7", (
+        "EX.short must leave the log pool's keys alone - the row is named by it: %s"
+        % have["s_short"])
+    assert have["s_pages"] == "1,1,1,1", (
+        "Stats, Offerings, Houses and the Log no longer page: %s" % have["s_pages"])
+    # PART 2: THE UI CALLS, against stub components.
+    assert have["u_build"] == "true,56,56,true,%d,200,200" % (20 * 28), (
+        "the built list: holder in clip at list_box's top, one empty row per good, slider "
+        "shown, a window MAX_ROWS rows tall: %s" % have["u_build"])
+    assert have["u_follow"] == "true,true,0,0,0", (
+        "the poll must put rows_holder where list_box is on every tick, to the pixel (first, "
+        "then through an eight-tick drag), redraw NOTHING (no layout, no refresh), and make "
+        "no move on a tick where nothing moved: %s" % have["u_follow"])
+    assert have["u_hidden"] == "true,nil", (
+        "a hidden panel's list must not be moved, and closing the panel must clear the list "
+        "so the every-frame poll returns at once: %s" % have["u_hidden"])
+    assert have["u_same"] == "0,true", (
+        "an unchanged view must keep its list (no Adopt, no Destroy) and put the holder back "
+        "where the list is scrolled to after place() moved it: %s" % have["u_same"])
+    o = have["u_order"].split(",")
+    assert 0 < int(o[0]) < int(o[1]) and o[2:] == ["true", "true", "true"], (
+        "rows_holder must go back to the panel BEFORE the old list is destroyed, or Destroy "
+        "takes every row component with it - and a re-sort starts at the top: %s"
+        % have["u_order"])
+    assert have["u_drop"] == "true,true,nil", (
+        "a view that does not scroll must drop the list and give the holder back: %s"
+        % have["u_drop"])
+    assert have["u_rebuild"] == "true,true", (
+        "coming back to the list must start at the top: %s" % have["u_rebuild"])
+    assert have["u_short"].startswith("false,"), (
+        "a list that fits must show no scroll bar: %s" % have["u_short"])
+    assert have["u_log"] == "45,%d" % (20 * 28), (
+        "the log's list: one empty row per entry under a MAX_ROWS window: %s" % have["u_log"])
+    assert have["u_log_grow"] == "0,48,48", (
+        "the log grew on the scan EX.refresh_panel runs after the list was sized, and the next "
+        "layout rebuilt it at the top, throwing the player's first scroll away: %s"
+        % have["u_log_grow"])
+    assert have["u_poll_cheap"] == "0", (
+        "a poll tick sorted every house %s time(s) - every frame while the Houses list is open"
+        % have["u_poll_cheap"])
+    assert have["u_pos"] == "100,200,100,200", (
+        "rows_holder moved across an Adopt (in, then back out: %s) - every row is placed from "
+        "its position" % have["u_pos"])
+    assert have["u_clip_fail"] == "true,true,true", (
+        "the clip refused the rows at build time: the empty list must be destroyed (it would "
+        "sit over the rows and take their clicks) and not built again: %s" % have["u_clip_fail"])
+    assert have["u_adopt_fail"] == "0,true,true,true,20", (
+        "with Adopt refused the list must never be destroyed, never be built again, and the "
+        "rows inside it must still draw - the top 20, since nothing can scroll them: %s"
+        % have["u_adopt_fail"])
+    # PART 3: THE MEMO.
+    pool, cap = have["p_pool"].split(",")
+    assert pool == cap, (
+        "EX.build_panel must make one log row per EX.LOG_MAX entry: %s" % have["p_pool"])
+    w, b = have["p_memo"].split("|")
+    w1, w2, w3 = w.split(",")
+    assert int(w1) > 0 and w2 == "0" and w3 == w1, (
+        "a cell's text must be written once and skipped while it is unchanged (%s then %s), "
+        "and written again on a rebuilt panel's new components (%s) - or the rebuild draws "
+        "blank rows" % (w1, w2, w3))
+    b1, b2, b3, b4 = b.split(",")
+    # One bar per turn of history: 4, then 5 once a turn is added.
+    assert int(b1) > 0 and b2 == "0" and int(b3) == int(b1) + 1 and b4 == b3, (
+        "a sparkline must be drawn once (%s bar moves), skipped while its history is "
+        "unchanged (%s), drawn again when it changes (%s) and on a rebuilt panel (%s)"
+        % (b1, b2, b3, b4))
+
+    assert run.returncode == 0, "the scroll harness died: %s" % run.stderr[-600:]
+
+    # THE SCROLL BAR SITS INSIDE THE ROW'S LAST 16px: no scrolling view may draw a cell there.
+    # Widths the layout tables leave out are the row file's own (gen_exchange_ui.build_row):
+    # the two buttons are 100 wide; the divider is a hairline the bar may cover.
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    for tbl in ("ROW_LAYOUT", "ROW_LAYOUT_STATS", "ROW_LAYOUT_OFFER", "ROW_LAYOUT_HOUSES",
+                "ROW_LAYOUT_LOG"):
+        body = re.search(r"^EX\.%s = \{(.*?)^\}" % tbl, lua, re.S | re.M).group(1)
+        for name, x, w in re.findall(r'\{\s*"(\w+)",\s*(-?\d+),\s*-?\d+(?:,\s*(\d+))?', body):
+            right = int(x) + (100 if name in ("btn_buy", "btn_sell") else int(w or 0))
+            assert right <= 880 - 16 - 2, (
+                "%s.%s ends at %d, under the scroll bar (864-880)" % (tbl, name, right))
+    print("  scroll lists: 3 goods views, houses and log hand back every item while built; "
+          "the rows follow the list by the pixel with no redraw, the list rebuilds at the top, "
+          "hands its rows back before any Destroy, keeps the rows drawing when Adopt is "
+          "refused either way, unchanged text and sparklines are not rewritten, and no cell "
+          "sits under its bar")
 
 
 def settle_src(src):
@@ -22608,7 +23051,7 @@ def check_house_row_display():
             "EX.amount. At an amount of x5 the button reads one fifth of what clicking it "
             "actually buys" % (var, assign.group(1) if assign else None))
 
-    lay = re.search(r"function EX\.layout\(.*?\n(?:end|local function)", code, re.S)
+    lay = re.search(r"function EX\.layout_held\(.*?\n(?:end|local function)", code, re.S)
     assert lay, "EX.layout is gone"
     body = lay.group(0)
     assert re.search(r"local list = EX\.mode_instruments\(\)", body), (
@@ -22647,7 +23090,7 @@ def check_house_row_display():
     assert body.index("for j = 0, n - 1 do") < body.index("local row = EX.row(holder, res)"), (
         "the hide pass runs AFTER the placement pass, so it hides rows this view just placed")
 
-    for fn, mark in (("EX.layout", r"draw\[res\] = true"),
+    for fn, mark in (("EX.layout_held", r"draw\[res\] = true"),
                      ("EX.apply_tips", r"drawn\[res\] = true")):
         m = re.search(r"function " + re.escape(fn) + r"\(.*?\n(?:end|local function)", code,
                       re.S)
@@ -23031,7 +23474,10 @@ def check_lua_hover():
     # The generator is the authority on which components actually have two states.
     hovering = set()
     for _name, fn, _c in ui.FILES:
-        for c in fn().walk():
+        root = fn()
+        if isinstance(root, str):      # the scrolling list, emitted as text; no labels in it
+            continue
+        for c in root.walk():
             if c.kw.get("hover") and c.kw.get("text"):
                 hovering.add(c.name)
     assert listed == hovering, (

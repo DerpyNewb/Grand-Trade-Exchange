@@ -123,8 +123,9 @@ EX.tab_locked = function() return nil end
 EX.set_mode(EX.MODE_STATS)
 print("after_set_mode col=" .. tostring(EX.sort_col) .. " dir=" .. EX.sort_dir)
 
--- HOUSES ARE SORTED BEFORE THEY ARE PAGED. Sorting the page instead of the list orders the
--- twenty rows the player is looking at and leaves every other page alone.
+-- HOUSES ARE SORTED BEFORE THEY ARE SLICED. Sorting the window instead of the list orders the
+-- twenty rows the player is looking at and leaves the rest alone. The list scrolls since
+-- 2026-10-01, so a "page" here is a scroll position.
 EX.mode = EX.MODE_HOUSES
 EX.MAX_ROWS = 2
 EX.houses = { "h1", "h2", "h3", "h4", "h5" }
@@ -133,19 +134,15 @@ EX.buy_price = function(r) return ({ h1 = 50, h2 = 40, h3 = 30, h4 = 20, h5 = 10
 EX.dividend = function(r) return ({ h1 = 1, h2 = 2, h3 = 3, h4 = 4, h5 = 5 })[r] end
 EX.sort_col, EX.sort_dir = nil, 1
 EX.house_page = 1
+EX.list_key = nil
 print("houses_default_p1 " .. order())
 EX.sort_click("hdr_price")
-print("houses_asc_p1 " .. order() .. " page=" .. EX.house_page)
-EX.house_page = 2
-print("houses_asc_p2 " .. order())
-EX.house_page = 3
-print("houses_asc_p3 " .. order())
-
--- AND SORTING SENDS THE PLAYER BACK TO PAGE 1. Re-sorting under someone sitting on page 3
--- leaves them looking at the middle of the new order, which is its least meaningful part.
-EX.house_page = 3
-EX.sort_click("hdr_sell")
-print("resort_page " .. EX.house_page .. " " .. order())
+print("houses_asc_p1 " .. order())
+-- BUILT, THE LIST IS EVERY HOUSE (it is drawn whole and scrolled), so this is the whole order.
+-- Re-sorting at the top is the list's rebuild - tools/_scroll_harness.lua, u_order.
+EX.list_key = "built"
+print("houses_asc_all " .. order())
+EX.list_key = nil
 
 -- THE DEFAULT PATH ALLOCATES NOTHING: EX.sorted hands back the very table it was given.
 EX.sort_col = nil
@@ -155,7 +152,7 @@ print("identity " .. tostring(EX.sorted(EX.houses) == EX.houses))
 -- OWN PEOPLE FIRST, THE NAME COLUMN, AND THE POWER CAP. Added 2026-09-11 with trade blocs.
 -- ===========================================================================================
 --
--- All three live in EX.listed_houses, which EX.house_pages and EX.house_slice BOTH read. The
+-- All three live in EX.listed_houses, which EX.scroll_n and EX.house_slice BOTH read. The
 -- grouping has to survive every column: it is a primary key, not a default order.
 EX.MAX_ROWS = 20
 EX.house_page = 1
@@ -189,7 +186,7 @@ EX.house_regions = { f1 = 1, f2 = 9, f3 = 5, f4 = 7 }
 print("cap_power " .. listed())
 EX.held = function(k) return k == "f1" and 5 or 0 end
 print("cap_held " .. listed())
--- AND THE PAGE COUNT FOLLOWS THE CAPPED LIST. If it read #EX.houses the counter would promise
--- a page the slice returns empty.
-EX.MAX_ROWS = 2
-print("cap_pages " .. EX.house_pages())
+-- AND THE SCROLL BAR'S LENGTH FOLLOWS THE CAPPED LIST (since 2026-10-01 the list scrolls). If
+-- it read #EX.houses the bar would reach past the last row the slice can return.
+EX.mode = EX.MODE_HOUSES
+print("cap_pages " .. EX.scroll_n())

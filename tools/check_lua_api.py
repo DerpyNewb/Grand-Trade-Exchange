@@ -169,6 +169,14 @@ NONEXISTENT = {
     "effect.get_localised_string": "does not exist; use common.get_localised_string",
 }
 
+# CALLS CA'S DOCS OMIT BUT CA'S OWN SHIPPED SCRIPTS MAKE. The index above is built from the docs
+# alone, so these read as unknown. Every entry names the CA files that call it - a zero-hit grep
+# of Modding Files/reference/ca_scripts_wh3 means it does not belong here.
+CA_USED = {
+    "cm:entity_add_pooled_resource_transaction":
+        "wh3_campaign_grudges.lua:870, wh3_cp1_bhashiva.lua:1354-1356 (negative values too)",
+}
+
 
 # AN EVENT-CONTEXT FIELD CALLED AS A METHOD. `context.string` on a campaign event is a
 # plain string field, so `context:string()` reads it (truthy), then calls it, and throws
@@ -194,6 +202,8 @@ def check(path, docs):
         for n, line in enumerate(fh, 1):
             line = line.split("--", 1)[0]  # ponytail: naive, "--" inside a string literal wins
             for recv, sep, member in CALL.findall(line):
+                if "%s%s%s" % (recv, sep, member) in CA_USED:
+                    continue
                 seps = {docs.get(p, {}).get(member) for p in SINGLETONS[recv]}
                 seps.discard(None)
                 if not seps:
@@ -282,6 +292,17 @@ def selftest():
     finally:
         os.remove(tmp)
     assert got == [(2, "unknown"), (3, "separator")], got
+
+    # A CALL CA'S DOCS OMIT BUT CA'S SHIPPED SCRIPTS MAKE passes; an undocumented one CA never
+    # makes still fails, or the allowlist has swallowed the check.
+    tmp4 = os.path.join(ROOT, "_selftest_used.lua")
+    open(tmp4, "w").write("cm:entity_add_pooled_resource_transaction(r, 'j', 1)\n"
+                          "cm:entity_add_pooled_resource_transactionn(r, 'j', 1)\n")
+    try:
+        used = [(n, k) for n, k, _ in check(tmp4, docs)]
+    finally:
+        os.remove(tmp4)
+    assert used == [(2, "unknown")], used
 
     # THE CHAINED RECEIVER. Both halves watched - the real member must pass and the
     # shipped typo must fail, or the rule is decoration.
