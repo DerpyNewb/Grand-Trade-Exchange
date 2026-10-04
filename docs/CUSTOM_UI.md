@@ -9,6 +9,56 @@ The build is `tools/gen_exchange_ui.py` (three `.twui.xml` files) plus
 `Modding Files/pack/script/campaign/mod/zzz_derpy_chd_exchange.lua` (creation, layout, text,
 clicks). Read those two together with this.
 
+## Design direction: brief it specifically, name what to avoid
+
+Unlike the rest of this file, this section was **not measured in game**. It is a design
+approach, adapted from aidesigner.ai's "How to Design Beautiful UIs With Claude Code" (2026),
+a guide written for web apps, and rewritten for `.twui.xml`. The guide's main point carries
+over: left alone, a model produces the most likely layout, and the most likely layout is
+generic. Vague words ("clean", "modern", "polished") do not change that. Specific constraints
+do, and so does a list of the defaults to avoid.
+
+**Brief a panel the way a reference shot would describe it**: "CA's two-layer parchment
+panel, a gold `brand_header` title on a dark plate, a ledger of 12pt rows with right-aligned
+figures", not "a nice trade panel". Name a CA panel to match before any XML is written.
+
+**Things to avoid**. These are the likely defaults, and each looks like a web page dropped
+into a Warhammer game:
+
+- flat `1x1_blank_white.png` boxes tinted to make "cards", in an even three-column grid
+- every label the same size and weight, so nothing reads as a heading
+- colours that come from no CA table: link-blue buttons, purple-to-blue gradients, pure `#FFFFFF` text
+- text laid straight onto bright art without a plate or scrim
+- everything centred, and dead space left where a column ended early
+- emoji or symbol glyphs (CA's fonts do not have them) and web-app wording such as "Get started" in loc
+- buttons or frames you drew yourself when CA ships one. Copy CA's whole component block instead
+
+**Typography.** The fonts are CA's own. Do not import one. Our panels use `brand_header`
+for titles, `la_gioconda_uppercase` for section labels, `georgia_italic` for flavour text,
+`Calligraph421` sparingly, and the default body font at 12 for everything else. Size steps should
+be obvious: body text is 12, headers 18-24. A header at 13 beside 12-point body text is not a heading.
+
+**Colour.** Use one main colour (the house or race colour) and one accent. Take every other
+colour from somewhere CA defines it: body text is `#FFF8D7`, and red is `FF2D2D`, from
+`db/ui_colours_tables`. Contrast is measured, not judged by eye: every text cell should be
+4.5:1 or better against what is actually drawn behind it.
+
+**Depth.** CA builds depth from layers, never a flat colour: the two-layer panel background
+(margins 5 and 30), a painted ground dimmed until text reads on it, and opaque plates behind
+anything that must stay readable.
+
+**Motion.** Use CA's own button states and sounds. Do not animate from script. The only 16ms
+poll in our panels moves the scroll holder.
+
+**Tokens.** Lock every colour and size into module-level constants in the generator
+(`BAR_COLOUR`, `GRID_COLOUR`, `DIVIDER_COLOUR` in `gen_exchange_ui.py`), and assert there that
+the Lua agrees with them. A colour typed straight into a cell will drift from the rest.
+
+**Compare and refine.** (1) Pick a CA reference screenshot. (2) Render ours
+(`tools/preview_exchange.py`, `tools/preview_guilds_panel.py`), or take an in-game screenshot.
+(3) List the differences under typography, colour, spacing and layout. (4) Fix them, then
+render again. The first pass is never done.
+
 ## The shape: your own files, created at runtime
 
 Never override a CA `.twui.xml`. It collides with every other mod touching that file and goes
