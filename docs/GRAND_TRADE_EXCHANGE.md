@@ -1234,7 +1234,7 @@ machine. Every other knob follows the player it is read for, in both modes.
   common; a third of the book at war shuts the market; the Council takes its cut nearly twice as
   often; and a dead clan leaves you almost nothing. The books are **thin**, so clans move prices
   against you on volume the others would not notice.
-- **Southern Realms: bankers.** The most liquid and forgiving board, and the one that almost
+- **Southern Realms: bankers.** The most open and forgiving board, and the one that almost
   never shuts. What it pays for that is exposure: a mercantile economy feels every sack, so
   shocks land harder here than anywhere.
 - **Dwarfs: the vault.** The safest board and the hardest to get into, and those are the same
@@ -1242,7 +1242,7 @@ machine. Every other knob follows the player it is read for, in both modes.
   `hostile_max` goes DOWN and `refuse_share` with it. `windup` 1.8 is the exact inverse of the
   Under-Market: a hold that fails pays its debts, so backing a loser costs you almost nothing.
   What you pay is the worst yield on the board and gates that shut early in a war.
-- **High Elves: old money.** The deepest books in the game and no refusals: an Elf does not
+- **High Elves: old money.** The deepest books in the game and few refusals: an Elf does not
   decline commerce, an Elf sets a price, which is why `refuse_share` and `hostile_max` go up
   together, the opposite pairing to the Dwarfs, saying the same thing from the other side.
   `div_yield` is deliberately UNDER the Empire's 1.5, because two races tied for a superlative

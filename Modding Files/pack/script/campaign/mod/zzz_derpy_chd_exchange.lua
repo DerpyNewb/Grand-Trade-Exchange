@@ -390,14 +390,14 @@ EX.RACES = {
     ["wh3_main_cth_cathay"] = {
         seg = "cth_", name = "The Ivory Road", offer_title = "The Assessment",
         patron = "The Court", house_word = "A Cathayan house",
-        intro = "You are Grand Cathay. The Ivory Road is regulated: the calmest and deepest board there is, and a thoroughly taxed one.",
+        intro = "You are Grand Cathay. The Ivory Road is regulated: the calmest board there is, and a thoroughly taxed one.",
         crest = "trait_cathay",
         wrath = "derpy_chd_ex_cth_court_wrath", pleased = "derpy_chd_ex_cth_court_pleased",
         boon_over = { res_animals = "+4 public order" },
         -- REGULATED. The calmest board of the eight, and the deepest after the High Elves'. The
         -- Court damps shocks harder than the Empire does and the books are so thick that cornering anything takes real
-        -- money. What you pay for it is the Assessment: more often than anyone else's tithe
-        -- and on a shorter cycle, because a regulated market is a taxed one.
+        -- money. What you pay for it is the Assessment, on a shorter cycle than most, because a
+        -- regulated market is a taxed one.
         tune = { shock_gain = 0.4, shock_max = 0.6, div_yield = 1.2, hostile_max = 0.8,
                  demand_cooldown = 0.8, demand_chance = 1.2, guild_close = 1.2,
                  windup = 1.2, book_per_rung = 1.6, pressure_per_rung = 1.5 },
@@ -437,7 +437,7 @@ EX.RACES = {
     ["mixer_teb_southern_realms"] = {
         seg = "teb_", name = "Merchant Compact", offer_title = "Consigned to the Temple",
         patron = "Myrmidia", house_word = "A Southern Realms city",
-        intro = "You are the Southern Realms. The Merchant Compact is a bankers' board: the most liquid here, and it feels every sack.",
+        intro = "You are the Southern Realms. The Merchant Compact is a bankers' board: the most open here, and it feels every sack.",
         -- THE EMPIRE'S CREST, BORROWED, exactly as the event-feed art is: Cataph's
         -- Southern Realms ships no crest of its own, and the choice is between another
         -- human culture's shield and a path that draws a blank square in silence.
@@ -493,7 +493,7 @@ EX.RACES = {
         -- Empire's - the patron who receives the offering is a god, the institution that
         -- notices is the Court, and the tier and wrath titles still say so.
         patron = "Asuryan", house_word = "An Elven kingdom",
-        intro = "You are the Asur. The Emerald Gate is old money: the deepest reserves there are, no refusals, and a price for being you.",
+        intro = "You are the Asur. The Emerald Gate is old money: the deepest reserves anywhere, few refusals, and a price for being you.",
         crest = "trait_high_elves",
         wrath = "derpy_chd_ex_hef_phoenix_wrath",
         pleased = "derpy_chd_ex_hef_phoenix_pleased",
@@ -501,7 +501,7 @@ EX.RACES = {
         -- THE DEEPEST AND MOST EXPENSIVE BOARD. An Elf does not decline commerce; an Elf
         -- sets a price. refuse_share goes UP and hostile_max goes up with it, which is the
         -- opposite pairing to the Dwarfs and says the same thing about the race from the
-        -- other side: they will always deal with you, and being what you are has a price.
+        -- other side: they rarely refuse you, and being what you are has a price.
         --
         -- div_yield is deliberately UNDER the Imperial Bourse's 1.5. Ulthuan is old money and
         -- pays well, but the Empire keeps the best-yield title it has shipped with, because
@@ -8238,8 +8238,8 @@ function EX.intro_lines()
         { "OUTPUT is what the whole world produces each turn. Buying never consumes it. What "
           .. "moves a price against you is pressure.", EX.art("sphere_of_influence_size") },
         { "" },
-        { "PRESSURE. Your own trades push the price. Buy the board out and every lot after "
-          .. "the first one costs you more.", EX.art("siege_attack") },
+        { "PRESSURE. Your own trades push the price. Every few lots you buy move it up a "
+          .. "step, and selling moves it back down.", EX.art("siege_attack") },
         { "" },
         { "WANTED and UNWANTED at the foot of the page are the world's appetites: who "
           .. "wants what this turn, and who does not.", EX.art("edict_stimulate_trade") },

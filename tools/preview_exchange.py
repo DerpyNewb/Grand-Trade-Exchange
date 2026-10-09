@@ -83,7 +83,7 @@ local function faction(k)
         name = function() return k end,
         -- A COVERED RACE, so the Offerings tab and the tithe are live the way a Chaos Dwarf
         -- player sees them. Uncovered, both are locked and the patron is "The altar".
-        culture = function() return "wh3_dlc23_chd_chaos_dwarfs" end,
+        culture = function() return PREVIEW_CULTURE or "wh3_dlc23_chd_chaos_dwarfs" end,
         is_null_interface = function() return false end,
         treasury = function() return TREASURY[k] or 0 end,
         at_war_with = function() return false end,
@@ -344,6 +344,20 @@ EX.trade_page = 3
 ok("layout", EX.layout)
 ok("refresh", EX.refresh_panel)
 """, [], "Trade, Orders page: standing orders filled at turn end"),
+    "intro": (r"""
+EX.mode = EX.MODE_INTRO
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "The first-open introduction, Chaos Dwarfs (19 rows)"),
+    # THE TIGHT CASE: every race but the Chaos Dwarfs has 17 rows for the 17 intro lines, and
+    # the Druchii carry the longest race sentence.
+    "intro_def": (r"""
+PREVIEW_CULTURE = "wh2_main_def_dark_elves"
+-- build_panel --
+EX.mode = EX.MODE_INTRO
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "The first-open introduction, Druchii (17 rows)"),
     "help": (r"""
 EX.mode = EX.MODE_HELP
 ok("layout", EX.layout)
@@ -715,6 +729,11 @@ def selftest():
     for want in ("Warehouse rent", "Offered", "demands", "of 25 lots", "Sell refused"):
         if want not in names:
             fails.append("log: no line containing %r" % want)
+    for scene in ("intro", "intro_def"):
+        text = " ".join(c["text"] for c in got[scene][0] if c.get("text"))
+        for want in ("You are the", "HOUSES.", "Click a tab below", "will not be shown again"):
+            if want not in text:
+                fails.append("%s: nothing drawn containing %r" % (scene, want))
     if "deals are waiting" not in got["log"][1]:
         fails.append("log: the opener's tooltip does not name the deals: %r" % got["log"][1])
     for f in fails:
