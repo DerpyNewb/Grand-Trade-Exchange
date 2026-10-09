@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Resolve and export every icon the Zharr Exchange uses, out of CA's ui packs.
 
-WHY THIS IS NOT A BYTE-GREP. `ui/**/*.png` in CA's packs is COMPRESSED (compression flag 1
-on every one measured 2026-09-09), so read_pack_index gets the path and the raw block and not
-a usable PNG. RPFM is the only thing that decompresses, which is why the extraction half of
-this runs through the MCP server and this file only does the two ends: work out exactly which
-paths are wanted and which pack each is in, then check what came back.
+WHY THIS IS NOT A BYTE-GREP. `ui/**/*.png` in CA's packs is COMPRESSED (compression flag 1),
+so read_pack_index gets the path and the raw block and not
+a usable PNG. The block is a u32 length then a zstd frame, the wrapper read_vanilla_loc strips,
+so it can be read offline too; the extraction itself was run through RPFM, and this file only
+does the two ends: work out exactly which paths are wanted and which pack each is in, then
+rename what came back.
 
 WHY THE WANTED LIST IS DERIVED, NOT TYPED. The commodity list, the race crests and the intro
 art stems all come from the shipped Lua and the generator, so a commodity added tomorrow is
@@ -15,7 +16,7 @@ those is asserted against the display name the mod already resolves ("Salt" -> r
 so a wrong guess fails here rather than shipping a picture of the wrong good.
 
     py tools\\export_exchange_icons.py --resolve   # write the manifest, no RPFM needed
-    py tools\\export_exchange_icons.py --check     # verify what was extracted
+    py tools\\export_exchange_icons.py --organise  # renamed copies + README of an extraction
 """
 import io
 import json
@@ -77,8 +78,8 @@ def wanted():
 
     w = {}
 
-    # --- the seventeen, plus CA's _large variant where one exists (added by the caller
-    # against the real index; asking for one that does not exist is not an error) ---
+    # The seventeen, plus CA's _large variant where one exists (added by the caller
+    # against the real index; asking for one that does not exist is not an error).
     com = []
     for key in G.COMMODITIES:
         stem = ICON_STEM[key]
@@ -91,7 +92,7 @@ def wanted():
         com.append(ART + stem + "_large.png")
     w["commodities"] = com
 
-    # --- the intro page: every EX.art("...") literal, plus every race crest ---
+    # The intro page: every EX.art("...") literal, plus every race crest.
     stems = set(re.findall(r'EX\.art\("([a-z0-9_]+)"\)', lua))
     stems |= set(re.findall(r'crest\s*=\s*"([a-z0-9_]+)"', lua))
     m = re.search(r'EX\.INTRO_UNCOVERED_CREST\s*=\s*"([a-z0-9_]+)"', lua)
@@ -100,11 +101,11 @@ def wanted():
     assert len(stems) >= 15, "only %d intro art stems found - the scan is broken" % len(stems)
     w["intro"] = [ART + s + ".png" for s in sorted(stems)]
 
-    # --- the effect-bundle icons the DB rows carry ---
+    # The effect-bundle icons the DB rows carry.
     w["bundles"] = [ART + n for n in sorted({
         G.ICON_TRADE, G.ICON_OFFERING, G.ICON_PLEASED, G.ICON_WRATH, G.ICON_STOCK})]
 
-    # --- the event-feed pictures. G.FEED is (key, index, image, ...) per row ---
+    # The event-feed pictures. G.FEED is (key, index, image, ...) per row.
     # Empties filtered: not every feed row carries a picture, and a blank one would resolve to
     # the bare folder and report as missing.
     feed = sorted({r[2] for r in G.FEED if r[2]})

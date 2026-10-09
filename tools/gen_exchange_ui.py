@@ -1,4 +1,4 @@
-"""Generate the Zharr Exchange's three .twui.xml files.
+"""Generate the Zharr Exchange's seven .twui.xml files.
 
     py tools/gen_exchange_ui.py            # writes them
     py tools/gen_exchange_ui.py --check    # build only, write nothing
@@ -12,11 +12,15 @@ every one is unique and paired.
 
 GUID RANGES, so nothing here can collide with what already ships:
     DE14xxxx  derpy_chd_rite_costs / _totals / _fire   (the commission panel widgets)
-    DE15xxxx  RETIRED - was derpy_chd_ex_delta, deleted 2026-09-09. Do not reuse.
+    DE15xxxx  RETIRED (was derpy_chd_ex_delta). Do not reuse.
     DE16xxxx  derpy_chd_exchange_panel                 <- this file
     DE17xxxx  derpy_chd_exchange_row                   <- this file
     DE18xxxx  derpy_chd_exchange_button                <- this file
-    GG21xxxx  derpy_gg_panel / _card / _row            (The Great Guilds, claimed 2026-09-10,
+    DE1Axxxx  derpy_chd_ex_list                        <- this file
+    DE1Bxxxx  derpy_chd_ex_sp                          <- this file
+    DE1Cxxxx  derpy_chd_exchange_panel_large           <- this file
+    DE1Dxxxx  derpy_chd_exchange_row_large             <- this file
+    GG21xxxx  derpy_gg_panel / _card / _row            (The Great Guilds,
                                                         owned by tools/gen_guilds_ui.py)
 """
 import io
@@ -32,25 +36,24 @@ SPARK_BARS = 12       # sparkline width, in turns of history
 # indexes cbar_00..cbar_39 by name, so a mismatch is a chart that silently draws short or
 # reaches for a component that does not exist. selftest() pins the two together.
 DEEP_BARS  = 40
-# 20 AND 16, NOT 21 AND 17. The plot gave up 66px off its left edge for the y scale, so
-# the pitch had to come down to keep 40 bars inside the panel: CHART_LEFT + 40*20 = 886
-# against a content edge at 900. 4px of air between bars either way.
+# 20 AND 16, NOT 21 AND 17. The plot gives 66px off its left edge to the y scale, so the
+# pitch keeps 40 bars inside the panel: CHART_LEFT + 40*20 = 886 against a content edge at
+# 900. 4px of air between bars either way.
 CHART_PITCH = 20
 CHART_BAR_W = 16
 CHART_H     = 300
 CHART_TOP   = 110
 # THE PLOT'S LEFT EDGE, and the gutter left of it that the y scale is right-aligned into
-# (20..80, then 6px of air). The bars used to start at 20; a y label inside the plot would
-# be legible for the first twenty turns and then sit under a bar forever.
+# (20..80, then 6px of air). A y label inside the plot would end up under a bar.
 CHART_LEFT  = 86
 CHART_GUT   = 60
-# THE SHORTEST BAR A LOW PRICE DRAWS, so the lowest rung in the window is still visible
+# THE SHORTEST BAR A LOW PRICE DRAWS, so the lowest step in the window is still visible
 # rather than a zero-height nothing. It is also why the LOW gridline is at CHART_H - 6 and
 # not at CHART_H: the bottom of the scale is the top of that stub. Must match
 # EX.CHART_FLOOR - check_chart_geometry pins all six of these constants across the two
 # files, because nothing else can see that the Lua and the XML disagree.
 CHART_FLOOR = 6
-# THE FIVE VIEWS, in the order their tabs sit across the strip. selftest() asserts this is
+# THE SIX VIEWS, in the order their tabs sit across the strip. selftest() asserts this is
 # exactly EX.MODES from the Lua: a tab with no mode is a dead button, a mode with no tab is a
 # view the player cannot reach now that the arrows page instead of cycling.
 TAB_MODES = ["trade", "stats", "offer", "houses", "deals", "log"]
@@ -66,9 +69,9 @@ PANEL_W, PANEL_H = 920, 736
 # it is what the existing derpy rite widgets use, and it drew correctly in game.
 # panel_back_border.png resolves but drew nothing, so it is not used.
 #
-# At PANEL size it is not enough: stretched to 900x700 it reads as no background at all
-# (reported 2026-09-04). panel_back_tile.png is what CA's own panel interiors use - 204
-# references in ui3.pack - and it is built to tile, so it is the panel body here.
+# At PANEL size it is not enough: stretched to 900x700 it reads as no background at all.
+# panel_back_tile.png is what CA's own panel interiors use (204 references in ui3.pack),
+# and it is built to tile, so it is the panel body here.
 GAME = r"F:\SteamLibrary\steamapps\common\Total War WARHAMMER III"
 
 BG = "ui/skins/default/icon_banner_bg.png"
@@ -83,24 +86,13 @@ BTN_BG = "ui/skins/default/button_square_large_text_active.png"
 # reach is simply never entered, and that is a silent non-draw of the ordinary kind. See
 # _state() for the index vocabulary, read out of CA's ui/templates/round_small_button.twui.xml.
 BTN_HOVER = "ui/skins/default/button_square_large_text_hover.png"
-# The HUD opener. A round parchment button is what CA uses for the small standalone HUD
-# buttons, and unlike a flat icon it reads as pressable at 48x48.
-# The round parchment plate CA uses for standalone HUD buttons (41x42 native), with a trade
-# icon laid over it. The plate alone is just a blank disc and reads as nothing.
-# CA's own round HUD button chrome, not our own parchment square.
-#
-# Reported from play 2026-09-06: "the button looks low quality". It was
-# parchment_button_round_active.png 9-sliced with margin 8 - a flat pale plate that reads as a
-# square next to the bronze rings CA uses for every other HUD button.
-#
-# button_round_medium_* is THE standard: 555 uses of _active across ui3.pack, against 0 for the
-# parchment one on any HUD button. underlay goes down first (it is the base plate CA draws
-# beneath every round button), then the frame, then our own logo on top - the logo is unchanged,
-# which is what was asked for.
+# THE HUD OPENER: CA's own round HUD button chrome with our logo on top. button_round_medium_*
+# is THE standard (555 uses of _active across ui3.pack, 0 for the parchment plate on any HUD
+# button). The underlay goes down first (CA's base plate beneath every round button), then
+# the frame, then the logo.
 #
 # MARGIN 0 ON BOTH, deliberately. A 9-slice margin on a ROUND texture stretches its middle and
-# pins its corners, which is exactly how a circle turns into a squarish blob - the old margin 8
-# is half of why this read as low quality.
+# pins its corners, which turns a circle into a squarish blob.
 OPENER_LAYERS = [
     {"path": "ui/skins/default/button_round_medium_underlay.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "dock": None},
@@ -118,9 +110,8 @@ OPENER_HOVER = [
     {"path": "ui/skins/default/icon_trade.png",
      "offset": (10, 10), "dw": -20, "dh": -20, "margin": 0, "dock": "Center"},
 ]
-# A 1x1 white pixel, stretched and tinted. The sparkline bars used icon_banner_bg (127x29 of
-# decorative banner), and a 7x14 slice of that reads as a faint dot, not a bar - which is what
-# made the "Last 12 turns" column look broken rather than flat.
+# A 1x1 white pixel, stretched and tinted. A small slice of decorative art such as
+# icon_banner_bg reads as a faint dot at bar size, not a bar.
 BAR_BG = "ui/skins/default/1x1_blank_white.png"
 BAR_COLOUR = "#C8A05AFF"
 # THE GRIDLINES, the bar gold at a third alpha. #RRGGBBAA - alpha LAST; a four-digit tail
@@ -142,10 +133,10 @@ SND_CLOSE = "UI_GBL_TMP_Round_Small_Button"
 # Placeholder only. Lua rewrites this per row with the resource's own icon_filepath, read
 # straight out of CA's resources_tables - see EX.INFO in zzz_derpy_chd_exchange.lua.
 ICON_BG = "ui/campaign ui/effect_bundles/resource_gold.png"
-# CA's close button is a round plate plus a cross glyph - see button_close in
-# ui/campaign ui/search_panel.twui.xml. button_icon_close_24.png, which this used to name,
-# DOES NOT EXIST in any shipped pack; a missing texture renders as a blank white square, which
-# is exactly what it drew. selftest() now checks every imagepath against the game's packs.
+# CA's close button is a round plate plus a cross glyph (see button_close in
+# ui/campaign ui/search_panel.twui.xml). button_icon_close_24.png DOES NOT EXIST in any
+# shipped pack, and a missing texture renders as a blank white square, so selftest()
+# checks every imagepath against the game's packs.
 CLOSE_LAYERS = [
     {"path": "ui/skins/default/button_round_small_active.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "dock": None},
@@ -177,11 +168,11 @@ HELP_HOVER = [
 # THE VIEW NAVIGATION ARROWS. Round plate plus a bare glyph, exactly like close_button and
 # btn_help, because they are controls of the same rank and sit in the same right-hand column.
 #
-# NOT button_cycle_arrow_active.png, which is what shipped first. That file is not a glyph -
+# NOT button_cycle_arrow_active.png. That file is not a glyph:
 # ui/templates/cycle_button_arrow_next.twui.xml names it and nothing else, so it is the WHOLE
-# button: an arrow-shaped red plate with its own bronze border, 49x45. Laid over a second plate
-# it read as a red slab with a small mark on it (screenshotted 2026-09-07, "make the buttons
-# circular"). button_indicator_arrow_active.png is the same kind of thing.
+# button, an arrow-shaped red plate with its own bronze border, 49x45. Laid over a second
+# plate it reads as a red slab with a small mark on it. button_indicator_arrow_active.png is
+# the same kind of thing.
 #
 # icon_credits_back.png is a flat bronze triangle pointing LEFT on transparency, 56x56 - the
 # same family as icon_cross_small and icon_question_mark, which is why it sits on the round
@@ -224,9 +215,8 @@ NEXT_HOVER = _flipped(MODE_HOVER)
 # TOOLTIPS ARE LITERAL TEXT HERE, NOT A {{tr:}} LOC KEY, and the "||" is why.
 #
 # "Title||Body" is how CA splits a tooltip's title from its body, and a long tooltip without the
-# split renders in a box that does not grow - ours clipped mid-glyph on line two. But routing the
-# same string through a loc key printed the pipes VERBATIM on screen (screenshotted twice,
-# 2026-09-04 and again 2026-09-05 after a first fix that only moved the text around).
+# split renders in a box that does not grow and clips on line two. Routing the same string
+# through a loc key of our own prints the pipes VERBATIM on screen.
 #
 # The difference is the resolver. CA's `{{tr:X}}` is a TEXT REPLACEMENT lookup, not a plain
 # translate - it resolves `ui_text_replacements_localised_text_X`, and whatever consumes that
@@ -236,36 +226,28 @@ NEXT_HOVER = _flipped(MODE_HOVER)
 # CA's own split is 1,076 literal values against 178 `{{tr:}}` ones, so literal text is both the
 # majority route and the one with no indirection to get wrong. The cost is that these strings are
 # not localisable; that is the trade, and it is why they live here rather than in the loc.
-# THE LAST SENTENCE IS THE AI-TURN GATE EXPLAINING ITSELF, and it lives HERE rather than in a
-# runtime SetTooltipText. The gate greys the button between FactionTurnEnd and
-# FactionTurnStart (EX.gate_button), and a greyed control with no reason reads as a bug.
-# Swapping the tooltip at runtime was the obvious version and it is the risky one: TIP_OPEN
-# carries CA's Title||Body split, which is proven only as literal XML, and writing it back
-# through SetTooltipText might draw the pipes (wh3-tooltip-pipe-split-needs-literal-text).
-# As a permanent line it needs no setter, no state to restore, and it teaches the rule
+# THE LAST SENTENCE IS THE AI-TURN GATE EXPLAINING ITSELF. The gate greys the button between
+# FactionTurnEnd and FactionTurnStart (EX.gate_button), and a greyed control with no reason
+# reads as a bug. As a permanent line it needs no state to restore, and it teaches the rule
 # BEFORE the player meets it rather than only once they are already blocked.
 # check_ai_turn_gate() refuses to let the gate and this sentence part company.
-# THE TITLE LINE IS RACE-NEUTRAL, and this string is only a FALLBACK now. The panel serves
-# four races and this text is static, so it said "The Zharr Exchange" to a Skaven player
-# (screenshot, 2026-09-08). EX.button_tip() overwrites the whole tooltip at runtime with the
-# player's own market name; what is left here is what shows if that setter never runs.
+# THE TITLE LINE IS RACE-NEUTRAL, and this string is only a FALLBACK. EX.button_tip()
+# overwrites the whole tooltip at runtime with the player's own market name; what is left
+# here is what shows if that setter never runs.
 #
 # THE BODY MUST MATCH EX.TIP_OPEN_BODY in zzz_derpy_chd_exchange.lua word for word -
 # check_button_tip() in gen_zharr_exchange.py fails the build if the two drift.
 TIP_OPEN = ("The Exchange||Buy and sell the world's trade goods at prices set by how "
             "scarce they are on the map, and by who controls them. Closed while the other "
             "powers take their turn.")
-# TWO BUTTONS NOW, NOT ONE CYCLE. The single arrow only ever went forwards, so reaching
-# the view one to the left cost three clicks, and a player who overshot had no way back.
-# The page counter between them is what makes "one to the left" a thing you can see
-# rather than count out.
-TIP_MODE = ("Next view||Trading, ownership, offerings and houses: who produces each "
-            "commodity, who controls it, and what that control adds to the price.")
-TIP_PREV = ("Previous view||Back one. The four trading views wrap, so this reaches the "
-            "last of them from the first.")
+# TWO BUTTONS, NOT ONE CYCLE: a forward-only arrow leaves no way back from an overshoot.
+# The page counter between them makes "one to the left" a thing you can see rather than
+# count out.
+TIP_MODE = "Next page||Forward one page of this view. The tabs below change view."
+TIP_PREV = "Previous page||Back one page of this view. The tabs below change view."
 TIP_TAB = "Switch to this view."
-# A PAGE COUNTER SINCE THE TABS ARRIVED, not a view counter - it read "the four trading views"
-# for a year of six tabs. The arrows either side of it carry runtime tooltips; this one does not.
+# A PAGE COUNTER, not a view counter. The arrows either side of it carry runtime tooltips;
+# this one does not.
 TIP_PAGE = ("Page||Which page of this view you are on. The arrows either side of it turn the "
             "page; the tabs below change the view.")
 TIP_CLOSE = "Close"
@@ -273,10 +255,7 @@ TIP_HELP = ("What the panel means||Every column, symbol and view explained, with
             "goods costs and what it earns.")
 TIP_BUY = ("Buy a lot||Bought at the price shown. Buying repeatedly drives this commodity's "
            "price up.")
-# The 10% is EX.SPREAD in zzz_derpy_chd_exchange.lua. It is named here because the Price
-# column shows the BUY price only, so without this line the panel would be lying about
-# what a sale pays - the one invariant this UI has held from the start.
-# The 10% is no longer spelled out here: the Sell column shows the actual figure, and a
+# The spread is not spelled out here: the Sell column shows the actual figure, and a
 # tooltip repeating a number that is already on the row is one more place for it to go stale.
 TIP_SELL = ("Sell a lot||Sold at the Sell price, which is under the Buy price. The exchange "
             "keeps the difference, so a round trip cannot mint gold.")
@@ -304,17 +283,17 @@ DIVIDER_COLOUR = "#6B583680"
 # ui/templates/panel_frame.twui.xml. Do not simplify it back to one image.
 #
 # `margin` is the 9-slice inset: it tells the engine which border of the texture must NOT be
-# stretched or repeated. With margin="0,0,0,0" - what this generator emitted first - a tiled
-# texture repeats raw, and panel_back_tile.png's transparent edge then shows through as a grid
-# of seams across the panel. Screenshotted 2026-09-04; it read as floating blocks, not a panel.
+# stretched or repeated. With margin="0,0,0,0" a tiled texture repeats raw, and
+# panel_back_tile.png's transparent edge then shows through as a grid of seams across the
+# panel.
 #
 # CA's recipe at 418x530: border at full size margin 30, body inset 9,3 at margin 5, priority 60.
 # Scaled to our size below.
 PANEL_LAYERS = [
     # FULL SIZE, no dockpoint. CA insets its body by (9,3) inside a 418x530 frame, but CA also
     # relies on dockpoint="Center" meaning "centre it" - here the two are CUMULATIVE, so the
-    # body was shifted 18 right and 6 down and left a bare strip along the right and bottom
-    # edges (screenshotted 2026-09-04). The border draws after the body and covers the overlap,
+    # body shifts 18 right and 6 down and leaves a bare strip along the right and bottom
+    # edges. The border draws after the body and covers the overlap,
     # so filling the whole component is safe and cannot gap.
     {"path": "ui/skins/default/panel_back_tile.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 5, "tile": True, "dock": None},
@@ -410,9 +389,9 @@ def _state(c, name, sguid, entries, target):
           'width="%d"' % c.w, 'height="%d"' % c.h]
     if kw.get("interactive"):
         st.append('interactive="true"')
-    # NO dockpoint / dock_offset. MEASURED 2026-09-04: the engine ignores both on these
-    # runtime-created components - every child rendered at its parent's origin, stacked, so only
-    # the last-drawn one was visible. uicomponent:MoveTo works, so EX.layout() in
+    # NO dockpoint / dock_offset. The engine ignores both on these runtime-created
+    # components: every child renders at its parent's origin, stacked, so only the
+    # last-drawn one is visible. uicomponent:MoveTo works, so EX.layout() in
     # zzz_derpy_chd_exchange.lua positions every component explicitly. The same is true of
     # SetDockOffset at runtime.
     st.append('uniqueguid="%s"' % sguid)
@@ -431,12 +410,11 @@ def _state(c, name, sguid, entries, target):
                        c.w + lay.get("dw", 0), c.h + lay.get("dh", 0)))
             if lay.get("tile"):
                 out += '\t\t\t\t\t\t\ttile="true"\n'
-            # MIRRORS THE GLYPH HORIZONTALLY. x_flipped, NOT flipped - the shorter name
+            # MIRRORS THE GLYPH HORIZONTALLY. x_flipped, NOT flipped: the shorter name
             # is not an attribute the engine knows, and an unknown attribute is ignored
-            # in silence, so the first version of this shipped two arrows pointing the
-            # same way with every check green (screenshotted 2026-09-07). The name is
-            # copied out of CA's own ui/templates/cycle_button_arrow_next.twui.xml,
-            # where it is the ONLY difference from the previous button.
+            # in silence. The name is copied out of CA's own
+            # ui/templates/cycle_button_arrow_next.twui.xml, where it is the ONLY
+            # difference from the previous button.
             if lay.get("flip"):
                 out += '\t\t\t\t\t\t\tx_flipped="true"\n'
             if dock:
@@ -465,18 +443,19 @@ def _state(c, name, sguid, entries, target):
         out += ('\t\t\t\t\t<component_text\n'
                 # texthalign is HORIZONTAL, textvalign is VERTICAL - counted in ui3.pack:
                 # textvalign is Center 8734 / Bottom 219, texthalign is Center 3981 /
-                # Right 631. This generator had them the other way round, and passed British
-                # "Centre", which is not a value the engine accepts - an unknown value is
-                # ignored in silence, so every button label sat left and high.
+                # Right 631. British "Centre" is not a value the engine accepts; an unknown
+                # value is ignored in silence and the label sits left and high.
                 '\t\t\t\t\t\ttexthalign="%s"\n\t\t\t\t\t\ttextvalign="%s"\n'
                 '\t\t\t\t\t\ttextxoffset="%s"\n\t\t\t\t\t\ttextyoffset="%s"\n'
                 '\t\t\t\t\t\ttexthbehaviour="Never split"\n'
                 '\t\t\t\t\t\tfont_m_size="%d"\n\t\t\t\t\t\tfont_m_colour="%s"\n'
-                '\t\t\t\t\t\tfont_m_leading="3"\n\t\t\t\t\t\tfontcat_name="body_%d"/>\n'
+                '\t\t\t\t\t\tfont_m_leading="3"\n\t\t\t\t\t\tfontcat_name="%s"/>\n'
                 % (kw.get("align", "Left"), kw.get("valign", "Center"),
                    kw.get("tx", "4.00,0.00"),
                    kw.get("ty", "8.00,0.00"), kw.get("size", 12),
-                   kw.get("colour", "#FFF8D7FF"), kw.get("size", 12)))
+                   kw.get("colour", "#FFF8D7FF"),
+                   # NAMED by large(); the normal files still build it from the size.
+                   kw.get("fontcat", "body_%d" % kw.get("size", 12))))
 
     out += "\t\t\t\t</%s>\n" % name
     return out
@@ -561,17 +540,12 @@ def build_panel():
             hover=HELP_HOVER, sound=SND_CLOSE,
             dockpoint="Top Right", dock_offset="-50.00,10.00",
             tooltip=TIP_HELP))
-    # THE VIEW NAVIGATION, bottom right, on a strip of its own below both footer lines. It
-    # lived in the title bar as a single forward-only cycle button until 2026-09-07: paging a
-    # four-view panel one way only meant three clicks to reach the view immediately left of you
-    # and no undo at all for an overshoot.
+    # THE VIEW NAVIGATION, bottom right, on a strip of its own below both footer lines.
     #
-    # IT DOES NOT SHARE THE FOOTER'S LINE, which is where the empty pixels actually were.
-    # check_footer_bounds in gen_zharr_exchange.py measures those two lines at their worst case
-    # and gets 114 and 118 characters against an 880px box at ~6.7px each; a nav cluster on the
-    # same line leaves 117 characters at the very best, and this text has clipped mid-word in
-    # play twice already. PANEL_H went 700 -> 736 instead, which costs nothing and risks
-    # nothing.
+    # IT DOES NOT SHARE THE FOOTER'S LINE. check_footer_bounds in gen_zharr_exchange.py
+    # measures those two lines at their worst case at 114 and 118 characters against an
+    # 880px box at ~6.7px each; a nav cluster on the same line leaves 117 at the very best.
+    # PANEL_H is 736, not 700, to give the strip a line of its own.
     #
     # derpy_chd_ex_mode keeps its name through the move: the Lua click listener matches on
     # component name alone, and a name CA also uses would fire this on unrelated panels. It is
@@ -590,9 +564,7 @@ def build_panel():
             hover=NEXT_HOVER, sound=SND_CLOSE,
             dockpoint="Bottom Right", dock_offset="-14.00,-10.00",
             tooltip=TIP_MODE))
-    # THE VIEW TABS, five across the empty half of the same strip. Asked for from play
-    # 2026-09-07: "additional 5 buttons here for all the panels so that the player dont need
-    # to scroll the panels using the two arrow buttons" - Houses was three clicks from Trade.
+    # THE VIEW TABS, across the empty half of the same strip, so every view is one click away.
     #
     # NAMED AFTER THE MODE THEY SELECT, matching EX.tab_name(mode) in the Lua, so the click
     # listener maps a component straight back to a view with no second table between them.
@@ -600,9 +572,7 @@ def build_panel():
     # button that is simply not on screen and a mode with no tab is a view with no way in.
     #
     # 108 WIDE AT 116 PITCH from x=20: the last ends at 708 and the back arrow starts at 774,
-    # so the two clusters cannot touch. It was 132 on 140 for FIVE tabs, ending at 712 - a sixth
-    # on that pitch would have started at 720 and run to 852, straight through both nav buttons,
-    # which is why adding a view re-pitched the strip. The 8px gap between tabs is preserved.
+    # so the two clusters cannot touch, with an 8px gap between tabs.
     # The x/y here are placeholders - place() positions every one of these from the layout
     # tables in the Lua, which is where the numbers live, and selftest() pins the two together.
     tabhov = [{"path": BTN_HOVER, "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0,
@@ -612,46 +582,38 @@ def build_panel():
                 hover=tabhov, sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
                 dockpoint="Bottom Left", dock_offset="%.2f,-12.00" % (20 + i * TAB_PITCH),
                 tooltip=TIP_TAB))
-    # THE SUB-TABS (2026-09-30), the tabs' twins in the title bar: Houses | Index | Bonds and
-    # Deals | Contracts, asked for from play because the index and bonds pages sat at 4/5 and
-    # 5/5 behind the arrows and nobody found them. SLOTS, labelled per view by the Lua
-    # (EX.SECTIONS); placed by its layout tables like the tabs, so the offsets here are
-    # placeholders too.
+    # THE SUB-TABS, the tabs' twins in the title bar (Houses | Index | Bonds and Deals |
+    # Contracts), so a view's later pages are not hidden behind the arrows. SLOTS, labelled per
+    # view by the Lua (EX.SECTIONS); placed by its layout tables like the tabs, so the offsets
+    # here are placeholders too.
     for i in range(1, SUB_SLOTS + 1):
         p.add(C("derpy_chd_ex_sub_%d" % i, TAB_W, 26, interactive=True, image=BTN_BG,
                 hover=tabhov, sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
                 dockpoint="Top Left", dock_offset="%.2f,16.00" % (484 + (i - 1) * TAB_PITCH),
                 tooltip=TIP_TAB))
     # ONE LABEL PER COLUMN, not one space-padded string. The font is proportional, so padded
-    # spaces never line up with the row columns below; and the single header_text carried
-    # ty="44.00,0.00" - a 44px text offset inside a 22px-tall box - so it drew below its own
-    # component, behind the first row, and was invisible on screen (screenshotted 2026-09-04).
+    # spaces never line up with the row columns below.
     # x offsets here must stay in step with EX.ROW_LAYOUT in the Lua, plus the 20px holder inset.
     # Widths must leave a gap to the NEXT column's x offset (see EX.PANEL_LAYOUT): at 60 wide
     # hdr_trend overlapped the sparkline header and drew "TrendLast 12 turns"; at 28 it clipped
-    # to "Tr...". 46 fits the word and still clears hdr_spark at 384.
+    # to "Tr...". EX.PANEL_LAYOUT resizes it to 46 at runtime, which fits the word and still
+    # clears hdr_spark; the 36 below is only this file's starting size.
     #
-    # ALIGNMENT AND textxoffset ARE THE ROW CELL'S, NOT A CHOICE MADE HERE. Every header shipped
-    # Left with tx=0 while the numeric cells under them are Right with tx=4, so "Held / rent"
-    # and "Last 12 turns" floated a column-width away from the figures they name (§7 of
-    # HANDOFF_20260906_PANEL_TOOLTIPS). Copying BOTH values off the cell is what makes the two
-    # boxes resolve to the same pixel, whatever textxoffset means against a Right align - and it
-    # is right in all three views for free, because a cell's alignment does not change with the
-    # mode. check_ui() pins each pair.
+    # ALIGNMENT AND textxoffset ARE THE ROW CELL'S, NOT A CHOICE MADE HERE. A Left tx=0 header
+    # over a Right tx=4 numeric cell floats a column-width away from the figures it names.
+    # Copying BOTH values off the cell makes the two boxes resolve to the same pixel, in every
+    # view, because a cell's alignment does not change with the mode. selftest() pins each pair.
     #
     # hdr_spark is the one header with no text cell under it, and it is Right because the bars
     # are: EX.draw_spark indexes h[#h - (SPARK_BARS - 1 - i)], so history fills from the RIGHT
     # and an early campaign draws three bars at the far end of the strip. Left-aligned, the
     # label sat 70px from its own data. Its width tracks the strip (SPARK_BARS * 9) in
     # EX.PANEL_LAYOUT so "right" means the newest bar's edge.
-    # SEVEN HEADERS, AND THE HOUSES VIEW ADDS NONE. It briefly had two of its own, hdr_div and
-    # hdr_seat, on the argument that a table mapping "hdr_sell" to a dividend column is the
-    # wrong kind of surprising. That cost two GUIDs, two EX.HEADERS.trade entries whose only job
-    # was to feed the hide loop, two EX.TIPS.trade entries whose only job was to satisfy
-    # check_tooltips - and a real bug: EX.TIP_CELL then pointed both hdr_div and hdr_sell at
-    # row_sell, and EX.apply_tips walks pairs(), so the trade view's sell column answered with
-    # one of the two tooltips at random. EX.HEADERS is the mechanism for "same component,
-    # different label per mode" and it already relabels hdr_price to "Share" in the stats view.
+    # SEVEN HEADERS, AND THE HOUSES VIEW ADDS NONE. EX.HEADERS is the mechanism for "same
+    # component, different label per mode" (it relabels hdr_price to "Share" in the stats
+    # view). A view-only header aliasing another's cell makes EX.TIP_CELL point two headers at
+    # one cell, and EX.apply_tips walks pairs(), so that column answers with one of the two
+    # tooltips at random.
     for hid, w, align in (("hdr_name", 170, "Left"), ("hdr_price", 90, "Right"),
                           ("hdr_sell", 74, "Right"),
                           ("hdr_supply", 60, "Right"),
@@ -661,41 +623,22 @@ def build_panel():
                 tx="4.00,0.00", ty="0.00,0.00"))
     # Lua creates one derpy_chd_exchange_row per instrument into this.
     p.add(C("rows_holder", ROW_W, 560, dockpoint="Top Left", dock_offset="16.00,70.00"))
-    # TWO FOOTER LINES, and the second is not decoration.
-    #
-    # MEASURED IN GAME 2026-09-06 with uicomponent:TextDimensionsForText: the trade footer needs
-    # 1333px and the offerings footer 1333px, in an 880px box. Both clipped mid-word on screen
-    # ("Shaken: Gemsto...").
-    #
-    # A TALLER BOX DOES NOT WRAP. texthbehaviour has exactly three values in ui3.pack - "Never
-    # split" (5365), "Resize" (4403), "Slip by character" (115) - there is no wrap value, and
-    # textvbehaviour does not exist at all. Resizing the live component to 880x60 still measured
-    # the text as 1333x32: one line, clipped. So more lines means more COMPONENTS.
-    # ------------------------------------------------------------------ THE DEEP CHART
-    # Trade page 2: one instrument, forty turns, the full width of the panel. It lives in
-    # the PANEL file rather than a file of its own, so it costs no new GUID range - DE15
-    # is retired and reusing it against a save that still holds the old component is a
+    # THE DEEP CHART, Trade page 2: one instrument, forty turns, the full width of the panel.
+    # It lives in the PANEL file rather than a file of its own, so it costs no new GUID range.
+    # DE15 is retired and reusing it against a save that still holds the old component is a
     # silent non-draw.
     #
     # EVERY ONE OF THESE IS HIDDEN ON EVERY OTHER VIEW by EX.layout, which hides anything
     # its mode's table does not name. An unplaced component keeps the last view's
-    # coordinates and draws over whatever the new one put there - the fault that once put
-    # 19 commodity rows on top of the Houses view.
+    # coordinates and draws over whatever the new one put there.
     # THE GRIDLINES, one per y tick, DECLARED BEFORE THE PLOT so the bars paint over them
-    # rather than the other way round. That ordering is INTENT, not a measurement - the
-    # engine's sibling draw order has not been read here - so check_chart_geometry pins the
-    # order rather than the result, and a rule sitting on top of a bar is the thing to look
-    # for the first time this is seen in play. Asked for from a screenshot 2026-09-09 ("add also line guide
-    # for the chart"): with three numbers down the left and nothing carrying them across, a
-    # bar's value has to be estimated against a label 800px away.
+    # rather than the other way round. That ordering is INTENT, not a measurement (the
+    # engine's sibling draw order has not been read here), so check_chart_geometry pins the
+    # order rather than the result; a rule sitting on top of a bar is the thing to look for
+    # in play. Without them a bar's value has to be read against a label 800px away.
     #
-    # THIS REVERSES THE NOTE THAT USED TO SIT BELOW, which read "three ticks and not a grid:
-    # a row of 880px-wide images per tick is a lot of components for a rule the eye supplies
-    # anyway". The first half of that was a bad estimate - it is ONE stretched 1x1 per line,
-    # three components in total, not a row of them - and the second half was wrong in play.
-    #
-    # Same 1x1 white as the bars, tinted down to a third alpha: a rule the eye can follow
-    # across the plot without competing with the data drawn on top of it.
+    # One stretched 1x1 per line, the same white as the bars tinted down to a third alpha: a
+    # rule the eye can follow across the plot without competing with the data on top of it.
     for name, frac in (("chart_grid_hi", 1.0), ("chart_grid_mid", 0.5),
                        ("chart_grid_lo", 0.0)):
         y = CHART_TOP + (CHART_H - CHART_FLOOR) * (1.0 - frac)
@@ -820,6 +763,15 @@ def build_panel():
     p.add(C("ord_cost", ROW_W, 22, text=True, size=12, colour="#C8B48CFF",
             dockpoint="Top Left", dock_offset="20.00,566.00"))
 
+    # TWO FOOTER LINES, and the second is not decoration.
+    #
+    # The footers measure up to 1333px (uicomponent:TextDimensionsForText) in an 880px box,
+    # and one line clips mid-word.
+    #
+    # A TALLER BOX DOES NOT WRAP. texthbehaviour has exactly three values in ui3.pack - "Never
+    # split" (5365), "Resize" (4403), "Slip by character" (115) - there is no wrap value, and
+    # textvbehaviour does not exist at all. Resizing the live component to 880x60 still measured
+    # the text as 1333x32: one line, clipped. So more lines means more COMPONENTS.
     p.add(C("footer_text", ROW_W, 24, text=True, size=12,
             dockpoint="Bottom Left", dock_offset="16.00,-38.00"))
     p.add(C("footer_text2", ROW_W, 24, text=True, size=12,
@@ -837,9 +789,8 @@ def build_row():
     r.add(C("row_name", 170, 20, text=True, tx="4.00,0.00", ty="0.00,0.00"))
     r.add(C("row_price", 90, 20, text=True, align="Right", size=13,
             dockpoint="Top Left", dock_offset="196.00,10.00"))
-    # THE SELL PRICE, added 2026-09-06. Same shape as row_price and right beside it: the two
-    # numbers are read together, and before this column existed the cut was named only in the
-    # Sell button's tooltip.
+    # THE SELL PRICE. Same shape as row_price and right beside it: the two numbers are read
+    # together.
     r.add(C("row_sell", 74, 20, text=True, align="Right", size=13,
             dockpoint="Top Left", dock_offset="270.00,10.00"))
     # Map-wide supply - the number the price is actually derived from, so showing it makes the
@@ -878,11 +829,11 @@ def build_button():
     return assign(root, "DE18")
 
 
-# THE SCROLLING LIST (2026-10-01, docs/superpowers/specs/2026-10-01-zharr-exchange-scroll-lists-
+# THE SCROLLING LIST (docs/superpowers/specs/2026-10-01-zharr-exchange-scroll-lists-
 # design.md). Emitted with the Great Guilds' emitter exactly as gen_ic_ui.gm_list_xml() emits
 # the Iron Court's: this module's emitter has no clipchildren, layout engine, slider properties
 # or moveable. The sizes are placeholders - the Lua MoveTo's and resizes every part.
-LIST_ROWS, SLIDER_W, HANDLE_H = 20, 16, 40
+LIST_ROWS, HANDLE_H = 20, 40
 
 
 def build_list():
@@ -897,18 +848,9 @@ def build_list():
                   docking="Top Left",
                   layoutengine={"type": "List", "sizetocontent": True,
                                 "margins": "0.00,0.00", "columns": [ROW_W]}))
-    vs = lst.add(GE.C("vslider", SLIDER_W, h, interactive=True, callbacks=["VSlider"],
-                      allowhresize=False,
-                      props={"Value": 0, "minValue": 0, "maxValue": h - HANDLE_H},
-                      layers=[{"path": GG.SLIDER_TRACK, "offset": (0, 0), "dw": 0, "dh": 0,
-                               "margin": 0, "tile": True, "dock": None}]))
-    vs.add(GE.C("handle", SLIDER_W, HANDLE_H, interactive=True, callbacks=["VSliderHandle"],
-                allowhresize=False, moveable="Movable XP",
-                props={"max_height": h - HANDLE_H, "min_size": 10},
-                layers=[{"path": GG.SLIDER_HANDLE_UNDER, "offset": (0, 0), "dw": 0, "dh": 0,
-                         "margin": 0, "dock": None},
-                        {"path": GG.SLIDER_HANDLE, "offset": (0, 0), "dw": 0, "dh": 0,
-                         "margin": 0, "dock": None}]))
+    # CA's event message slider, end caps and arrows included (GG.ca_vslider). EX.ensure_list
+    # MoveTo's it into the right-hand gutter and places the four end parts from GG.CA_SLIDER.
+    lst.add(GG.ca_vslider(h - 2 * GG.CA_SLIDER["cap"], HANDLE_H))
     GE.assign(root, "DE1A")
     return GE.layout(root, "derpy: the Zharr Exchange's scrolling list. Created at runtime; "
                      "rows_holder is adopted into list_clip. Generated by "
@@ -921,6 +863,49 @@ def build_sp():
     root = C("root", ROW_W, 28)
     root.add(C("derpy_chd_ex_sp", ROW_W, 28))
     return assign(root, "DE1B")
+
+
+# THE LARGE SIZE. No runtime call changes a text size (it is the fontcat_name, a fixed CA
+# list), so MCT's "Large" is a second panel and row file, every size scaled by
+# LARGE_N/LARGE_D, that EX.build_panel creates instead. Must match EX.SIZES.large in the Lua;
+# check_mct pins the two. The list and its spacer are sized by the Lua alone, so they need no
+# copy.
+#
+# 9-SLICE MARGINS ARE NOT SCALED: they are texture pixels, and a bigger one slices the art in
+# the wrong place.
+LARGE_N, LARGE_D, LARGE_SUFFIX = 4, 3, "_large"
+# size -> (font_m_size, fontcat_name), every name from CA's list. 4/3 is body_12 -> body_16,
+# the one step the list offers. The 11s are column headers and axis labels in boxes measured
+# tight at that size, so they take body_12, which fits 4/3 of the box with room to spare.
+LARGE_FONT = {11: (12, "body_12"), 12: (16, "body_16"), 13: (16, "body_16"),
+              16: (20, "header_20_bold")}
+
+
+def zl(v):
+    """One length at the large size: the same rounding as EX.z in the Lua."""
+    return (v * LARGE_N + LARGE_D // 2) // LARGE_D
+
+
+def _zpair(s):
+    return ",".join("%.2f" % (float(v) * LARGE_N / LARGE_D) for v in s.split(","))
+
+
+def large(root, prefix):
+    """The same tree at the large size, with GUIDs of its own."""
+    for c in root.walk():
+        c.w, c.h = zl(c.w), zl(c.h)
+        kw = c.kw
+        for key in ("layers", "hover"):
+            if kw.get(key):
+                kw[key] = [dict(lay, offset=tuple(v * LARGE_N / LARGE_D
+                                                  for v in lay.get("offset", (0, 0))),
+                                dw=zl(lay.get("dw", 0)), dh=zl(lay.get("dh", 0)))
+                           for lay in kw[key]]
+        if kw.get("text"):
+            kw["tx"] = _zpair(kw.get("tx", "4.00,0.00"))
+            kw["ty"] = _zpair(kw.get("ty", "8.00,0.00"))
+            kw["size"], kw["fontcat"] = LARGE_FONT[kw.get("size", 12)]
+    return assign(root, prefix)
 
 
 FILES = [
@@ -944,6 +929,12 @@ FILES = [
     ("derpy_chd_ex_sp.twui.xml", build_sp,
      "derpy: one empty row of the Zharr Exchange's scrolling list. Generated by "
      "tools/gen_exchange_ui.py; do not hand-edit."),
+    ("derpy_chd_exchange_panel_large.twui.xml", lambda: large(build_panel(), "DE1C"),
+     "derpy: the Zharr Exchange panel at MCT's Large size, 4/3 of derpy_chd_exchange_panel. "
+     "Generated by tools/gen_exchange_ui.py; do not hand-edit."),
+    ("derpy_chd_exchange_row_large.twui.xml", lambda: large(build_row(), "DE1D"),
+     "derpy: one Zharr Exchange row at MCT's Large size, 4/3 of derpy_chd_exchange_row. "
+     "Generated by tools/gen_exchange_ui.py; do not hand-edit."),
 ]
 
 
@@ -971,7 +962,7 @@ def _game_assets():
 
 
 def _our_imagepaths():
-    """imagepath values across the three generated files, minus our own placeholder."""
+    """imagepath values across the panel, row and button files, minus our own placeholder."""
     found = set()
     for build in (build_panel, build_row, build_button):
         for c in build().walk():
@@ -982,7 +973,7 @@ def _our_imagepaths():
                 found.add(c.kw["image"])
     # AND THE SCROLLING LIST'S, which build_list emits through the Guilds emitter.
     import gen_guilds_ui as GG
-    found |= {GG.SLIDER_TRACK, GG.SLIDER_HANDLE, GG.SLIDER_HANDLE_UNDER}
+    found |= GG.ca_vslider_paths()
     return found
 
 
@@ -1022,7 +1013,7 @@ def selftest():
     # file rather than the layer tables, because the flip is an attribute _state() has to
     # emit and a missing emitter looks identical from the Python side. CA ships no mirrored
     # arrow texture (see _flipped()), so both buttons draw the same png and the only thing
-    # separating "back" from "forward" on screen is flipped="true" on one of them. Lose it and
+    # separating "back" from "forward" on screen is x_flipped="true" on one of them. Lose it and
     # the panel still pages correctly in both directions - only the glyph lies, which is
     # exactly the kind of fault nothing but a screenshot ever catches.
     #
@@ -1033,7 +1024,7 @@ def selftest():
                   for b in re.split(r"(?m)^\t\t<(?=\w)", pxml.split("<components>", 1)[1]))
     # x_flipped, and the assertion says so in full: `flipped="true"` is a SUBSTRING of
     # `x_flipped="true"`, so a check written against the short name passes on the real
-    # attribute AND on the wrong one. That is how two identical arrows shipped.
+    # attribute AND on the wrong one.
     assert blocks["derpy_chd_ex_mode"].count('x_flipped="true"') == 2, (
         "the Next arrow carries %d x_flipped layers, not 2 (standard and hover). Unflipped, "
         "icon_credits_back.png points LEFT - the same way as Previous."
@@ -1041,10 +1032,9 @@ def selftest():
     assert 'flipped="true"' not in blocks["derpy_chd_ex_prev"], (
         "the Previous arrow is flipped, so both nav buttons point right")
 
-    # AND THEY ARE ROUND. Asked for from play - the first pair used CA's cycle-button art,
-    # which is an arrow-SHAPED red plate, and read as two square slabs next to the round close
-    # and help buttons. The plate is pinned to close_button's rather than named literally, so
-    # the four controls in that right-hand column cannot drift apart one edit at a time.
+    # AND THEY ARE ROUND, like the close and help buttons. The plate is pinned to
+    # close_button's rather than named literally, so the four controls in that right-hand
+    # column cannot drift apart one edit at a time.
     def plates(name):
         return set(re.findall(r'imagepath="(ui/skins/default/button_[a-z_]+)\.png"',
                               blocks[name]))
@@ -1065,21 +1055,17 @@ def selftest():
     # BOUNDS() IS NOT DIMENSIONS(), and mixing them up is silent - it draws, just in the wrong
     # place. Bounds() is a component's extent INCLUDING ITS CHILDREN.
     #
-    # THIS ASSERT USED TO PERMIT `root:Bounds()` on the stated grounds that the ui root's own
-    # Dimensions() are not the screen size. That was WRONG, and the exemption is what let the
-    # remaining bug through. CA's own accessor, out of data_script.pack/script/_lib/lib_core.lua
-    # line 392, is:
+    # NO EXEMPTION FOR THE ROOT. CA's own accessor, out of
+    # data_script.pack/script/_lib/lib_core.lua line 392, is:
     #     function core_object:get_screen_resolution() return self.ui_root:Dimensions() end
-    # Dimensions(), and the root is no exception. Bounds() on the root includes every child, so
-    # during load it reports larger than the display - measured, the opener button landed at
-    # 2090,1195 on a 1966x901 screen and PASSED its own on-screen guard because the guard asked
-    # the same inflated question, and the panel centred inside a screen that does not exist.
+    # Bounds() on the root includes every child, so during load it reports larger than the
+    # display: the opener lands off screen, passes an on-screen guard that asks the same
+    # inflated question, and the panel centres inside a screen that does not exist.
     #
-    # So the rule is now absolute: no :Bounds() anywhere in this script, root included. Screen
-    # size comes from core:get_screen_resolution().
+    # So: no :Bounds() anywhere in this script, root included. Screen size comes from
+    # core:get_screen_resolution().
     # COMMENT LINES ARE STRIPPED FIRST. The blocks explaining this trap quote the bad call
-    # verbatim, so a raw scan fails on its own documentation - exactly as
-    # check_trend_colours did on its first run.
+    # verbatim, so a raw scan fails on its own documentation.
     code = chr(10).join(l for l in lua.splitlines() if not l.lstrip().startswith("--"))
     bad = re.findall(r"(\w+):Bounds\(\)", code)
     assert not bad, (
@@ -1088,8 +1074,7 @@ def selftest():
         "Use Dimensions() for a component's own size and EX.screen() for the display."
         % ", ".join(sorted(set(bad))))
     # `code`, not `lua`: the comment above EX.screen() quotes the call, so scanning the
-    # raw file would pass on the documentation alone. Verified by replacing the call with
-    # a hardcoded 1920,1080 - which this did not catch until it read stripped code.
+    # raw file would pass on the documentation alone.
     assert "core:get_screen_resolution()" in code, (
         "nothing reads the screen resolution any more - EX.screen() is what centres the panel "
         "and bounds-checks the opener button")
@@ -1110,8 +1095,8 @@ def selftest():
         return dict((n, (int(x), int(w) if w else None)) for n, x, _y, w in found)
 
     # THE STATS VIEW IS CHECKED EXACTLY LIKE THE TRADE VIEW. Both modes reposition and resize
-    # the SAME components, so a stats column that overlaps or clips is the same silent fault
-    # class as "TrendLast 12 turns" was - and it would only ever be caught by a screenshot.
+    # the SAME components, so a stats column that overlaps or clips is the same silent fault,
+    # and only a screenshot would catch it.
     inset = 20
     xml_w, xml_text = {}, {}
     for build in (build_panel, build_row):
@@ -1135,8 +1120,7 @@ def selftest():
             # A HEADER IS ALIGNED LIKE ITS CELL, or it names a column it does not sit over.
             # Both boxes start at the same x and (bar hdr_trend) are the same width, so equal
             # texthalign + textxoffset is the whole of "the label lines up with the figures".
-            # Left over right-aligned numbers is what shipped and what §7 reported; it is not
-            # visible to any other check here, all of which measure BOXES.
+            # No other check here sees it: they all measure BOXES.
             if rid in xml_text:
                 assert xml_text[hid] == xml_text[rid], (
                     "%s: %s is %s/tx=%s over %s cells that are %s/tx=%s - the header floats "
@@ -1154,8 +1138,8 @@ def selftest():
             # A NARROW BOX IS A FULL BOX - BUT ONLY AGAINST A LEFT-ALIGNED NEIGHBOUR. A tight
             # header's label fills its box, so the box gap is its own text gap; whether that
             # gap READS as a gap depends on where the NEXT label starts. Left-aligned, the next
-            # label starts at its box edge and the box gap is the whole story - that is the case
-            # this models, and it is how the row once read "Trend Last 12 turns" (2026-09-05).
+            # label starts at its box edge and the box gap is the whole story; that is the case
+            # this models.
             # Right-aligned, the next label starts most of a box away and this rule would refuse
             # a layout that is perfectly legible. The real text-to-text gap needs the LABELS,
             # which live in EX.HEADERS, so check_header_labels() in gen_zharr_exchange.py owns
@@ -1205,15 +1189,14 @@ def selftest():
          ("hdr_trend", "row_trend"), ("hdr_hold", "row_hold")))
     # THE HOUSES VIEW. Same seven headers over the same seven cells as the trade view, at the
     # same x offsets - only the LABELS differ, through EX.HEADERS.houses ("Div" over row_sell,
-    # "Seat" over row_supply). See build_panel() for why the two components of its own that this
-    # view briefly had were deleted.
+    # "Seat" over row_supply). See build_panel() for why this view has no headers of its own.
     check_mode(
         "houses", "EX.ROW_LAYOUT_HOUSES", "EX.PANEL_LAYOUT_HOUSES",
         (("hdr_name", "row_name"), ("hdr_price", "row_price"), ("hdr_sell", "row_sell"),
          ("hdr_supply", "row_supply"), ("hdr_trend", "row_trend"),
          ("hdr_spark", "spark"), ("hdr_hold", "row_hold")))
 
-    # THE DEALS PAGE (Stage 2). Five columns, no sparkline: a deal is an offer standing now, not
+    # THE DEALS PAGE. Five columns, no sparkline: a deal is an offer standing now, not
     # a price history. row_trend carries the offer as a sentence, which is why it is the wide one.
     check_mode(
         "deals", "EX.ROW_LAYOUT_DEALS", "EX.PANEL_LAYOUT_DEALS",
@@ -1350,11 +1333,9 @@ def selftest():
                 "%s places %s, which EX.ROW_CELLS does not list - no other mode will hide it"
                 % (tbl, name))
 
-    # THE TAB STRIP MUST NOT REACH THE NAV CLUSTER, in any view. The .twui.xml has said "the
-    # two clusters cannot touch" since the strip was five wide, and nothing enforced it: a
-    # mutant that re-pitched the six tabs back to 132-on-140 - running the last two straight
-    # through the back arrow and the page counter - passed every check in both generators.
-    # Measured per layout table, because each one carries its own copy of the strip.
+    # THE TAB STRIP MUST NOT REACH THE NAV CLUSTER, in any view. Nothing else enforces the
+    # "two clusters cannot touch" note in build_panel(). Measured per layout table, because
+    # each one carries its own copy of the strip.
     for tbl in [n for n in re.findall(r"EX\.PANEL_LAYOUT\w*", lua)]:
         placed = offsets(tbl)
         tabs = {k: v for k, v in placed.items() if k.startswith("derpy_chd_ex_tab_")}
@@ -1373,7 +1354,7 @@ def selftest():
             end = x + (tabs[k][1] or xml_w[k])
             assert end <= nx, ("%s: tab %s ends at %d but %s starts at %d" % (tbl, k, end, nx, nk))
 
-    # THE SUB-TABS SIT IN THE TITLE BAR (2026-09-30): after the title's box, before the help
+    # THE SUB-TABS SIT IN THE TITLE BAR: after the title's box, before the help
     # button, above the header row, and not into each other. The title is fit() to its own
     # box, so its BOX edge is the most it can reach.
     lua_sub = re.search(r"EX\.SUB_SLOTS = (\d+)", lua)
@@ -1392,7 +1373,7 @@ def selftest():
             tbl, len(subs), SUB_SLOTS)
         title_end = b["title_text"][0] + b["title_text"][2]
         help_x = b["btn_help"][0]
-        # THE CHART HAS NO HEADER ROW (Trade's sections, 2026-10-01): its first cell under the
+        # THE CHART HAS NO HEADER ROW (Trade's sections): its first cell under the
         # title bar is the limit instead.
         hdr_y = min([v[1] for k, v in b.items() if k.startswith("hdr_") or k.startswith("btn_am")]
                     or [v[1] for v in b.values() if v[1] > b["title_text"][1] + 20])
@@ -1408,10 +1389,10 @@ def selftest():
     assert sub_tables >= 2, (
         "only %d layout tables place the sub-tabs; Houses and Deals both need them" % sub_tables)
 
-    # TAB_MODES HERE VS EX.MODES IN THE LUA. This file MAKES the five tab components and the
+    # TAB_MODES HERE VS EX.MODES IN THE LUA. This file MAKES the six tab components and the
     # Lua PLACES and labels them, so the two lists have to be the same list. A tab this file
     # emits for a mode the Lua does not know is a button that never gets positioned - it draws
-    # at whatever the .twui.xml said, which since 2026-09-07 is a placeholder offset. A mode
+    # at whatever the .twui.xml said, which is a placeholder offset. A mode
     # with no tab is a view that, now the arrows page instead of cycling, has no way in at all.
     lua_modes = re.search(r"EX\.MODES = \{(.*?)\}", lua)
     assert lua_modes, "EX.MODES is gone"
@@ -1425,8 +1406,8 @@ def selftest():
     m = re.search(r"EX\.MODES = \{(.*?)\}", lua, re.S)
     assert m, "EX.MODES is gone - the mode button has nothing to cycle"
     modes = re.findall(r'"(\w+)"', m.group(1))
-    # Not a hardcoded count: a fourth view is fine, it just has to be CHECKED like the other
-    # three. Every rule above is per-mode, so a mode the selftest never ran check_mode on ships
+    # Not a hardcoded count: a new view is fine, it just has to be CHECKED like the others.
+    # Every rule above is per-mode, so a mode the selftest never ran check_mode on ships
     # with none of them applied.
     assert set(modes) == checked, (
         "EX.MODES and the checked views disagree: unchecked %s, checked-but-gone %s. Add a "
@@ -1437,8 +1418,7 @@ def selftest():
     # set EX.layout() walks to HIDE the headers a mode does not place. An id only the stats
     # view knows about is never hidden on the way out of it, so it keeps that view's position
     # and draws on top of whatever the next mode put there - the exact fault EX.ROW_CELLS
-    # exists to prevent on the row side, and it had no equivalent guard on the header side
-    # until hdr_sell became the first header that is not in all three views.
+    # exists to prevent on the row side.
     trade_block = re.search(r"\n\s+trade = \{(.*?)\n\s+\w+ = \{", hdrs.group(1), re.S)
     assert trade_block, "EX.HEADERS.trade is gone - nothing drives the header hide loop"
     trade_ids = set(re.findall(r"(hdr_\w+)\s*=", trade_block.group(1)))
@@ -1460,8 +1440,7 @@ def selftest():
     # anyone opens the panel at all.
     #
     # Read off EX.panel_layout's own branches instead, which is by definition every mode the
-    # panel can be in. The comment above EX.HEADERS.log has warned about this fault since
-    # 2026-09-07 and the check underneath it only ever covered the five tabs.
+    # panel can be in.
     picker = re.search(r"function EX\.panel_layout\(\)(.*?)\nend", lua, re.S)
     assert picker, "EX.panel_layout is gone - the view list cannot be derived"
     consts = dict(re.findall(r'EX\.(MODE_\w+)\s*=\s*"(\w+)"', lua))
@@ -1493,9 +1472,8 @@ def selftest():
             assert v in ("Top", "Center", "Bottom"), "%s: bad textvalign %r" % (c.name, v)
 
     # EVERY imagepath must be a real entry in a shipped pack. A path that does not exist
-    # renders as a blank white square with no error anywhere - that is how
-    # button_icon_close_24.png survived a deploy. Do not trust a byte-grep for a texture name:
-    # it matches strings inside other files, not pack entries.
+    # renders as a blank white square with no error anywhere. Do not trust a byte-grep for a
+    # texture name: it matches strings inside other files, not pack entries.
     missing = [pa for pa in sorted(_our_imagepaths()) if pa not in _game_assets()]
     assert not missing, "imagepath not present in any shipped pack:\n  " + "\n  ".join(missing)
 
@@ -1510,7 +1488,7 @@ def selftest():
     #      typeface changes the instant the mouse arrives.
     #   4. A hover texture that is not in any shipped pack: a blank white square, on mouseover
     #      only, which is where a screenshot is least likely to catch it. That one is covered
-    #      by the imagepath sweep above, now that _our_imagepaths() reads hover layers too.
+    #      by the imagepath sweep above, which reads hover layers too.
     #
     # An interactive component with NO hover at all is also a finding. Every clickable thing in
     # this panel is meant to light, and "we forgot one" is invisible until someone hovers it.
@@ -1554,16 +1532,15 @@ def selftest():
 
     # THE FOOTER CLIPS, AND NOTHING IN THE ENGINE SAYS SO.
     #
-    # Shipped broken 2026-09-06: the trade footer measured 1333px in an 880px component and the
-    # game drew "Shaken: Gemsto..." - no error, no log line. A taller box does not help, because
-    # texthbehaviour has no wrap value in this engine and textvbehaviour does not exist; the
-    # live component resized to 880x60 still measured its text as one 1333px line.
+    # The trade footer measures up to 1333px in an 880px component and clips with no error.
+    # A taller box does not help: texthbehaviour has no wrap value in this engine and
+    # textvbehaviour does not exist.
     #
     # So both halves are required: TWO footer components, and every string written to one
     # routed through the fit() helper, which asks uicomponent:TextDimensionsForText what the
-    # string would actually need and drops trailing words until it fits. A character budget is
-    # the guess that caused this - the footer's content is unbounded, because the shock summary
-    # names one commodity per shaken good.
+    # string would actually need and drops trailing words until it fits. A character budget
+    # cannot work: the shock summary names one commodity per shaken good, so the content is
+    # unbounded.
     panel_ids = {c.name for c in build_panel().walk()}
     for fid in ("footer_text", "footer_text2"):
         assert fid in panel_ids, "%s is missing - the footer has nowhere to put its second line" % fid
@@ -1571,8 +1548,7 @@ def selftest():
         "the fit() helper is gone from the campaign script. Footer text is unbounded and the "
         "engine clips it mid-word in silence.")
     # COMMENTS STRIPPED FIRST. The block above fit() explains the measurement and names the
-    # function, so the first version of this assert passed on its own documentation - the same
-    # trap check_trend_colours() carries a note about.
+    # function, so a raw scan would pass on its own documentation.
     lua_code_only = chr(10).join(l for l in lua.splitlines()
                                  if not l.lstrip().startswith("--"))
     assert "TextDimensionsForText" in lua_code_only, (
@@ -1595,8 +1571,8 @@ def selftest():
 
     # TOOLTIPS: literal text, and long ones need the title split or they clip.
     #
-    # Both halves have shipped broken. A {{tr:}} loc key put "||" on screen as two pipes; a long
-    # tooltip with no "||" rendered in a box that did not grow and was cut mid-glyph on line two.
+    # A {{tr:}} loc key puts "||" on screen as two pipes; a long tooltip with no "||" renders
+    # in a box that does not grow and is cut mid-glyph on line two.
     # CA's own files set the threshold: of its literal tooltips on a component 60x60 or smaller,
     # 67% of those over 90 characters carry the split against 0% of those under 40.
     tips = [c.kw["tooltip"] for build in (build_panel, build_row, build_button)
@@ -1618,15 +1594,34 @@ def selftest():
         for c in build().walk():
             if c.kw.get("interactive"):
                 assert c.kw.get("sound"), "%s is clickable but silent" % c.name
+    # The list's slider too: its handle is a clickable control like any other.
+    # vslider itself is the track, clicked through and never sounded in CA's own template.
+    import gen_guilds_ui as GG
+    for c in GG.ca_vslider(400).walk():
+        if c.kw.get("interactive") and c.name != "vslider":
+            assert c.kw.get("sound"), "slider %s is clickable but silent" % c.name
+
+    # THE LUA PLACES THE SLIDER'S PARTS, so its numbers must be the generator's. A runtime
+    # component ignores docking: the caps and arrows sit wherever EX.ensure_list MoveTo's them.
+    lua = io.open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                               "zzz_derpy_chd_exchange.lua"), encoding="utf-8").read()
+    S = GG.CA_SLIDER
+    m = re.search(r"EX\.SLIDER_W, EX\.SLIDER_CAP, EX\.HANDLE_H, EX\.SCROLL_MS = "
+                  r"(\d+), (\d+), (\d+), \d+", lua)
+    assert m and (int(m.group(1)), int(m.group(2)), int(m.group(3))) == (
+        S["w"], S["cap"], HANDLE_H), "EX.SLIDER_W/CAP/HANDLE_H disagree with GG.CA_SLIDER"
+    for part in ("frame_top", "frame_bottom", "top", "bottom"):
+        want = '{ "%s", %d, %d }' % ((part,) + S[part])
+        assert want in lua, "EX.SLIDER_PARTS lacks %s - the Lua would misplace it" % want
 
     assert PANEL_W - ROW_W == 40, "panel should clear the rows by 20px each side"
 
-    # The panel background is two 9-sliced layers. A margin of 0 is what made the tile show
-    # seams; do not let it regress to one flat layer.
+    # The panel background is two 9-sliced layers. A margin of 0 shows the tile's seams; do
+    # not let it regress to one flat layer.
     assert len(PANEL_LAYERS) == 2, "panel needs a body and a border layer"
     assert all(l["margin"] > 0 for l in PANEL_LAYERS), "9-slice margin must be non-zero"
 
-    # THE SCROLLING LIST (2026-10-01): CA's listview, spelled the way the engine binds it.
+    # THE SCROLLING LIST: CA's listview, spelled the way the engine binds it.
     import gen_guilds_ui as GG
     lst = build_list()
     bad = GG.check_scroll_parts({"derpy_gg_list.twui.xml": lst})

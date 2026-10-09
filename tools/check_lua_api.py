@@ -18,7 +18,9 @@ DEFAULT_SCAN = os.path.join(ROOT, "Modding Files", "pack", "script")
 SINGLETONS = {
     "cm":     {"cm", "campaign_manager"},
     "core":   {"core"},
-    "bm":     {"bm", "battle_manager"},
+    # battle_manager:new() calls set_object_class(bm, self, b) with b the empire_battle, so
+    # every battle: member answers on bm - CA calls bm:camera() 810 times
+    "bm":     {"bm", "battle_manager", "battle"},
     "common": {"common"},
 }
 SIG = re.compile(r'class="function_name"><strong><code>(.*?)</code>')
@@ -303,6 +305,15 @@ def selftest():
     finally:
         os.remove(tmp4)
     assert used == [(2, "unknown")], used
+
+    # bm: reaches the battle: page through its second parent; a member on neither still fails.
+    tmp5 = os.path.join(ROOT, "_selftest_bm.lua")
+    open(tmp5, "w").write("bm:camera()\nbm:cameraa()\n")
+    try:
+        bm_calls = [(n, k) for n, k, _ in check(tmp5, docs)]
+    finally:
+        os.remove(tmp5)
+    assert bm_calls == [(2, "unknown")], bm_calls
 
     # THE CHAINED RECEIVER. Both halves watched - the real member must pass and the
     # shipped typo must fail, or the rule is decoration.

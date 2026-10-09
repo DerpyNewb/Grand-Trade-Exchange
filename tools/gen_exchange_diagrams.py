@@ -18,12 +18,12 @@ BG      = (18, 15, 12)
 PANEL   = (30, 25, 21)
 EDGE    = (66, 55, 45)
 INK     = (232, 221, 207)
-MUTED   = (138, 127, 112)
+MUTED   = (141, 130, 114)
 EMBER   = (217, 98, 43)
 GOLD    = (201, 162, 39)
 GOOD    = (127, 166, 80)
-BAD     = (184, 67, 58)
-COOL    = (70, 108, 130)
+BAD     = (228, 83, 72)
+COOL    = (89, 137, 165)
 
 F = "C:/Windows/Fonts/"
 def font(name, size):
@@ -74,12 +74,10 @@ def arrow(d, x0, y0, x1, y1, fill=MUTED, width=3, head=12):
         d.polygon([(x1, y1), (x1 + head, y1 - head), (x1 + head, y1 + head)], fill=fill)
 
 
-# ---------------------------------------------------------------- 1: the ladder
-
 def diagram_ladder():
     img, d = canvas()
     header(d, "Where a price comes from",
-           "One 42-rung ladder. Every rung is 10% from its neighbour.")
+           "One ladder of 42 steps. Each step is 10% from its neighbour.")
 
     # the ladder bar, cool at the glut end, ember at the famine end
     bx0, bx1, by, bh = 150, 1770, 278, 58
@@ -89,9 +87,9 @@ def diagram_ladder():
         d.line((bx0 + i, by, bx0 + i, by + bh), fill=c)
     d.rectangle((bx0, by, bx1, by + bh), outline=EDGE, width=2)
 
-    for rung, label, price, col in ((1, "rung 1", "~102g", INK),
-                                    (25, "rung 25  neutral", "1000g", (255, 255, 255)),
-                                    (42, "rung 42", "~5054g", INK)):
+    for rung, label, price, col in ((1, "step 1", "~102g", INK),
+                                    (25, "step 25  neutral", "1000g", (255, 255, 255)),
+                                    (42, "step 42", "~5054g", INK)):
         x = bx0 + (bx1 - bx0) * (rung - 1) / 41
         d.line((x, by - 18, x, by + bh + 18), fill=INK, width=3)
         anchor = "la" if rung == 1 else ("ra" if rung == 42 else "ma")
@@ -99,19 +97,19 @@ def diagram_ladder():
         text(d, (ax, by + bh + 30), label, BODY(28), MUTED, anchor=anchor)
         text(d, (ax, by + bh + 68), price, MONO(38), col, anchor=anchor)
 
-    text(d, (bx0 + 14, by - 62), "glut - the world is drowning in it", BODY(28), COOL)
-    text(d, (bx1 - 14, by - 62), "famine - nobody is making any", BODY(28), EMBER, anchor="ra")
+    text(d, (bx0 + 14, by - 62), "glut: the world is drowning in it", BODY(28), COOL)
+    text(d, (bx1 - 14, by - 62), "famine: nobody is making any", BODY(28), EMBER, anchor="ra")
 
     # the five shifts
     top = 460
     text(d, (150, top),
-         "The base rung comes from world output, weighted for who owns it. "
+         "The base step comes from world output, weighted for who owns it. "
          "Four things then move it, every turn:", BODY(32), INK)
 
-    rows = [("Pressure", "your own net buying - 4 lots is a rung", "+/- 6 rungs", EMBER),
-            ("Appetite", "what the world's cultures want, and how much of it is at war", "+/- 2 rungs", GOLD),
-            ("Shock",    "sacks, razes, sieges and raids take supply off the market", "+/- 6 rungs", BAD),
-            ("Book",     "what the AI houses are holding", "+/- 2 rungs", COOL)]
+    rows = [("Pressure", "your own net buying: 4 lots is a step", "+/- 6 steps", EMBER),
+            ("Appetite", "what the world's cultures want, and how much of it is at war", "+/- 2 steps", GOLD),
+            ("Shock",    "sacks, razes, sieges and raids take supply off the market", "+/- 6 steps", BAD),
+            ("Book",     "what the rival houses are holding", "+/- 2 steps", COOL)]
 
     y = top + 64
     for name, why, cap, col in rows:
@@ -125,19 +123,17 @@ def diagram_ladder():
 
     d.line((150, y + 10, 1770, y + 10), fill=EDGE, width=2)
     text(d, (200, y + 26), "= the number on the Buy button this turn", TITLE(36), INK)
-    text(d, (1740, y + 32), "clamped to 1 - 42", MONO(28), MUTED, anchor="ra")
+    text(d, (1740, y + 32), "clamped to steps 1 to 42", MONO(28), MUTED, anchor="ra")
 
     footer(d, "Supply is production, not region count. A besieged, razed or abandoned "
               "region makes nothing, so the price of what it made goes up.")
     return img
 
 
-# ------------------------------------------------------------- 2: the warehouse
-
 def diagram_warehouse():
     img, d = canvas()
     header(d, "The warehouse charges by the crate",
-           "0.5 gold per unit held per turn. Flat - not a percentage of what it is worth.")
+           "0.5 gold per unit held per turn. Flat, not a percentage of what it is worth.")
 
     # two piles, same size, same rent, wildly different bite
     cases = [("800 timber",    "~20g a unit",  "16,000g", "400g", "2.5%",  BAD,
@@ -163,7 +159,7 @@ def diagram_warehouse():
         d.line((box[0] + 40, y + 300, box[2] - 40, y + 300), fill=EDGE, width=2)
         text(d, (box[0] + 40, y + 314), verdict, TITLE(28), col, clip=box)
 
-    text(d, (960, 664), "Same 800 units. Same 400 gold. One of them is a business.",
+    text(d, (960, 664), "The same 800 units pay the same 400 gold a turn, whatever they are worth.",
          BODY(32), MUTED, anchor="ma")
 
     # the boon ramp - a step per threshold, each bar starting AT the units it needs
@@ -192,16 +188,14 @@ def diagram_warehouse():
              anchor="la" if lo == 0 else "ma")
 
     footer(d, "The altar is the other half: burn 30 units for the same boon at 2x, "
-              "for five turns. Rent is what stops doing nothing from being free.")
+              "for five turns.")
     return img
 
-
-# ----------------------------------------------------------------- 3: the shares
 
 def diagram_shares():
     img, d = canvas()
     header(d, "Shares in the houses",
-           "Every living Chaos Dwarf faction is an instrument. A lot is 5 shares.")
+           "Every living house of your people and your trading partners. A lot is 5 shares.")
 
     cx = 960
 
@@ -216,7 +210,7 @@ def diagram_shares():
 
     node(230, 160, "Buy shares",
          ["Priced on the house's power: regions held,",
-          "halved again if it has lost its capital."], GOLD)
+          "cut to 60% if it has lost its capital."], GOLD)
     arrow(d, cx, 390, cx, 436)
 
     node(444, 160, "A dividend every turn",
@@ -252,13 +246,22 @@ def diagram_shares():
         text(d, (bx0 + 320, ly + 128), note, BODY(24), MUTED, anchor="ma", clip=box)
 
     footer(d, "So you can back a house, or you can bury one. A house that dies during your "
-              "own turn cannot be bought up first - that hole is closed.")
+              "own turn cannot be bought up first.")
     return img
 
 
 DIAGRAMS = [("zharr_01_price_ladder.png", diagram_ladder),
             ("zharr_02_warehouse.png",    diagram_warehouse),
             ("zharr_03_shares.png",       diagram_shares)]
+
+
+def _contrast(a, b):
+    def lum(c):
+        ch = [v / 255 for v in c]
+        ch = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in ch]
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
 
 
 def selftest():
@@ -279,11 +282,17 @@ def selftest():
                 (s1, a), (s2, b) = runs[i], runs[j]
                 if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]:
                     bad.append(f"{name}: {s1!r} {a} overlaps {s2!r} {b}")
+    # Every text colour against the lighter of the two grounds. The Workshop shows these
+    # images scaled down, so the large-text 3:1 allowance does not apply.
+    for cname in ("INK", "MUTED", "EMBER", "GOLD", "GOOD", "BAD", "COOL"):
+        r = _contrast(globals()[cname], PANEL)
+        if r < 4.5:
+            bad.append(f"{cname} is {r:.2f}:1 on PANEL, under 4.5:1")
     if bad:
         print("\n".join(bad))
-        print(f"FAIL - {len(bad)} layout fault(s)")
+        print(f"FAIL - {len(bad)} fault(s)")
         return 1
-    print(f"ok - {len(DIAGRAMS)} diagrams, no clipped or overlapping labels")
+    print(f"ok - {len(DIAGRAMS)} diagrams, no clipped or overlapping labels, text at 4.5:1 or better")
     return 0
 
 

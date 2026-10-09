@@ -181,7 +181,9 @@ local function uic(name, parent)
             local clip = uic("list_clip", n)
             uic("list_box", clip)
             local vs = uic("vslider", n)
-            uic("handle", vs)
+            for _, part in ipairs({ "frame_top", "frame_bottom", "handle", "top", "bottom" }) do
+                uic(part, vs)
+            end
         elseif path == EX.PANEL_FILE then
             uic("rows_holder", n)
         elseif path == EX.ROW_FILE then
@@ -233,6 +235,16 @@ EX.ensure_list(PANEL)
 local list, clip, box, slider = parts()
 print("u_build " .. tostring(HOLDER.parent == clip) .. "," .. #box.kids .. "," .. EX.scroll_n()
       .. "," .. tostring(slider.visible) .. "," .. clip.h .. "," .. HOLDER.y .. "," .. box.y)
+-- WHERE THE SLIDER'S PARTS LANDED, as screen x,y, plus the track's own size.
+do
+    local s = { slider.x, slider.y, slider.w, slider.h }
+    for _, part in ipairs({ "frame_top", "frame_bottom", "top", "bottom" }) do
+        local p = find_uicomponent(slider, part)
+        s[#s + 1] = p.x
+        s[#s + 1] = p.y
+    end
+    print("u_slider " .. table.concat(s, ","))
+end
 
 -- THE ROWS FOLLOW THE LIST, on every tick and by the pixel, and nothing is redrawn: a redraw is
 -- the whole panel (measured 25-200ms in game, 2026-10-01), and the rows are already drawn.

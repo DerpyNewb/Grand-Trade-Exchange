@@ -3,7 +3,7 @@
 
 WHAT IS REAL AND WHAT IS NOT. The positions, the text, the greyed buttons and the tooltips are
 the SHIPPED Lua's own: this runs zzz_derpy_chd_exchange.lua under Lua 5.1 against fake UI
-components that CreateComponent builds from our three .twui.xml files, calls the real
+components that CreateComponent builds from our five .twui.xml files, calls the real
 EX.build_panel, EX.layout and EX.refresh_panel, and reads back what they left on screen. The
 Log scene's lines are written by the real EX.charge_carry, EX.apply_offer, EX.fire_demand and
 EX.bulk_trade, not typed here. The ART is CA's, drawn by TWUI Studio's rasteriser (the same one
@@ -15,7 +15,7 @@ two values), which is CA's documented effect and not a capture of the game's own
 HUD opener sits where the game would never put it, beside its tooltip. The
 world is a demo - supply, prices and holdings are set by the scene, the faction is a stub.
 
-    py tools/preview_exchange.py             # .skilltree_cache/ui_preview/ex_offer.png, ex_trade.png, ex_log.png
+    py tools/preview_exchange.py             # .skilltree_cache/ui_preview/ex_<scene>.png, one per scene
     py tools/preview_exchange.py --selftest  # each scene ran clean and drew what it is for
 
 Any cm: / common. member the Lua reached that the stub does not define is answered with a
@@ -37,8 +37,24 @@ LUA = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
 LUA_EXE = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 PREFIX = "derpy_chd_exchange_"
 FILES = {"panel": PREFIX + "panel.twui.xml", "row": PREFIX + "row.twui.xml",
-         "button": PREFIX + "button.twui.xml"}
+         "button": PREFIX + "button.twui.xml",
+         # THE SCROLLING LIST AND ITS EMPTY ROW. Named here so the driver does not build them
+         # as a second whole panel, which draws an opaque frame over the rows.
+         "list": "derpy_chd_ex_list.twui.xml", "sp": "derpy_chd_ex_sp.twui.xml"}
 SCREEN = (1600, 900)
+SUFFIX = ""          # "_large" under --large
+
+
+def set_large():
+    """--large: MCT's Large panel size on a 1920x1080 screen, drawn from the _large files."""
+    global SCREEN, SUFFIX
+    import gen_exchange_ui as U
+    SUFFIX = U.LARGE_SUFFIX
+    FILES["panel"] = PREFIX + "panel" + SUFFIX + ".twui.xml"
+    FILES["row"] = PREFIX + "row" + SUFFIX + ".twui.xml"
+    SCREEN = (1920, 1080)
+
+
 FONT = "C:/Windows/Fonts/segoeui.ttf"
 FONT_B = "C:/Windows/Fonts/seguisb.ttf"
 
@@ -54,8 +70,16 @@ local function stub_rest(t, what)
         return function() end
     end })
 end
+-- DEMO HOUSES for the Houses scene: real faction keys, answered by the same stub.
+DEMO_HOUSES = { "wh3_dlc23_chd_legion_of_azgorh", "wh3_dlc23_chd_zhatan", "wh3_dlc23_chd_minor_faction",
+                "wh_main_dwf_dwarfs", "wh_main_emp_empire", "wh3_main_ogr_goldtooth" }
+HOUSE = {}
+-- THEIR SCREEN NAMES, as the loc would give them; anything else still reads as empty.
+DEMO_NAMES = { wh3_dlc23_chd_legion_of_azgorh = "Legion of Azgorh", wh3_dlc23_chd_zhatan = "The Black Fortress",
+               wh3_dlc23_chd_minor_faction = "Uzkulak", wh_main_dwf_dwarfs = "Karaz-a-Karak",
+               wh_main_emp_empire = "Reikland", wh3_main_ogr_goldtooth = "Goldtooth" }
 local function faction(k)
-    return {
+    return stub_rest({
         name = function() return k end,
         -- A COVERED RACE, so the Offerings tab and the tithe are live the way a Chaos Dwarf
         -- player sees them. Uncovered, both are locked and the patron is "The altar".
@@ -74,7 +98,7 @@ local function faction(k)
             return { is_null_interface = function() return false end,
                      value = function() return POOL[key] or 0 end }
         end } end,
-    }
+    }, "faction:")
 end
 cm = stub_rest({
     add_first_tick_callback = function() end,
@@ -84,14 +108,15 @@ cm = stub_rest({
     set_saved_value = function(_, k, v) SAVED[k] = v end,
     get_saved_value = function(_, k) return SAVED[k] end,
     get_local_faction_name = function() return "player" end,
-    get_faction = function(_, k) if k == "player" then return faction(k) end return false end,
+    get_faction = function(_, k) if k == "player" or HOUSE[k] then return faction(k) end return false end,
     turn_number = function() return TURN end,
     model = function() return { turn_number = function() return TURN end } end,
     random_number = function() return 1 end,
     treasury_mod = function(_, k, n) TREASURY[k] = (TREASURY[k] or 0) + n end,
     faction_add_pooled_resource = function(_, _f, key, _why, n) POOL[key] = (POOL[key] or 0) + n end,
 }, "cm:")
-common = stub_rest({ get_localised_string = function() return "" end }, "common.")
+common = stub_rest({ get_localised_string = function(k)
+    return DEMO_NAMES[string.gsub(k, "^factions_screen_name_", "")] or "" end }, "common.")
 core = { add_listener = function() end, get_ui_root = function() return ROOT end }
 function out() end
 
@@ -100,7 +125,33 @@ local function comp(name, parent, xid)
     local node = xid or name
     local c = { name = name, xid = node, x = 0, y = 0, vis = true, kids = {}, order = {},
                 parent = parent, states = { standard = "" }, cur = "standard" }
-    c.MoveTo = function(_, x, y) c.x, c.y = x, y end
+    -- A PARENT CARRIES ITS CHILDREN, as the engine does (measured 2026-10-02); the scroll poll
+    -- moves rows_holder alone and every row goes with it.
+    c.MoveTo = function(_, x, y)
+        local dx, dy = x - c.x, y - c.y
+        local function shift(k) k.x, k.y = k.x + dx, k.y + dy for _, g in ipairs(k.order) do shift(g) end end
+        shift(c)
+    end
+    c.SetProperty = function(_, k, v) c.props = c.props or {}; c.props[k] = v end
+    c.Layout = function() end
+    c.Address = function() return c end
+    local function unlink()
+        local p = c.parent
+        if not p then return end
+        p.kids[c.name] = nil
+        for i, k in ipairs(p.order) do if k == c then table.remove(p.order, i) break end end
+    end
+    c.Adopt = function(_, k)
+        local p = k.parent
+        if p then
+            p.kids[k.name] = nil
+            for i, o in ipairs(p.order) do if o == k then table.remove(p.order, i) break end end
+        end
+        k.parent = c
+        c.kids[k.name] = k
+        c.order[#c.order + 1] = k
+    end
+    c.Destroy = function() unlink() c.dead = true end
     c.Position = function() return c.x, c.y end
     c.Dimensions = function() return c.w or (TREES.size[node] or {100})[1], c.h or (TREES.size[node] or {0, 30})[2] end
     c.Bounds = c.Dimensions
@@ -125,7 +176,10 @@ local function comp(name, parent, xid)
     c.Find = function(_, j) return c.order[j + 1] end
     c.CreateComponent = function(_, n, file)
         if c.kids[n] then return end
-        local which = file and (string.find(file, "_row") and "row" or "panel")
+        local which = file and ((string.find(file, "exchange_row", 1, true) and "row")
+            or (string.find(file, "exchange_panel", 1, true) and "panel")
+            or (string.find(file, "ex_list", 1, true) and "list")
+            or (string.find(file, "ex_sp", 1, true) and "sp"))
         local k = comp(n, c, which and TREES[which][1] or n)
         if which then for _, sub in ipairs(TREES[which][2]) do build(sub, k) end end
     end
@@ -154,6 +208,10 @@ dofile([[@@LUA@@]])
 EX.store = SAVED
 EX.screen = function() return @@SW@@, @@SH@@ end
 EX.place_button = function() end
+-- MCT's panel size: "normal" unless --large.
+EX.mct_raw = (function(raw)
+    return function(k) if k == "ui_size" then return "@@SIZE@@" end return raw(k) end
+end)(EX.mct_raw)
 local OPENER = comp(EX.BUTTON, ROOT)
 local function give(res, n) POOL[EX.hold_key(res)] = n end
 -- 5.1's xpcall takes no arguments for f, hence the closure.
@@ -174,6 +232,7 @@ for i, res in ipairs(EX.COMMODITIES) do
     EX.history[res] = h
 end
 
+@@PRE@@
 ok("bind_race", EX.bind_race)
 print("build", pcall(EX.build_panel))
 @@SCENE@@
@@ -183,13 +242,30 @@ local function shown(c)
     return true
 end
 local function esc(s) return (string.gsub(tostring(s or ""), "[\t\n]", " ")) end
-local function emit(c, depth)
+-- THE HANDLE'S LENGTH IS THE ENGINE'S, not the Lua's: VSliderHandle sizes it to the fraction
+-- of the list on screen, never below min_size. Emulated here so the picture shows a real bar.
+do
+    local list = find_uicomponent(ROOT, EX.LIST)
+    local vs = list and find_uicomponent(list, "vslider")
+    local hd = vs and find_uicomponent(vs, "handle")
+    if hd and vs.h then
+        local n = EX.scroll_n()
+        hd.w, hd.h = EX.SLIDER_W, math.max(39, math.floor(vs.h * math.min(1, EX.MAX_ROWS / math.max(n, 1))))
+    end
+end
+-- list_clip CLIPS ITS CHILDREN: every row is drawn whole under rows_holder, most of them below
+-- the window, so each component carries the clip rectangle it must be cut to.
+local function emit(c, depth, clip)
     if not shown(c) then return end
     print(table.concat({ "C", depth, c.xid, c.name, c.x, c.y, tostring(c.w), tostring(c.h),
         esc(c.states.standard), esc(c.img), tostring(c.disabled), esc(c.tip),
         c.parent and c.parent.name or "", tostring(c.shader),
-        c.svars and (c.svars[1] .. "," .. c.svars[2]) or "" }, "\t"))
-    for _, k in ipairs(c.order) do emit(k, depth + 1) end
+        c.svars and (c.svars[1] .. "," .. c.svars[2]) or "", clip or "" }, "\t"))
+    if c.name == "list_clip" then
+        local w, h = c:Dimensions()
+        clip = table.concat({ c.x, c.y, w, h }, ",")
+    end
+    for _, k in ipairs(c.order) do emit(k, depth + 1, clip) end
 end
 for _, k in ipairs(ROOT.order) do if k ~= OPENER then emit(k, 0) end end
 print("OPENER\t" .. esc(EX.button_tip()))
@@ -198,6 +274,10 @@ for k in pairs(STUBBED) do s[#s + 1] = k end
 table.sort(s)
 print("STUBBED\t" .. table.concat(s, ","))
 """
+
+# A scene's Lua before this line runs BEFORE EX.build_panel, as game init does (a join of
+# Resource Overhaul's goods must precede the rows being made); the rest runs after.
+BUILD = "-- build_panel --"
 
 # Each scene: its Lua, then the callouts to draw as (row component or "", cell, side).
 SCENES = {
@@ -215,6 +295,22 @@ ok("refresh", EX.refresh_panel)
       ("rom_wine", "btn_buy", "right")],
         "Offerings, a tithe of Iron due, favour running on Gems, Timber ready"),
     "trade": (r"""
+-- RESOURCE OVERHAUL INSTALLED: its goods join by loc name, so the goods list runs to 54 and
+-- scrolls - the slider is part of the picture.
+common.get_localised_string = function(k)
+    return string.find(k, "resources_onscreen_text_", 1, true) and "x" or "" end
+EX.mr_joined = nil
+ok("join_ro", EX.join_more_resources)
+for i, res in ipairs(EX.COMMODITIES) do
+    if not EX.history[res] then
+        EX.supply[res] = 1 + (i * 5) % 17
+        EX.current[res] = EX.neutral_rung() + ((i * 3) % 9) - 4
+        local h = {}
+        for t = 1, 12 do h[t] = EX.current[res] + math.floor(2 * math.cos(i + t / 3)) end
+        EX.history[res] = h
+    end
+end
+-- build_panel --
 give("res_rom_iron", 340)                 -- between stockpile levels 2 and 3
 give("res_gems", 4)                       -- under one lot: Sell greys
 give("res_rom_timber", 25)
@@ -224,6 +320,52 @@ ok("layout", EX.layout)
 ok("refresh", EX.refresh_panel)
 """, [("gems", "btn_sell", "right"), ("rom_iron", "row_hold", "right")],
         "Trade, Held tooltip on Iron, Sell greyed on Gems (4 held, a lot is 10)"),
+    "stats": (r"""
+give("res_rom_iron", 340)
+give("res_spices", 110)
+EX.mode = EX.MODE_STATS
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Ownership: who holds each good, and your share"),
+    "chart": (r"""
+EX.mode = EX.MODE_TRADE
+EX.selected = "res_rom_iron"
+EX.deep = EX.deep or {}
+EX.deep["res_rom_iron"] = {}
+-- PRICE TIERS, not gold: the chart converts each one through the price ladder.
+for t = 1, 40 do EX.deep["res_rom_iron"][t] = EX.neutral_rung() + math.floor(7 * math.sin(t / 5) + t / 8) end
+EX.trade_page = 2
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Trade, Chart page: one good's price over the last forty turns"),
+    "orders": (r"""
+EX.mode = EX.MODE_TRADE
+EX.trade_page = 3
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Trade, Orders page: standing orders filled at turn end"),
+    "help": (r"""
+EX.mode = EX.MODE_HELP
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Help, page 1"),
+    "houses": (r"""
+for i, k in ipairs(DEMO_HOUSES) do HOUSE[k] = true end
+EX.houses = DEMO_HOUSES
+-- build_panel --
+EX.mode = EX.MODE_HOUSES
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Houses"),
+    "deals": (r"""
+for i, k in ipairs(DEMO_HOUSES) do HOUSE[k] = true end
+EX.deals = { { fac = DEMO_HOUSES[1], res = "res_gems", side = "sell", lots = 2, px = 900, turn = TURN },
+             { fac = DEMO_HOUSES[4], res = "res_rom_iron", side = "buy", lots = 3, px = 1150, turn = TURN },
+             { fac = DEMO_HOUSES[5], res = "res_spices", side = "sell", lots = 1, px = 760, turn = TURN } }
+EX.mode = EX.MODE_DEALS
+ok("layout", EX.layout)
+ok("refresh", EX.refresh_panel)
+""", [], "Deals"),
     "log": (r"""
 give("res_rom_iron", 30)
 give("res_gems", 4)
@@ -289,11 +431,14 @@ def snapshot(scene):
     docs = _docs()
     size = ",".join('["%s"]={%s,%s}' % (k, st.get("width"), st.get("height"))
                     for k, (_d, _c, st) in docs.items() if st is not None)
-    trees = "{panel=%s,row=%s,size={%s}}" % (_lua_tree(_tree(FILES["panel"])),
-                                              _lua_tree(_tree(FILES["row"])), size)
+    trees = "{%s,size={%s}}" % (",".join("%s=%s" % (k, _lua_tree(_tree(FILES[k])))
+                                         for k in ("panel", "row", "list", "sp")), size)
     src = (DRIVER.replace("@@TREES@@", trees).replace("@@LUA@@", LUA)
            .replace("@@SW@@", str(SCREEN[0])).replace("@@SH@@", str(SCREEN[1]))
-           .replace("@@SCENE@@", SCENES[scene][0]))
+           .replace("@@SIZE@@", "large" if SUFFIX else "normal")
+           .replace("@@PRE@@", SCENES[scene][0].partition(BUILD)[0] if BUILD in SCENES[scene][0] else "")
+           .replace("@@SCENE@@", SCENES[scene][0].partition(BUILD)[2] if BUILD in SCENES[scene][0]
+                    else SCENES[scene][0]))
     fd, tmp = tempfile.mkstemp(suffix=".lua")
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(src)
@@ -314,7 +459,9 @@ def snapshot(scene):
                               tip=f[11], parent=f[12],
                               # set_greyscale_t0's two values: greyscale 0-1, alpha 0-1
                               grey=tuple(float(v) for v in f[14].split(","))
-                              if f[13] == "set_greyscale_t0" and f[14] else None))
+                              if f[13] == "set_greyscale_t0" and f[14] else None,
+                              clip=tuple(float(v) for v in f[15].split(","))
+                              if len(f) > 15 and f[15] else None))
         elif f[0] == "OPENER":
             tip = f[1]
         elif f[0] == "STUBBED":
@@ -349,6 +496,7 @@ def render(scene, path=None):
 
     canvas = Image.new("RGBA", SCREEN, (14, 12, 10, 255))
     draw = ImageDraw.Draw(canvas)
+    T = {"img": canvas, "draw": draw}     # where the next component draws
     fonts = {}
 
     def font(size, bold=False):
@@ -386,10 +534,17 @@ def render(scene, path=None):
             # AN IMAGE THE SAME SIZE AS ITS STATE FOLLOWS A RESIZE; a smaller one (a glyph on
             # a button) keeps its own size and sits centred, which is how these files draw.
             iw, ih = float(n.get("width") or xw), float(n.get("height") or xh)
-            if abs(iw - xw) < 1 and abs(ih - xh) < 1:
-                iw, ih, ox, oy = w, h, 0, 0
-            else:
+            # An image sized to its state follows a resize along each axis that matches - the
+            # slider's 6px rod keeps its width and takes the track's height.
+            if abs(iw - xw) < 1:
+                iw = w
+            if abs(ih - xh) < 1:
+                ih = h
+            if n.get("dockpoint") == "Center" or n.get("dockpoint") is None and n.get("offset") is None:
                 ox, oy = (w - iw) / 2, (h - ih) / 2
+            else:
+                # UNDOCKED: its own offset, the way the slider's caps and rod are placed.
+                ox, oy = model.pair(n.get("offset"), (0, 0))
             img = rendering.raster(a, max(1, int(iw)), max(1, int(ih)), n)
             # The Next arrow is the Previous glyph with x_flipped - CA's own idiom.
             if n.get("x_flipped") == "true":
@@ -401,7 +556,7 @@ def render(scene, path=None):
             amount, alpha = c["grey"]
             layer = ImageEnhance.Color(layer).enhance(1 - amount)
             layer.putalpha(layer.getchannel("A").point(lambda v: int(v * alpha)))
-        canvas.alpha_composite(layer)
+        T["img"].alpha_composite(layer)
 
     def ink(x, y, text, f, base, clip_w=None):
         pos, colour = 0, base
@@ -412,11 +567,11 @@ def render(scene, path=None):
             text = plain + "..."
         for m in MARKUP.finditer(text):
             seg = text[pos:m.start()]
-            draw.text((x, y), seg, fill=colour, font=f)
+            T["draw"].text((x, y), seg, fill=colour, font=f)
             x += draw.textlength(seg, font=f)
             colour = base if m.group(1) else INK.get(m.group(2), base)
             pos = m.end()
-        draw.text((x, y), text[pos:], fill=colour, font=f)
+        T["draw"].text((x, y), text[pos:], fill=colour, font=f)
 
     def text_of(c, x, y, w, h):
         if not c["text"]:
@@ -439,7 +594,23 @@ def render(scene, path=None):
         ink(max(tx, x), ty, c["text"], f, col, clip_w=w - ox if align == "left" else w)
 
     boxes = {}
+    # THE ROWS ARE CUT TO list_clip: a clipped run draws on its own layer, pasted back cropped.
+    clip_now = None
+
+    def flush():
+        if clip_now is None:
+            return
+        cx, cy, cw, ch = (int(v) for v in clip_now)
+        canvas.alpha_composite(T["img"].crop((cx, cy, cx + cw, cy + ch)), (cx, cy))
+        T["img"], T["draw"] = canvas, draw
+
     for c in comps:
+        if c.get("clip") != clip_now:
+            flush()
+            clip_now = c.get("clip")
+            if clip_now is not None:
+                T["img"] = Image.new("RGBA", SCREEN, (0, 0, 0, 0))
+                T["draw"] = ImageDraw.Draw(T["img"])
         d, comp, st = docs.get(c["xid"], (None, None, None))
         w = c["w"] if c["w"] is not None else float(st.get("width") or 0) if st is not None else 0
         h = c["h"] if c["h"] is not None else float(st.get("height") or 0) if st is not None else 0
@@ -447,6 +618,7 @@ def render(scene, path=None):
         paste_images(c, c["x"], c["y"], w, h)
         text_of(c, c["x"], c["y"], w, h)
         boxes[(c["parent"], c["name"])] = (c["x"], c["y"], w, h, c["tip"])
+    flush()
 
     GOLDEN = (200, 160, 90, 255)
     BW = 316                          # a margin is (1600 - 920) / 2 = 340px wide
@@ -514,7 +686,7 @@ def render(scene, path=None):
 
     draw.text((16, SCREEN[1] - 28), SCENES[scene][2] + ".   Drawn offline by tools/preview_exchange.py "
               "from the shipped Lua; glyphs approximate.", fill=(150, 140, 120, 255), font=font(13))
-    out = path or os.path.join(PG.CACHE, "ex_%s.png" % scene)
+    out = path or os.path.join(PG.CACHE, "ex_%s%s.png" % (scene, SUFFIX))
     os.makedirs(os.path.dirname(out), exist_ok=True)
     canvas.convert("RGB").save(out)
     return out, comps, shown_tips, stubbed, errs, missing
@@ -552,6 +724,8 @@ def selftest():
 
 
 def main(argv):
+    if "--large" in argv:
+        set_large()
     if "--selftest" in argv:
         return 0 if selftest() else 1
     for scene in SCENES:

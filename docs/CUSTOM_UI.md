@@ -83,7 +83,7 @@ The Exchange ships three files, and the split is the pattern:
 | `..._button.twui.xml` | `button_rituals`'s parent | the HUD opener, lives in CA's button row |
 
 A repeating row is its own file created N times. There is no data binding and no template
-instancing available to a runtime component — you create the file once per row and set every
+instancing available to a runtime component. You create the file once per row and set every
 string yourself.
 
 `[[wh3-twui-runtime-createcomponent-not-override]]`
@@ -92,7 +92,7 @@ string yourself.
 
 Every component needs `this` / `uniqueguid`, and every state needs its own pair. A GUID that
 collides with another file's, or one that appears in `<components>` with no matching node in
-`<hierarchy>`, is a **silent non-draw** — no error, no log line, the widget is simply absent.
+`<hierarchy>`, is a **silent non-draw**: no error, no log line, the widget is simply absent.
 
 The Exchange's sparkline alone is 12 bar components per row. Hand-writing that is how you get a
 collision, so `gen_exchange_ui.py` assigns them from a counter and its `selftest()` asserts
@@ -203,21 +203,21 @@ Two consequences worth writing down:
 
 ### Place what this view names, and HIDE EVERYTHING IT DOES NOT
 
-An unplaced component keeps its last coordinates — or, if it has never been placed, the
-`dock_offset` from the XML, which is the one moment that attribute means anything — and draws
+An unplaced component keeps its last coordinates (or, if it has never been placed, the
+`dock_offset` from the XML, which is the one moment that attribute means anything) and draws
 over whatever the new view put there. So a layout pass has two halves, and the second is the one
 that gets forgotten.
 
 Measured 2026-09-09: a panel had run for months with its hide pass walking the column headers
 **and nothing else**, and nothing was wrong, because every panel-level component that existed
 was either a header or named by every layout table. The first table to name a cell no other
-table named — a chart page — broke it on arrival. Its cells were never placed on page 1, never
+table named, a chart page, broke it on arrival. Its cells were never placed on page 1, never
 hidden, and drew at their XML dock offsets straight across the list: a full-height bar over the
 rows, four labels through the middle of them, and the pager still reading 1/2.
 
 The fix is to hide against the **union of every layout table**, not against any one of them.
 Build that union lazily and memoise it if the tables are declared below the function that reads
-it — a file-scope union that reads a nil takes the whole file down at load, and the tell for
+it: a file-scope union that reads a nil takes the whole file down at load, and the tell for
 that is a `Loading mod file` line with no `loaded successfully`, the quietest failure there is.
 
 The same rule holds one level down for a row's cells, and one level up for the rows themselves.
@@ -249,12 +249,12 @@ Five names, four callbacks. `list_box` and `vslider` are **siblings** under the 
 **This shipped.** The Great Guilds' faction list had `list_clip`, `list_box`, `vslider` and
 `handle` all correct, and a container named `derpy_gg_list` carrying no callback at all. The
 result is the quietest failure of the four: every other part works, so the list drew its rows,
-stacked them in order, clipped the seventh cleanly at the window edge — and would not scroll a
+stacked them in order, clipped the seventh cleanly at the window edge, and would not scroll a
 line. Nothing joined the slider to the box.
 
 **Do not use `ui/common ui/tab_completer.twui.xml` as the donor.** It is the smallest CA panel
 in the game with exactly one scrolling list, which is what makes it look ideal, and its
-container carries a bespoke `TabCompleteSuggestionList` callback instead of `Listview` — so
+container carries a bespoke `TabCompleteSuggestionList` callback instead of `Listview`, so
 copying its four inner parts copies everything except the binding. That is exactly how the
 inert build happened.
 
@@ -272,7 +272,7 @@ Measured across all 824 panels in `ui3.pack`:
 
 Name the container `listview` as well as giving it the callback. The engine binds the four
 inner parts by name, and there is no reason to find out the hard way whether it binds this one
-by name too. It sits inside your own panel, so it collides with nothing — CA's own scripts
+by name too. It sits inside your own panel, so it collides with nothing. CA's own scripts
 reach their lists through a parent chain.
 
 ### CA's template is reusable, but only at its own size
@@ -283,7 +283,7 @@ reach their lists through a parent chain.
 UIComponent(parent:CreateComponent("my_list", "ui/templates/listview.twui.xml"))
 ```
 
-That brings the whole subtree, its art and its callbacks for free — and it is **300x500 with
+That brings the whole subtree, its art and its callbacks for free, and it is **300x500 with
 `<column width="264"/>` baked into its `list_box` layout engine**, which no runtime call
 changes. For any other width, emit your own subtree with these names and callbacks rather than
 fighting a column you cannot reach. `ui/skins/default/slider_vertical_mid.png`,
@@ -292,7 +292,7 @@ own listview draws through `parchment_slider_vertical`.
 
 ### Filling it from Lua
 
-**No CA script ever populates a `list_box`** — the engine fills them from CCO contexts, and
+**No CA script ever populates a `list_box`**: the engine fills them from CCO contexts, and
 CA's scripts only ever read them. A grep of all 5,778 shipped Lua files finds nothing to copy.
 The idiom comes from mods (`!better_recruitment_ui` among them):
 
@@ -423,14 +423,14 @@ with it, so steps 4 and 8's hand-back never arises. Not yet seen in game.
 ### What to position, and what to leave alone
 
 The container, the clip window and the slider are yours to `MoveTo`. **`list_box` and `handle`
-are not** — the List and VSlider callbacks own where those sit, and moving a `list_box` by hand
+are not**: the List and VSlider callbacks own where those sit, and moving a `list_box` by hand
 is how a list scrolls to somewhere it is not. `gen_guilds_ui.py` refuses either name in the
 Lua's placement table for that reason.
 
 ### The check
 
 `check_scroll_parts()` in `tools/gen_guilds_ui.py` asserts the five names, the four callbacks,
-`sizetocontent` and the layout engine — and re-reads **CA's template**, not `tab_completer`, to
+`sizetocontent` and the layout engine, and re-reads **CA's template**, not `tab_completer`, to
 confirm the contract still holds after a patch. Checking against `tab_completer` is precisely
 what let the inert build pass.
 
@@ -440,20 +440,20 @@ what let the inert build pass.
 
 **Every `imagepath` must be a real entry in a shipped pack.** A path that does not exist renders
 as a **blank white square** with no error anywhere. `button_icon_close_24.png` survived a full
-deploy that way; it does not exist in any pack. A byte-grep is not proof — it matches strings
+deploy that way; it does not exist in any pack. A byte-grep is not proof: it matches strings
 *inside* other files, not pack entries. `gen_exchange_ui.py::_game_assets()` reads every path
 out of the game's `ui*.pack` files with `tools/read_pack_index.py`, caches it to
 `.skilltree_cache/ui_asset_paths.json`, and the selftest fails on any path not in that set.
 
 **The same rule covers a path built at RUNTIME, and that one needs asking for.** `_game_assets()`
 walks the three generated `.twui.xml` files, so it never sees a path a Lua `SetImagePath` call
-assembles — and those are the ones a screenshot is least likely to catch, because they draw on
+assembles, and those are the ones a screenshot is least likely to catch, because they draw on
 a page the player sees once. The Zharr Exchange's introduction resolves nine of them
 (`EX.art(stem)` → `ui/campaign ui/effect_bundles/<stem>.png`), and `check_intro_art()` holds
 every one against the same cached index rather than enumerating the packs a second time.
 
 **Where to shop for icons.** `ui/campaign ui/effect_bundles/` holds 980 flat, consistently
-framed icons — including a `trait_*` crest for every race — and is the right family for
+framed icons (including a `trait_*` crest for every race) and is the right family for
 anything drawn at 24x24. Do not mix it with `ui/buildings/icons/`, whose entries are bordered
 art tiles and read as a different size class beside it. **Look at the art before choosing it**:
 the packs are zstd behind a `u32` length prefix (`read_vanilla_loc._decompress`), so a contact
@@ -462,10 +462,10 @@ sheet of candidates is a dozen lines of Pillow, and picking by filename is guess
 **`tile="true"` REPEATS the texture; it does not stretch it.** The generator emitted it on every
 image at first, so a 339x51 button texture in a 100x26 box drew as a narrow repeated slab beside
 the label (screenshotted 2026-09-04). Only a genuine background tile wants it. CA's own button
-templates emit `this` / `uniqueguid` / `componentimage` / `width` / `height` and nothing else —
+templates emit `this` / `uniqueguid` / `componentimage` / `width` / `height` and nothing else:
 no tile, no dockpoint, no margin.
 
-**`margin` is the 9-slice inset** — which border of the texture must not be stretched or
+**`margin` is the 9-slice inset**: which border of the texture must not be stretched or
 repeated. With `margin="0,0,0,0"` on a tiled texture the transparent edge repeats and shows
 through as a grid of seams. It also must be smaller than half the component: margin 14 on a
 26px-tall box makes the middle slice negative.
@@ -483,7 +483,7 @@ draws tile, art, smoke and scrim at offset (4,4), size -8 (`GROUND_INSET`, 2026-
 
 **A panel's ground can be swapped from Lua, and the swap is addressed by INDEX.**
 `SetImagePath(path, index)` replaces one of the images in the component's
-`<componentimages>` list, counted in the order they are declared — CA's own words are that
+`<componentimages>` list, counted in the order they are declared. CA's own words are that
 an index set here "takes precedence over any set `script_icon_index` property", and with no
 index at all it swaps image 0. The Great Guilds' panel declares five (tile, art, smoke,
 scrim, frame) and the campaign Lua repaints image **1** as the player pages from guild to guild,
@@ -492,19 +492,19 @@ which is what makes the hall behind the text change with the guild on screen.
 Three things follow, and each of them fails in silence:
 
 - **The index is positional, so a new layer renumbers it.** Insert anything above the art
-  and the same call now replaces the tile *underneath* it — hidden, so nothing on screen
-  ever changes again — or the scrim, which is what every unplated label's contrast rests
+  and the same call now replaces the tile *underneath* it (hidden, so nothing on screen
+  ever changes again) or the scrim, which is what every unplated label's contrast rests
   on. Nothing ties the Lua's constant to the generator's layer list, so
   `gen_guilds_ui.check_panel_bg()` does: it fails the build when `GGUI.BG_INDEX` stops
   matching the art's position in `PANEL_LAYERS`.
 - **You cannot read back what is there.** `GetImagePath` hard-crashes the game, exactly as
-  `GetTooltipText` does, so "only repaint when it changed" has to be a variable you keep —
+  `GetTooltipText` does, so "only repaint when it changed" has to be a variable you keep,
   and a memo of that shape is wrong the moment the panel is destroyed and recreated, which
   presents as a panel stuck on its default ground. Repainting unconditionally on a refresh
   driven by clicks (not by a timer) is the cheaper correct answer.
 - **A swapped-in ground is a text-contrast change, not a decoration change.** The Guilds
-  panel's ground was picked on what it measures under its own scrim — p99 luminance 34,
-  peak 131 — because the Help tab draws twenty-one lines straight onto it with no plate
+  panel's ground was picked on what it measures under its own scrim (p99 luminance 34,
+  peak 131) because the Help tab draws twenty-one lines straight onto it with no plate
   between. Every picture in `Modding Files/reference/` measures brighter than that (the
   darkest is p99 55, most are 70 to 95), so `tools/make_guild_backgrounds.py` multiplies
   each one down until it measures what the original ground measures, reading that ceiling
@@ -524,7 +524,7 @@ the body, so a full-size body layer with no dockpoint is the safe shape.
 **For a bar, a rule or any solid block use `ui/skins/default/1x1_blank_white.png` with a
 `colour`.** A decorative texture squeezed to a few pixels averages out to nothing: the sparkline
 bars were 7x14 slices of a 127x29 banner and read as faint dots; the row divider was
-`parchment_divider.png` (256x256) squashed to 948x3 and was invisible. Colours are `#RRGGBBAA` —
+`parchment_divider.png` (256x256) squashed to 948x3 and was invisible. Colours are `#RRGGBBAA`,
 alpha **last**.
 
 **A left/right pair comes from ONE texture and `x_flipped="true"`.** CA ships no mirrored
@@ -539,19 +539,19 @@ exactly one attribute on the `<image>` metrics:
 Two traps sit on top of that, and both shipped:
 
 - **`x_flipped`, not `flipped`.** The short name is not an attribute the engine knows, and an
-  unknown attribute is ignored in silence — two arrows pointing the same way, no error. Worse,
+  unknown attribute is ignored in silence: two arrows pointing the same way, no error. Worse,
   a build-time check written against `flipped="true"` passes on **both** names, because it is a
   substring of the real one. Count the full string, and count it in the **rendered** file: a
   missing emitter in a generator looks identical from the generator's own side.
 - **Flip every state.** The glyph is a layer of `standard` *and* `hover`; flipping only
   `standard` mirrors the arrow the instant the mouse arrives.
 
-**`button_cycle_arrow_active.png` is not a glyph — it is a whole button.** That template names
+**`button_cycle_arrow_active.png` is not a glyph; it is a whole button.** That template names
 the `button_cycle_arrow_*` files and nothing else, so the texture is an arrow-*shaped* red plate
 with its own bronze border, 49x45. Laid over a plate of your own it reads as a slab with a mark
 on it. `button_indicator_arrow_active.png` is the same kind of file. The bare directional glyph
 that does exist is **`ui/skins/default/icon_credits_back.png`**: a flat bronze triangle pointing
-LEFT on transparency, 56x56 — the same family as `icon_cross_small` and `icon_question_mark`,
+LEFT on transparency, 56x56, the same family as `icon_cross_small` and `icon_question_mark`,
 so it sits on `button_round_small_active.png` exactly the way a close or help button does.
 
 **A 9-slice cannot bend, so a curved border is ART.** CA's frame is four straight rails and
@@ -593,13 +593,13 @@ in one look, after two rounds of guessing from filenames had produced the wrong 
   `ui2.pack` and `ui3.pack`: **32 distinct values**, and the only `body_*` sizes CA has are
   **body_10, body_12, body_16** (plus `body_12_bold`, `body_12_italic`, `body_alternative_12`).
   The header family is `header_12/14/16/18`, `header_16_bold/18_bold/20_bold/24_bold`,
-  `header_alternative_18`. An unknown value is **not an error and not a blank** — the engine falls
+  `header_alternative_18`. An unknown value is **not an error and not a blank**: the engine falls
   back, so the label draws at a size nobody chose, and `font_m_size` does not rescue it. The
   example above said `body_13` and the shared emitter built the name as `"body_%d" % size`, so
   every size-14 label in the Zharr Exchange and The Great Guilds shipped `body_14`. Fixed at
   source: `EU.fontcat()` snaps a requested size to the nearest real category or takes an explicit
   `fontcat=`, and `gen_guilds_ui.check()` refuses on any name outside `EU.FONTCATS`.
-- Set the string from Lua with `SetStateText`. Do not build a padded single-line header — the
+- Set the string from Lua with `SetStateText`. Do not build a padded single-line header: the
   font is proportional, so spaces never line up with the columns below. Use **one label per
   column** and keep its x in step with the row's.
 - A text offset larger than the box draws the text *outside* it: the first header carried
@@ -620,7 +620,7 @@ soundcategory="UI_GBL_TMP_Square_Large_Text_Button"
 
 | Category | Uses in ui3.pack | For |
 |---|---|---|
-| `UI_GBL_HUD_Purchase` | — | a generic buy |
+| `UI_GBL_HUD_Purchase` | 7 | a generic buy |
 | `UI_GBL_TMP_Square_Large_Text_Button` | 39 | the rectangular text button |
 | `UI_GBL_TMP_Round_Medium_Button` | 38 | a 48px round HUD button |
 | `UI_GBL_TMP_Round_Small_Button` | 232 | a small round button |
@@ -641,7 +641,7 @@ tooltipslocalised="true" componentleveltooltip="Buy a lot||Bought at the price s
 ```
 
 `Title||Body` is CA's split, and it **only works as literal attribute text**. Routed through a
-loc key of your own the pipes render verbatim on screen — screenshotted twice. `{{tr:X}}` is a
+loc key of your own the pipes render verbatim on screen (screenshotted twice). `{{tr:X}}` is a
 *text replacement* lookup (`ui_text_replacements_localised_text_X`) and that consumer is what
 applies the split; a bare loc key never reaches it. All 498 vanilla loc values containing `||`
 live in `ui_text_replacements`. CA writes 1,076 literal tooltips against 178 `{{tr:}}` ones.
@@ -653,7 +653,7 @@ The cost is that literal text is not localisable. That is the trade.
 several of the 77 that do not are placeholders (`[PH] ...`, keyboard mash). CA's own words for
 the flag, from `cco/documentation.html`: *"Interactivity determines if a component can handle
 mouse interactions like clicks and mouseovers."* A tooltip on a plain text cell is set, correct
-and invisible. Add `SetInteractive(true)` beside it — a cell that is not clickable can still be
+and invisible. Add `SetInteractive(true)` beside it. A cell that is not clickable can still be
 hoverable.
 
 **Length.** Over roughly 60 characters a tooltip without the `||` split renders in a box that
@@ -662,8 +662,8 @@ to a **median of 42 characters**.
 
 ### When the component's meaning changes between views: set it at runtime
 
-A `componentleveltooltip` is one string for the life of the component. If a cell is reused — a
-gold price in one view, a percentage in the next — no single attribute is true, and the pair goes
+A `componentleveltooltip` is one string for the life of the component. If a cell is reused (a
+gold price in one view, a percentage in the next), no single attribute is true, and the pair goes
 on at runtime instead:
 
 ```lua
@@ -672,7 +672,7 @@ c:SetInteractive(true)
 ```
 
 Proven in game 2026-09-06 on plain text cells. **Keep these under ~60 characters and skip the
-`||` split entirely** — the split has only ever been verified through the XML attribute, never
+`||` split entirely**: the split has only ever been verified through the XML attribute, never
 through `SetTooltipText`.
 
 **And a view with nothing to say must CLEAR every cell, not skip it.** Reported from play
@@ -694,11 +694,11 @@ c:SetInteractive(text ~= "")     -- an empty tooltip on an interactive cell stil
                                  -- mouse and draws an empty box over the row
 ```
 
-None of this fails loudly — the text is set, the component is valid, nothing throws, and it is
+None of this fails loudly: the text is set, the component is valid, nothing throws, and it is
 invisible in a screenshot taken with the pointer off the row. Only a player hovering the wrong
 column ever sees it. `[[wh3-shared-cells-must-be-cleared-not-skipped]]`
 
-Never **read** a HUD button's tooltip or image at runtime — `GetTooltipText` and `GetImagePath`
+Never **read** a HUD button's tooltip or image at runtime: `GetTooltipText` and `GetImagePath`
 both hard-crash at the same address. `Position()` and `Bounds()` are safe.
 
 `[[wh3-tooltip-pipe-split-needs-literal-text]]` `[[wh3-gettooltiptext-reads-current-state]]`
@@ -715,7 +715,7 @@ panel:SetVisible(visible)
 panel:SetInteractive(visible)    -- follows visibility; NEVER a literal true
 ```
 
-**An interactive container does not swallow its children's clicks** — CA's rituals panel ships
+**An interactive container does not swallow its children's clicks**: CA's rituals panel ships
 `agent_list`, `bottom` and `action` interactive with working children inside them.
 
 **Interactive-while-hidden is the worse bug**: a panel-sized dead zone in the middle of the map
@@ -800,7 +800,7 @@ core:add_listener("zharr_exchange_click", "ComponentLClickUp",
 ```
 
 `context.string` is the clicked component's **id**, so every row's Buy button reports the same
-`btn_buy` — walk up to the parent row and read its id to know which one. That is why row
+`btn_buy`. Walk up to the parent row and read its id to know which one. That is why row
 components are named `<row>_<key>`.
 
 Anything that changes game state must be multiplayer-safe: route it through
@@ -837,7 +837,7 @@ end
 
 **The HUD is not laid out when the first-tick callback runs.** Reading `button_rituals` then
 reported a position off the edge of the screen: our button was placed at 2517,1429 on a
-2717x1419 display — invisible. Once the HUD settles the same button reads 1705,846.
+2717x1419 display, invisible. Once the HUD settles the same button reads 1705,846.
 
 The anchor can also be **absent** at that moment, so a one-shot `CreateComponent` silently did
 nothing forever. Retry **creation and placement**, and reject an off-screen answer:
@@ -878,7 +878,7 @@ carries
 
 A layout group **owns** its children's positions, so the button became an extra slot on the
 Chaos Dwarf ring and CA moved it back onto the arc on every re-layout. `MoveTo` does not lose a
-fight with a layout engine — it never gets to have one.
+fight with a layout engine; it never gets to have one.
 
 Create on the UI root (the same parent a runtime panel uses, no `LayoutEngine`, always present)
 and only **read** coordinates off the anchor. Reading cannot be overridden; being a child can.
@@ -901,7 +901,7 @@ resources_bar          pos 431,-4  1019x60    <- the art, 133px left and 94px ri
 ```
 
 The holder's 792x67 box describes nothing that is drawn. **Measure the component that is
-actually drawn, live, on every placement call** — never derive a HUD position from CA's XML
+actually drawn, live, on every placement call**. Never derive a HUD position from CA's XML
 (the strip's `docked Top Center` + `anchor 0.50` + `offset 404` works out to ~968 by hand and is
 wrong by 460px), and never from a parent's declared size.
 
@@ -915,7 +915,7 @@ MEASURED IN GAME 2026-09-12. The Great Guilds panel's 790x700 ground was oversca
 outer rows to the component. It does not. The art and its scrim ringed the panel with 16px
 of black **outside the gold frame**. The outermost thing a panel draws must be its frame.
 
-There is no "overscan to crop" idiom in twui — a picture's own edges are what you get. If an
+There is no "overscan to crop" idiom in twui: a picture's own edges are what you get. If an
 art file's edge is unusable, the frame's 9-slice `margin` is the knob, or pick other art.
 Deliberate insets go the other way and are safe for exactly the same reason: a **negative**
 `dw`/`dh` with `dockpoint="Center"` draws inside the component and cannot escape, which is
@@ -966,7 +966,7 @@ opener button at 379,9 (resources_bar_holder)
 
 **A fallback that resolves to a different position turns "not ready yet" into a guaranteed
 visible jump.** Fall back only when the anchor is *absent entirely* (a CA rename); while it is
-merely still loading, retry. And put the anchor's name in the log line — a silent fallback
+merely still loading, retry. And put the anchor's name in the log line. A silent fallback
 otherwise reads as the button moving on its own.
 
 `[[wh3-uicreated-fires-before-world]]` `[[wh3-layout-group-overrides-moveto]]`
@@ -976,7 +976,7 @@ otherwise reads as the button moving on its own.
 
 This cost a full debugging round and a deploy. `find_uicomponent` returns boolean `false` when
 it finds nothing, so `tostring(c ~= nil)` prints `true` for a component that does not exist
-while `if c then` takes the false branch. **Use `is_uicomponent(c)`**, always — including in
+while `if c then` takes the false branch. **Use `is_uicomponent(c)`**, always, including in
 debug probes, which is where the wrong answer did the damage.
 
 The same probe had a mistyped component name in it. A wrong name and a genuinely missing
@@ -985,7 +985,7 @@ probe.
 
 `[[wh3-lua-nil-vs-false-and-call-each]]`
 
-## `is_uicomponent()` is a TYPE test — never cache a component
+## `is_uicomponent()` is a TYPE test: never cache a component
 
 The companion trap, and a worse one, because the guard *looks* like it is doing the checking.
 `is_uicomponent(c)` answers "is this a UIComponent value", **not** "does this component still
@@ -1013,8 +1013,8 @@ ERROR: output_uicomponent() called but supplied object [UIComponent (...)] is no
 
 One session logged **1,350 of these in eight minutes** and grew `script_log` from 988KB to
 2.2MB; the HUD button stopped responding because CA's click plumbing could not even *log* the
-clicked component before erroring. There is no liveness accessor to call instead — a dead handle
-is indistinguishable from a live one until you use it — so **the rule is not to keep one**. Look
+clicked component before erroring. There is no liveness accessor to call instead (a dead handle
+is indistinguishable from a live one until you use it), so **the rule is not to keep one**. Look
 the component up fresh. Two `find_uicomponent` calls on a panel open cost nothing.
 
 The one thing worth caching is a *number* you derived from a component (a measured anchor
@@ -1027,7 +1027,7 @@ position), never the component itself.
 Two separate things have to be right, and getting either wrong is silent.
 
 **1. The transition map is what makes a state reachable.** A `<hover>` state with no
-`<transitionmap>` edge pointing at it is never entered — the state is in the file, the engine
+`<transitionmap>` edge pointing at it is never entered: the state is in the file, the engine
 has no way to reach it, and the button simply never lights. The vocabulary, read out of CA's own
 `ui/templates/round_small_button.twui.xml` in `ui3.pack`:
 
@@ -1037,7 +1037,7 @@ has no way to reach it, and the button simply never lights. The vocabulary, read
 | `1` | mouse leaves |
 | `2` | mouse down |
 
-CA's eleven-state button is an explicit graph — `active -> [(0, hover)]`,
+CA's eleven-state button is an explicit graph: `active -> [(0, hover)]`,
 `hover -> [(1, active), (2, down)]`. The minimum useful pair is two states and two edges:
 
 ```xml
@@ -1059,12 +1059,12 @@ CA's eleven-state button is an explicit graph — `active -> [(0, hover)]`,
 
 `<componentimages>` is a **component**-level list; each state's `<imagemetrics>` picks the
 entries it draws by GUID. A texture used by both states appears twice in that list, which is
-harmless — CA does the same.
+harmless. CA does the same.
 
 Every state needs its own `<component_text>` or the label draws in the engine's default font the
 instant the mouse arrives. Every `_active` texture in `ui/skins/default` has a `_hover` sibling.
 
-**2. `SetStateText` writes to the CURRENT STATE ONLY** — CA documents it in those words. A
+**2. `SetStateText` writes to the CURRENT STATE ONLY**. CA documents it in those words. A
 button with a hover state whose label is set once draws *nothing* while the mouse is over it,
 and the label returns when the mouse leaves. Write it into each state, and **restore** the state
 rather than forcing `standard`: a panel that refreshes after a click is refreshing a button the
@@ -1133,11 +1133,11 @@ created at runtime.
 ## What you cannot do
 
 - **Widen a panel title plate.** A renamed header clips silently at about 19 characters.
-- **Two prices on one rites-panel row**, or colouring a two-resource cost —
+- **Two prices on one rites-panel row**, or colouring a two-resource cost:
   `can_afford_resource_cost` returns one boolean for the whole row.
 - **Give a runtime component a CCO context** it did not inherit, except by `SetContextObject`
   with a CCO type you can name.
-- **Call a CCO function with an argument** — `AgentSubtypeCap(key)` and friends null-deref the
+- **Call a CCO function with an argument**: `AgentSubtypeCap(key)` and friends null-deref the
   game.
 
 `[[wh3-panel-title-plate-cannot-widen]]` `[[wh3-runtime-component-has-no-context]]`
@@ -1173,7 +1173,7 @@ copy into the next UI generator:
 | every runtime-swapped picture is on disk AND measured | a blank ground, or unplated text on a picture half again too bright |
 
 The last three are 2026-09-09 and are worth a sentence each. **A component the layout tables do
-not name cannot draw at all** once the hide pass walks their union — the fault flips from "draws
+not name cannot draw at all** once the hide pass walks their union: the fault flips from "draws
 in the wrong place forever" to "never draws", which is quieter still. **A generator that lays a
 chart out at build time and a runtime that re-positions every bar from its own copies of the
 same constants share nothing but a comment**, and a pitch one pixel wider on one side is silent
@@ -1199,17 +1199,17 @@ Two lessons about the checks themselves, from the same day:
 CA ships a UI inspector and it is off by default: **Settings -> Modding -> Enable context
 viewer**. It gives you a **Component Tree** (every component, searchable, with a Live Update
 Tree toggle) and a **Context menu** showing the CCO context objects and their queries under the
-cursor — `CcoCampaignRoot`, `FactionList (837)`, `SettlementList (753)` and so on, which is
+cursor: `CcoCampaignRoot`, `FactionList (837)`, `SettlementList (753)` and so on, which is
 where a `context_key` in a `.twui.xml` expression comes from.
 
 **Turn it on before doing any HUD work.** Two rounds of this workspace's UI debugging were spent
-reconstructing by hand what it shows at a glance — byte-scanning `ui3.pack` for component ids
+reconstructing by hand what it shows at a glance: byte-scanning `ui3.pack` for component ids
 and firing `wh3_eval` probes for positions.
 
 ### The names are exact, and several are plural
 
 The first search that failed here was `resource_bar`. The component is **`resources_bar`**
-— plural — and a near-miss returns nothing, which looks exactly like
+(plural), and a near-miss returns nothing, which looks exactly like
 "this component does not exist": the same indistinguishable-failure shape as a mistyped name
 in a `find_uicomponent` probe. Confirmed live in the viewer, the chain is
 
@@ -1219,7 +1219,7 @@ root > hud_campaign > resources_bar_holder > resources_bar
 
 with `resources_bar` as child **0** of the holder and 43 children of its own (`treasury_holder`,
 `court_boon_holder`, and one holder per race mechanic). The detail pane names the parent for
-you — `CcoComponent ParentContext` reads `16. resources_bar_holder` — so a component
+you (`CcoComponent ParentContext` reads `16. resources_bar_holder`), so a component
 found by search tells you its whole chain without walking the tree.
 
 The tree also starts collapsed at `root`, so expand or use the search box rather than expecting
@@ -1228,12 +1228,12 @@ to see the HUD laid out.
 ### What it does NOT replace
 
 It shows you names and context. It does **not** tell you that a component's box differs from its
-art — `resources_bar_holder` looks like a perfectly good anchor in the tree and is a 792x67 box
+art: `resources_bar_holder` looks like a perfectly good anchor in the tree and is a 792x67 box
 around a 1019x60 child that overhangs it on both sides. **Names come from the viewer; geometry
 still has to be measured at runtime** with `Position()` and `Dimensions()`. See "A component's
 box is not its art" above.
 
-Never read a HUD button's `GetTooltipText()` or `GetImagePath()` — both hard-crash. Position and
+Never read a HUD button's `GetTooltipText()` or `GetImagePath()`: both hard-crash. Position and
 bounds are safe.
 
 `[[wh3-panel-icons-derived-in-twui]]`
@@ -1243,7 +1243,7 @@ bounds are safe.
 - Textures and layout files: `tools/read_pack_index.py` lists every path in any `.pack`, and
   returns the bytes of uncompressed entries, with RPFM closed. `.twui.xml` is text, so a
   byte-grep reaches it; DB table contents it never reaches.
-- Display names: `tools/read_vanilla_loc.py` parses CA's `text/db/*.loc` — zstd behind a `u32`
+- Display names: `tools/read_vanilla_loc.py` parses CA's `text/db/*.loc`: zstd behind a `u32`
   prefix, then `\xff\xfeLOC`, a `u32` version, a `u32` count, then `u16` char count plus
   UTF-16LE for **both** key and value. That is how the Exchange shows "Salt" rather than
   `rom_lead`; the resource keys and their display names disagree in vanilla (`res_rom_lead` is

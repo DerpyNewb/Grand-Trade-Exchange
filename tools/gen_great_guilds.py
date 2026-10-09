@@ -4,7 +4,7 @@ import os
 import re
 import sys
 
-GUILDS = ["brass", "immortals", "daemonsmiths", "khanate", "overseers", "slavers"]
+GUILDS = ["brass", "immortals", "daemonsmiths", "khanate", "overseers", "slavers", "temple"]
 
 # Rank 1 is "unmarked" and grants no bundle. Indices are 1-5 everywhere.
 RANK_THRESHOLDS = [0, 100, 300, 700, 1500]
@@ -19,6 +19,8 @@ RATES = {
     "khanate":      {"per_action": 8, "cap": 40},
     "overseers":    {"per_building_level": 10, "cap": 40},
     "slavers":      {"per_sack": 25, "per_raze": 40, "cap": 80},
+    "temple":       {"per_devout_province": 1, "per_clean_province": 2, "per_holy_win": 10,
+                     "cap": 40},
 }
 
 
@@ -28,7 +30,7 @@ def extra_sentence(guild, rank):
     if not extra or extra[2][rank] is None:
         return ""
     blurb, reach = EFFECT_BLURB_EXTRA[guild]
-    return " %s, for %s." % (blurb % extra[2][rank], reach)
+    return " %s %s." % (blurb % extra[2][rank], reach)
 
 
 def bundle_key(guild, rank):
@@ -66,6 +68,9 @@ RANK_EFFECTS = {
                      "faction_to_region_own"),
     "slavers":      ("wh_main_effect_force_all_campaign_sacking_income",
                      "faction_to_faction_own"),
+    # The temple's row is a fallback no race reaches today: TEMPLE_LORE sets it for every flavour (2026-10-09).
+    # 83 vanilla bundle rows on this pair, -20..15.
+    "temple":       ("wh_main_effect_public_order_events", "faction_to_province_own"),
 }
 
 # A SECOND EFFECT ON THE RANK LADDER, for guilds that want one. Its own value ladder,
@@ -84,7 +89,7 @@ RANK_EFFECTS_EXTRA = {
 
 # How the second effect reads, alongside the guild's main one.
 EFFECT_BLURB_EXTRA = {
-    "immortals": ("%+d recruitment capacity", "your faction"),
+    "immortals": ("%+d recruitment capacity", "for your faction"),
 }
 
 # is_positive_value_good, read out of vanilla's own effects table on 2026-09-10.
@@ -100,6 +105,7 @@ EFFECT_GOOD_SIGN = {
     "khanate":      -1,   # agent recruitment COST   - positive is BAD
     "overseers":    -1,   # construction COST        - positive is BAD
     "slavers":      1,    # sacking income           - positive is good
+    "temple":       1,    # fallback only; TEMPLE_LORE sets the sign per race
 }
 
 # How each guild's effect reads to a player, and whether the number is a percentage.
@@ -113,15 +119,17 @@ EFFECT_REACH_THEIRS = {
     "khanate":      "their provinces",
     "overseers":    "their regions",
     "slavers":      "their armies",
+    "temple":       "their provinces",
 }
 
 EFFECT_BLURB = {
-    "brass":        ("%+d%% income from all buildings", "every region you own"),
-    "immortals":    ("%+d%% replenishment rate", "every army"),
-    "daemonsmiths": ("%+d%% research rate", "your faction"),
-    "khanate":      ("%+d%% hero recruitment cost", "every province you own"),
-    "overseers":    ("%+d%% building construction cost", "every region you own"),
-    "slavers":      ("%+d%% income from sacking settlements", "every army"),
+    "brass":        ("%+d%% income from all buildings", "in every region you own"),
+    "immortals":    ("%+d%% replenishment rate", "for every army"),
+    "daemonsmiths": ("%+d%% research rate", "for your faction"),
+    "khanate":      ("%+d%% hero recruitment cost", "in every province you own"),
+    "overseers":    ("%+d%% building construction cost", "in every region you own"),
+    "slavers":      ("%+d%% income from sacking settlements", "for every army"),
+    "temple":       ("%+d public order", "in every province you own"),
 }
 
 # 16,351 of vanilla's 16,430 junction rows use this stage. Nothing here needs another.
@@ -130,6 +138,14 @@ STAGE = "start_turn_completed"
 # Effect value at each rank. Index 0 and 1 unused - rank 1 grants nothing.
 RANK_VALUES = [None, None, 3, 6, 10, 15]
 
+# THE TEMPLE'S OLD PUBLIC-ORDER LADDER (temple spec §4), now a fallback no race reaches today: TEMPLE_LORE sets it for every flavour.
+# Indexed like RANK_VALUES.
+RANK_VALUES_OF = {"temple": [None, None, 1, 2, 3, 4]}
+
+
+def rank_value(g, rank, tag=""):
+    return (_lore(g, tag, "ladder") or RANK_VALUES_OF.get(g, RANK_VALUES))[rank]
+
 GUILD_NAMES = {
     "brass":        "The Brass Tablets",
     "immortals":    "The Immortals",
@@ -137,16 +153,17 @@ GUILD_NAMES = {
     "khanate":      "The Khanate",
     "overseers":    "The Overseers",
     "slavers":      "The Slavers",
+    "temple":       "The Temple of Hashut",
 }
 
-RANK_NAMES = ["Unmarked", "Indebted", "Sworn", "Favoured", "Exalted"]
+RANK_NAMES =["Unmarked", "Indebted", "Sworn", "Favoured", "Exalted"]
 
 # The panel title plate clips silently past about 19 characters. gen_guilds_ui.py
 # asserts the same string against that ceiling.
 PANEL_TITLE = "The Great Guilds"
 
 
-# The eighteen services. rank is the rank that unlocks it (2 indebted, 3 sworn,
+# The services. rank is the rank that unlocks it (2 indebted, 3 sworn,
 # 4 favoured). kind decides which payload runs; only kind == "bundle" mints an
 # effect bundle. Every cm: call named in a comment was verified present in
 # campaign/episodic_scripting.html on 2026-09-10.
@@ -202,181 +219,178 @@ SERVICES = [
     {"key": "alms_and_bribes", "guild": "brass", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Temple Bribes",
      "effects": [("wh3_main_effect_corruption_reduction_events", "faction_to_province_own", -5)],
-     "text": "{v0:+d} corruption in every province you hold, for {turns} turns.",
+     "text": '{v0:+d} corruption in every province you own for {turns} turns.',
      # The Chaos Dwarfs gain public order FROM Chaos corruption (RACE_UNWANTED_EFFECTS).
      "for_tag": {"": {
          "effects": [("wh3_main_effect_corruption_chaos_events", "faction_to_province_own", 5)],
-         "text": "{v0:+d} Chaos corruption in every province you hold, for {turns} turns."}}},
+         "text": '{v0:+d} Chaos corruption in every province you own for {turns} turns.'},
+         # The Grey Seers EARN from Skaven corruption: CA's own +5 pair
+         # (wh3_dlc29_skv_magic_pull_moon_filler_token_skaven_corruption).
+         "_skv": {
+         "effects": [("wh3_main_effect_corruption_skaven_events", "faction_to_province_own", 5)],
+         "text": '{v0:+d} Skaven corruption in every province you own for {turns} turns.'}}},
     {"key": "mercenary_contract", "guild": "brass", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 6, "name": "Hobgoblin Contracts",
      "effects": [("wh_main_effect_force_all_campaign_recruitment_cost_all", "faction_to_force_own", -15)],
-     "text": "{v0:+d}% recruitment cost in all your armies, for {turns} turns."},
+     "text": '{v0:+d}% recruitment cost in all your armies for {turns} turns.'},
     {"key": "guild_loan", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "gold", "value": 6000, "turns": 10, "with_bundle": True, "drawback": True,
      "name": "Brass Loan",
      "effects": [("wh_main_effect_economy_gdp_mod_all", "faction_to_region_own", -10)],
-     "text": "Adds {value:,} gold to your treasury at once. Repaid as {v0:+d}% income from "
-             "all buildings, for {turns} turns."},
+     "text": 'Adds {value:,} gold to your treasury at once. Repaid as {v0:+d}% income from all buildings for {turns} turns.'},
     {"key": "industry_charter", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 10, "name": "Furnace Charter",
      "effects": [("wh_dlc07_effect_economy_gdp_mod_industry", "faction_to_region_own", 20)],
-     "text": "{v0:+d}% income from industry buildings, for {turns} turns."},
+     "text": '{v0:+d}% income from industry buildings for {turns} turns.'},
     {"key": "treasury_seal", "guild": "brass", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 12, "name": "The Tablet Seal",
      "effects": [("wh_main_effect_force_all_campaign_upkeep", "faction_to_force_own", -20)],
-     "text": "{v0:+d}% upkeep for all your units, for {turns} turns."},
+     "text": '{v0:+d}% upkeep for all your units for {turns} turns.'},
     {"key": "bought_peace", "guild": "brass", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 12, "name": "Bought Obedience",
      "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 3)],
-     "text": "{v0:+d} public order in every province you hold, for {turns} turns."},
+     "text": '{v0:+d} public order in every province you own for {turns} turns.'},
     {"key": "forced_march", "guild": "immortals", "rank": 2, "cost": 50, "cd": 8,
      "kind": "army", "turns": 3, "name": "Forced March",
      "effects": [("wh_main_effect_force_all_campaign_movement_range", "force_to_force_own", 20)],
-     "text": "{v0:+d}% campaign movement for the army you select, for {turns} turns."},
+     "text": '{v0:+d}% campaign movement for the army you select for {turns} turns.'},
     {"key": "drillmasters", "guild": "immortals", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Drillmasters",
      "effects": [("wh_main_effect_force_all_campaign_experience_base_all", "faction_to_force_own", 1)],
-     "text": "Units you recruit start {v0:+d} rank higher, for {turns} turns."},
+     "text": 'For {turns} turns, units you recruit start {v0:d} rank higher.'},
     {"key": "battle_standard", "guild": "immortals", "rank": 3, "cost": 150, "cd": 12,
      "kind": "army", "turns": 5, "name": "Bull Standard",
      "effects": [("wh_main_effect_force_stat_leadership", "force_to_force_own", 8)],
-     "text": "{v0:+d} leadership for the army you select, for {turns} turns."},
+     "text": '{v0:+d} leadership for the army you select for {turns} turns.'},
     {"key": "field_surgeons", "guild": "immortals", "rank": 3, "cost": 150, "cd": 12,
      "kind": "army", "turns": 2, "heal": True, "name": "Flesh-Menders",
      "effects": [("wh_main_effect_force_all_campaign_replenishment_rate", "force_to_force_own", 30)],
-     "text": "Heals the army you select at once, then {v0:+d}% replenishment for it, for "
-             "{turns} turns."},
+     "text": 'Heals the army you select at once, then {v0:+d}% replenishment for it for {turns} turns.'},
     {"key": "veteran_cadre", "guild": "immortals", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "name": "Blooded Cadre",
      "effects": [("wh_main_effect_force_all_campaign_experience_base_all", "faction_to_force_own", 3)],
-     "text": "Units you recruit start {v0:+d} ranks higher, for {turns} turns."},
+     "text": 'For {turns} turns, units you recruit start {v0:d} ranks higher.'},
     {"key": "warlords_honour", "guild": "immortals", "rank": 4, "cost": 400, "cd": 16,
      "kind": "ranks", "value": 5, "name": "Honour of the Immortals",
      "text": "Adds {value} ranks to the lord or hero you select."},
     {"key": "ward_runes", "guild": "daemonsmiths", "rank": 2, "cost": 50, "cd": 8,
      "kind": "army", "turns": 5, "name": "Daemonic Wards",
      "effects": [("wh_main_effect_force_stat_ward_save", "force_to_force_own", 10)],
-     "text": "{v0:+d}% ward save for the army you select, for {turns} turns."},
+     "text": '{v0:+d}% ward save for the army you select for {turns} turns.'},
     {"key": "spirit_siphon", "guild": "daemonsmiths", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Siphon the Winds",
      "effects": [("wh3_main_effect_winds_of_magic_events", "faction_to_force_own", 5)],
-     "text": "{v0:+d} Winds of Magic power reserve for all your armies, for {turns} turns.",
+     "text": '{v0:+d} Winds of Magic power reserve for all your armies for {turns} turns.',
      # The Dwarfs have no spellcasters (RACE_UNWANTED_EFFECTS): runes against magic instead.
      "for_tag": {"_dwf": {
          "effects": [("wh_main_effect_force_stat_magic_resistance", "faction_to_force_own", 10)],
-         "text": "{v0:+d}% spell resistance for all your armies, for {turns} turns."}}},
+         "text": '{v0:+d}% spell resistance for all your armies for {turns} turns.'},
+         # THE COLLEGES TOOK THE WINDS (2026-10-09 spec §4): the Engineers' Empire slot
+         # is armour from the ironworks, not magic.
+         "_emp": {
+         "effects": [("wh_main_effect_force_stat_physical_resistance", "faction_to_force_own", 5)],
+         "text": '{v0:+d}% physical resistance for all your armies for {turns} turns.'}}},
     {"key": "forged_arms", "guild": "daemonsmiths", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 8, "name": "Daemon-Forged Arms",
      "effects": [("wh_main_effect_force_stat_weapon_strength", "faction_to_force_own", 10)],
-     "text": "{v0:+d}% weapon strength for all your armies, for {turns} turns."},
+     "text": '{v0:+d}% weapon strength for all your armies for {turns} turns.'},
     {"key": "master_gunners", "guild": "daemonsmiths", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 10, "name": "Gunnery Masters",
      "effects": [("wh_main_effect_force_stat_missile_damage_artillery", "faction_to_force_own", 20)],
-     "text": "{v0:+d}% missile damage for all your artillery, for {turns} turns.",
+     "text": '{v0:+d}% missile damage for all your artillery for {turns} turns.',
      # all_land_artillery misses these two rosters (RACE_UNWANTED_EFFECTS): their war
      # machines are class chariot. CA's own Chaos Dwarf artillery effect, and for Kislev
      # the minted clone of it on CA's War Sleds and Little Grom set (MINTED_EFFECTS).
      "for_tag": {
          "": {"effects": [("wh3_dlc23_effect_force_stat_missile_strength_chd_artillery",
                            "faction_to_force_own", 20)],
-              "text": "{v0:+d}% missile damage for all your artillery and Iron Daemons, "
-                      "for {turns} turns."},
+              "text": '{v0:+d}% missile damage for all your artillery and Iron Daemons for {turns} turns.'},
          "_ksl": {"effects": [("derpy_gg_effect_missile_strength_ksl_war_machines",
                                "faction_to_force_own", 20)],
-                  "text": "{v0:+d}% missile damage for all your War Sleds and Little Grom, "
-                          "for {turns} turns."}}},
+                  "text": '{v0:+d}% missile damage for all your War Sleds and Little Grom for {turns} turns.'}}},
     {"key": "great_work", "guild": "daemonsmiths", "rank": 4, "cost": 400, "cd": 16,
      "kind": "research", "turns": 10, "with_bundle": True, "name": "The Great Work",
      "effects": [("wh_main_effect_technology_research_rate_mod", "faction_to_faction_own", 30)],
-     "text": "Completes the technology you are researching at once, then {v0:+d}% research "
-             "rate, for {turns} turns."},
+     "text": 'Completes the technology you are researching at once, then {v0:+d}% research rate for {turns} turns.'},
     {"key": "arsenal", "guild": "daemonsmiths", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "name": "Arsenal of Zharr",
      "effects": [("wh_main_effect_force_stat_missile_damage", "faction_to_force_own", 15)],
-     "text": "{v0:+d}% missile damage for all your armies, for {turns} turns."},
+     "text": '{v0:+d}% missile damage for all your armies for {turns} turns.'},
     {"key": "bribed_guards", "guild": "khanate", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Bribed Guards",
      "effects": [("wh_main_effect_agent_action_success_chance", "faction_to_character_own", 15)],
-     "text": "{v0:+d}% success chance for your heroes' actions, for {turns} turns."},
+     "text": "{v0:+d}% success chance for your heroes' actions for {turns} turns."},
     {"key": "blooded_agents", "guild": "khanate", "rank": 2, "cost": 50, "cd": 8,
-     "kind": "bundle", "turns": 10, "name": "Blooded Agents",
+     "kind": "bundle", "turns": 10, "name": "Blooded Heroes",
      "effects": [("wh_main_effect_agent_recruitment_xp_all_agents", "faction_to_province_own", 2)],
-     "text": "Heroes you recruit start {v0:+d} ranks higher, for {turns} turns."},
+     "text": 'For {turns} turns, heroes you recruit start {v0:d} ranks higher.'},
     {"key": "hired_blade", "guild": "khanate", "rank": 3, "cost": 150, "cd": 12,
      "kind": "ranks", "value": 3, "name": "Hired Blade",
      "text": "Adds {value} ranks to the lord or hero you select."},
     {"key": "sow_discord", "guild": "khanate", "rank": 3, "cost": 150, "cd": 12,
      "kind": "enemy_settlement", "turns": 5, "name": "Sow Discord",
      "effects": [("wh_main_effect_public_order_events", "region_to_province_own_unseen", -8)],
-     "text": "{v0:+d} public order in the enemy province you select, for {turns} turns."},
+     "text": '{v0:+d} public order in the enemy province you select for {turns} turns.'},
     {"key": "web_of_whispers", "guild": "khanate", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 15, "name": "Web of Whispers",
      "effects": [("wh2_main_effect_agent_cap_increase_all_heroes", "faction_to_faction_own_unseen", 1)],
-     "text": "{v0:+d} to the number of each kind of hero you may recruit, for {turns} turns."},
+     "text": '{v0:+d} to the number of each kind of hero you may recruit for {turns} turns.'},
     {"key": "poisoned_wells", "guild": "khanate", "rank": 4, "cost": 400, "cd": 16,
      "kind": "enemy_settlement", "turns": 8, "name": "Poisoned Wells",
      "effects": [("wh_main_effect_province_growth_events", "region_to_province_own", -25),
                  ("wh_main_effect_force_all_campaign_replenishment_rate", "region_to_force_own", -25)],
-     "text": "{v0:+d} growth in the enemy province you select, and {v1:+d}% replenishment "
-             "for armies there, for {turns} turns."},
+     "text": '{v0:+d} growth in the enemy province you select, and {v1:+d}% replenishment for armies there for {turns} turns.'},
     {"key": "granaries", "guild": "overseers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "settlement", "turns": 8, "name": "Fattened Herds",
      "effects": [("wh_main_effect_province_growth_events", "region_to_province_own", 25)],
-     "text": "{v0:+d} growth in the province of the settlement you select, for {turns} turns."},
+     "text": '{v0:+d} growth in the province of the settlement you select for {turns} turns.'},
     {"key": "road_gangs", "guild": "overseers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Road Gangs",
      "effects": [("wh_main_effect_force_all_campaign_movement_range", "faction_to_force_own", 10)],
-     "text": "{v0:+d}% campaign movement for all your armies, for {turns} turns."},
+     "text": '{v0:+d}% campaign movement for all your armies for {turns} turns.'},
     {"key": "enforcers", "guild": "overseers", "rank": 3, "cost": 150, "cd": 12,
      "kind": "settlement", "turns": 8, "name": "Overseer Enforcers",
      "effects": [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 6)],
-     "text": "{v0:+d} public order in the province of the settlement you select, for "
-             "{turns} turns."},
+     "text": '{v0:+d} public order in the province of the settlement you select for {turns} turns.'},
     {"key": "fortify", "guild": "overseers", "rank": 3, "cost": 150, "cd": 12,
      "kind": "settlement", "turns": 8, "name": "Fortify the Walls",
      "effects": [("wh_main_effect_force_stat_melee_defence", "region_to_force_own", 10),
                  ("wh_main_effect_force_army_campaign_siege_defend_attrition", "region_to_force_own", -20)],
-     "text": "{v0:+d} melee defence for the defenders of the settlement you select, and "
-             "{v1:+d}% attrition for them under siege, for {turns} turns."},
+     "text": '{v0:+d} melee defence for the defenders of the settlement you select, and {v1:+d}% attrition for them under siege for {turns} turns.'},
     {"key": "master_builders", "guild": "overseers", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "name": "Master Builders",
      "effects": [("wh3_main_effect_building_construction_time_add_mod_all", "faction_to_region_own", -1)],
-     "text": "{v0:+d} turn to every building's construction time (never below one), for "
-             "{turns} turns."},
+     "text": "{v0:+d} turn to every building's construction time (never below one) for {turns} turns."},
     {"key": "public_works", "guild": "overseers", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "name": "Monuments to Hashut",
      "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4),
                  ("wh_main_effect_province_growth_events", "faction_to_province_own", 30)],
-     "text": "{v0:+d} public order and {v1:+d} growth in every province you hold, for "
-             "{turns} turns."},
+     "text": '{v0:+d} public order and {v1:+d} growth in every province you own for {turns} turns.'},
     {"key": "raiding_parties", "guild": "slavers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Raiding Parties",
      "effects": [("wh_main_effect_force_all_campaign_raid_income", "faction_to_force_own", 50)],
-     "text": "{v0:+d}% income from raiding for all your armies, for {turns} turns."},
+     "text": '{v0:+d}% income from raiding for all your armies for {turns} turns.'},
     {"key": "captive_markets", "guild": "slavers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Captive Markets",
      "effects": [("wh_main_effect_force_all_campaign_post_battle_loot_mod", "faction_to_faction_own", 20)],
-     "text": "{v0:+d}% gold from battles you win, for {turns} turns."},
+     "text": '{v0:+d}% gold from battles you win for {turns} turns.'},
     {"key": "slave_levy", "guild": "slavers", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 6, "name": "Slave Levy",
      "effects": [("wh_main_effect_unit_recruitment_points", "faction_to_province_own", 1)],
-     "text": "{v0:+d} local recruitment capacity in every province you hold, for "
-             "{turns} turns."},
+     "text": '{v0:+d} local recruitment capacity in every province you own for {turns} turns.'},
     {"key": "pit_fights", "guild": "slavers", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 10, "name": "Pit Fights",
      "effects": [("wh3_dlc20_effect_xp_gain_all_units", "faction_to_force_own", 25)],
-     "text": "{v0:+d}% experience from battle for all your units, for {turns} turns."},
+     "text": '{v0:+d}% experience from battle for all your units for {turns} turns.'},
     {"key": "great_hunt", "guild": "slavers", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "name": "The Great Hunt",
      "effects": [("wh_main_effect_force_all_campaign_movement_range", "faction_to_force_own", 15),
                  ("wh_main_effect_force_all_campaign_raid_income", "faction_to_force_own", 50)],
-     "text": "{v0:+d}% campaign movement and {v1:+d}% raiding income for all your armies, "
-             "for {turns} turns."},
+     "text": '{v0:+d}% campaign movement and {v1:+d}% raiding income for all your armies for {turns} turns.'},
     {"key": "scorched_earth", "guild": "slavers", "rank": 4, "cost": 400, "cd": 16,
      "kind": "enemy_settlement", "turns": 8, "name": "Scorched Earth",
      "effects": [("wh_main_effect_economy_gdp_mod_all", "region_to_region_own", -25)],
-     "text": "{v0:+d}% income from buildings in the enemy settlement you select, for "
-             "{turns} turns."},
+     "text": '{v0:+d}% income from buildings in the enemy settlement you select for {turns} turns.'},
     # ------------------------------------------------------------ race services ---
     # RACE SERVICES (2026-09-29 spec §6): drawn for their own race only, named and written
     # in that race's words. Mirrors the Lua rows field for field (check_service_mirror).
@@ -384,7 +398,7 @@ SERVICES = [
      "kind": "resource", "race": "wh3_dlc23_chd_chaos_dwarfs",
      "resource": "wh3_dlc23_chd_conclave_influence",
      "factor": "wh3_dlc23_chd_conclave_influence_gained_events", "value": 40,
-     "name": "Conclave Favour", "text": "Adds {value} Conclave Influence."},
+     "name": "Conclave Backing", "text": "Adds {value} Conclave Influence."},
     {"key": "hellforge_allotment", "guild": "daemonsmiths", "rank": 3, "cost": 150, "cd": 12,
      "kind": "race", "race": "wh3_dlc23_chd_chaos_dwarfs", "value": 1,
      "name": "Hell-Forge Allotment",
@@ -407,24 +421,22 @@ SERVICES = [
              "have reached. Offered only once you reach it."},
     {"key": "witch_hunters_warrant", "guild": "overseers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "settlement", "turns": 8, "race": "wh_main_emp_empire",
-     "name": "Witch Hunters' Warrant",
+     "name": "The Watch-Houses",
      "effects": [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 8),
                  ("wh3_main_effect_corruption_reduction_events",
                   "region_to_province_own_unseen", -5)],
-     "text": "{v0:+d} public order and {v1:+d} corruption in the province of the settlement "
-             "you select, for {turns} turns."},
+     "text": '{v0:+d} public order and {v1:+d} corruption in the province of the settlement you select for {turns} turns.'},
     {"key": "electors_muster", "guild": "immortals", "rank": 3, "cost": 150, "cd": 12,
      "kind": "race_army", "room": True, "race": "wh_main_emp_empire",
      "units": "wh_main_emp_inf_swordsmen,wh_main_emp_inf_handgunners",
      "name": "Elector's Muster",
-     "text": "A regiment of Swordsmen and one of Handgunners join the army you select, as "
-             "far as it has room."},
+     "text": 'A regiment of Swordsmen and one of Handgunners join the army you select, if there is room.'},
     {"key": "unity_of_empire", "guild": "brass", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 15, "race": "wh_main_emp_empire",
      "name": "Unity of the Empire",
      "effects": [("wh_main_faction_political_diplomacy_mod_empire",
                   "faction_to_faction_own", 30)],
-     "text": "{v0:+d} relations with every Empire faction, for {turns} turns."},
+     "text": '{v0:+d} relations with every Empire faction for {turns} turns.'},
     {"key": "electors_favour", "guild": "khanate", "rank": 3, "cost": 150, "cd": 12,
      "kind": "race", "race": "wh_main_emp_empire", "value": 1, "lord": "Karl Franz",
      "name": "Elector's Favour",
@@ -445,8 +457,7 @@ SERVICES = [
     {"key": "supply_train", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "race", "race": "wh_main_emp_empire", "lord": "Markus Wulfhart",
      "name": "Imperial Supply Train",
-     "text": "Imperial Supply arrives now: the choice of reinforcements it brings, at your "
-             "current Acclaim."},
+     "text": 'Receive Imperial Supply now, with reinforcement choices based on your current Acclaim.'},
     {"key": "prayers_motherland", "guild": "daemonsmiths", "rank": 2, "cost": 50, "cd": 8,
      "kind": "resource", "race": "wh3_main_ksl_kislev", "resource": "wh3_main_ksl_devotion",
      "factor": "events", "value": 75, "name": "Prayers to the Motherland",
@@ -462,13 +473,12 @@ SERVICES = [
              "Orthodoxy."},
     {"key": "ladys_blessing", "guild": "immortals", "rank": 2, "cost": 50, "cd": 8,
      "kind": "race_army", "race": "wh_main_brt_bretonnia", "name": "The Lady's Blessing",
-     "text": "The army you select receives the Blessing of the Lady, as if it had won a "
-             "battle. Not an army already blessed."},
+     "text": 'Bless your selected army as if it had won a battle. It must not already have the Blessing of the Lady.'},
     {"key": "peasant_levies", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "bundle", "turns": 10, "race": "wh_main_brt_bretonnia", "name": "Peasant Levies",
      "effects": [("wh_dlc07_effect_peasant_increase_base_amount",
                   "faction_to_faction_own_unseen", 3)],
-     "text": "{v0:+d} peasants available to your faction, for {turns} turns."},
+     "text": '{v0:+d} peasants available to your faction for {turns} turns.'},
     {"key": "tales_of_valour", "guild": "daemonsmiths", "rank": 4, "cost": 400, "cd": 16,
      "kind": "race", "race": "wh_main_brt_bretonnia", "value": 150,
      "name": "Tales of Valour", "text": "Adds {value} Chivalry."},
@@ -477,13 +487,12 @@ SERVICES = [
      "text": "The Winds of Magic compass can be turned again at once."},
     {"key": "ivory_cargo", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "race", "race": "wh3_main_cth_cathay", "value": 200, "name": "Ivory Road Cargo",
-     "text": "Adds {value} cargo to every caravan of yours still on its way."},
+     "text": 'Adds {value} cargo to each of your caravans still travelling.'},
     {"key": "mandate_of_heaven", "guild": "overseers", "rank": 4, "cost": 400, "cd": 16,
      "kind": "bundle", "turns": 10, "race": "wh3_main_cth_cathay", "name": "Mandate of Heaven",
      "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4),
                  ("wh3_main_effect_corruption_reduction_events", "faction_to_province_own", -8)],
-     "text": "{v0:+d} public order and {v1:+d} corruption in every province you hold, for "
-             "{turns} turns."},
+     "text": '{v0:+d} public order and {v1:+d} corruption in every province you own for {turns} turns.'},
     {"key": "slave_coffles", "guild": "slavers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "resource", "race": "wh2_main_def_dark_elves", "resource": "def_slaves",
      "factor": "missions", "value": 500, "name": "Slave Coffles",
@@ -497,21 +506,158 @@ SERVICES = [
      "kind": "bundle", "turns": 10, "race": "wh2_main_def_dark_elves", "name": "Black Ark Tithe",
      "effects": [("wh3_main_pooled_resource_def_slaves_buildings_gained",
                   "faction_to_faction_own_unseen", 80)],
-     "text": "{v0:+d} Slaves every turn, for {turns} turns."},
+     "text": '{v0:+d} Slaves every turn for {turns} turns.'},
     {"key": "whispers_at_court", "guild": "khanate", "rank": 2, "cost": 50, "cd": 8,
      "kind": "race", "race": "wh2_main_hef_high_elves", "value": 30,
      # NOT "Whispers at Court" (the spec's name): the High Elf flavour already calls the
      # shared Khan's Price that, and check_flavours refuses two cards of one name.
-     "name": "Favours at Court", "text": "Adds {value} Influence."},
+     "name": "Friends at Court", "text": "Adds {value} Influence."},
     {"key": "phoenix_favour", "guild": "brass", "rank": 3, "cost": 150, "cd": 12,
      "kind": "resource", "race": "wh2_main_hef_high_elves", "resource": "wh3_dlc27_hef_favour",
-     "factor": "faction", "value": 50, "name": "The Phoenix King's Favour",
+     "factor": "faction", "value": 50, "name": "The Phoenix King's Regard",
      "text": "Adds {value} Favour of the Phoenix King."},
     {"key": "asuryans_grace", "guild": "daemonsmiths", "rank": 4, "cost": 400, "cd": 16,
      "kind": "race", "race": "wh2_main_hef_high_elves", "value": 150, "value2": 40,
      "name": "Asuryan's Grace",
      "text": "Adds {value} Favour of the Phoenix King and {value2} Influence."},
+    # THE TEMPLE (temple spec §4, 2026-10-04). After every row, as in the Lua. Every bundle
+    # row carries its own effects: SERVICE_VALUES' 45 would be +45 public order. Each pair
+    # was measured on vanilla bundles; check() re-measures it on every build.
+    {"key": "hashut_blessing", "guild": "temple", "rank": 2, "cost": 50, "cd": 8,
+     "kind": "army", "turns": 5, "name": "Blessing of Hashut",
+     "effects": [("wh_main_effect_force_stat_leadership", "force_to_force_own", 6)],
+     "text": '{v0:+d} leadership for the army you select for {turns} turns.',
+     # THE TEMPLE BY ITS OWN LORE (2026-10-09 spec §4): this service per race.
+     "for_tag": {
+         "_emp": {"effects": [("wh_main_effect_force_stat_magic_resistance", "force_to_force_own", 15)],
+                  "text": '{v0:+d}% spell resistance for the army you select for {turns} turns.'},
+         "_dwf": {"effects": [("wh_main_effect_force_stat_magic_resistance", "force_to_force_own", 15)],
+                  "text": '{v0:+d}% spell resistance for the army you select for {turns} turns.'},
+         "_brt": {"effects": [("wh_main_effect_force_stat_ward_save", "force_to_force_own", 15)],
+                  "text": '{v0:+d}% ward save for the army you select for {turns} turns.'},
+         "_cth": {"effects": [("wh2_dlc14_effect_magic_cost_all_lores_percentage", "force_to_force_own", -20)],
+                  "text": '{v0:+d}% spell cost for the army you select for {turns} turns.'},
+         "_ksl": {"effects": [("wh_main_effect_force_stat_ward_save", "force_to_force_own", 10)],
+                  "text": '{v0:+d}% ward save for the army you select for {turns} turns.'},
+         "_def": {"effects": [("wh_main_effect_force_stat_ward_save", "force_to_force_own", 10)],
+                  "text": '{v0:+d}% ward save for the army you select for {turns} turns.'},
+         "_hef": {"effects": [("wh_main_effect_force_stat_ward_save", "force_to_force_own", 15)],
+                  "text": '{v0:+d}% ward save for the army you select for {turns} turns.'},
+         "_skv": {"effects": [("wh2_dlc14_effect_magic_cost_all_lores_percentage", "force_to_force_own", -20)],
+                  "text": '{v0:+d}% spell cost for the army you select for {turns} turns.'},
+         "": {"effects": [("wh_main_effect_force_stat_physical_resistance", "force_to_force_own", 10)],
+                  "text": '{v0:+d}% physical resistance for the army you select for {turns} turns.'}}},
+    {"key": "forge_sermons", "guild": "temple", "rank": 2, "cost": 50, "cd": 8,
+     "kind": "settlement", "turns": 8, "name": "Sermons in the Forge",
+     "effects": [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 4)],
+     "text": '{v0:+d} public order in the province of the settlement you select for {turns} turns.'},
+    {"key": "temple_tithe", "guild": "temple", "rank": 2, "cost": 50, "cd": 8,
+     "kind": "gold", "value": 2000, "name": "The Tithe",
+     "text": "Adds {value:,} gold to your treasury at once."},
+    {"key": "zeal", "guild": "temple", "rank": 3, "cost": 150, "cd": 12,
+     "kind": "army", "turns": 5, "name": "Zeal",
+     "effects": [("wh_main_effect_force_stat_melee_attack", "force_to_force_own", 6),
+                 ("wh_main_effect_force_stat_charge_bonus_pct", "force_to_force_own", 10)],
+     "text": '{v0:+d} melee attack and {v1:+d}% charge bonus for the army you select for {turns} turns.',
+     # THE TEMPLE BY ITS OWN LORE (2026-10-09 spec §4): this service per race.
+     "for_tag": {
+         "_emp": {"effects": [("wh2_dlc14_effect_magic_cost_all_lores_percentage", "force_to_force_own", -20)],
+                  "text": '{v0:+d}% spell cost for the army you select for {turns} turns.'},
+         "_brt": {"effects": [("wh_main_effect_force_stat_leadership", "force_to_force_own", 10),
+                     ("wh_main_effect_force_stat_charge_bonus_pct", "force_to_force_own", 10)],
+                  "text": '{v0:+d} leadership and {v1:+d}% charge bonus for the army you select for {turns} turns.'},
+         "_cth": {"effects": [("wh3_main_effect_winds_of_magic_events", "force_to_force_own", 8)],
+                  "text": '{v0:+d} Winds of Magic power reserve each turn for the army you select for {turns} turns.'},
+         "_def": {"effects": [("wh_main_effect_force_stat_melee_attack", "force_to_force_own", 8),
+                     ("wh_main_effect_force_stat_weapon_strength", "force_to_force_own", 10)],
+                  "text": '{v0:+d} melee attack and {v1:+d}% weapon strength for the army you select for {turns} turns.'},
+         "_hef": {"effects": [("wh2_dlc14_effect_magic_cost_all_lores_percentage", "force_to_force_own", -20),
+                     ("wh3_main_effect_winds_of_magic_events", "force_to_force_own", 5)],
+                  "text": '{v0:+d}% spell cost and {v1:+d} Winds of Magic power reserve each turn for the army you select for {turns} turns.'}}},
+    {"key": "purge_unclean", "guild": "temple", "rank": 3, "cost": 150, "cd": 12,
+     "kind": "settlement", "turns": 8, "name": "Purge the Unclean",
+     "effects": [("wh3_main_effect_corruption_reduction_events",
+                  "region_to_province_own_unseen", -6)],
+     "text": '{v0:+d} corruption in the province of the settlement you select for {turns} turns.',
+     # The Chaos Dwarfs gain public order FROM Chaos corruption (RACE_UNWANTED_EFFECTS).
+     "for_tag": {"": {
+         "effects": [("wh_main_effect_public_order_events",
+                      "region_to_province_own_unseen", 6)],
+         "text": '{v0:+d} public order in the province of the settlement you select for {turns} turns.'}}},
+    {"key": "anathema", "guild": "temple", "rank": 3, "cost": 150, "cd": 12,
+     "kind": "enemy_settlement", "turns": 5, "name": "Anathema",
+     "effects": [("wh_main_effect_public_order_events", "region_to_province_own_unseen", -6)],
+     "text": '{v0:+d} public order in the enemy province you select for {turns} turns.'},
+    {"key": "holy_war", "guild": "temple", "rank": 4, "cost": 400, "cd": 16,
+     "kind": "bundle", "turns": 10, "name": "The Holy War",
+     "effects": [("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6),
+                 ("wh_main_effect_force_all_campaign_replenishment_rate",
+                  "faction_to_force_own", 10)],
+     "text": '{v0:+d} leadership and {v1:+d}% replenishment in all your armies for {turns} turns.',
+     # THE TEMPLE BY ITS OWN LORE (2026-10-09 spec §4): this service per race.
+     "for_tag": {
+         "_emp": {"effects": [("wh3_main_effect_winds_of_magic_events", "faction_to_force_own", 5),
+                     ("wh2_dlc14_effect_magic_cost_all_lores_percentage", "faction_to_force_own", -10)],
+                  "text": '{v0:+d} Winds of Magic power reserve each turn and {v1:+d}% spell cost in all your armies for {turns} turns.'},
+         "_dwf": {"effects": [("wh_main_effect_force_stat_melee_attack", "faction_to_force_own", 4),
+                     ("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6)],
+                  "text": '{v0:+d} melee attack and {v1:+d} leadership in all your armies for {turns} turns.'},
+         "_brt": {"effects": [("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6),
+                     ("wh2_dlc14_effect_force_charge_bonus_add", "faction_to_force_own", 10)],
+                  "text": '{v0:+d} leadership and {v1:+d} charge bonus in all your armies for {turns} turns.'},
+         "_cth": {"effects": [("wh3_main_effect_winds_of_magic_events", "faction_to_force_own", 5),
+                     ("wh_main_effect_force_stat_leadership", "faction_to_force_own", 4)],
+                  "text": '{v0:+d} Winds of Magic power reserve each turn and {v1:+d} leadership in all your armies for {turns} turns.'},
+         "_ksl": {"effects": [("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6),
+                     ("wh_main_effect_force_stat_melee_attack", "faction_to_force_own", 4)],
+                  "text": '{v0:+d} leadership and {v1:+d} melee attack in all your armies for {turns} turns.'},
+         "_def": {"effects": [("wh_main_effect_force_stat_melee_attack", "faction_to_force_own", 4),
+                     ("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6)],
+                  "text": '{v0:+d} melee attack and {v1:+d} leadership in all your armies for {turns} turns.'},
+         "_hef": {"effects": [("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6),
+                     ("wh_main_effect_force_stat_magic_resistance", "faction_to_force_own", 10)],
+                  "text": '{v0:+d} leadership and {v1:+d}% spell resistance in all your armies for {turns} turns.'},
+         "_skv": {"effects": [("wh3_main_effect_winds_of_magic_events", "faction_to_force_own", 5),
+                     ("wh_main_effect_character_stat_miscast", "faction_to_force_own", -10)],
+                  "text": '{v0:+d} Winds of Magic power reserve each turn and {v1:+d}% miscast chance in all your armies for {turns} turns.'},
+         "": {"effects": [("wh3_main_effect_winds_of_magic_events", "faction_to_force_own", 5),
+                     ("wh_main_effect_force_stat_leadership", "faction_to_force_own", 6)],
+                  "text": '{v0:+d} Winds of Magic power reserve each turn and {v1:+d} leadership in all your armies for {turns} turns.'}}},
+    {"key": "miracle", "guild": "temple", "rank": 4, "cost": 400, "cd": 16,
+     "kind": "army", "turns": 2, "heal": True, "name": "Miracle",
+     "effects": [("wh_main_effect_force_stat_leadership", "force_to_force_own", 10)],
+     "text": 'Heals the army you select at once, then {v0:+d} leadership for it for {turns} turns.'},
+    {"key": "consecration", "guild": "temple", "rank": 4, "cost": 400, "cd": 16,
+     "kind": "bundle", "turns": 12, "name": "Consecration",
+     "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4),
+                 ("wh3_main_effect_corruption_reduction_events", "faction_to_province_own", -3)],
+     "text": '{v0:+d} public order and {v1:+d} corruption in every province you own for {turns} turns.',
+     "for_tag": {"": {
+         "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4)],
+         "text": '{v0:+d} public order in every province you own for {turns} turns.'}}},
+    # THE SKAVEN'S RACE SERVICES (2026-10-05), AFTER the temple rows: cooldowns are saved
+    # by position. Food Tithe's 20 is CA's own quest payload; Breeding Season's 3 is CA's
+    # rite bundle value; Shadows of Eshin replaces the Menace Below (not a resource).
+    {"key": "food_tithe", "guild": "slavers", "rank": 2, "cost": 50, "cd": 8,
+     "kind": "resource", "race": "wh2_main_skv_skaven", "resource": "skaven_food",
+     "factor": "missions", "value": 20, "name": "Food Tithe", "text": "Adds {value} Food."},
+    {"key": "shadows_of_eshin", "guild": "khanate", "rank": 3, "cost": 150, "cd": 12,
+     "kind": "race_army", "room": True, "race": "wh2_main_skv_skaven",
+     "units": "wh2_main_skv_inf_gutter_runners_0,wh2_main_skv_inf_night_runners_0",
+     "name": "Shadows of Eshin",
+     "text": 'A unit of Gutter Runners and one of Night Runners join the army you select, if there is room.'},
+    {"key": "breeding_season", "guild": "overseers", "rank": 4, "cost": 400, "cd": 16,
+     "kind": "bundle", "turns": 10, "race": "wh2_main_skv_skaven",
+     "name": "Breeding Season",
+     "effects": [("wh2_main_pooled_resource_skaven_food_rite",
+                  "faction_to_faction_own_unseen", 3)],
+     "text": '{v0:+d} Food every turn for {turns} turns.'},
 ]
+# THE GREY SEERS EARN FROM SKAVEN CORRUPTION (skaven spec §4.1), so the two temple services
+# that reduce corruption take the Chaos Dwarf override: public order only.
+for _s in SERVICES:
+    if _s["key"] in ("purge_unclean", "consecration"):
+        _s["for_tag"]["_skv"] = _s["for_tag"][""]
 
 
 def service_bundle_key(service_key):
@@ -537,6 +683,33 @@ def service_effects(s, tag=""):
     return s.get("for_tag", {}).get(tag, {}).get("effects", s.get("effects", []))
 
 
+# CA'S OWN PICTURE OF EACH EFFECT, at the front of a service's description: the effects
+# table's icon, from the folder CA's own loc draws them out of. Asked for in game on
+# 2026-10-05 ("no icons for the effects e.g Melee Attack"). GGUI.wrap keeps the markup
+# one word - the path has a space - and charges it as a picture, not as its path.
+EFFECT_ICON_DIR = "ui/campaign ui/effect_bundles/"
+
+
+def service_icons(s, tag, icon_of):
+    """The [[img:]] markup for what a service applies, one per picture, or "".
+
+    Its own effects, else its guild's rank effect for a bundle service; a service that
+    pays gold or hires units applies no effect and draws none.
+    """
+    if s.get("effects"):
+        keys = [e[0] for e in service_effects(s, tag)]
+    elif s["kind"] == "bundle":
+        keys = [RANK_EFFECTS[s["guild"]][0]]
+    else:
+        return ""
+    icons = []
+    for k in keys:
+        icon = icon_of.get(k) or MINTED_EFFECTS[k]["row"]["icon"]
+        if icon not in icons:
+            icons.append(icon)
+    return "".join("[[img:%s%s]][[/img]]" % (EFFECT_ICON_DIR, i) for i in icons)
+
+
 def service_text(s, tag=""):
     """A service's player sentence, its numbers filled from its own effects and turns so
     the words cannot drift from the rows."""
@@ -553,6 +726,13 @@ def service_text(s, tag=""):
 # effect, at the rank-4 value - so leading is worth another whole rung on top of
 # whatever rank you hold, and losing it is felt.
 LEAD_VALUE = 10
+# The rank-4 value of the guild's own ladder, as LEAD_VALUE is of the shared one. The
+# temple's is a fallback no race reaches today: TEMPLE_LORE sets it for every flavour.
+LEAD_VALUE_OF = {"temple": 3}
+
+
+def lead_value(g, tag=""):
+    return _lore(g, tag, "lead") or LEAD_VALUE_OF.get(g, LEAD_VALUE)
 
 
 def lead_key(guild):
@@ -626,8 +806,7 @@ DEMAND_KINDS = {
     "tribute":  {"name": "Tribute",
                  "blurb": "The guild wants gold, and it wants it now."},
     "renounce": {"name": "Renunciation",
-                 "blurb": "The guild wants you to burn what you have built with its "
-                          "rival. The favour goes; the reputation stays."},
+                 "blurb": 'The guild demands your Favour with its rival. You lose that Favour, but keep your Reputation.'},
 }
 
 
@@ -735,7 +914,11 @@ FEED_ROW_RANK = dict(FEED_ROW, group=FEED_GROUP_RANK, image="chd/civilisation_up
                      # The only column that differs from the three above. The other
                      # records use CA's neutral popup; a promotion is the one thing in
                      # this mod worth a positive sound.
-                     sound_event="UI_CAM_POPUP_Message_Event_Positive")
+                     sound_event="UI_CAM_POPUP_Message_Event_Positive",
+                     # Waits in the feed. Up to 28 promotions and seven "noticed you"
+                     # in a campaign, every one a panel opening by itself - a player
+                     # called the messages too long (2026-10-09); the count was the fault.
+                     instant_open="false")
 # Cloned from wh2_dlc10_event_feed_scripted_defender_of_ulthuan_bad, a working
 # scripted_transient_located_event, read from the cached table 2026-09-29: the event type,
 # the negative sound, no icon and no instant open are its values. The Lua passes
@@ -772,12 +955,13 @@ def service_value(s):
 
 
 def service_sign(s):
-    """A service bundle's sign.
+    """The sign of a bundle service that borrows its guild's rank effect.
 
-    Every service but one lands on the buyer, so it carries the guild's good sign.
+    Every such bundle but one lands on the buyer, so it carries the guild's good sign.
     The Khan's Price lands on the TARGET, so it must carry the opposite: a cost
     modifier that is a discount for the buyer is a discount for the victim too,
-    which would make the mod's only hostile service a gift.
+    which would make it a gift. The services that strike an enemy settlement
+    (enemy_settlement) name their own signed effects and never come here.
     """
     sign = EFFECT_GOOD_SIGN[s["guild"]]
     return -sign if s.get("hostile") else sign
@@ -794,20 +978,17 @@ SERVICE_BLURB = {
     "writ_monopoly":   None,
     "long_ledger":     None,
     "oathbound_draft": None,
-    "hire_immortals":  "A company already sworn and already armed. Adds one unit of "
-                       "Infernal Guard (Great Weapons) to an army of your choosing.",
+    "hire_immortals":  'Armed and under oath. Adds one unit of Infernal Guard (Great Weapons) to the army you select.',
     "astragoths_levy": None,
     "forge_rite":      None,
-    "bound_blueprint": "The Daemonsmiths hand over work already done. Completes the "
-                       "technology you are currently researching, at once.",
+    "bound_blueprint": 'The Daemonsmiths deliver their findings. Completes the technology you are researching at once.',
     "bound_ordnance":  None,
     "hobgoblin_eyes":  "Hobgoblin scouts sell what they have seen. Reveals one region "
                        "through the shroud for this turn.",
     "knife_in_dark":   None,
     "khans_price":     None,
     "lash_the_gangs":  None,
-    "raise_ziggurat":  "Overseer gangs work through the night. Upgrades one of your "
-                       "buildings to its next level at once, and free.",
+    "raise_ziggurat":  'Overseer gangs work through the night. Upgrades one of your buildings to its next level at once, for free.',
     "works_of_zharr":  None,
     "coffle_drive":    None,
     "slave_tithe":     "A column of slaves, delivered. Adds 400 armaments and 800 raw "
@@ -818,24 +999,13 @@ SERVICE_BLURB = {
 
 # What each guild is, how you earn its reputation, and what its ladder pays.
 GUILD_DESC = {
-    "brass":        "Tally-keepers and caravan masters. They record every debt in the "
-                    "Dark Lands and forgive none of them.||You earn reputation from your "
-                    "income every turn, and from their own buildings.",
-    "immortals":    "The oath-sworn companies who fight for whoever holds their bond, "
-                    "and never break it.||You earn reputation from battles you win - double "
-                    "when you win outnumbered - and from their own buildings.",
-    "daemonsmiths": "Those who bind daemons into iron. They sell knowledge, never "
-                    "cheaply.||You earn reputation from technologies you complete, and "
-                    "from their own buildings.",
-    "khanate":      "Hobgoblin knives and hobgoblin eyes, for hire to anyone, "
-                    "including against you.||You earn reputation when your heroes succeed "
-                    "at an action, and from their own buildings.",
-    "overseers":    "The gang-masters who drive the building of Zharr Naggrund and "
-                    "everything like it.||You earn reputation when a settlement grows a "
-                    "level, and from any building no other guild claims.",
-    "slavers":      "The coffle-drivers. Their ledger is measured in bodies, and it is "
-                    "always growing.||You earn reputation from settlements you sack - more "
-                    "from those you raze - and from their own buildings.",
+    "brass":        'Tally-keepers and caravan masters. They record every debt in the Dark Lands and forgive none.||Earn Reputation from your income each turn and by completing their buildings.',
+    "immortals":    'Oath-sworn companies. They fight for whoever holds their bond and never break it.||Earn Reputation by winning battles, double when outnumbered, and completing their buildings.',
+    "daemonsmiths": 'They bind daemons into iron and charge dearly for their knowledge.||Earn Reputation by researching technologies and completing their buildings.',
+    "khanate":      'Hobgoblin spies and killers for hire. Your enemies can pay them too.||Earn Reputation through successful hero actions and by completing their buildings.',
+    "overseers":    'Gang-masters building Zharr Naggrund and the works beyond it.||Earn Reputation when a settlement grows a level and by completing buildings no other guild claims.',
+    "slavers":      'Coffle-drivers counting bodies in their ledgers.||Earn Reputation by sacking settlements, more by razing them, and by completing their buildings.',
+    "temple":       "Priests of the Father of Darkness. What the forges cannot use feeds his altar fires.||Earn Reputation from provinces in good order, victories against the Dwarfs, and the Temple's buildings.",
 }
 # THE TWO HALVES. The flavour sentence is written per race in FLAVOURS below; the earn
 # sentence is mechanical and every race shares it.
@@ -915,7 +1085,7 @@ CA_CONTRACT_OBJECTIVES = ("KILL_CHARACTER_BY_ANY_MEANS", "CAPTURE_REGIONS",
 #
 # ONE ROW PER GUILD IS DELIBERATE. A mission key can hold one live mission per faction
 # at a time, so six keys means at most six live bounties and the panel's own cap of
-# three sits well inside that. Reusing one key for all six guilds would have them
+# three sits well inside that. Reusing one key for every guild would have them
 # fighting over it, which is the trap docs/VICTORY_CONDITIONS.md records.
 BOUNTIES = {
     "brass":        ("region_take", "Seize the Market",
@@ -924,17 +1094,17 @@ BOUNTIES = {
     "immortals":    ("lord_kill", "Break Their Champion",
                      "A general is being spoken of with respect. Correct that."),
     "daemonsmiths": ("region_sack", "Strip the Works",
-                     "Everything in that place that was forged can be forged again, "
-                     "here. Bring it back in pieces."),
+                     'What was forged there can be forged again here. Bring it back in pieces.'),
     "khanate":      ("lord_kill", "A Knife for a Name",
-                     "The Khanate does not care how it is done, only that the name "
-                     "stops being used."),
+                     'The Khanate cares nothing for the method. Make sure the name is no longer spoken.'),
     "overseers":    ("region_take", "Hands, Not Ashes",
                      "Take it whole. Ashes cannot be put to work, and the Overseers "
                      "are counting hands."),
     "slavers":      ("region_sack", "Fill the Coffles",
-                     "Empty it. The column that leaves is the payment, and it is "
-                     "measured in bodies."),
+                     'Empty it. The slaves you march out are the payment.'),
+    "temple":       ("lord_kill", "An Offering for Hashut",
+                     "A general of the Dwarfs leads an army in the open. The priests want "
+                     "that life on the altar."),
 }
 # Mirrors GG.BOUNTY_EXTRA in the campaign Lua; import_great_guilds.py compares the two.
 BOUNTY_EXTRA = {
@@ -944,6 +1114,7 @@ BOUNTY_EXTRA = {
     "khanate":      ["hero_strike", "job_build"],
     "overseers":    ["job_build"],
     "slavers":      ["job_captives", "job_build"],
+    "temple":       ["job_build"],
 }
 
 
@@ -962,31 +1133,19 @@ def family_kind(g, fam):
 # the plan: the spec asked for each race's own voice; the guild's name carries it, and
 # 117 hand-written lines can replace any of these later as data only).
 BOUNTY_TEXT = {
-    "job_coffers":   ("Fill the Coffers", "{guild} want to see your treasury full, and "
-                      "kept full. Hold the sum named on the Great Guilds panel."),
-    "job_champion":  ("Prove a Champion", "{guild} want a champion worth the name. Raise "
-                      "one of your lords or heroes to the rank named on the Great Guilds "
-                      "panel."),
-    "job_research":  ("Commissioned Work", "{guild} have paid in advance for a piece of "
-                      "learning. Research the technology named on the Great Guilds panel."),
-    "job_captives":  ("Fill the Pens", "{guild} are short of hands. Take the number of "
-                      "captives named on the Great Guilds panel in your battles."),
-    "job_build":     ("A Commission", "{guild} want one of their own buildings raised in "
-                      "your lands. It is named on the Great Guilds panel."),
-    "hero_sabotage": ("Crack the Walls", "{guild} want a settlement weakened from inside. "
-                      "Send your heroes against the one named on the Great Guilds panel."),
-    "hero_harry":    ("Harry Their March", "{guild} want an army slowed and bled before it "
-                      "arrives. Send your heroes against the one named on the Great Guilds "
-                      "panel."),
-    "hero_strike":   ("A Quiet Word", "{guild} want a name to stop being spoken. Wound or "
-                      "kill the lord or hero named on the Great Guilds panel with a hero."),
+    "job_coffers":   ("Fill the Coffers", '{guild} demand full coffers. Hold the amount shown on the Great Guilds panel.'),
+    "job_champion":  ("Prove a Champion", '{guild} need a proven champion. Raise a lord or hero to the rank shown on the Great Guilds panel.'),
+    "job_research":  ("Commissioned Work", '{guild} have commissioned new research. Complete the technology shown on the Great Guilds panel.'),
+    "job_captives":  ("Fill the Pens", '{guild} need more hands. Take the number of battle captives shown on the Great Guilds panel.'),
+    "job_build":     ("A Commission", '{guild} have ordered a building in your lands. The Great Guilds panel names it.'),
+    "hero_sabotage": ("Crack the Walls", '{guild} want a settlement weakened from within. Send heroes against the one shown on the Great Guilds panel.'),
+    "hero_harry":    ("Harry Their March", '{guild} want an army delayed and bloodied. Send heroes against the one shown on the Great Guilds panel.'),
+    "hero_strike":   ("A Quiet Word", '{guild} have marked someone for death. Use a hero to wound or kill the lord or hero shown on the Great Guilds panel.'),
 }
 HERO_OBJECTIVE_TEXT = {
-    "sabotage": "Succeed with two hero actions against the settlement named on the Great "
-                "Guilds panel.",
-    "harry": "Succeed with two hero actions against the army named on the Great Guilds "
-             "panel.",
-    "strike": "Wound or kill the character named on the Great Guilds panel with a hero.",
+    "sabotage": 'Complete two successful hero actions against the settlement shown on the Great Guilds panel.',
+    "harry": 'Complete two successful hero actions against the army shown on the Great Guilds panel.',
+    "strike": 'Use a hero to wound or kill the character shown on the Great Guilds panel.',
 }
 
 
@@ -1051,17 +1210,11 @@ FLAVOURS = {
         # The unit name matches vanilla's land_units_onscreen_name for
         # wh_main_emp_inf_greatswords, read with read_vanilla_loc on 2026-09-23.
         "blurbs": {
-            "caravan_levy": "The Merchant Guilds call in what they are owed. Adds 2,500 "
-                            "gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Greatswords to an army of your choosing.",
-            "bound_blueprint": "The Engineers' School hands over work already done. "
-                               "Completes the technology you are currently researching, "
-                               "at once.",
-            "hobgoblin_eyes": "The Thieves' Guild sells what its ears have heard. Reveals "
-                              "one region through the shroud for this turn.",
-            "raise_ziggurat": "The Masons' Guild works through the night. Upgrades one of "
-                              "your buildings to its next level at once, and free.",
+            "caravan_levy": "The Merchant Guilds call in what they are owed. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of Greatswords to the army you select.",
+            "bound_blueprint": "The Engineers' School hands over its finished plans. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Thieves' Guild sells what its ears have heard. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Masons' Guild works through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Free Companies send you your share of the take. Adds "
                            "3,000 gold to your treasury.",
         },
@@ -1071,29 +1224,24 @@ FLAVOURS = {
                      "books.",
             "immortals": "Veterans who swore their lives to an Elector Count's banner. "
                          "They sell that oath now, to whoever can carry it.",
-            "daemonsmiths": "Altdorf's engineers, who build what should not work and make "
-                            "it fire. They sell what they know, in instalments.",
-            "khanate": "Every tavern has a back room, and every back room has an ear. "
-                       "Their knives are for hire to anyone, including against you.",
+            "daemonsmiths": "Altdorf's engineers build what should not work and make it fire. Their knowledge comes in costly instalments.",
+            "khanate": "Every tavern has a back room, and every back room has an ear. Their knives are for hire, even against you.",
             "overseers": "The builders of every wall and temple from the Reikland to "
                          "Ostland, and the only ones who know where the foundations are "
                          "weak.",
-            "slavers": "Sell-swords and road-wardens paid in plunder. Their ledger is "
-                       "measured in what they carry home.",
+            "slavers": "Sell-swords and road-wardens paid in plunder. They count their earnings on the road home.",
         },
         "bounties": {
             "brass": ("Open the Market",
                       "The Merchant Guilds want that town's tolls paid in Altdorf. Take "
                       "it intact."),
             "immortals": ("A Duel for the Banner",
-                          "A general is being spoken of with respect. The Greatswords "
-                          "would like that corrected."),
+                          "A general has earned respect. The Greatswords mean to put an end to that."),
             "daemonsmiths": ("Salvage the Works",
                              "Whatever that place has built, the School wants on its own "
                              "benches. Bring it back in pieces."),
             "khanate": ("A Name Crossed Out",
-                        "The Guild does not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Guild wants the bearer of that name silenced. The method is your choice."),
             "overseers": ("Stone Still Standing",
                           "Take it whole. The Masons want the walls left up, so they can "
                           "be paid to mend them."),
@@ -1135,29 +1283,21 @@ FLAVOURS = {
         # The unit name matches vanilla's land_units_onscreen_name for
         # wh_main_dwf_inf_hammerers, read with read_vanilla_loc on 2026-09-23.
         "blurbs": {
-            "caravan_levy": "The Merchant Clans collect on every road between the holds. "
-                            "Adds 2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Hammerers to an army of your choosing.",
-            "bound_blueprint": "The Engineers' Guild parts with a secret, once. Completes "
-                               "the technology you are currently researching, at once.",
-            "hobgoblin_eyes": "The Rangers report what they have seen from the high "
-                              "passes. Reveals one region through the shroud "
-                              "for this turn.",
-            "raise_ziggurat": "The Miners' Guild works a double shift. Upgrades one of "
-                              "your buildings to its next level at once, and free.",
+            "caravan_levy": "The Merchant Clans collect on every road between the holds. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "Oathsworn warriors, armed and ready. Adds one unit of Hammerers to the army you select.",
+            "bound_blueprint": "The Engineers' Guild sells you one guarded secret. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Rangers report what they have seen from the high passes. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Miners' Guild works a double shift. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "Oathgold paid to settle a grudge, and passed on to you. "
                            "Adds 250 Oathgold.",
         },
         "desc": {
-            "brass": "The traders of the Karaks, who remember every debt for as long as "
-                     "there is stone to write it on.",
+            "brass": "The traders of the Karaks remember every debt for as long as there is stone to write it on.",
             "immortals": "The king's own guard, sworn to the throne of their hold. Their "
                          "oath can be lent, never broken.",
             "daemonsmiths": "Keepers of secrets guarded since the first hold was dug. They "
                             "share them slowly, and never twice.",
-            "khanate": "Dwarfs who left the holds to watch the passes. They see "
-                       "everything that moves above ground, and sell it dearly.",
+            "khanate": "Dwarfs who left the holds to watch the passes. News of every movement above ground comes at a price.",
             "overseers": "The delvers and stone-cutters who carved every hold. Nothing is "
                          "built in the mountains without them.",
             "slavers": "The clans who take the Book of Grudges at its word. Every line "
@@ -1168,13 +1308,12 @@ FLAVOURS = {
                       "The Merchant Clans want that place back in their ledgers. Take it "
                       "intact."),
             "immortals": ("A Grudge on a Name",
-                          "A general has been boasting. The Hammerers would like that "
-                          "settled."),
+                          "A general boasts. The Hammerers want that settled."),
             "daemonsmiths": ("Recover the Craft",
                              "Whatever was forged in that place was likely stolen from us "
                              "first. Bring it back in pieces."),
             "khanate": ("Silence in the Passes",
-                        "The Rangers want the name stopped. How is their affair."),
+                        "The Rangers want that name silenced. Choose the method."),
             "overseers": ("Reclaim the Hold",
                           "Take it whole. The Miners' Guild wants tunnels, not rubble."),
             "slavers": ("Strike a Line",
@@ -1218,19 +1357,11 @@ FLAVOURS = {
             "great_coffle": "The Errantry War",
         },
         "blurbs": {
-            "caravan_levy": "The Wine Merchants collect the duties owed on every cask. "
-                            "Adds 2,500 gold to your treasury at once.",
-            "hire_immortals": "A lance of knights, already sworn and already horsed. "
-                              "Adds one unit of Knights of the Realm to an army of your "
-                              "choosing.",
-            "bound_blueprint": "The Grail Damsels share what the Lady has shown them. "
-                               "Completes the technology you are currently researching, "
-                               "at once.",
-            "hobgoblin_eyes": "The Forest Outlaws sell what they have seen from the "
-                              "trees. Reveals one region through the shroud "
-                              "for this turn.",
-            "raise_ziggurat": "The Castle-Wrights work through the night. Upgrades one "
-                              "of your buildings to its next level at once, and free.",
+            "caravan_levy": "The Wine Merchants collect the duties owed on every cask. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A lance of knights, sworn and horsed. Adds one unit of Knights of the Realm to the army you select.",
+            "bound_blueprint": "The Grail Damsels share what the Lady has shown them. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Forest Outlaws sell what they have seen from the trees. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Castle-Wrights work through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Crusaders send home your share of the spoils. Adds 3,000 "
                            "gold to your treasury.",
         },
@@ -1243,8 +1374,7 @@ FLAVOURS = {
                             "They share it only with those they judge worthy.",
             "khanate": "Poachers and cutpurses who live beyond the law in the deep "
                        "forests. They will rob anyone, including you.",
-            "overseers": "The master masons who raise every keep and curtain wall in the "
-                         "dukedoms, and who know where each one is weak.",
+            "overseers": "Master masons who raise every keep and curtain wall in the dukedoms, and are paid again to mend them after each siege.",
             "slavers": "Knights and men-at-arms back from the Errantry Wars, paid in "
                        "what they carry home.",
         },
@@ -1253,14 +1383,11 @@ FLAVOURS = {
                       "The Wine Merchants want that town's trade flowing to Bordeleaux. "
                       "Take it intact."),
             "immortals": ("A Challenge of Honour",
-                          "A general is being spoken of with respect. The Knights Errant "
-                          "would like to test that."),
+                          "A general has earned respect. The Knights Errant mean to test it."),
             "daemonsmiths": ("Out of Unworthy Hands",
-                             "Whatever that place keeps, the Damsels want it taken from "
-                             "those who should not have it. Bring it back in pieces."),
+                             "The Damsels want that place's treasures taken from unworthy hands. Bring them back in pieces."),
             "khanate": ("A Name in the Forest",
-                        "The Outlaws do not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Outlaws want that name silenced. They leave the method to you."),
             "overseers": ("A Keep Worth Keeping",
                           "Take it whole. The Castle-Wrights want a keep to improve, not "
                           "rubble."),
@@ -1300,17 +1427,11 @@ FLAVOURS = {
             "great_coffle": "The Great Expedition",
         },
         "blurbs": {
-            "caravan_levy": "The Caravan Masters collect on every road they travel. Adds "
-                            "2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Celestial Dragon Guard to an army of your choosing.",
-            "bound_blueprint": "The Imperial Academy hands over work already done. "
-                               "Completes the technology you are currently researching, "
-                               "at once.",
-            "hobgoblin_eyes": "The Crow Society sells what its crows have seen. Reveals "
-                              "one region through the shroud for this turn.",
-            "raise_ziggurat": "The Bastion Builders work through the night. Upgrades one "
-                              "of your buildings to its next level at once, and free.",
+            "caravan_levy": "The Caravan Masters collect on every road they travel. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of Celestial Dragon Guard to the army you select.",
+            "bound_blueprint": "The Imperial Academy hands over its finished plans. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Crow Society sells what its crows have seen. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Bastion Builders work through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Punitive Host sends back your share of the spoils. Adds "
                            "3,000 gold to your treasury.",
         },
@@ -1319,12 +1440,9 @@ FLAVOURS = {
                      "and come back heavier. Every province pays their tolls.",
             "immortals": "The Emperor's own warriors, sworn to the Celestial Court. "
                          "Their oath is lent to whoever the Court favours.",
-            "daemonsmiths": "The scholars and astromancers who keep the Empire's "
-                            "learning. They teach it slowly, and never for free.",
-            "khanate": "Informers, poisoners and watchers who sell what they learn at "
-                       "court. They work for anyone, including against you.",
-            "overseers": "The engineers who keep the Great Bastion standing, and who "
-                         "know where every wall is weak.",
+            "daemonsmiths": "The scholars and astromancers of the Celestial Court, who read the stars and keep the Empire's learning.",
+            "khanate": "Informers, poisoners and watchers sell what they learn at court. Their reports reach whoever pays, and not only you.",
+            "overseers": "The engineers who keep the Great Bastion standing against everything the north sends at it.",
             "slavers": "Soldiers sent beyond the Bastion to punish the Emperor's "
                        "enemies. Their pay is what they bring back.",
         },
@@ -1333,14 +1451,12 @@ FLAVOURS = {
                       "The Caravan Masters want that town's markets on the Ivory Road. "
                       "Take it intact."),
             "immortals": ("A Lesson in Respect",
-                          "A general is being spoken of with respect. The Dragon Guard "
-                          "would like that corrected."),
+                          "A general has earned respect. The Dragon Guard mean to put an end to that."),
             "daemonsmiths": ("Collect the Texts",
                              "Whatever that place has written down, the Academy wants in "
                              "its archive. Bring it back in pieces."),
             "khanate": ("A Name Forgotten",
-                        "The Society does not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Society wants that name forgotten. How you do it is your affair."),
             "overseers": ("Walls for the Empire",
                           "Take it whole. The Bastion Builders want walls to strengthen, "
                           "not rubble."),
@@ -1381,48 +1497,35 @@ FLAVOURS = {
             "great_coffle": "The Long Raid",
         },
         "blurbs": {
-            "caravan_levy": "The Erengrad Merchants collect on every ship and sledge. "
-                            "Adds 2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Tzar Guard (Great Weapons) to an army of your "
-                              "choosing.",
-            "bound_blueprint": "The Ice Court parts with a secret, once. Completes the "
-                               "technology you are currently researching, at once.",
-            "hobgoblin_eyes": "The Oblast Smugglers sell what they have seen on the "
-                              "trails. Reveals one region through the shroud "
-                              "for this turn.",
-            "raise_ziggurat": "The Stanitsa Builders work before the thaw. Upgrades one "
-                              "of your buildings to its next level at once, and free.",
+            "caravan_levy": "The Erengrad Merchants collect on every ship and sledge. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of Tzar Guard (Great Weapons) to the army you select.",
+            "bound_blueprint": "The Ice Court sells you one guarded secret. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Oblast Smugglers sell what they have seen on the trails. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Stanitsa Builders work before the thaw. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Ungol Raiders send back your share of the take. Adds 150 "
                            "Devotion, or 3,000 gold to a faction without Devotion.",
         },
         "desc": {
             "brass": "The traders of Erengrad, whose ships and sledges carry furs south "
-                     "and gold north. Every boyar owes them something.",
-            "immortals": "The Tzar's own guard, the finest warriors in Kislev. Their "
-                         "oath can be lent, never broken.",
-            "daemonsmiths": "The witches of the Ice Court, who keep what the winter "
-                            "teaches. They part with it slowly, and never for free.",
-            "khanate": "Smugglers who know every trail across the oblast and every ear "
-                       "in every stanitsa. They work for anyone, including against you.",
-            "overseers": "The builders of every palisade and stanitsa that holds the "
-                         "north, and the only ones who know where each is weak.",
-            "slavers": "Horse-raiders of the steppe who ride for pay and plunder. Their "
-                       "ledger is measured in what they carry home.",
+                     "and gold north. Half the boyars' treasuries sit in their ledgers.",
+            "immortals": "The Tzar's own guard, the finest warriors in Kislev, sent "
+                         "wherever the crown is best repaid.",
+            "daemonsmiths": "The witches of the Ice Court keep the winter's secrets, and teach them only to those the Ice Queen trusts.",
+            "khanate": "Smugglers who know every trail across the oblast and every ear in every stanitsa. They take work even against you.",
+            "overseers": "The builders of the palisades and stanitsas that hold the north. Every winter undoes their work, and every spring they are paid to do it again.",
+            "slavers": "Horse-raiders of the steppe who ride for pay and plunder, and are gone before the smoke clears.",
         },
         "bounties": {
             "brass": ("Open the Market",
                       "The Erengrad Merchants want that town's trade in their ledgers. "
                       "Take it intact."),
             "immortals": ("A Duel in the Snow",
-                          "A general is being spoken of with respect. The Tzar Guard "
-                          "would like that corrected."),
+                          "A general has earned respect. The Tzar Guard mean to put an end to that."),
             "daemonsmiths": ("Claim the Lore",
                              "Whatever that place knows, the Ice Court wants. Bring it "
                              "back in pieces."),
             "khanate": ("Lost in the Snow",
-                        "The Smugglers do not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Smugglers want that name silenced. They leave the method to you."),
             "overseers": ("Hold the Line",
                           "Take it whole. The Stanitsa Builders want walls that hold, "
                           "not rubble."),
@@ -1467,51 +1570,38 @@ FLAVOURS = {
             "great_coffle": "The Black Ark Raid",
         },
         "blurbs": {
-            "caravan_levy": "The Karond Kar Traders take their cut of every sale. Adds "
-                            "2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Black Guard of Naggarond to an army of your choosing.",
-            "bound_blueprint": "The Convent of Ghrond parts with a secret, once. "
-                               "Completes the technology you are currently researching, "
-                               "at once.",
-            "hobgoblin_eyes": "The Khainite Assassins sell what they have seen from the "
-                              "shadows. Reveals one region through the shroud "
-                              "for this turn.",
-            "raise_ziggurat": "The Naggarond Builders drive the thralls through the "
-                              "night. Upgrades one of your buildings to its next level "
-                              "at once, and free.",
+            "caravan_levy": "The Karond Kar Traders take their cut of every sale. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of Black Guard of Naggarond to the army you select.",
+            "bound_blueprint": "The Convent of Ghrond sells you one guarded secret. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Khainite Assassins sell what they have seen from the shadows. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Naggarond Builders drive the thralls through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Black Ark Corsairs send home your share of the plunder. "
                            "Adds 1,000 Slaves.",
         },
         "desc": {
             "brass": "The counting-towers of Karond Kar, where every captive the Black "
-                     "Arks bring home is bought and sold. Every Highborn owes them "
-                     "something.",
+                     "Arks bring home is bought and sold. They set the price of every "
+                     "thrall in Naggaroth.",
             "immortals": "The Witch King's own guard, sworn to Naggarond and nothing "
                          "else. Their oath is lent only to those Malekith favours.",
-            "daemonsmiths": "The sorceresses of Ghrond, who keep the dark arts and "
-                            "answer to Morathi alone. They part with what they know "
-                            "slowly, and never for free.",
+            "daemonsmiths": "The sorceresses of Ghrond keep the dark arts and answer to Morathi alone. They part with secrets slowly, never free.",
             "khanate": "Assassins of the Temple of Khaine, who kill for the Lord of "
                        "Murder and for pay. They work for anyone, including against you.",
-            "overseers": "The builders of every tower and wall in Naggaroth, raised by "
-                         "thralls in the cold. They know where each one is weak.",
+            "overseers": "The builders of Naggaroth's towers and walls, who drive thralls through the cold until the stone or the thralls give out.",
             "slavers": "The crews of the Black Arks, who raid every shore they can "
-                       "reach. Their pay is what they carry home.",
+                       "reach and sell the captives in Karond Kar.",
         },
         "bounties": {
             "brass": ("Fresh Markets",
                       "The Karond Kar Traders want that town's trade in their ledgers. "
                       "Take it intact."),
             "immortals": ("A Test of Blades",
-                          "A general is being spoken of with respect. The Black Guard "
-                          "would like that corrected."),
+                          "A general has earned respect. The Black Guard mean to put an end to that."),
             "daemonsmiths": ("Plunder the Lore",
                              "Whatever that place knows, the Convent wants. Bring it "
                              "back in pieces."),
             "khanate": ("A Name for Khaine",
-                        "The Assassins do not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Assassins want that name silenced. They leave the method to you."),
             "overseers": ("A Tower Worth Taking",
                           "Take it whole. The Naggarond Builders want walls to raise "
                           "higher, not rubble."),
@@ -1551,16 +1641,11 @@ FLAVOURS = {
             "great_coffle": "Ulthuan's Vengeance",
         },
         "blurbs": {
-            "caravan_levy": "The Lothern Merchants collect on every ship that docks. "
-                            "Adds 2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of Swordmasters of Hoeth to an army of your choosing.",
-            "bound_blueprint": "The Loremasters hand over work already done. Completes "
-                               "the technology you are currently researching, at once.",
-            "hobgoblin_eyes": "The Shadow Warriors share what they have seen. Reveals "
-                              "one region through the shroud for this turn.",
-            "raise_ziggurat": "The Ulthuan Masons work through the night. Upgrades one "
-                              "of your buildings to its next level at once, and free.",
+            "caravan_levy": "The Lothern Merchants collect on every ship that docks. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of Swordmasters of Hoeth to the army you select.",
+            "bound_blueprint": "The Loremasters hand over their finished plans. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Shadow Warriors share what they have seen. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Ulthuan Masons work through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Ellyrian Reavers send back your share of the take. Adds "
                            "3,000 gold to your treasury.",
         },
@@ -1568,35 +1653,103 @@ FLAVOURS = {
             "brass": "The merchant houses of Lothern, whose ships carry the trade of "
                      "Ulthuan to every coast. Every Sea Lord owes them something.",
             "immortals": "The warriors of the White Tower of Hoeth, sworn to the blade "
-                         "for centuries. Their oath is lent to whoever the Tower "
-                         "favours.",
-            "daemonsmiths": "The Loremasters of Hoeth, who keep the greatest library in "
-                            "the world. They teach it slowly, and never for free.",
+                         "for centuries. The Tower sends them only where it sees a "
+                         "purpose.",
+            "daemonsmiths": "The Loremasters of Hoeth keep the world's greatest library. Its lessons are neither quick nor free.",
             "khanate": "The scouts of Nagarythe, who fight a secret war nobody else "
-                       "sees. They work for anyone, including against you.",
-            "overseers": "The masons who raise every tower and sea wall in Ulthuan, and "
-                         "who know where each one is weak.",
+                       "sees. They answer to Alith Anar first, and to you only while it "
+                       "suits him.",
+            "overseers": "The masons of Ulthuan, whose towers and sea walls have stood for thousands of years.",
             "slavers": "The riders of Ellyrion, who range far past the borders and bring "
-                       "back what they find. Their pay is what they carry home.",
+                       "back whatever they find there.",
         },
         "bounties": {
             "brass": ("Open the Harbour",
                       "The Lothern Merchants want that town's trade on their ships. Take "
                       "it intact."),
             "immortals": ("A Lesson in Blades",
-                          "A general is being spoken of with respect. The Swordmasters "
-                          "would like that corrected."),
+                          "A general has earned respect. The Swordmasters mean to put an end to that."),
             "daemonsmiths": ("Recover the Lore",
                              "Whatever that place knows, the Loremasters want kept safe. "
                              "Bring it back in pieces."),
             "khanate": ("A Shadow Falls",
-                        "The Shadow Warriors do not care how it is done, only that the "
-                        "name stops being used."),
+                        "The Shadow Warriors want that name silenced. They leave the method to you."),
             "overseers": ("Walls for Ulthuan",
                           "Take it whole. The Masons want walls to strengthen, not "
                           "rubble."),
             "slavers": ("Reave It",
                         "Sack it. The Reavers are owed, and that place can pay."),
+        },
+    },
+    # THE SKAVEN (skaven spec, 2026-10-05): the clans of the Under-Empire as the guilds.
+    "_skv": {
+        "culture": "wh2_main_skv_skaven", "pics": "skv", "feed": 90,
+        "guilds": {
+            "brass": "The Warpstone Traders",
+            "immortals": "The Stormvermin",
+            # NOT "Clan Skryre": every sentence reads "the {guild}" (skaven Task 5 ruling).
+            "daemonsmiths": "The Skryre Warlocks",
+            "khanate": "The Eshin Assassins",
+            "overseers": "The Moulder Breeders",
+            "slavers": "The Slave-Masters",
+        },
+        "ranks": ["Skavenslave", "Clanrat", "Clawleader", "Chieftain", "Warlord"],
+        "services": {
+            "caravan_levy": "Warpstone Tithe",
+            "writ_monopoly": "The Council's Seal",
+            "long_ledger": "The Under-Empire's Trade",
+            "oathbound_draft": "Call the Clanrats",
+            "hire_immortals": "Hire the Stormvermin",
+            "astragoths_levy": "Muster the Clawpack",
+            "forge_rite": "Warp-Lightning Rites",
+            "bound_blueprint": "Stolen Schematics",
+            "bound_ordnance": "Skryre's Gift",
+            "hobgoblin_eyes": "Eyes in the Dark",
+            "knife_in_dark": "A Blade from Eshin",
+            "khans_price": "Eshin's Price",
+            "lash_the_gangs": "Whip the Slaves",
+            "raise_ziggurat": "Dig Deeper",
+            "works_of_zharr": "Works of the Warrens",
+            "coffle_drive": "Slave Raids",
+            "slave_tithe": "The Slave-Masters' Cut",
+            "great_coffle": "The Great Taking",
+        },
+        "blurbs": {
+            "caravan_levy": "The Warpstone Traders call in what they are owed, and some of what they are not. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "Black-furred and loyal for as long as the pay holds. Adds one unit of Stormvermin to the army you select.",
+            "bound_blueprint": "Clan Skryre sells you work it stole from someone else. Finishes your current research at once.",
+            "hobgoblin_eyes": "Clan Eshin's watchers tell you what they saw. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "Clan Moulder's packs dig through the night. Upgrades one of your buildings to its next level now, at no cost.",
+            "slave_tithe": "The Slave-Masters send back your share of the take. Adds 3,000 "
+                           "gold to your treasury.",
+        },
+        "desc": {
+            "brass": "The brokers of the Under-Empire, who buy warpstone from one clan and "
+                     "sell it to the next. Each clan believes it got the better bargain.",
+            "immortals": "The black-furred guard of the great warlords: the biggest rats, the best armed, and loyal only while paid.",
+            "daemonsmiths": "The warlock engineers of Skavenblight bind warp-lightning into guns and engines. Each design works, mostly, and the next one costs more.",
+            "khanate": "The assassins of the hidden clan, who serve whoever pays and "
+                       "remember everyone who ever did.",
+            "overseers": "The breeders and flesh-crafters of Hell Pit, who grow monsters, "
+                         "food and warrens alike.",
+            "slavers": "The packmasters and raiders drive the slaves. Their pay is whatever they drag home.",
+        },
+        "bounties": {
+            "brass": ("Seize the Warpstone",
+                      "The Warpstone Traders want that town's stores in their tunnels. Take "
+                      "it intact."),
+            "immortals": ("A Warlord's Rival",
+                          "A general threatens us. The Stormvermin want the threat dead."),
+            "daemonsmiths": ("Steal the Secrets",
+                             "Whatever that place knows, Clan Skryre wants it. Bring it "
+                             "back in pieces."),
+            "khanate": ("A Name to Silence",
+                        "Clan Eshin wants that name silenced. The method is your choice."),
+            "overseers": ("New Warrens",
+                          "Take it whole. Clan Moulder wants tunnels to dig, not rubble."),
+            "slavers": ("Take Them All",
+                        "Sack it. The Slave-Masters are owed, and that place has plenty to "
+                        "drag away."),
         },
     },
     # EVERY OTHER RACE. One race-neutral flavour for each culture this mod ships none for.
@@ -1651,48 +1804,36 @@ FLAVOURS = {
         # them and the refusal line says why. The blurb still has to say what the service
         # is, and must not promise a unit by name.
         "blurbs": {
-            "caravan_levy": "The Merchant Houses collect on every road they keep a ledger "
-                            "for. Adds 2,500 gold to your treasury at once.",
-            "hire_immortals": "A company already sworn and already armed. Adds one unit "
-                              "of your people's elite infantry to an army of your "
-                              "choosing, where the Company keeps one.",
-            "bound_blueprint": "The Artisans' Guild hands over work already done. "
-                               "Completes the technology you are currently researching, "
-                               "at once.",
-            "hobgoblin_eyes": "The Shadow Guild sells what its spies have seen. Reveals "
-                              "one region through the shroud for this turn.",
-            "raise_ziggurat": "The Builders' Guild works through the night. Upgrades one "
-                              "of your buildings to its next level at once, and free.",
+            "caravan_levy": "The Merchant Houses collect on every road they keep a ledger for. Adds 2,500 gold to your treasury now.",
+            "hire_immortals": "A sworn company, armed and ready. Adds one unit of your people's elite infantry to the army you select, where the Company keeps one.",
+            "bound_blueprint": "The Artisans' Guild hands over its finished plans. Finishes your current research at once.",
+            "hobgoblin_eyes": "The Shadow Guild sells what its spies have seen. Reveals one region through the shroud this turn.",
+            "raise_ziggurat": "The Builders' Guild works through the night. Upgrades one of your buildings to its next level now, at no cost.",
             "slave_tithe": "The Raiders' Guild sends you your share of the take. Adds "
                            "3,000 gold to your treasury.",
         },
         "desc": {
             "brass": "Traders and money-lenders who keep a ledger on every road. They "
                      "forget no debt and forgive fewer.",
-            "immortals": "Old soldiers who sell their oath to whoever can pay for it, and "
-                         "keep it once it is sold.",
+            "immortals": "Old soldiers who sell their oath to whoever can pay, and keep it once sold.",
             "daemonsmiths": "Craftsmen and inventors who build what others only draw. They "
                             "sell what they know, a piece at a time.",
             "khanate": "Spies, smugglers and knives for hire. They work for anyone, "
                        "including against you.",
-            "overseers": "The builders of every wall and tower worth the name, and the "
-                         "only ones who know where each one is weak.",
-            "slavers": "Raiders paid in plunder. Their ledger is measured in what they "
-                       "carry home.",
+            "overseers": "The builders of every wall and tower worth the name. Only they know where each is weak.",
+            "slavers": "Raiders paid in plunder. They reckon their wages in what they carry home.",
         },
         "bounties": {
             "brass": ("Take the Market",
                       "The Merchant Houses want that town's tolls paid to them. Take it "
                       "intact."),
             "immortals": ("A Challenge Answered",
-                          "A general is being spoken of with respect. The Company would "
-                          "like that corrected."),
+                          "A general has earned respect. The Company means to put an end to that."),
             "daemonsmiths": ("Strip the Workshops",
                              "Whatever that place has built, the Artisans want on their "
                              "own benches. Bring it back in pieces."),
             "khanate": ("A Quiet Removal",
-                        "The Guild does not care how it is done, only that the name "
-                        "stops being used."),
+                        "The Guild wants that name silenced. They leave the method to you."),
             "overseers": ("Leave the Walls Standing",
                           "Take it whole. The Builders want walls to work on, not "
                           "rubble."),
@@ -1710,9 +1851,9 @@ POOL_NAMES = {
         "Alms to the Temples", "Sell-Sword Contracts", "A Loan from Marienburg",
         "Guild Charter of Nuln", "The Imperial Seal", "Bread and Circuses",
         "Forced March", "Drill Sergeants", "The Regimental Colours", "Barber-Surgeons",
-        "Old Soldiers", "The Emperor's Honours", "Blessed Wards", "The Colleges' Tithe",
+        "Old Soldiers", "The Emperor's Honours", "Pavise Wall", "Proofed Armour",
         "Nuln Steel", "Master Gunners", "The Grand Treatise", "The Imperial Arsenal",
-        "Bribed Watchmen", "Seasoned Agents", "A Name in the Ledger",
+        "Bribed Watchmen", "Seasoned Heroes", "A Name in the Ledger",
         "Rumours in the Taverns", "Every Street Corner", "Bad Water", "Full Granaries",
         "Road Wardens", "The Watch", "Shore Up the Walls", "Master Masons", "Civic Works",
         "Foraging Parties", "Ransom Brokers", "Press Gangs", "Tourney Grounds",
@@ -1744,7 +1885,7 @@ POOL_NAMES = {
         "The Celestial Seal", "Festival of Lanterns", "Swift Columns", "Drill Masters",
         "Dragon Banner", "Jade Physicians", "Veteran Officers", "Imperial Honours",
         "Jade Wards", "Wind Channelling", "Celestial Steel", "Master Gunners",
-        "The Academy's Treatise", "Imperial Arsenal", "Paid Informers", "Seasoned Agents",
+        "The Academy's Treatise", "Imperial Arsenal", "Paid Informers", "Seasoned Heroes",
         "A Crow's Training", "Whispered Slanders", "A Thousand Crows", "Poisoned Wells",
         "Rice Stores", "Ivory Road Wardens", "Magistrates", "Raise the Ramparts",
         "Master Builders", "Temples and Canals", "Foraging Columns",
@@ -1756,7 +1897,7 @@ POOL_NAMES = {
         "The Bear Standard", "Village Healers", "Veteran Streltsi", "The Tzar's Favour",
         "Frost Wards", "Draw on the Ice", "Frost-Tempered Steel", "Master Gunners",
         "The Frost Maiden's Lore", "Streltsi Armoury", "Paid Border Guards",
-        "Hardened Agents", "A Smuggler's Lessons", "Stir the Oblast", "Every Road North",
+        "Hardened Heroes", "A Smuggler's Lessons", "Stir the Oblast", "Every Road North",
         "Frozen Wells", "Winter Stores", "Sledge Roads", "The Tzar's Wardens", "Ice Walls",
         "Master Builders", "Stanitsa Works", "Steppe Riders", "Ransom Market",
         "Village Muster", "Bear Pits", "The Great Ride", "Scorch the Steppe"],
@@ -1776,25 +1917,174 @@ POOL_NAMES = {
         "The Phoenix Banner", "Healers of Isha", "Veteran Wardens",
         "The Phoenix King's Honour", "Wards of Hoeth", "The Vortex's Tide",
         "Ithilmar Blades", "Bolt Thrower Crews", "The White Tower's Lore",
-        "Lothern Armoury", "Paid Watchers", "Seasoned Agents", "Shadow Training",
+        "Lothern Armoury", "Paid Watchers", "Seasoned Heroes", "Shadow Training",
         "Whispers of Doubt", "Shadows in Every Court", "Poisoned Wells",
         "Harvest of Ulthuan", "Elven Roads", "City Wardens", "Raise the Wards",
         "Master Masons", "Shrines of Ulthuan", "Reaver Scouts", "Spoils of Victory",
         "Levy of the Isles", "Martial Contests", "The Long Ride", "Burn the Stores"],
+    "_skv": ["Bribes to the Council", "Hired Clawpacks", "A Warpstone Loan",
+             "Salvagers' Charter", "The Lord of Decay's Hoard", "Bought Truces",
+             "Scurry Forth", "Clawleader Drills", "The Warlord's Banner", "Fleshmenders",
+             "Veteran Clawpacks", "The Warlord's Favour", "Warpstone Charms",
+             "Warp-Lightning Siphons", "Warplock Blades", "Weapon Team Crews",
+             "Skryre's Great Work", "The Skavenblight Arsenal", "Bought Sentries",
+             "Blooded Gutter Runners", "Eshin Training", "Whispers in the Dark",
+             "The Hidden Web", "Poisoned Wells", "Breeding Pens", "New Tunnels",
+             "Rat Ogre Wardens", "Barricade the Warrens", "Master Diggers", "The Great Nest",
+             "Raiding Packs", "Slave Markets", "Slave Levy", "Fighting Pits", "The Great Hunt",
+             "Burn the Stores"],
     "_gen": [
         "Alms and Bribes", "Mercenary Contract", "Guild Loan", "Industry Charter",
         "Treasury Seal", "Bought Peace", "Forced March", "Drillmasters", "Battle Standard",
         "Field Surgeons", "Veteran Cadre", "Warlord's Honour", "Ward Runes",
         "Spirit Siphon", "Forged Arms", "Master Gunners", "The Great Work", "Arsenal",
-        "Bribed Guards", "Blooded Agents", "Hired Blade", "Sow Discord", "Web of Whispers",
+        "Bribed Guards", "Blooded Heroes", "Hired Blade", "Sow Discord", "Web of Whispers",
         "Poisoned Wells", "Granaries", "Road Gangs", "Enforcers", "Fortify",
         "Master Builders", "Public Works", "Raiding Parties", "Captive Markets",
         "Extra Levies", "Pit Fights", "The Great Hunt", "Scorched Earth"],
 }
-POOL_KEYS = [s["key"] for s in SERVICES[18:] if not s.get("race")]
+# The temple's rows sit after the race rows and are named by TEMPLE_NAMES, below.
+POOL_KEYS = [s["key"] for s in SERVICES[18:] if not s.get("race") and s["guild"] != "temple"]
 for _tag, _names in POOL_NAMES.items():
     assert len(_names) == len(POOL_KEYS), (_tag, len(_names), len(POOL_KEYS))
     FLAVOURS[_tag]["services"].update(zip(POOL_KEYS, _names))
+
+# THE TEMPLE'S NAMES per flavour (temple spec §2, §6), in SERVICES order: hashut_blessing,
+# forge_sermons, temple_tithe, zeal, purge_unclean, anathema, holy_war, miracle,
+# consecration. The Chaos Dwarf names are each row's "name".
+TEMPLE_KEYS = [s["key"] for s in SERVICES if s["guild"] == "temple"]
+TEMPLE_NAMES = {
+    "_emp": ["Ward of Azyr", "Colleges' Proclamation", "College Endowment",
+             "Flames of Aqshy", "Light of Hysh", "Curse of Shyish",
+             "The Battle Colleges", "Ghyran's Mending", "Charter of Magic"],
+    "_dwf": ["Grimnir's Blessing", "Valaya's Hearth", "Temple Tithe", "Slayer's Oath",
+             "Valaya's Ward", "Ancestral Curse", "War of Vengeance", "Valaya's Mercy",
+             "Rites of the Ancestors"],
+    "_brt": ["Blessing of the Grail", "Pilgrims' Sermons", "Pilgrims' Alms", "Holy Fervour",
+             "Cleansing Flame", "Excommunication", "The Grail Crusade", "Grail Miracle",
+             "Hallowed Ground"],
+    "_cth": ["Dragon's Blessing", "Temple Proclamations", "Temple Alms",
+             "Celestial Fury", "Cleansing Incense", "Heaven's Censure",
+             "The Dragon's War", "Healing Waters", "Blessing of the Moons"],
+    "_ksl": ["Ursun's Blessing", "Orthodox Sermons", "Church Tithe", "Bear's Fury",
+             "Purifying Flame", "Anathema", "Ursun's Crusade", "Saint's Mercy",
+             "Holy Icons"],
+    "_def": ["Khaine's Blessing", "Blood Sermons", "Blood Tithe", "Murderous Frenzy",
+             "Cleansing Blood", "Khaine's Curse", "The Death Night", "Cauldron's Gift",
+             "Altars Run Red"],
+    "_hef": ["Asuryan's Blessing", "Temple Sermons", "Temple Offerings", "Phoenix Fury",
+             "Sacred Flame", "Asuryan's Judgement", "War of the Phoenix", "Phoenix Rebirth",
+             "Flame Eternal"],
+    "_skv": ["The Horned Rat's Blessing", "Sermons of the Seers", "Tithe of the Seers",
+             "Frenzy", "Purge the Weak", "Doom Foretold", "The Great Plan", "Warp-Healing",
+             "Rule of the Seers"],
+    "_gen": ["Blessing", "Sermons", "Tithe", "Zeal", "Purge the Unclean", "Anathema",
+             "The Holy War", "Miracle", "Consecration"],
+}
+for _tag, _names in TEMPLE_NAMES.items():
+    assert len(_names) == len(TEMPLE_KEYS), (_tag, len(_names), len(TEMPLE_KEYS))
+    FLAVOURS[_tag]["services"].update(zip(TEMPLE_KEYS, _names))
+
+# THE TEMPLE PER FLAVOUR: its name, what it is, its holy-war bounty, and how it is earned -
+# the routes differ per race, so the earn sentence and Help's short line do too.
+TEMPLE_FLAVOUR = {
+    "_emp": ("The Colleges of Magic",
+             "The eight Colleges of Altdorf, licensed by the Emperor and watched by the "
+             "Witch Hunters. Their Battle Wizards march for whoever pays.",
+             ("Proof of the Art", "The Colleges want a general of your enemies brought "
+              "down by an army that marches with their wizards."),
+             "Earn Reputation from provinces free of Chaos corruption, successful actions by your Battle Wizards, and the Colleges' buildings.",
+             "clean provinces, wizards' actions"),
+    "_dwf": ("The Ancestor Temples",
+             "The keepers of the shrines of Grungni, Valaya and Grimnir, and the Slayers who "
+             "walk out of them to die well.",
+             ("Hunt for the Slayers", "A general of the greenskins or the ratmen leads an "
+              "army in the open. The temples want that general brought down."),
+             "Earn Reputation from provinces in good order, victories over greenskins and skaven, and the temples' buildings.",
+             "loyal provinces, wins over greenskins and skaven"),
+    "_brt": ("The Grail Pilgrims",
+             "Peasants who left their fields to follow the Grail, and the shrines where they "
+             "wait for the Lady's sign.",
+             ("The Grail Quest", "A general of the Ruinous Powers or the restless dead walks "
+              "the land. The pilgrims pray for that general's end."),
+             "Earn Reputation from provinces in good order, provinces free of Chaos and undead corruption, victories over Chaos and the undead, and the pilgrims' buildings.",
+             "loyal and clean provinces, wins over Chaos and the undead"),
+    "_cth": ("The Celestial Temples",
+             "The priests of the Celestial Dragon and the ancestors, keepers of the temple "
+             "guardians of stone.",
+             ("Heaven's Judgement", "A general of your enemies offends the Celestial Dragon. "
+              "The temples ask that the general be brought down."),
+             "Earn Reputation from provinces in good order, provinces free of Chaos corruption, and the temples' buildings.",
+             "loyal and clean provinces"),
+    "_ksl": ("The Great Orthodoxy",
+             "Ursun's priests and the Patriarch's church, who bless the bears, the bells and "
+             "the border forts.",
+             ("Ursun's Hunt", "A general of the north leads an army against the Motherland. "
+              "The Orthodoxy wants that general dead."),
+             "Earn Reputation from provinces in good order, provinces free of Chaos and undead corruption, victories over Chaos and Norsca, and the Orthodoxy's buildings.",
+             "loyal and clean provinces, wins over Chaos and Norsca"),
+    "_def": ("The Brides of Khaine",
+             "The witch elves of Khaine's temples, who bathe in blood and answer to the hag "
+             "queens alone.",
+             ("A Gift for Khaine", "An asur general still lives. The Brides want that heart "
+              "on the altar."),
+             "Earn Reputation from victories over the High Elves, successful actions by your Death Hags, and the Brides' buildings.",
+             "wins over the asur, Death Hags' actions"),
+    "_hef": ("The Cult of Asuryan",
+             "The guardians of Asuryan's sacred flame, who see what is to come and speak of "
+             "it to no one.",
+             ("Asuryan's Judgement", "A druchii general leads an army in the open. The Cult "
+              "wants that general brought down."),
+             "Earn Reputation from provinces in good order, provinces free of Chaos corruption, victories over the Dark Elves, and the Cult's buildings.",
+             "loyal and clean provinces, wins over the druchii"),
+    "_skv": ("The Grey Seers",
+             "The horned prophets of the Great Horned Rat, who sit at the Council's right "
+             "hand and whisper which warlord will be next to fall.",
+             ("The Seers' Doom",
+              "A Dwarf or Lizardman general leads an army in the open. The Grey Seers have "
+              "foreseen that general's death. Make it so."),
+             "Earn Reputation from provinces where the Under-Empire's taint spreads, victories over the Dwarfs and the Lizardmen, and the Seers' buildings.",
+             "tainted provinces, wins over Dwarfs and Lizardmen"),
+    "_gen": ("The Faith Guild",
+             "The priests and holy orders of the land, whose word moves crowds and whose "
+             "blessings move armies.",
+             ("The Holy War", "A general of the faith's enemies leads an army in the open. "
+              "The priests want that general brought down."),
+             "Earn Reputation by serving the faith: its buildings and its causes.",
+             "the faith's causes"),
+}
+TEMPLE_TEXT = {"": {"earn": GUILD_EARN["temple"],
+                    "short": "loyal provinces, wins over the Dwarfs"}}
+for _tag, (_name, _desc, _bounty, _earn, _short) in TEMPLE_FLAVOUR.items():
+    FLAVOURS[_tag]["guilds"]["temple"] = _name
+    FLAVOURS[_tag]["desc"]["temple"] = _desc
+    FLAVOURS[_tag]["bounties"]["temple"] = _bounty
+    TEMPLE_TEXT[_tag] = {"earn": _earn, "short": _short}
+
+# THE TEMPLE'S ROUTES, mirroring GG.TEMPLE_ROUTES (between the BEGIN/END TEMPLE ROUTES lines
+# of the model Lua). check_temple_routes() runs that block under lua.exe and compares.
+CHAOS_CULTURES = ["wh_main_chs_chaos", "wh3_main_kho_khorne", "wh3_main_nur_nurgle",
+                  "wh3_main_sla_slaanesh", "wh3_main_tze_tzeentch", "wh3_main_dae_daemons"]
+TEMPLE_ROUTES = {
+    "wh3_dlc23_chd_chaos_dwarfs": {"devout": True, "holy": ["wh_main_dwf_dwarfs"]},
+    "wh_main_emp_empire": {"chaos": True, "priests": [
+        "wh_main_emp_bright_wizard", "wh_main_emp_celestial_wizard", "wh_main_emp_light_wizard",
+        "wh_dlc05_emp_jade_wizard", "wh_dlc05_emp_grey_wizard", "wh_dlc03_emp_amber_wizard",
+        "wh2_pro07_emp_amethyst_wizard", "wh3_dlc25_emp_gold_wizard"]},
+    "wh_main_dwf_dwarfs": {"devout": True,
+                           "holy": ["wh_main_grn_greenskins", "wh2_main_skv_skaven"]},
+    "wh_main_brt_bretonnia": {"devout": True, "chaos": True, "vampiric": True,
+                              "holy": CHAOS_CULTURES + ["wh_main_vmp_vampire_counts"]},
+    "wh3_main_cth_cathay": {"devout": True, "chaos": True},
+    "wh3_main_ksl_kislev": {"devout": True, "chaos": True, "vampiric": True,
+                            "holy": CHAOS_CULTURES + ["wh_dlc08_nor_norsca"]},
+    "wh2_main_def_dark_elves": {"holy": ["wh2_main_hef_high_elves"],
+                                "priests": ["wh2_main_def_death_hag"]},
+    "wh2_main_hef_high_elves": {"devout": True, "chaos": True,
+                                "holy": ["wh2_main_def_dark_elves"]},
+    "wh2_main_skv_skaven": {"taint": True,
+                            "holy": ["wh_main_dwf_dwarfs", "wh2_main_lzd_lizardmen"]},
+}
 
 
 # RACE SERVICES (stage 2, spec §6) are drawn for their own race only, so each is named and
@@ -1824,7 +2114,7 @@ CHD_ONLY_WORDS = ("Hashut", "Zharr", "Dark Lands", "slave", "Hobgoblin", "Infern
                   "Daemon")
 # A WORD ONE FLAVOUR MAY USE AFTER ALL: the Dark Elves' own pool is called Slaves in game
 # (pooled_resources_display_name_def_slaves), and their race services name it.
-FLAVOUR_WORDS_ALLOWED = {"_def": ("slave",)}
+FLAVOUR_WORDS_ALLOWED = {"_def": ("slave",), "_skv": ("slave",)}
 # What a race's flavour must never carry: an effect that harms that race whatever its sign
 # flag says, or that reaches none of its units. Every reason is measured from vanilla
 # data. Nothing else catches these - the sign rule reads the effect, never the race.
@@ -1846,6 +2136,11 @@ RACE_UNWANTED_EFFECTS = {
     "_dwf": {
         "wh3_main_effect_winds_of_magic_events":
             "the Dwarfs have no spellcasters to spend the Winds of Magic",
+    },
+    "_skv": {
+        "wh3_main_effect_corruption_reduction_events":
+            "the Grey Seers earn from Skaven corruption; reducing it works against "
+            "their own route",
     },
 }
 
@@ -1876,18 +2171,905 @@ def minted_tables():
         loc.append({"key": "effects_description_" + key, "text": m["text"],
                     "tooltip": "false"})
     return {"effects": effects, "effect_bonus_value_ids_unit_sets": bonus, "loc": loc}
+
+
+# ------------------------------------------------------------------ GUILD HALLS --
+# Spec: docs/superpowers/specs/2026-10-04-great-guilds-halls-design.md. Mirrored by the
+# GG.HALL_* block in zzz_derpy_guilds.lua; check_hall_mirror() compares the two.
+HALL_TAGS = ["", "_emp", "_dwf", "_brt", "_cth", "_ksl", "_def", "_hef",
+             "_skv"]   # races with halls
+HALL_RANK = [2, 4, 5]            # rank needed for level 0, 1, 2 (level 2 also needs the lead)
+HALL_REP = [4, 8, 15]            # reputation per turn, per hall, by level
+HALL_OFF_MAX = 15                # most % a guild's halls take off its services
+HALL_COST = [(1500, 3), (3000, 5), (6000, 8)]     # create_cost, create_time
+HALL_SETTLEMENT = [2, 3, 4]      # primary_slot_building_building_level_requirement
+HALL_XP = [0, 1, 2]              # building_units_allowed.XP, by level
+# The local bonus: one effect per guild ROLE, the same for every race (spec §8.1). Every
+# pair is one CA puts on a Chaos Dwarf building; check_halls() holds the values to 1.5x
+# vanilla's largest magnitude on that pair.
+HALL_EFFECT = {
+    "brass":        ("wh_main_effect_economy_gdp_mod_all", "province_to_region_own",
+                     [5, 10, 15]),
+    "immortals":    ("wh_main_effect_force_all_campaign_replenishment_rate",
+                     "province_to_force_own_provincewide", [5, 10, 15]),
+    "daemonsmiths": ("wh_main_effect_technology_research_rate_mod", "building_to_faction_own",
+                     [2, 4, 6]),
+    "khanate":      ("wh_main_effect_agent_recruitment_xp_all_agents",
+                     "building_to_province_own", [1, 2, 3]),
+    "overseers":    ("wh_main_effect_building_construction_cost_mod", "province_to_region_own",
+                     [-5, -10, -15]),
+    "slavers":      ("wh_main_effect_force_all_campaign_post_battle_loot_mod",
+                     "building_to_character_own_in_adjacent_regions", [10, 20, 30]),
+    # Not shipped: every race with halls takes TEMPLE_LORE's hall (2026-10-09). Kept as
+    # the fallback, and seat_value("temple") still reads it.
+    "temple":       ("wh_main_effect_public_order_base", "province_to_province_own_unseen",
+                     [2, 4, 6]),
+}
+# THE SEAT (spec §5): the hall's own effect, faction-wide, at about a third of the level-2
+# value - except the temple, whose Seat is its own per race (TEMPLE_LORE). Each scope is one vanilla pairs with that effect in an effect bundle, read off
+# db.pack's effect_bundles_to_effects_junctions 2026-10-04 (row counts in brackets).
+HALL_SEAT_SCOPE = {
+    "brass":        "faction_to_region_own",      # (35)
+    "immortals":    "faction_to_force_own",       # (77)
+    "daemonsmiths": "faction_to_faction_own",     # (6)
+    "khanate":      "faction_to_province_own",    # (4)
+    "overseers":    "faction_to_region_own",      # (30)
+    "slavers":      "faction_to_faction_own",     # (9)
+    "temple":       "faction_to_province_own",    # (7)
+}
+
+# A SECOND HALL EFFECT for one guild in one race (temple spec §5): the Empire's College of
+# Magic trains no unit - the Luminark needs settlement level 5 - and instead raises the
+# number of wizards the Empire may recruit, on CA's own building pair (values 1-2).
+HALL_EXTRA = {
+    ("temple", "_emp"): ("wh_main_effect_agent_cap_increase_wizard_empire",
+                         "faction_to_faction_own_unseen", [1, 2, 3],
+                         "Wizards you may recruit +%d"),
+}
+
+# THE TEMPLE BY ITS OWN LORE (2026-10-09 spec, docs/superpowers/specs/
+# 2026-10-09-great-guilds-temple-lore-design.md). The temple began as the Temple of Hashut
+# renamed per race, so every race's temple paid public order on every layer; a player
+# backing the Colleges of Magic asked where the magic was. Each tag here is that race's
+# order as the lore has it - the Dwarfs get no magic. Pairs read from 9.0 db.pack; check()
+# holds them to vanilla. A field a tag leaves out falls back to the guild-wide table.
+_TEMPLE_WINDS = ("wh3_main_effect_winds_of_magic_pool_cap", "faction_to_force_own")
+_TEMPLE_PCT = [None, None, 3, 6, 10, 15]     # the shared ladder's values
+_TEMPLE_FLAT = [None, None, 2, 4, 6, 8]      # a flat count every army carries
+_WINDS_LORE = {"rank": _TEMPLE_WINDS, "ladder": _TEMPLE_PCT, "lead": 10, "sign": 1,
+               # A flat number: CA's text is "Winds of Magic power reserve capacity: %+n".
+               "blurb": ("%+d Winds of Magic reserve capacity", "for every army")}
+TEMPLE_LORE = {
+    "": dict(_WINDS_LORE),
+    "_emp": dict(_WINDS_LORE),
+    "_cth": dict(_WINDS_LORE),
+    "_skv": dict(_WINDS_LORE),
+    "_dwf": {"rank": ("wh_main_effect_force_stat_magic_resistance", "faction_to_force_own"),
+             "ladder": _TEMPLE_PCT, "lead": 10, "sign": 1,
+             "blurb": ("%+d%% spell resistance", "for every army")},
+    "_brt": {"rank": ("wh_main_effect_force_stat_ward_save", "faction_to_force_own"),
+             "ladder": _TEMPLE_FLAT, "lead": 5, "sign": 1,
+             "blurb": ("%+d%% ward save", "for every army")},
+    "_hef": {"rank": ("wh_main_effect_force_stat_ward_save", "faction_to_force_own"),
+             "ladder": _TEMPLE_FLAT, "lead": 5, "sign": 1,
+             "blurb": ("%+d%% ward save", "for every army")},
+    "_ksl": {"rank": ("wh_main_effect_force_stat_leadership", "faction_to_force_own"),
+             "ladder": _TEMPLE_FLAT, "lead": 5, "sign": 1,
+             "blurb": ("%+d leadership", "for every army")},
+    "_gen": {"rank": ("wh_main_effect_force_stat_leadership", "faction_to_force_own"),
+             "ladder": _TEMPLE_FLAT, "lead": 5, "sign": 1,
+             "blurb": ("%+d leadership", "for every army")},
+    "_def": {"rank": ("wh_main_effect_force_stat_melee_attack", "faction_to_force_own"),
+             "ladder": [None, None, 2, 3, 4, 6], "lead": 4, "sign": 1,
+             "blurb": ("%+d melee attack", "for every army")},
+}
+
+# Halls stay LOCAL - a lodge goes in any settlement, so a faction-wide effect would stack
+# once per lodge - except per-turn resources CA itself puts on buildings at faction scope
+# (Kislev's Orthodoxy Support, the Chaos Dwarfs' Conclave Influence, both off CA's own
+# religion buildings). The seat is its own effect per race: most local effects have no
+# faction-wide twin. Hidden (_unseen) effects say their number in hall_text / seat_text.
+_TEMPLE_HALL_SEAT = {
+    "": ("wh3_dlc23_effect_pooled_resource_conclave_influence_gain_temples",
+         "building_to_faction_own", [5, 10, 15], "Conclave Influence +%d each turn",
+         ("wh_main_effect_force_stat_magic_resistance", "faction_to_force_own", 5),
+         "Spell resistance %+d%% in every army"),
+    "_emp": ("wh_main_effect_agent_recruitment_xp_wizard_empire",
+             "province_to_province_own_unseen", [1, 2, 3],
+             "Battle Wizards recruited in this province start at rank +%d",
+             ("wh2_dlc14_effect_magic_cost_all_lores_percentage", "faction_to_force_own", -5),
+             "Spell cost %+d%% in every army"),
+    "_dwf": ("wh_main_effect_agent_recruitment_xp_runesmith",
+             "province_to_province_own_unseen", [1, 2, 3],
+             "Runesmiths recruited in this province start at rank +%d",
+             ("wh_main_effect_force_stat_leadership", "faction_to_force_own", 3),
+             "Leadership %+d in every army"),
+    "_brt": ("wh_dlc07_effect_chivalry_building", "region_to_region_own", [10, 20, 30],
+             "Chivalry +%d each turn",
+             ("wh_main_effect_agent_recruitment_xp_wizard_bretonnia",
+              "faction_to_province_own", 2),
+             "Damsels you recruit start at rank %+d"),
+    "_cth": ("wh3_main_effect_agent_recruitment_xp_cth_astromancer",
+             "province_to_province_own_unseen", [1, 2, 3],
+             "Astromancers recruited in this province start at rank +%d",
+             ("wh_main_effect_technology_research_points", "faction_to_faction_own_unseen", 5),
+             "Research points %+d each turn"),
+    "_ksl": ("wh3_main_effect_ksl_orthodoxy_support_buildings",
+             "faction_to_faction_own_unseen", [1, 2, 3], "Orthodoxy Support +%d each turn",
+             ("wh3_main_effect_agent_recruitment_xp_ksl_frost_maiden",
+              "faction_to_province_own_unseen", 2),
+             "Frost Maidens you recruit start at rank %+d"),
+    "_def": ("wh2_main_effect_building_unit_xp_levels_def_resource_medicine",
+             "province_to_province_own", [1, 1, 2],
+             "Witch Elves and Sisters of Slaughter recruited in this province start at rank +%d",
+             ("wh2_main_effect_agent_cap_increase_def_death_hag",
+              "faction_to_faction_own_unseen", 1),
+             "Death Hags you may recruit %+d"),
+    "_hef": ("wh2_main_effect_agent_recruitment_xp_hef_mage",
+             "province_to_province_own_unseen", [1, 2, 3],
+             "Mages recruited in this province start at rank +%d",
+             ("wh_main_effect_force_stat_magic_resistance", "faction_to_force_own", 5),
+             "Spell resistance %+d%% in every army"),
+    "_skv": ("wh3_main_effect_corruption_skaven_buildings", "region_to_region_own",
+             [2, 4, 6], "Skaven corruption +%d in this settlement",
+             ("wh3_main_effect_corruption_skaven_events", "faction_to_province_own", 2),
+             "Skaven corruption %+d in every province"),
+}
+for _t, (_he, _hs, _hv, _ht, _seat, _st) in _TEMPLE_HALL_SEAT.items():
+    TEMPLE_LORE[_t].update(hall=(_he, _hs, _hv), hall_text=_ht, seat=_seat, seat_text=_st)
+
+
+def _lore(guild, tag, field):
+    """The temple's per-race `field`, or None - for every other guild, and for a tag that
+    leaves the field out. .get(tag), never `if tag`: "" is the Chaos Dwarfs."""
+    if guild != "temple":
+        return None
+    return TEMPLE_LORE.get(tag, {}).get(field)
+
+
+def rank_effect(g, tag=""):
+    return _lore(g, tag, "rank") or RANK_EFFECTS[g]
+
+
+def effect_blurb(g, tag=""):
+    return _lore(g, tag, "blurb") or EFFECT_BLURB[g]
+
+
+def good_sign(g, tag=""):
+    return _lore(g, tag, "sign") or EFFECT_GOOD_SIGN[g]
+
+
+def hall_effect(g, tag=""):
+    return _lore(g, tag, "hall") or HALL_EFFECT[g]
+
+
+def hall_bonus_text(g, tag=""):
+    return _lore(g, tag, "hall_text") or HALL_BONUS[g]
+
+
+def seat_effect(g, tag=""):
+    """(effect, scope, value) on the Seat bundle: the race's own for the temple, else the
+    hall's effect faction-wide at a third of level 2 (the halls spec §4.5)."""
+    return _lore(g, tag, "seat") or (HALL_EFFECT[g][0], HALL_SEAT_SCOPE[g], seat_value(g))
+
+
+def seat_text(g, tag=""):
+    """The Seat's bonus in words. The temple's is filled from its value, so the number
+    cannot drift from the row."""
+    text = _lore(g, tag, "seat_text")
+    if text:
+        return text % seat_effect(g, tag)[2]
+    return ("The hall's bonus applies to all your lands at "
+                                          "a third of its strength")
+
+
+def seat_value(guild):
+    """A third of the level-2 value, rounded away from zero, with the hall's own sign."""
+    v = HALL_EFFECT[guild][2][2]
+    third = -(-abs(v) // 3)
+    return third if v > 0 else -third
+
+
+def _half_toward_zero(v):
+    """value_damaged, as vanilla sets it: half the value, rounded toward zero."""
+    return int(v / 2)
+
+
+# The icon stem each guild's hall chain draws (building_culture_variants.icon), shipped by
+# tools/make_guild_icons.py into ui/buildings/icons/. Same stems for every race at stage 1.
+HALL_ICON = {(g, t): "derpy_gg_hall_%s%s" % (g, t)
+             for g in ("brass", "immortals", "daemonsmiths", "khanate", "overseers", "slavers",
+                       "temple")
+             for t in ["", "_emp", "_dwf", "_brt", "_cth", "_ksl", "_def", "_hef", "_skv"]}
+# Races whose halls draw one icon PER LEVEL (2026-10-08, Medieval II-style: the building
+# grows with each upgrade), staged by make_guild_icons.py under the level's own key.
+HALL_LEVEL_ICON_TAGS = ("_emp", "_dwf", "")
+
+
+def hall_icon(guild, n, tag):
+    if tag in HALL_LEVEL_ICON_TAGS:
+        return hall_key(guild, n, tag)
+    return HALL_ICON[(guild, tag)]
+# Per race: the availability set, the donor chain whose rows the placement and level rows
+# are cloned from, the three level nouns, and one existing unit per guild (spec §8.2).
+# "extra_sets": a playable faction's own availability set, which REPLACES the race set for
+# that faction (Lokhir, Aislinn, Bhashiva) - the halls are placed in it too. "set" stays the
+# one the donor rules and unit levels read. _set_problems() finds any set left out.
+HALL_RACES = {
+    "": {"set": "wh3_dl23_bas_chd", "donor": "wh3_dlc23_chd_military_kdaai",
+         # Every CHD settlement is one of these three, and offers only chains listed for it
+         # (settlement_type_to_building_chains_junctions). A hall goes in all three.
+         "settlement_types": ["wh3_dlc23_chd_factory", "wh3_dlc23_chd_outpost",
+                              "wh3_dlc23_chd_tower"],
+         "nouns": ("Lodge", "Hall", "Ziggurat"),
+         "units": {"brass": "wh3_dlc23_chd_cav_hobgoblin_wolf_raiders_bows",
+                   "immortals": "wh3_dlc23_chd_inf_infernal_guard",
+                   "daemonsmiths": "wh3_dlc23_chd_mon_kdaai_fireborn",
+                   "khanate": "wh3_dlc23_chd_inf_hobgoblin_sneaky_gits",
+                   "overseers": "wh3_dlc23_chd_inf_chaos_dwarf_warriors",
+                   "slavers": "wh3_dlc23_chd_inf_hobgoblin_cutthroats",
+                   "temple": "wh3_dlc23_chd_mon_lammasu"},
+         "temple_nouns": ("Shrine of Hashut", "Temple of Hashut", "High Temple of Hashut")},
+    # The seven other races (spec §3.2, §8.2). No "donor": _hall_donor picks one by rule.
+    "_emp": {"set": "wh_main_bas_emp", "nouns": ("Guildhouse", "Guildhall", "Grand Guildhall"),
+             "units": {"brass": "wh_main_emp_cav_pistoliers_1",
+                       "immortals": "wh_main_emp_inf_greatswords",
+                       "daemonsmiths": "wh_main_emp_art_helblaster_volley_gun",
+                       "khanate": "wh2_dlc13_emp_inf_huntsmen_0",
+                       "overseers": "wh_main_emp_inf_halberdiers",
+                       "slavers": "wh_dlc04_emp_inf_free_company_militia_0",
+                       "temple": None},
+             "temple_nouns": ("Wizard's Tower", "College of Magic", "Grand College")},
+    "_dwf": {"set": "wh_main_bas_dwf", "nouns": ("Lodge", "Hall", "Great Hall"),
+             "units": {"brass": "wh_main_dwf_inf_thunderers_0",
+                       "immortals": "wh_main_dwf_inf_hammerers",
+                       "daemonsmiths": "wh_main_dwf_art_organ_gun",
+                       "khanate": "wh_dlc06_dwf_inf_rangers_0",
+                       "overseers": "wh_main_dwf_inf_miners_0",
+                       "slavers": "wh_main_dwf_inf_slayers",
+                       "temple": "wh2_dlc10_dwf_inf_giant_slayers"},
+             "temple_nouns": ("Shrine of the Ancestors", "Temple of the Ancestors", "Great Temple of the Ancestors")},
+    "_brt": {"set": "wh_main_bas_brt", "nouns": ("Chapterhouse", "Commandery", "Grand Commandery"),
+             "units": {"brass": "wh_main_brt_cav_mounted_yeomen_0",
+                       "immortals": "wh_dlc07_brt_cav_knights_errant_0",
+                       "daemonsmiths": "wh_dlc07_brt_inf_grail_reliquae_0",
+                       "khanate": "wh_main_brt_inf_peasant_bowmen",
+                       "overseers": "wh_main_brt_art_field_trebuchet",
+                       "slavers": "wh_dlc07_brt_inf_battle_pilgrims_0",
+                       "temple": "wh_main_brt_cav_grail_knights"},
+             "temple_nouns": ("Grail Shrine", "Grail Chapel", "Grail Basilica")},
+    "_cth": {"set": "wh3_main_bas_cth", "extra_sets": ["wh3_cp1_bas_cth_bhashiva"],
+             "nouns": ("Pavilion", "Hall", "Palace"),
+             "units": {"brass": "wh3_main_cth_cav_peasant_horsemen_0",
+                       "immortals": "wh3_main_cth_inf_dragon_guard_0",
+                       "daemonsmiths": "wh3_main_cth_art_fire_rain_rocket_battery_0",
+                       "khanate": "wh3_dlc24_cth_inf_onyx_crowmen",
+                       "overseers": "wh3_main_cth_inf_jade_warriors_0",
+                       "slavers": "wh3_main_cth_cav_jade_lancers_0",
+                       "temple": "wh3_main_cth_mon_terracotta_sentinel_0"},
+             "temple_nouns": ("Celestial Shrine", "Celestial Temple", "Great Celestial Temple")},
+    "_ksl": {"set": "wh3_main_bas_ksl", "nouns": ("Lodge", "Hall", "Great Hall"),
+             "units": {"brass": "wh3_main_ksl_inf_streltsi_0",
+                       "immortals": "wh3_main_ksl_inf_tzar_guard_0",
+                       "daemonsmiths": "wh3_main_ksl_inf_ice_guard_0",
+                       "khanate": "wh3_dlc24_ksl_inf_akshina_ambushers",
+                       "overseers": "wh3_main_ksl_inf_kossars_0",
+                       "slavers": "wh3_main_ksl_cav_horse_raiders_0",
+                       "temple": "wh3_main_ksl_cav_war_bear_riders_1"},
+             "temple_nouns": ("Shrine of Ursun", "Church of Ursun", "Cathedral of Ursun")},
+    "_def": {"set": "wh2_main_bas_def", "extra_sets": ["wh3_main_def_lokhir"],
+             "nouns": ("Lodge", "Hall", "Tower"),
+             "units": {"brass": "wh2_main_def_cav_dark_riders_0",
+                       "immortals": "wh2_main_def_inf_black_guard_0",
+                       "daemonsmiths": "wh2_dlc10_def_cav_doomfire_warlocks_0",
+                       "khanate": "wh2_main_def_inf_shades_0",
+                       "overseers": "wh2_main_def_inf_dreadspears_0",
+                       "slavers": "wh2_main_def_inf_black_ark_corsairs_0",
+                       "temple": "wh2_main_def_inf_witch_elves_0"},
+             "temple_nouns": ("Shrine of Khaine", "Temple of Khaine", "Great Temple of Khaine")},
+    "_hef": {"set": "wh2_main_bas_hef", "extra_sets": ["wh3_dlc27_bas_aislinn"],
+             "nouns": ("Lodge", "Hall", "Tower"),
+             "units": {"brass": "wh2_main_hef_inf_lothern_sea_guard_0",
+                       "immortals": "wh2_main_hef_inf_swordmasters_of_hoeth_0",
+                       "daemonsmiths": "wh2_main_hef_inf_phoenix_guard",
+                       "khanate": "wh2_dlc10_hef_inf_shadow_warriors_0",
+                       "overseers": "wh2_main_hef_inf_spearmen_0",
+                       "slavers": "wh2_main_hef_cav_ellyrian_reavers_0",
+                       "temple": "wh2_main_hef_inf_phoenix_guard"},
+             "temple_nouns": ("Shrine of Asuryan", "Temple of Asuryan", "Sacred Flame of Asuryan")},
+    "_skv": {"set": "wh2_main_bas_skv",
+             # Thanquol's own set, and the Vermintide endgame's (still the Skaven).
+             "extra_sets": ["wh3_dlc29_skv_thanquol", "wh3_main_skv_endgame"],
+             "nouns": ("Den", "Warren", "Nest"),
+             "units": {"brass": "wh2_main_skv_inf_skavenslaves_0",
+                       "immortals": "wh2_main_skv_inf_stormvermin_0",
+                       "daemonsmiths": "wh2_main_skv_inf_warpfire_thrower",
+                       "khanate": "wh2_main_skv_inf_gutter_runners_0",
+                       "overseers": "wh2_main_skv_mon_rat_ogres",
+                       "slavers": "wh2_main_skv_inf_clanrats_0",
+                       "temple": None},
+             "temple_nouns": ("Horned Shrine", "Temple of the Horned Rat",
+                              "Spire of the Seers")},
+}
+# An availability set a faction of a hall race uses INSTEAD of its race's set, deliberately
+# left without halls (check_halls -> _set_problems), with the reason.
+HALL_SET_EXCEPTIONS = {
+    "wh_main_bas_teb": "Tilea, Estalia and the Border Princes are not the Empire's guilds; AI-only",
+}
+HALL_INSTANCE = "derpy_gg_hall"   # every hall level of every race names this key; capped at 1
+# A DLC unit's base-game stand-in (spec §8.2). Both go on the hall level; the engine's own
+# ownership gating hides the DLC one from a non-owner. Used from stage 2; listed whole now so
+# check_halls() can hold every pick to the rule.
+HALL_FALLBACK = {
+    "wh2_dlc13_emp_inf_huntsmen_0": "wh_main_emp_inf_crossbowmen",
+    "wh_dlc04_emp_inf_free_company_militia_0": "wh_main_emp_inf_swordsmen",
+    "wh_dlc06_dwf_inf_rangers_0": "wh_main_dwf_inf_quarrellers_0",
+    "wh3_dlc24_cth_inf_onyx_crowmen": "wh3_main_cth_inf_crane_gunners_0",
+    "wh3_dlc24_ksl_inf_akshina_ambushers": "wh3_main_ksl_cav_horse_archers_0",
+    "wh2_dlc10_def_cav_doomfire_warlocks_0": "wh2_main_def_art_reaper_bolt_thrower",
+    "wh2_dlc10_hef_inf_shadow_warriors_0": "wh2_main_hef_inf_archers_0",
+}
+
+
+def hall_superchain(tag=""):
+    return "derpy_gg_hall" + tag
+
+
+def hall_chain(guild, tag=""):
+    return "derpy_gg_hall_%s%s" % (guild, tag)
+
+
+def hall_key(guild, n, tag=""):
+    return "derpy_gg_hall_%s_%d%s" % (guild, n, tag)
+
+
+def seat_key(guild, tag=""):
+    return "derpy_gg_seat_%s%s" % (guild, tag)
+
+
+def hall_tag_of(level_key):
+    """The flavour tag a hall level key ends in ('' for the Chaos Dwarfs)."""
+    for t in sorted(HALL_RACES, key=len, reverse=True):
+        if t and level_key.endswith(t):
+            return t
+    return ""
+
+
+def unit_name(unit):
+    """The unit's on-screen name from CA's own loc: main_units.land_unit ->
+    land_units_onscreen_name_<land_unit>. Raises when the loc has none."""
+    if "tools" not in sys.path:
+        sys.path.insert(0, "tools")
+    from read_vanilla_loc import load
+    land = next((r["land_unit"] for r in live_rows("main_units") if r["unit"] == unit), None)
+    name = load("land_units").get("land_units_onscreen_name_%s" % land) if land else None
+    if not name:
+        raise RuntimeError("no on-screen name in CA's loc for unit %s" % unit)
+    return name
+
+
+def unit_products(unit):
+    """Products that grant `unit`; empty = base content. Any ONE of them is enough: a unit
+    with several requirement sets (or several products in one set's rows) is owned by a
+    player holding any of them, which is why the DLC test below is an intersection."""
+    packs = {r["ownership_content_pack"]
+             for r in live_rows("main_unit_ownership_content_pack_junctions")
+             if r["main_unit"] == unit}
+    sets = {r["key"] for r in live_rows("ownership_content_pack_requirements")
+            if r["content_pack"] in packs}
+    return {r["product"] for r in live_rows("ownership_content_pack_required_products")
+            if r["requirement_set"] in sets}
+
+
+def race_products(tag):
+    """The product(s) a player of this race holds: the ones most of the race's own
+    non-rebel factions are sold under (faction_ownership_content_pack_junctions), ties kept.
+    Chaos Dwarfs: TW_WH3_CHAOS_DWARFS on six of seven factions. Read off factions rather than
+    units because a unit's products are alternatives (any one grants it) and the roster's
+    five most common products include the very DLC a fallback exists to cover."""
+    cul = FLAVOURS[tag]["culture"]
+    sub = {r["subculture"] for r in live_rows("cultures_subcultures") if r["culture"] == cul}
+    fac = {r["key"] for r in live_rows("factions") if r["subculture"] in sub and not r["is_rebel"]}
+    packs = {}
+    for r in live_rows("faction_ownership_content_pack_junctions"):
+        if r["faction"] in fac:
+            packs.setdefault(r["faction"], set()).add(r["ownership_content_pack"])
+    count = {}
+    for ps in packs.values():
+        sets = {r["key"] for r in live_rows("ownership_content_pack_requirements")
+                if r["content_pack"] in ps}
+        for p in {r["product"] for r in live_rows("ownership_content_pack_required_products")
+                  if r["requirement_set"] in sets}:
+            count[p] = count.get(p, 0) + 1
+    top = max(count.values())
+    return {p for p, n in count.items() if n == top}
+
+
+def _owned_by_race(unit, tag):
+    """True when every player of `tag` has `unit`: base content, or sold under a product
+    the race itself is sold under. A DLC unit is False."""
+    p = unit_products(unit)
+    return not p or bool(p & race_products(tag))
+
+
+def _plain_variants(rows, culture):
+    """building_culture_variants rows of exactly this culture with no subculture or faction
+    qualifier - the one filter _hall_donor and hall_tables() share."""
+    return [r for r in rows
+            if r["culture"] == culture and not r["subculture"] and not r["faction"]]
+
+
+def _pick_variant(rows, cul):
+    """A donor level-0's variant: the race's own culture, an empty culture only as the
+    fallback, never a qualified row. None when nothing qualifies."""
+    for want in (cul, ""):
+        m = _plain_variants(rows, want)
+        if m:
+            return m[0]
+    return None
+
+
+def _hall_donor(tag):
+    """The chain whose rows a race's halls clone: HALL_RACES[tag]["donor"] when named (the
+    Chaos Dwarfs: wh3_dlc23_chd_military_kdaai), else by rule - a chain in the race's
+    availability set, in wh3_main_secondary_core_generic_minor, with a
+    building_set_to_building_junctions row, whose level-0 building_culture_variants row has
+    culture == FLAVOURS[tag]["culture"] and no subculture or faction qualifier (an empty
+    culture is accepted only when no chain has the race's own - Dwarfs, Dark Elves, High
+    Elves), that TRAINS a unit (some level of it is in building_units_allowed), and that no
+    content pack gates (building_chain_ownership_content_pack_junctions) - a recruitment
+    chain like the Chaos Dwarf donor, never a landmark or a DLC chain. Ranked by most
+    levels, then the key."""
+    R = HALL_RACES[tag]
+    if R.get("donor"):
+        return R["donor"]
+    chains = {r["building_chain"] for r in live_rows("building_chain_availability_sets")
+              if r["id"] == R["set"]}
+    minor = {r["chain"] for r in live_rows("building_chain_set_items")
+             if r["set"] == "wh3_main_secondary_core_generic_minor"}
+    panel = {r["building_chain"] for r in live_rows("building_set_to_building_junctions")}
+    levels, lv0, chain_of = {}, {}, {}
+    for r in live_rows("building_levels"):
+        levels[r["chain"]] = levels.get(r["chain"], 0) + 1
+        chain_of[r["level_name"]] = r["chain"]
+        if str(r["level"]) == "0":
+            lv0[r["level_name"]] = r["chain"]
+    cul = FLAVOURS[tag]["culture"]
+    variants = [r for r in live_rows("building_culture_variants") if r["building"] in lv0]
+    trains = {chain_of[r["building"]] for r in live_rows("building_units_allowed")
+              if r["building"] in chain_of}
+    gated = {r["building_chain"]
+             for r in live_rows("building_chain_ownership_content_pack_junctions")}
+    base = (chains & minor & panel & trains) - gated
+    # The race's own culture first; Dwarfs, Dark Elves and High Elves ship their generic
+    # chains with an EMPTY culture column, so only if that finds nothing is empty accepted.
+    for want in (cul, ""):
+        ok = {lv0[r["building"]] for r in _plain_variants(variants, want)}
+        cands = [c for c in base & ok if levels.get(c, 0) >= 3]
+        if cands:
+            break
+    if not cands:
+        raise RuntimeError("no donor chain for halls of %r in %s" % (tag, R["set"]))
+    return sorted(cands, key=lambda c: (-levels[c], c))[0]
+
+
+def _s(v):
+    """A DB cell as the TSV writer wants it (bools as true/false, like every other TSV here)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return str(v)
+
+
+def _donor(table, field, value):
+    rows = [r for r in live_rows(table) if r[field] == value]
+    if not rows:
+        raise RuntimeError("no %s row with %s = %s to clone" % (table, field, value))
+    return rows
+
+
+def _hall_panel_row(donor):
+    """The donor's building_set_to_building_junctions row whose building_sets row is shown
+    in the UI. The Dwarf engineer's FIRST row is wh3_dlc29_set_dwf_military_support_partial,
+    a hidden set, so taking [0] put every Dwarf hall where no panel draws it."""
+    shown = {r["key"] for r in live_rows("building_sets") if r["show_in_ui"]}
+    row = next((r for r in _donor("building_set_to_building_junctions", "building_chain", donor)
+                if r["building_set"] in shown), None)
+    if row is None:
+        raise RuntimeError("donor %s sits in no building set shown in the UI" % donor)
+    return row
+
+
+HALL_SET_NAME = "Guild Halls"
+
+
+def hall_set_desc(tag):
+    """The race's own word for the rank at which a guild's halls unlock (Indebted for the
+    Chaos Dwarfs, Apprentice for the Empire)."""
+    return ('Build halls for your guilds. Their halls appear here once you reach %s with them.' % FLAVOURS[tag]["ranks"][1])
+
+
+def hall_set_key(tag):
+    """The building set every hall chain of a race is filed under: its own tab."""
+    return "derpy_gg_set_guild_halls" + tag
+
+
+def hall_set_icon(tag):
+    """building_sets.icon is a FULL lowercase path (HANDOFF_20260902 9.1), not a stem."""
+    return "ui/buildings/icons/derpy_gg_tab_halls%s.png" % tag
+
+
+def hall_set_row(tag):
+    """The race's current hall panel set, cloned field for field, with a new key and icon.
+    sort_order is the donor's plus one, moved up past any set the race's panel already
+    shows at that number (a tie is legal but leaves the tab order to chance)."""
+    shown = {r["key"]: r for r in live_rows("building_sets") if r["show_in_ui"]}
+    donor = shown[_hall_panel_row(_hall_donor(tag))["building_set"]]
+    race_chains = {r["building_chain"] for r in live_rows("building_chain_availability_sets")
+                   if r["id"] == HALL_RACES[tag]["set"]}
+    race_sets = {r["building_set"] for r in live_rows("building_set_to_building_junctions")
+                 if r["building_chain"] in race_chains}
+    used = {shown[k]["sort_order"] for k in race_sets if k in shown}
+    n = int(donor["sort_order"]) + 1
+    while n in used:
+        n += 1
+    # RPFM's column order, which is NOT live_rows': it folds colour_r/_g/_b into one
+    # colour_hex (RRGGBB), and the importer's read-back compares against RPFM's export.
+    hexcol = "%02X%02X%02X" % (donor["colour_r"], donor["colour_g"], donor["colour_b"])
+    return {k: _s(v) for k, v in (
+        ("key", hall_set_key(tag)), ("icon", hall_set_icon(tag)), ("sort_order", n),
+        ("show_in_ui", True), ("audio_switch", donor["audio_switch"]),
+        ("colour_hex", hexcol))}
+
+
+def hall_tables():
+    """Every building row the halls ship, cloned from each race's donor chain."""
+    t = {k: [] for k in ("building_superchains", "building_chains", "building_levels",
+                         "building_upgrades_junction", "building_culture_variants",
+                         "building_chain_set_items", "building_set_to_building_junctions",
+                         "building_sets",
+                         "building_chain_availability_sets", "building_instances",
+                         "building_effects_junction", "building_units_allowed",
+                         "cai_construction_system_building_values", "effect_bundles",
+                         "effect_bundles_to_effects_junctions",
+                         "settlement_type_to_building_chains_junctions", "loc")}
+    # ONE instance row for every race (spec §1): a settlement holds one guild hall, ever.
+    t["building_instances"].append({"key": HALL_INSTANCE, "num_instances": "1"})
+    for tag in HALL_TAGS:
+        R = HALL_RACES[tag]
+        donor = _hall_donor(tag)
+        d_chain = _donor("building_chains", "key", donor)[0]
+        d_level = sorted(_donor("building_levels", "chain", donor),
+                         key=lambda r: r["level"])[0]
+        cul = FLAVOURS[tag]["culture"]
+        d_var = _pick_variant(_donor("building_culture_variants", "building",
+                                     d_level["level_name"]), cul)
+        if d_var is None:
+            raise RuntimeError("donor %s has no level-0 variant for culture %s" % (donor, cul))
+        d_sets = _donor("building_chain_set_items", "chain", donor)
+        d_panel = dict(_hall_panel_row(donor), building_set=hall_set_key(tag))
+        t["building_sets"].append(hall_set_row(tag))
+        t["loc"].append({"key": "building_sets_onscreen_name_" + hall_set_key(tag),
+                         "text": HALL_SET_NAME, "tooltip": "false"})
+        t["loc"].append({"key": "building_sets_onscreen_description_" + hall_set_key(tag),
+                         "text": hall_set_desc(tag), "tooltip": "false"})
+        sc = hall_superchain(tag)
+        t["building_superchains"].append({"key": sc})
+        for g in GUILDS:
+            ch = hall_chain(g, tag)
+            t["building_chains"].append({k: _s(v) for k, v in dict(
+                d_chain, key=ch, building_superchain=sc).items()})
+            for s in [R["set"]] + R.get("extra_sets", []):
+                t["building_chain_availability_sets"].append({"building_chain": ch, "id": s})
+            # SETTLEMENT TYPES (2026-10-04, found live): a Chaos Dwarf settlement is a factory,
+            # an outpost or a tower, and its slots offer only the chains listed for that type.
+            # A CHD chain with no row is buildable nowhere - the halls shipped that way.
+            for st in R.get("settlement_types", []):
+                t["settlement_type_to_building_chains_junctions"].append(
+                    {"building_chain": ch, "settlement_type": st, "exclude": "false"})
+            t["building_set_to_building_junctions"].append({k: _s(v) for k, v in dict(
+                d_panel, building_chain=ch, building_level="").items()})
+            for s in ("wh3_main_secondary_core_generic_minor",
+                      "wh3_main_secondary_core_generic_major"):
+                base = next((r for r in d_sets if r["set"] == s), d_sets[0])
+                t["building_chain_set_items"].append({k: _s(v) for k, v in dict(
+                    base, chain=ch, set=s, remove=False).items()})
+            eff, scope, vals = hall_effect(g, tag)
+            unit = R["units"][g]
+            firsts = [] if unit is None else [
+                (u, _unit_level(u, R["set"]))
+                for u in [unit] + ([HALL_FALLBACK[unit]] if unit in HALL_FALLBACK else [])]
+            t["cai_construction_system_building_values"].append({k: _s(v) for k, v in dict(
+                _cai_donor(R, g), building_chain=ch, building_instance="",
+                building_or_building_range_start_inclusive="",
+                building_range_end_inclusive="", building_super_chain="",
+                per_faction_building_limit_start=3, per_faction_building_limit_end=3).items()})
+            t["loc"].append({"key": "building_chains_chain_tooltip_" + ch,
+                             "text": "Halls of %s" % _with_article(g, tag),
+                             "tooltip": "false"})
+            for n in range(3):
+                lv = hall_key(g, n, tag)
+                cost, turns = HALL_COST[n]
+                # building_instance_key = HALL_INSTANCE, not "": the exclusion is read off
+                # the LEVEL's key, and one key for every race means a conquered settlement
+                # holding another race's hall cannot take a second one.
+                # resource_cost is a reference whose donor value is the donor's own level
+                # name, i.e. the donor's resource price - blank it, a hall costs gold only.
+                t["building_levels"].append({k: _s(v) for k, v in dict(
+                    d_level, level_name=lv, chain=ch, level=n, create_cost=cost,
+                    create_time=turns, upkeep_cost=0, faction_unique=(n > 0),
+                    only_in_capital=False, first_in_world_bundle="",
+                    primary_slot_building_building_level_requirement=HALL_SETTLEMENT[n],
+                    building_instance_key=HALL_INSTANCE, resource_cost="",
+                    resource_transaction_on_complete="").items()})
+                t["building_culture_variants"].append({k: _s(v) for k, v in dict(
+                    d_var, building=lv, icon=hall_icon(g, n, tag), short_description=lv).items()})
+                if n:
+                    t["building_upgrades_junction"].append(
+                        {"from": hall_key(g, n - 1, tag), "to": lv})
+                # A DAMAGED HALL PAYS HALF its bonus, a ruined one nothing (vanilla's
+                # convention, templates/README.md). The card line is text, not a bonus:
+                # its value is the number it prints, kept when damaged, as on every other
+                # building this pack marks.
+                for e, sc_, v, vd in ((eff, scope, vals[n], _half_toward_zero(vals[n])),
+                                      (BUILT_EFFECT % (g, tag), BUILT_SCOPE,
+                                       built_rep(n), built_rep(n))):
+                    t["building_effects_junction"].append({
+                        "building": lv, "effect": e, "effect_scope": sc_,
+                        "value": _s(v), "value_damaged": _s(vd), "value_ruined": "0",
+                        "context_requirement": ""})
+                # Each unit at its OWN first level, so neither comes before vanilla's.
+                for u, u_first in firsts:
+                    if n >= u_first:
+                        t["building_units_allowed"].append(_unit_row(lv, u, HALL_XP[n]))
+                # THE EMPIRE'S COLLEGE (HALL_EXTRA): wizards instead of a unit.
+                extra = HALL_EXTRA.get((g, tag))
+                if extra:
+                    t["building_effects_junction"].append({
+                        "building": lv, "effect": extra[0], "effect_scope": extra[1],
+                        "value": _s(extra[2][n]),
+                        "value_damaged": _s(_half_toward_zero(extra[2][n])),
+                        "value_ruined": "0", "context_requirement": ""})
+                t["loc"].append({"key": "building_culture_variants_name_" + lv,
+                                 "text": hall_name(g, n, tag), "tooltip": "false"})
+                t["loc"].append({"key": "building_short_description_texts_short_description_"
+                                 + lv, "text": hall_desc(g, n, tag), "tooltip": "false"})
+            for n, why in ((0, "0"), (1, "1"), (2, "lead")):
+                t["loc"].append({"key": "campaign_localised_strings_string_derpy_gg_hall_tip_%s_%s%s"
+                                 % (why, g, tag), "text": hall_tip(g, n, tag),
+                                 "tooltip": "false"})
+            # THE SEAT BUNDLE (spec §4.5, §5): seat_effect - the race's own Seat for the
+            # temple, else the hall's effect faction-wide at a third of level 2.
+            sk = seat_key(g, tag)
+            seat_title = "Seat of %s" % _with_article(g, tag)
+            t["effect_bundles"].append(_seat_bundle_row(sk, g, seat_title))
+            s_eff, s_scope, s_val = seat_effect(g, tag)
+            t["effect_bundles_to_effects_junctions"].append(_bundle_junction_row(
+                sk, s_eff, s_scope, s_val))
+            t["loc"].append({"key": "effect_bundles_localised_title_" + sk,
+                             "text": seat_title, "tooltip": "false"})
+            t["loc"].append({"key": "effect_bundles_localised_description_" + sk,
+                             # A comma after the bonus, not a full stop: states_value
+                             # reads "+2." as a decimal, so a hidden seat ending in its
+                             # number would fail to state it.
+                             "text": "You lead %s and hold their Seat. %s, and your "
+                                     "earnings limit each turn rises by half."
+                                     % (_with_article(g, tag), seat_text(g, tag)),
+                             "tooltip": "false"})
+    return t
+
+
+def hall_name(guild, n, tag=""):
+    """'Lodge of the Brass Tablets': the noun, then the guild with its article. The temple's
+    halls carry whole names of their own (temple_nouns): 'Shrine of Hashut', never 'Lodge of
+    the Temple of Hashut'."""
+    if guild == "temple":
+        return HALL_RACES[tag]["temple_nouns"][n]
+    return "%s of %s" % (HALL_RACES[tag]["nouns"][n], _with_article(guild, tag))
+
+
+# The local bonus in player words, one line per guild role; %d is the level's value
+# (HALL_EFFECT's third element). Effect text read from CA's own effects loc 2026-10-04.
+HALL_BONUS = {
+    "brass": "Income from all buildings in this province +%d%%",
+    "immortals": "Casualty replenishment +%d%% for armies in this province",
+    "daemonsmiths": "Research points +%d for your faction",
+    "khanate": "Heroes recruited in this province start at rank +%d",
+    "overseers": "Construction cost -%d%% in this province",
+    "slavers": "Income from post-battle loot +%d%% for armies in the regions around",
+    "temple": "Public order +%d in this province",   # fallback: TEMPLE_LORE hall_text
+}
+
+
+def hall_desc(guild, n, tag=""):
+    """One text per level: the Reputation it pays, its local bonus, and the unit it allows
+    (only from the level where CA's own building would give that unit)."""
+    R = HALL_RACES[tag]
+    unit = R["units"][guild]
+    fb = HALL_FALLBACK.get(unit) if unit else None
+    here = [u for u in ([unit] if unit else []) + ([fb] if fb else [])
+            if n >= _unit_level(u, R["set"])]
+    # THE NUMBER, not "a bigger hall pays more": GG.pay_halls grants HALL_REP[n] through
+    # GG.grant, which adds it to Reputation and Favour alike (asked for in game, 2026-10-04).
+    out = "Earns %d Reputation and %d Favour with %s each turn. %s." % (
+        HALL_REP[n], HALL_REP[n], _with_article(guild, tag),
+        hall_bonus_text(guild, tag) % abs(hall_effect(guild, tag)[2][n]))
+    out += " Lowers the price of their services."
+    extra = HALL_EXTRA.get((guild, tag))
+    if extra:
+        out += " %s." % (extra[3] % extra[2][n])
+    if here == [unit, fb]:
+        out += ' Trains %s, or %s without the DLC that adds %s.' % (
+            unit_name(unit), unit_name(fb), unit_name(unit))
+    elif fb and here == [unit]:     # the pack unit alone: a player without the pack has none yet
+        out += ' Trains %s if you own the DLC that adds it.' % unit_name(unit)
+    elif here:
+        out += " Trains %s." % unit_name(here[0])
+    return out
+
+
+def hall_tip(guild, n, tag=""):
+    if n == 2:
+        return ("[[col:red]]Needs the rank of %s with %s, and only their leader may raise "
+                "it.[[/col]]" % (FLAVOURS[tag]["ranks"][HALL_RANK[n] - 1],
+                                 _with_article(guild, tag)))
+    return "[[col:red]]Needs the rank of %s with %s.[[/col]]" % (
+        FLAVOURS[tag]["ranks"][HALL_RANK[n] - 1], _with_article(guild, tag))
+
+
+def _with_article(guild, tag):
+    """The guild's display name as players read it, article included ('the Brass Tablets')."""
+    name = FLAVOURS[tag]["guilds"][guild]          # "The Brass Tablets"
+    return "the " + name[4:] if name.startswith("The ") else name
+
+
+def _seat_bundle_row(key, guild, title):
+    """A Seat bundle row in the exact column set of the rank bundles _build_one makes
+    (which also fill localised_title with their text; the panels read loc regardless)."""
+    proto = _build_one("")["effect_bundles"][0]
+    return dict(proto, key=key, localised_title=title, ui_icon=bundle_icon(guild))
+
+
+def _bundle_junction_row(bundle, effect, scope, value):
+    """A bundle-to-effect row in the exact column set _build_one uses."""
+    row = dict(_build_one("")["effect_bundles_to_effects_junctions"][0])
+    row.update(effect_bundle_key=bundle, effect_key=effect, effect_scope=scope,
+               value=_s(value))
+    return row
+
+
+def _unit_level(unit, avail_set):
+    """First hall level (0-2) whose settlement requirement covers the vanilla building that
+    unlocks `unit` for this race - a hall never gives a unit earlier than vanilla does."""
+    chains = {r["building_chain"] for r in live_rows("building_chain_availability_sets")
+              if r["id"] == avail_set}
+    lv = {r["level_name"]: r for r in live_rows("building_levels")}
+    needs = [int(lv[r["building"]]["primary_slot_building_building_level_requirement"] or 0)
+             for r in live_rows("building_units_allowed")
+             if r["unit"] == unit and r["building"] in lv and lv[r["building"]]["chain"] in chains]
+    if not needs:
+        raise RuntimeError("no building in set %s trains %s - cannot place it on a hall"
+                           % (avail_set, unit))
+    if min(needs) > HALL_SETTLEMENT[-1]:
+        raise RuntimeError("%s needs settlement level %d, above every hall level"
+                           % (unit, min(needs)))
+    return next(n for n in range(3) if HALL_SETTLEMENT[n] >= min(needs))
+
+
+def _unit_row(level, unit, xp):
+    """CA's own key column is a unique 9-10 digit integer; ours is a stable hash of
+    level|unit, checked against every vanilla key."""
+    import zlib
+    d = live_rows("building_units_allowed")[0]
+    k = 1000000000 + zlib.crc32(("%s|%s" % (level, unit)).encode()) % 1000000000
+    if k in {r["key"] for r in live_rows("building_units_allowed")}:
+        raise RuntimeError("units_allowed key collision for %s %s" % (level, unit))
+    return {c: _s(v) for c, v in dict(d, building=level, unit=unit, XP=xp, faction="",
+                                      enabled=False, conditions=0, key=k).items()}
+
+
+# THE AI'S DONOR ROLE per guild (spec §6). Slavers count as economy: their hall effect is
+# post-battle loot, which is income, and the first rule below lands them on the one Chaos
+# Dwarf chain CA gives that exact effect anyway. The temple's "order" is only the fallback:
+# rule 1 matches each race's lore hall effect first, and 5 of 9 races find no chain
+# carrying theirs (2026-10-09).
+HALL_AI_ROLE = {"brass": "economy", "immortals": "military", "khanate": "military",
+                "daemonsmiths": "research", "overseers": "industry", "slavers": "economy",
+                "temple": "order"}
+# A role's test on a candidate chain's own vanilla effect keys.
+_ROLE_WORDS = {"economy": ("economy_gdp",), "research": ("research",),
+               "industry": ("raw_material", "workload", "construction"),
+               "order": ("public_order",)}
+
+
+def _cai_scores(r):
+    """True when a building_values row scores above 0 at either end of its range: a row
+    scoring 0/0 (Cathay's growth_yang) is one the AI never builds, so it donates nothing."""
+    return max(float(r["score_or_score_start_inclusive"] or 0),
+               float(r["score_end_inclusive"] or 0)) > 0
+
+
+def _cai_donor(R, guild, why=False):
+    """CA's building_values row to clone for this guild's hall chain, picked by rule (spec §6).
+
+    Candidates: chains in the race's availability set, in the generic minor secondary set
+    (a hall is a secondary-slot building), with a whole-chain values row that scores above 0
+    (_cai_scores). In order:
+      1. a candidate CA gives the hall's own effect - the same bonus, valued as CA values it;
+      2. the role's test - military: it trains the guild's hall unit; economy / industry:
+         one of its effect keys carries a role word (_ROLE_WORDS);
+      3. the race's own hall donor (_hall_donor), when it is a candidate.
+    Nothing left raises. Ties go to the most levels (a hall has three), then the key. Of a
+    chain's rows, the one in the role's group is taken (cai_military_group for military,
+    else cai_support_group), and the chain's first row when it has none in that group.
+    """
+    role = HALL_AI_ROLE[guild]
+    tag = next((t for t, v in HALL_RACES.items() if v is R), None)
+    # The race's own hall effect: the temple's differs per race (TEMPLE_LORE).
+    own_eff = hall_effect(guild, tag or "")[0]
+    values = [r for r in live_rows("cai_construction_system_building_values")
+              if not r["building_instance"] and not r["building_super_chain"]
+              and not r["building_or_building_range_start_inclusive"] and _cai_scores(r)]
+    chains = {r["building_chain"] for r in live_rows("building_chain_availability_sets")
+              if r["id"] == R["set"]}
+    minor = {r["chain"] for r in live_rows("building_chain_set_items")
+             if r["set"] == "wh3_main_secondary_core_generic_minor"}
+    cands = sorted(chains & minor & {r["building_chain"] for r in values})
+    lv_chain = {r["level_name"]: r["chain"] for r in live_rows("building_levels")}
+    levels, effects, trains = {}, {}, {}
+    for lv, ch in lv_chain.items():
+        levels[ch] = levels.get(ch, 0) + 1
+    for r in live_rows("building_effects_junction"):
+        effects.setdefault(lv_chain.get(r["building"]), set()).add(r["effect"])
+    for r in live_rows("building_units_allowed"):
+        trains.setdefault(lv_chain.get(r["building"]), set()).add(r["unit"])
+    picked, reason = None, None
+    own = [c for c in cands if own_eff in effects.get(c, ())]
+    if own:
+        picked, reason = own, "carries the hall's own effect %s" % own_eff
+    elif role == "military":
+        unit = R["units"][guild]
+        picked = [c for c in cands if unit in trains.get(c, ())]
+        reason = "trains the hall's unit %s" % unit
+    else:
+        picked = [c for c in cands
+                  if any(w in e for e in effects.get(c, ()) for w in _ROLE_WORDS[role])]
+        reason = "has an effect naming %s" % " or ".join(_ROLE_WORDS[role])
+    if not picked:
+        # Stage 2: Bretonnia, Kislev, the elves (research) and the Empire, Kislev, the elves
+        # (industry) own no chain with a role word in an effect key. Last in the order: the
+        # race's own hall donor (the chain its halls are cloned from), when it has a values row.
+        hd = _hall_donor(tag) if tag is not None else None
+        if hd in cands:
+            picked = [hd]
+            reason = ("no chain in the set has an effect naming %s, so the race's own hall "
+                      "donor" % " or ".join(_ROLE_WORDS.get(role, (role,))))
+    if not picked:
+        raise RuntimeError("no %s donor chain in %s for %s" % (role, R["set"], guild))
+    chain = sorted(picked, key=lambda c: (-levels.get(c, 0), c))[0]
+    group = "cai_military_group" if role == "military" else "cai_support_group"
+    rows = [r for r in values if r["building_chain"] == chain]
+    row = next((r for r in rows if r["cai_construction_system_category_group"] == group),
+               rows[0])
+    if why:
+        return row, "%s role %s -> %s [%s]: %s" % (
+            guild, role, chain, row["cai_construction_system_category_group"], reason)
+    return row
+
+
 GUILD_NAME_MAX = 22
 RANK_NAME_MAX = 12
 
 # The one-line version of each guild's earn route. GUILD_DESC carries the full sentence
 # and it is one hover away on the Guilds tab; this is the four-word form a list needs.
 EARN_SHORT = {
-    "brass": "your income, every turn",
+    "brass": "income each turn",
     "immortals": "battles won, doubled when outnumbered",
     "daemonsmiths": "technologies completed",
     "khanate": "successful hero actions",
-    "overseers": "settlements growing a level, and buildings no other guild claims",
-    "slavers": "settlements sacked, more when razed",
+    "overseers": "settlement growth and buildings no other guild claims",
+    "slavers": "sacking settlements; razing pays more",
+    # The Chaos Dwarf line; every other flavour's is TEMPLE_TEXT[tag]["short"].
+    "temple": TEMPLE_TEXT[""]["short"],
 }
 
 # ------------------------------------------------------------------- the help --
@@ -1900,8 +3082,16 @@ EARN_SHORT = {
 # that were scattered across pages 1, 2 and 4 - the rival, the demand, the failed bounty
 # and the upkeep are one subject, and a player who has just watched a rank go backwards is
 # looking for one page, not three.
-HELP_PAGE_TITLES = ["The Guilds", "Earning", "Bounties", "The Court", "Losing reputation",
-                    "Your race"]
+HELP_PAGE_TITLES = ["The Guilds", "Earning", "Bounties", "The Court", "Losing Reputation",
+                    "Your race", "Guild halls"]
+# The seventh title and page exist only for a race in HALL_TAGS; GGUI.HELP_PAGES (6) is the
+# count every race has and the panel adds one for a race with halls.
+
+
+def expiry_free(tag=""):
+    """Whether a demand this race lets expire costs nothing (the Skaven's Treachery,
+    demand_penalty 0): its texts must not say Reputation falls."""
+    return TWISTS.get(FLAVOURS[tag]["culture"] or "", {}).get("demand_penalty") == 0
 
 
 def short_name(guild, tag=""):
@@ -1923,39 +3113,42 @@ def help_pages(tag=""):
     ranks = " / ".join("%s %d" % (RANK_NAMES[i], RANK_THRESHOLDS[i]) for i in range(5))
 
     page1 = [
-        "#Two numbers, per guild",
-        "-REPUTATION is earned by playing and is never spent. It alone sets your rank.",
-        "-It can also fall: to a rival you have been feeding, to a "
-        "demand you let expire, to a bounty you took and did not finish, and to the "
-        "upkeep every guild charges to keep you on its books.",
-        "-FAVOUR is earned alongside it and is the currency services are bought with. "
-        "Spending it never costs you rank, so there is no reason to hoard it.",
+        "#Two numbers per guild",
+        "-Earn Reputation as you play. You never spend it; it alone sets your rank.",
+        "-It falls through rival earnings, a "
+        + ("" if expiry_free(tag) else "demand you let expire, a ")
+        + "bounty you took and failed, and the "
+        "upkeep each guild charges to keep you on its books.",
+        "-You earn Favour alongside Reputation and spend it on services. "
+        "Spending Favour never lowers your rank.",
         "#The five ranks",
         "-" + ranks,
-        "-Each rank gives a bonus that lasts exactly as long as the rank "
-        "does. The Guilds tab names the one you hold.",
+        "-Each rank grants a bonus for as long as you hold it. The Guilds tab "
+        "shows your current bonus.",
         "#Services",
-        "-Each guild sells three, each opened by a rank and paid for in favour. Each "
+        "-Each guild sells three services. Each needs a rank, costs Favour and "
         "has a cooldown.",
-        "-The price moves with your reputation: a guild that knows you charges less, one "
-        "whose rival you have been courting charges more.",
+        "-Prices change with your Reputation: a guild that knows you charges less; one "
+        "whose rival you court charges more.",
     ]
 
     page2 = ["#What each guild pays for"]
     for gk in GUILDS:
-        page2.append("-%s: %s" % (GUILD_NAMES[gk], EARN_SHORT[gk]))
+        page2.append("-%s: %s" % (GUILD_NAMES[gk], TEMPLE_TEXT[tag]["short"]
+                                  if gk == "temple" else EARN_SHORT[gk]))
     page2 += [
         # Derived per flavour, so an Empire page names the Engineers' School and not the
         # Daemonsmiths. Same three guilds, same order as the Chaos Dwarf sentence.
-        "-A finished BUILDING pays its own guild - a forge the %s, a dock the %s, a "
-        "barracks the %s. Higher levels pay more, and its card names the guild."
+        "-Completing a building pays its guild: a forge the %s, a dock the %s, a "
+        "barracks the %s. Higher levels pay more. The building card names its guild."
         % (short_name("daemonsmiths", tag), short_name("brass", tag),
            short_name("immortals", tag)),
-        "#Every guild at once",
         # ONE LINE, NOT TWO (2026-09-23). The Empire's rivalry bullet below wraps where
         # ours does not and put this page at 22 of the panel's 21 slots; shortening this
-        # bullet is the fix the flavours spec names, and it applies to every race.
-        "-Every completed MISSION raises your reputation with all six guilds.",
+        # bullet is the fix the flavours spec names, and it applies to every race. Its
+        # "#Every guild at once" heading went with the seventh guild (2026-10-04): the
+        # temple's bullet above costs the line.
+        "-Completing any mission raises your Reputation with every guild.",
         "#Rivalry",
         # Names shortened for this one line only. At full length the three pairs run to
         # 105 characters and wrap to "The Overseers and The / Slavers", which is worse
@@ -1965,80 +3158,84 @@ def help_pages(tag=""):
                          for a, b in RIVAL_PAIRS),
         # Mirrors GG.rival_cost: floored at the rank held, and nothing at all below
         # Indebted (2026-09-23). Folded into this bullet because page 2 has no spare line.
-        "-Earning with one takes reputation from its rival once you reach %s there - "
-        "never a rank." % RANK_NAMES[1],
+        "-Earning with one takes Reputation from its rival once you reach %s there, "
+        "but never a rank." % RANK_NAMES[1],
         "#A limit each turn",
-        "-Most guilds pay only so much each turn. The Guilds tab shows what each paid.",
+        "-Most guilds limit earnings each turn. The Guilds tab shows what each paid.",
     ]
 
     page3 = [
         "#The board",
-        "-Three offers at a time, drawn from every guild. Taking one turns it into a "
-        "real mission.",
-        "-Taking one puts up FAVOUR with that guild - the number on its plate. You get "
-        "it back when you finish, and lose it if you fail or hand it back.",
-        "-Finish it and that guild pays gold and a large amount of reputation.",
+        "-Three offers at a time, drawn from all guilds. Accept one to make it a "
+        "mission.",
+        "-Accepting costs a Favour stake with that guild, shown on the offer. Finish "
+        "the bounty to reclaim it; fail or hand it back and you lose it.",
+        "-Finish the bounty for gold and a large Reputation reward from that guild.",
         "#What the guilds ask for",
-        "-Never your front line: land or a lord far from your borders and armies, or of "
-        "a faction you are at peace with. That last kind means war, and pays far more.",
-        "-Or a job: hold gold, raise a champion, research, build one of the guild's own "
+        "-Targets: land or a lord far from your borders and armies, or one belonging "
+        "to a faction at peace with you. Taking that one means war, and pays far more.",
+        "-Other jobs: hold gold, raise a champion, research, build one of the guild's own "
         "buildings, or take captives.",
         "-Or hero work: send your heroes against a named settlement, army or character.",
         "#The price",
-        "-Read off the target and the distance, rated Routine, Hard or Grim. An offer "
-        "you have NOT taken re-prices as the world moves; one you HAVE taken keeps its "
+        "-Target and distance set the price: Routine, Hard or Grim. An offer "
+        "changes price until you accept it. Once accepted, it keeps its "
         "price.",
     ]
 
     page4 = [
         "#Leading a guild",
-        "-Held by whichever faction in the world has the most reputation with it - you "
+        "-The faction with the most Reputation in a guild leads it, whether you "
         "or a rival.",
-        "-The leader carries an extra bonus, and, unless the settings say otherwise, "
-        "the guild's dearest service is sold to nobody else.",
+        "-The leader gains an extra bonus. Unless the settings say otherwise, "
+        "only the leader can buy the guild's finest service.",
         "-It can be taken from you. The Leaderboard tab shows who leads each guild.",
         "#Demands",
-        "-Every so often a guild that already knows you asks for something, with a "
-        "deadline on it.",
-        "-It wants either gold, or the favour you hold with its own rival.",
-        "-Pay it and your reputation jumps. Let the deadline pass and it falls, which "
-        "can cost you a rank.",
+        "-From time to time, a guild that knows you makes a demand with a "
+        "deadline.",
+        "-It asks for gold or Favour held with its rival.",
+        ("-Pay it to gain Reputation. Miss the deadline and you lose nothing: "
+         "no Skaven expected you to keep your promise." if expiry_free(tag) else
+         "-Pay it to gain Reputation. Miss the deadline and your Reputation falls, "
+         "which can cost you a rank."),
         "#A patron",
-        "-One of your lords, bound to one guild. Select them on the campaign map, then "
+        "-Appoint one of your lords to a guild. Select them on the campaign map, then "
         "press Appoint.",
-        "-Their army gains replenishment and campaign movement.",
-        "-That guild's reputation pays more, and its services cost up to %d%% less."
-        % PATRON_DISCOUNT,
-        "-One lord, one guild. Appointing a second moves the post.",
+        "-Their army gains %s." % patron_clause(),
+        "-You earn %d%% more Reputation with that guild, and its services cost up to %d%% "
+        "less." % (PATRON_REP_SHARE, PATRON_DISCOUNT),
+        "-One lord, one guild. A new appointment replaces the old one.",
     ]
 
     page5 = [
         "#Reputation can fall",
-        "-It is earned by playing and never spent - but four things take it back. Three "
-        "can cost you a rank and the bonus that came with it.",
+        "-You never spend Reputation, but four things reduce it. Three "
+        "can cost you a rank and its bonus.",
         "#Upkeep, every turn",
-        "-After the opening turns, every guild you hold reputation with takes a little "
+        "-After the opening turns, each guild you have Reputation with takes a little "
         "of it back each turn.",
-        "-The higher your rank there, the more it costs to hold. A guild you stop "
-        "feeding slides back down the ladder on its own.",
-        "-The Guilds tab names the figure, in red, beside your reputation.",
-        "#A rival you have been feeding",
-        "-Earning with a guild takes reputation from the guild it argues with, though "
-        "never a rank you have reached. You cannot court all six at once.",
+        "-Higher ranks cost more upkeep. Stop earning with a guild and you "
+        "lose ranks over time.",
+        "-The Guilds tab shows upkeep in red beside your Reputation.",
+        "#Earning with a rival",
+        "-Earning with a guild takes Reputation from its rival, though "
+        "never a rank you have reached. You cannot court them all at once.",
+    ] + ([] if expiry_free(tag) else [
         "#A demand you let expire",
-        "-The Court tab holds the terms and the deadline. Silence costs more than the "
+        "-The Court tab shows the terms and deadline. Ignoring it costs more than the "
         "demand asked for.",
+    ]) + [
         "#A bounty you took and failed",
-        "-Handing one back costs the favour you put up to take it.",
-        "-Failing one costs that too, plus reputation. Each card says how much.",
+        "-Handing one back costs your Favour stake.",
+        "-Failing one costs the stake and Reputation. Each card shows how much.",
     ]
 
     # YOUR RACE (stage 2): the changing services, and what this race alone gets.
     page6 = [
         "#Services change",
-        "-Every few turns - ten, unless the settings say otherwise - each guild changes the "
-        "three services it offers. The footer counts down to the next change.",
-        "-A service that goes keeps its cooldown, and comes back showing what is left of it.",
+        "-Every ten turns, unless the settings say otherwise, each guild changes its "
+        "three services. The footer counts down to the next change.",
+        "-A service keeps its cooldown while away and shows the time left when it returns.",
     ]
     culture = FLAVOURS[tag]["culture"]
     R = RACE_TEXT[tag]
@@ -2051,21 +3248,47 @@ def help_pages(tag=""):
         lords = [s["lord"] for s in own if s.get("lord")]
         listed = ", ".join(names[:-1]) + " and " + names[-1]
         page6 += ["#Services of your own",
-                  "-Your race alone is offered %s, each marked %s on its card. At least "
-                  "one is always on show." % (listed, R["label"])]
+                  "-Only your race can buy %s, each marked %s on its card. At least "
+                  "one is always available." % (listed, R["label"])]
         if lords:
             page6.append("-%s and %s each add one more of their own."
                          % (", ".join(lords[:-1]), lords[-1]))
         page6 += [
             "#What else pays",
             "-" + R["earn"].format(g=short_name(EARN_ROUTES[EARN_OF[culture]], tag)),
-            "#One rule bent",
+            "#Race rule",
             "-%s: %s" % R["twist"],
-            "-Race differences in the settings switches all of this off: then every race "
+            "-Turn off Race differences in the settings to remove all this: every race "
             "plays alike.",
         ]
 
-    return [page1, page2, page3, page4, page5, page6]
+    pages = [page1, page2, page3, page4, page5, page6]
+    if tag in HALL_TAGS:
+        nouns = HALL_RACES[tag]["nouns"]
+        rk = [RANK_NAMES[HALL_RANK[n] - 1] for n in range(3)]
+        pages.append([
+            "#Guild halls",
+            "-Build guild halls in your settlements. Each settlement "
+            "holds one hall, so choose which guild it serves.",
+            "-A bigger settlement allows a bigger hall.",
+            "-Build halls through the Guild Halls tab. A guild's halls appear "
+            "there once you are %s with it." % RANK_NAMES[1],
+            "#Three levels",
+            "-The %s needs %s with the guild, the %s needs %s, and the %s needs %s and "
+            "the lead of that guild." % (nouns[0], rk[0], nouns[1], rk[1], nouns[2], rk[2]),
+            "#What a hall gives",
+            "-Reputation and Favour with its guild each turn: %d, %d or %d by level."
+            % tuple(HALL_REP),
+            "-A guild bonus, cheaper services from that guild (up to %d%% in all) and, "
+            "at most halls, a unit of its trade to recruit there." % HALL_OFF_MAX,
+            "#The Seat",
+            # Not "the hall's bonus at a third": the temple's Seat has its own (2026-10-09).
+            "-Lead a guild and hold its %s to claim the Seat. The Seat grants a "
+            "bonus across all your lands; your limit for earnings each turn rises by "
+            "half." % nouns[2],
+            "-Lose the lead or the hall and you lose the Seat.",
+        ])
+    return pages
 
 
 BOUNTY_CATEGORY = "Quest"
@@ -2087,8 +3310,8 @@ def _ladder(blurb, steps):
     """
     parts = [(blurb % v).split(" ", 1) for v, _t in steps]
     if len(set(p[1] for p in parts if len(p) == 2)) != 1 or any(len(p) != 2 for p in parts):
-        return " / ".join("%s at %d reputation" % (blurb % v, t) for v, t in steps)
-    return "%s %s at %s reputation" % (parts[0][1], " / ".join(p[0] for p in parts),
+        return " / ".join('%s at %d Reputation' % (blurb % v, t) for v, t in steps)
+    return '%s %s at %s Reputation' % (parts[0][1], " / ".join(p[0] for p in parts),
                                        " / ".join(str(t) for _v, t in steps))
 
 
@@ -2105,7 +3328,9 @@ def _build_one(tag):
     RANK_NAMES = F["ranks"]
     SERVICE_NAMES = F["services"]
     SERVICE_BLURB = dict((s["key"], F["blurbs"].get(s["key"])) for s in SERVICES)
-    GUILD_DESC = dict((g, F["desc"][g] + "||" + GUILD_EARN[g]) for g in GUILDS)
+    # THE TEMPLE'S EARN SENTENCE IS PER RACE: its routes differ (temple spec §3.2).
+    GUILD_DESC = dict((g, F["desc"][g] + "||" + (TEMPLE_TEXT[tag]["earn"] if g == "temple"
+                                                 else GUILD_EARN[g])) for g in GUILDS)
     bundles, junctions, loc = [], [], []
     for i, name in enumerate(RANK_NAMES):
         loc.append({"key": "derpy_gg_rank_name_%d" % (i + 1),
@@ -2114,19 +3339,20 @@ def _build_one(tag):
     loc.append({"key": "derpy_gg_race_label", "text": RACE_TEXT[tag]["label"],
                 "tooltip": "false"})
     for g in GUILDS:
-        effect_key, scope = RANK_EFFECTS[g]
+        effect_key, scope = rank_effect(g, tag)
         loc.append({"key": "derpy_gg_guild_name_%s" % g,
                     "text": GUILD_NAMES[g], "tooltip": "false"})
-        blurb, reach = EFFECT_BLURB[g]
-        ladder = _ladder(blurb, [(RANK_VALUES[r] * EFFECT_GOOD_SIGN[g],
+        blurb, reach = effect_blurb(g, tag)
+        ladder = _ladder(blurb, [(rank_value(g, r, tag) * good_sign(g, tag),
                                   RANK_THRESHOLDS[r - 1]) for r in range(2, 6)])
-        desc = "%s||By rank, for %s: %s." % (GUILD_DESC[g], reach, ladder)
+        desc = "%s||By rank, %s: %s." % (GUILD_DESC[g], reach, ladder)
         extra = RANK_EFFECTS_EXTRA.get(g)
         if extra:
             xblurb, xreach = EFFECT_BLURB_EXTRA[g]
             rungs = _ladder(xblurb, [(extra[2][r], RANK_THRESHOLDS[r - 1])
                                      for r in range(2, 6) if extra[2][r] is not None])
-            desc += " For %s: %s." % (xreach, rungs.replace(" reputation", ""))
+            desc += " %s: %s." % (xreach[0].upper() + xreach[1:],
+                                   rungs.replace(' Reputation', ""))
         loc.append({"key": "derpy_gg_guild_desc_%s" % g,
                     "text": desc, "tooltip": "false"})
         for rank in range(2, 6):
@@ -2149,7 +3375,7 @@ def _build_one(tag):
                 "effect_bundle_key": key,
                 "effect_key": effect_key,
                 "effect_scope": scope,
-                "value": str(RANK_VALUES[rank] * EFFECT_GOOD_SIGN[g]),
+                "value": str(rank_value(g, rank, tag) * good_sign(g, tag)),
                 "advancement_stage": STAGE,
             })
             extra = RANK_EFFECTS_EXTRA.get(g)
@@ -2163,12 +3389,11 @@ def _build_one(tag):
                 })
             loc.append({"key": "effect_bundles_localised_title_%s" % key,
                         "text": title, "tooltip": "false"})
-            blurb, reach = EFFECT_BLURB[g]
-            signed = RANK_VALUES[rank] * EFFECT_GOOD_SIGN[g]
+            blurb, reach = effect_blurb(g, tag)
+            signed = rank_value(g, rank, tag) * good_sign(g, tag)
             loc.append({
                 "key": "effect_bundles_localised_description_%s" % key,
-                "text": "Rank %d of 5 with %s, reached at %d reputation. %s, for %s.%s "
-                        "This lasts as long as the rank does."
+                "text": 'Rank %d of 5 with %s at %d Reputation. %s %s.%s Keep this rank to keep the bonus.'
                         % (rank, GUILD_NAMES[g], RANK_THRESHOLDS[rank - 1],
                            blurb % signed, reach, extra_sentence(g, rank)),
                 "tooltip": "false"})
@@ -2191,23 +3416,20 @@ def _build_one(tag):
             "effect_bundle_key": lkey,
             "effect_key": effect_key,
             "effect_scope": scope,
-            "value": str(LEAD_VALUE * EFFECT_GOOD_SIGN[g]),
+            "value": str(lead_value(g, tag) * good_sign(g, tag)),
             "advancement_stage": STAGE,
         })
         loc.append({"key": "effect_bundles_localised_title_%s" % lkey,
                     "text": ltitle, "tooltip": "false"})
         loc.append({
             "key": "effect_bundles_localised_description_%s" % lkey,
-            "text": "You hold more reputation with %s than any other faction in the "
-                    "world. %s, for %s, on top of whatever your rank already pays - "
-                    "and, unless the settings say otherwise, their greatest service is "
-                    "open to you alone. This lasts only while you lead them."
-                    % (GUILD_NAMES[g], blurb % (LEAD_VALUE * EFFECT_GOOD_SIGN[g]),
+            "text": 'You lead %s. %s %s, in addition to your rank bonus. Only you can buy their finest service. These benefits last while you lead.'
+                    % (GUILD_NAMES[g], blurb % (lead_value(g, tag) * good_sign(g, tag)),
                        reach),
             "tooltip": "false"})
 
     # ----------------------------------------------------------- the patron ---
-    # ONE bundle for all six guilds. It lands on an ARMY rather than a faction, which is
+    # ONE bundle for every guild. It lands on an ARMY rather than a faction, which is
     # the whole point of it - a patron is a lord, not a policy.
     bundles.append({
         "key": PATRON_BUNDLE,
@@ -2234,13 +3456,11 @@ def _build_one(tag):
                 "text": PATRON_NAME, "tooltip": "false"})
     loc.append({
         "key": "effect_bundles_localised_description_%s" % PATRON_BUNDLE,
-        "text": "This lord speaks for one of the Great Guilds, and the guild answers. "
-                "%s for their army. While they hold the post, that guild's reputation "
-                "pays more and its services cost up to %d%% less. Only one lord may "
-                "hold it."
+        "text": 'This lord serves as a guild Patron. %s for their army. While appointed, they increase earnings with that guild and reduce its service prices by up to %d%%. Only one lord can hold the post.'
                 % (patron_clause(), PATRON_DISCOUNT),
         "tooltip": "false"})
 
+    icon_of = {r["effect"]: r["icon"] for r in live_rows("effects")}
     for s in SERVICES:
         if not drawn_in(s, tag):
             continue
@@ -2253,19 +3473,21 @@ def _build_one(tag):
             body = service_text(s, tag)
         elif body is None and s.get("hostile"):
             # Inflicted, not received. The sign is already inverted for this.
-            body = ("Inflicts %s on a faction you are at war with, across %s, for "
-                    "%d turns. You gain nothing directly - they simply pay more."
+            body = ('Inflicts %s on an enemy faction across %s for %d turns. Raises their costs without paying you.'
                     % (blurb % signed, EFFECT_REACH_THEIRS[s["guild"]], s["turns"]))
         elif body is None:
             # A bundle service has no bespoke sentence: its payload IS the effect.
-            body = "%s, for %s, for %d turns." % (blurb % signed, reach, s["turns"])
+            body = '%s %s for %d turns.' % (blurb % signed, reach, s["turns"])
+        pics = service_icons(s, tag, icon_of)
+        if pics:
+            body = pics + " " + body
         gate = ""
         if s["key"] in LEAD_SERVICES:
-            gate = (" Unless the settings say otherwise, only the faction that leads "
-                    "%s may buy it." % GUILD_NAMES[s["guild"]])
+            # The settings exception is said once, in Help and the MCT (antislop #19).
+            gate = (' Only the leader of %s may buy it.' % GUILD_NAMES[s["guild"]])
         loc.append({
             "key": "derpy_gg_service_desc_%s" % s["key"],
-            "text": "%s||Costs %d favour. Cooldown %d turns. Needs rank %d, %s.%s"
+            "text": '%s||Costs %d Favour. Cooldown: %d turns. Needs rank %d, %s.%s'
                     % (body, s["cost"], s["cd"], s["rank"],
                        RANK_NAMES[s["rank"] - 1], gate),
             "tooltip": "false"})
@@ -2287,7 +3509,7 @@ def _build_one(tag):
                         "text": SERVICE_NAMES[s["key"]], "tooltip": "false"})
             loc.append({"key": "effect_bundles_localised_description_%s" % key,
                         "text": ("Inflicted by %s. %s" if s["kind"] == "enemy_settlement"
-                                 else "Bought from %s with favour. %s")
+                                 else 'Bought from %s with Favour. %s')
                                 % (GUILD_NAMES[s["guild"]], service_text(s, tag)),
                         "tooltip": "false"})
             continue
@@ -2310,7 +3532,7 @@ def _build_one(tag):
             "effect_bundle_key": key,
             "effect_key": effect_key,
             "effect_scope": scope,
-            # A service is a burst, not a rung: worth more than any rank bundle
+            # A service is a burst, not a rank: worth more than any rank bundle
             # but for a handful of turns. Same sign rule as the rank ladder.
             "value": str(service_value(s) * service_sign(s)),
             "advancement_stage": STAGE,
@@ -2319,12 +3541,11 @@ def _build_one(tag):
                     "text": SERVICE_NAMES[s["key"]], "tooltip": "false"})
         loc.append({
             "key": "effect_bundles_localised_description_%s" % key,
-            "text": ("Inflicted by %s, bought with favour. %s, across %s. "
-                     "Runs for %d turns."
+            "text": ('Inflicted by %s, paid in Favour. %s across %s for %d turns.'
                      % (GUILD_NAMES[s["guild"]], blurb % signed,
                         EFFECT_REACH_THEIRS[s["guild"]], s["turns"]))
                     if s.get("hostile") else
-                    ("Bought from %s with favour. %s, for %s. Runs for %d turns."
+                    ('Bought from %s with Favour. %s %s for %d turns.'
                      % (GUILD_NAMES[s["guild"]], blurb % signed, reach, s["turns"])),
             "tooltip": "false"})
 
@@ -2354,11 +3575,22 @@ def _build_one(tag):
                       ("src_missions", "missions"), ("src_bounties", "bounties"),
                       ("src_demands", "demands paid"), ("src_other", "other"),
                       ("src_withheld", "Over the limit, not paid:"),
+                      ("src_halls", "Halls"),
+                      # GUILD HALLS on the panel: the header's count (formatted with the
+                      # number), the price tooltip's term and the Leaderboard hover.
+                      ("halls_stat", "Halls %d"), ("price_halls", "Includes halls"),
+                      ("holds_seat", "Holds the Seat"),
                       ("src_caravan", "caravans"), ("src_grudges", "grudges"),
                       ("src_reclaimed", "land taken back"),
                       ("src_motherland", "Motherland rituals"),
                       ("src_chivalry", "chivalry"), ("src_captives", "captives"),
-                      ("src_court", "court actions")):
+                      ("src_court", "court actions"),
+                      ("src_undercity", "under-cities founded"),
+                      # THE TEMPLE'S ROUTES (2026-10-04).
+                      ("src_devout", "provinces in good order"),
+                      ("src_chaos", "provinces free of corruption"),
+                      ("src_holywar", "holy war"), ("src_priests", "wizards and priests"),
+                      ("src_taint", "tainted provinces")):
         loc.append({"key": "derpy_gg_" + key, "text": text, "tooltip": "false"})
 
     # The two-currency split is the one thing about this mod a player cannot infer
@@ -2372,10 +3604,7 @@ def _build_one(tag):
     # there are two numbers and that spending one does not cost the other.
     loc.append({
         "key": "derpy_gg_standing_help",
-        "text": "REPUTATION sets your rank, and it can fall. FAVOUR is earned "
-                "alongside it and is what you spend - spending it never costs you rank."
-                "||%s"
-                "||Help tab: the full rules."
+        "text": 'Reputation sets your rank and can fall. Spend the Favour you earn alongside it without losing rank.||%s||See Help for the full rules.'
                 % " / ".join("%s %d" % (RANK_NAMES[i], RANK_THRESHOLDS[i])
                              for i in range(5)),
         "tooltip": "false"})
@@ -2392,27 +3621,20 @@ def _build_one(tag):
                       # so the fragments are lower-case and carry no full stop.
                       ("tab_log", "Log"),
                       ("hdr_log", "What has happened, newest first."),
-                      ("log_help", "Every rank you gain or lose, every service you buy, "
-                                   "every service your rivals buy or use against you, "
-                                   "every price a guild puts on you, and every guild "
-                                   "lead that changes hands. The most recent entries "
-                                   "are kept."),
-                      ("log_empty", "Nothing yet. Ranks gained and lost, services "
-                                    "bought and leads changing hands are recorded "
-                                    "here."),
+                      ("log_help", "Records rank changes, your purchases, rivals' services, bounties on you and changes in guild leadership. Keeps the most recent entries."),
+                      ("log_empty", 'Nothing yet. Rank changes, service purchases and changes in guild leadership appear here.'),
                       ("log_turn", "Turn"),
                       ("log_rose", "you rose to"),
                       ("log_fell", "you fell to"),
                       ("log_bought", "you bought"),
                       ("log_ai_bought", "bought"),
                       # GG.refund_purchase: the service could not be delivered.
-                      ("log_refunded", "could not be delivered and your favour was "
-                                       "returned"),
+                      ("log_refunded", 'failed; your Favour was returned'),
                       ("log_hit", "was used against you by"),
                       ("log_lead_won", "you took the lead"),
                       ("log_lead_lost", "you lost the lead to"),
                       # The reputation drained away and nobody took it (logic audit).
-                      ("log_lead_lapsed", "you no longer lead them, and nobody does"),
+                      ("log_lead_lapsed", 'you lost the lead; nobody holds it'),
                       ("log_from", "from"),
                       # RIVALS' BOUNTIES (2026-09-29). Lower case, no full stop.
                       ("log_hunted", "put a price on"),
@@ -2429,8 +3651,7 @@ def _build_one(tag):
                       # GG.can_buy "unavailable" (stage 2): what the service works on
                       # has gone since the draw - a caravan home, a pool lost.
                       ("unavailable_short", "Unavailable"),
-                      ("unavailable", "What this service works on is not there for you "
-                                      "right now, so it cannot be bought."),
+                      ("unavailable", 'You do not currently have a valid target for this service.'),
                       # THE RACE EARNINGS (stage 2): GGUI.log_text builds
                       # "log_earn_" .. route at draw time, so check_race_mirror proves
                       # each ships. Lower case, no full stop.
@@ -2441,24 +3662,23 @@ def _build_one(tag):
                       ("log_earn_chivalry", "deeds of chivalry were done"),
                       ("log_earn_captives", "captives were taken"),
                       ("log_earn_court", "a court action succeeded"),
+                      ("log_earn_undercity", "an under-city was founded"),
                       ("log_ai_bounty", "finished a bounty and earned"),
                       ("log_your_char", "one of your lords or heroes"),
-                      ("take", "Take"), ("bounty_none", "No bounty on offer"),
+                      ("take", "Take"), ("bounty_none", "No bounties this turn."),
+                      ("bounty_next", "New offers come at the start of each turn."),
+                      ("bounty_off", "The bounty board is switched off in the settings."),
                       ("bounty_taken", "Taken"), ("bounty_pays", "Pays"),
-                      ("bounty_turns", "turns left"),
+                      ("bounty_turns", "turns left"), ("bounty_turns_1", "turn left"),
                       # A lord bounty names the owning faction, not the character: a
                       # character's own name needs a loc call this panel cannot make
                       # cheaply, and the faction is the part a player navigates by.
                       ("bounty_lord", "Their general"),
                       ("bounty_war", "War with"),
                       ("bounty_war_tip", "Taking this means war with"),
-                      ("bounty_stake_tip", "Favour you put up to take this bounty. You "
-                       "get it back when you finish, and lose it if you fail or hand it "
-                       "back."),
-                      ("bounty_fail_tip", "Fail it and you lose the favour "
-                       "you put up and %n reputation with this guild."),
-                      ("bounty_stake_short", "Needs %n favour with this guild to take. "
-                       "You have %m."),
+                      ("bounty_stake_tip", 'Favour staked on this bounty. Complete it to get the stake back. Fail or return it and you lose the stake.'),
+                      ("bounty_fail_tip", 'Failure costs your Favour stake and %n Reputation with this guild.'),
+                      ("bounty_stake_short", 'Needs %n Favour with this guild. You have %m.'),
                       ("bounty_char", "Their lord or hero"),
                       ("bounty_obj_coffers", "Save %n gold more than you hold now"),
                       ("bounty_obj_coffers_taken", "Hold %n gold"),
@@ -2493,54 +3713,35 @@ def _build_one(tag):
                       # A service's price moves with your standing, so the card has to
                       # say what moved it or the number looks wrong.
                       ("cost_base", "base"),
-                      ("cost_loyal", "The guild knows you, and charges less."),
-                      ("cost_rival", "You wear their rival's mark, and they charge "
-                                     "for it."),
+                      ("cost_loyal", 'Your Reputation lowers the price.'),
+                      ("cost_rival", 'Your Reputation with their rival raises the price.'),
                       # The hostile service reads its target from the campaign map's own
                       # selection, so the card has to say so rather than refusing a
                       # button that looked live.
                       # GG.target_ok refuses a faction at peace (2026-09-29).
-                      ("needs_target", "Select a character of a faction you are at war "
-                                       "with on the campaign map first - this service is "
-                                       "aimed at their faction."),
+                      ("needs_target", 'Select a character from a faction you are at war with on the campaign map. The service targets their faction.'),
                       ("needs_target_short", "Pick a target"),
                       # ONE REFUSAL STRING ANSWERED FOR ALL FIVE targeted services and
                       # was right for one of them. A player told to select an enemy, who
                       # does, and is refused anyway, is debugging the mod.
                       # "The regiment joins" was on the army services too, which add no
                       # regiment. Hire has its own line, because a full army is refused.
-                      ("needs_army", "Select one of your own armies on the campaign map "
-                                     "first."),
-                      ("needs_army_room", "Select one of your own armies with room for "
-                                          "another regiment on the campaign map first."),
+                      ("needs_army", 'Select one of your armies on the campaign map.'),
+                      ("needs_army_room", 'Select one of your armies on the campaign map with room for another regiment.'),
                       # Two race army services with a rule of their own (logic audit).
-                      ("needs_army_not_leader", "Select one of your own armies on the "
-                                                "campaign map first, not the one your "
-                                                "faction leader leads."),
-                      ("needs_army_unblessed", "Select one of your own armies on the "
-                                               "campaign map first, one the Lady has not "
-                                               "yet blessed."),
-                      ("needs_char", "Select one of your own lords or heroes on the "
-                                     "campaign map first, below the highest rank."),
-                      ("needs_settlement_own", "Select one of your OWN settlements on the "
-                                               "campaign map first."),
-                      ("needs_region_enemy", "Select a settlement of a faction you are at "
-                                             "war with on the campaign map first."),
+                      ("needs_army_not_leader", "Select one of your armies on the campaign map, excluding your faction leader's army."),
+                      ("needs_army_unblessed", "Select one of your armies on the campaign map that has not received the Lady's blessing."),
+                      ("needs_char", 'Select one of your lords or heroes on the campaign map who is below the highest rank.'),
+                      ("needs_settlement_own", 'Select one of your settlements on the campaign map.'),
+                      ("needs_region_enemy", 'Select a settlement on the campaign map whose owner you are at war with.'),
                       # Not your own: GG.target_ok refuses it (2026-09-29).
-                      ("needs_region_any", "Select a settlement that is not yours on the "
-                                           "campaign map first - its region is what gets "
-                                           "revealed."),
-                      ("needs_region_own", "Select one of your OWN settlements on the "
-                                           "campaign map first, with a building that "
-                                           "still has somewhere to go."),
-                      ("needs_research", "Start researching something first - this "
-                                         "finishes whatever technology you have queued "
-                                         "in the tech tree."),
+                      ("needs_region_any", "Select another faction's settlement on the campaign map to reveal its region."),
+                      ("needs_region_own", 'Select one of your settlements on the campaign map with a building that can be upgraded.'),
+                      ("needs_research", 'Start researching a technology first. This service completes your current research.'),
                       # Every culture in the campaign runs guilds now, and only three
                       # have a unit mapped. Refusing is right - the old fallback would
                       # have dropped a Chaos Dwarf regiment into an Araby army.
-                      ("no_unit", "This guild keeps no regiment your people would "
-                                  "muster. Their other services are open to you."),
+                      ("no_unit", 'This guild has no regiment available for your race. You can use its other services.'),
                       # THE LEAGUE TABLE. The Standings tab printed one name per guild
                       # and threw the other five away, so nobody could see second place
                       # or their own position.
@@ -2552,14 +3753,14 @@ def _build_one(tag):
                       ("per_turn", "/turn"),
                       # "Upkeep: -12/turn." - the number and per_turn are put between.
                       ("upkeep_on", "Upkeep:"),
-                      ("upkeep_soon", "An upkeep begins on turn"),
+                      ("upkeep_soon", 'Upkeep starts on turn'),
                       # ONE SENTENCE. It follows the guild's description on the rank
                       # line's hover, and the two together ran to 17 lines (2026-09-28).
-                      # The Help tab's "Losing reputation" page has the full rule.
-                      ("upkeep_help", "Stop earning and you slide back down."),
+                      # The Help tab's "Losing Reputation" page has the full rule.
+                      ("upkeep_help", 'Stop earning and Reputation falls.'),
                       ("table_head", "Reputation with this guild:"),
                       ("more", "more"),
-                      ("unranked", "no reputation yet"),
+                      ("unranked", 'no Reputation yet'),
                       ("buy", "Buy"), ("prev", "<"), ("next", ">"),
                       # THE COURT. The fifth tab, holding the two things that are done
                       # TO you and the one thing you do with a lord.
@@ -2570,12 +3771,9 @@ def _build_one(tag):
                       ("lead_you", "You lead them"),
                       ("lead_by", "Led by"),
                       ("lead_title", "Foremost"),
-                      ("lead_hint", "Only the faction holding the most reputation "
-                                    "with this guild may buy this. Out-earn whoever "
-                                    "holds it."),
+                      ("lead_hint", "Only this guild's leader may buy this service. Earn more Reputation to take the lead."),
                       # Under the table's hover when the top row is not the leader.
-                      ("lead_held", "The leader keeps them until a rival is ahead by more "
-                                    "than a turn's earnings."),
+                      ("lead_held", "A rival must lead by more than a turn's earnings to replace the leader."),
                       # The patron.
                       ("patron_none", "No patron appointed"),
                       ("patron_appoint", "Appoint"),
@@ -2586,13 +3784,15 @@ def _build_one(tag):
                       ("patron_elsewhere", "Your patron already serves another guild. "
                                            "Appointing here moves them."),
                       # The demands.
-                      ("demand_none", "No demand stands against you"),
+                      ("demand_none", 'No outstanding demand'),
                       ("demand_pay", "Pay"),
                       ("demand_owed", "They want"),
                       ("demand_due", "turns to pay"),
+                      ("demand_due_1", "turn to pay"),
+                      ("demand_due_now", "Due this turn"),
                       ("demand_short", "You cannot pay this yet"),
                       ("demand_gold", "gold"),
-                      ("demand_favour", "favour"),
+                      ("demand_favour", 'Favour'),
                       # Prefixes the rank a locked service wants, so the red text on
                       # the card reads as a requirement and not as a label.
                       ("needs", "Needs"),
@@ -2605,22 +3805,19 @@ def _build_one(tag):
                       ("opener_click", "Click to open."),
                       # The button is greyed outside the player's turn; its hover says why.
                       ("opener_wait", "Opens again on your turn."),
-                      # The arrows and the six guild buttons say where they go.
+                      # The arrows and the guild buttons say where they go.
                       ("pager_end", "Nothing further this way."),
                       ("pager_page_next", "Next page"),
                       ("pager_page_prev", "Previous page"),
                       ("ready", "ready to buy"),
                       # A big spend asks once before it goes.
                       ("confirm", "Confirm"),
-                      ("confirm_tip", "This spends half or more of your favour with "
-                                      "this guild, or is aimed at another faction. "
-                                      "Press Confirm to go ahead."),
+                      ("confirm_tip", 'This costs at least half your Favour with this guild or targets another faction. Press Confirm to proceed.'),
                       # A Leaderboard row's icon opens that guild.
                       ("open_guild", "Click to see this guild's services."),
                       # Picking a target with the panel out of the way.
                       ("pick_button", "Select"),
-                      ("pick_help", "Press Select to move this panel aside while you "
-                                    "choose on the map."),
+                      ("pick_help", 'Press Select to move the panel aside and choose a target on the map.'),
                       ("pick_cancel", "Press Escape or Cancel to go back."),
                       ("cancel", "Cancel"),
                       # Map links on the bounty board and the Leaderboard's list.
@@ -2629,8 +3826,7 @@ def _build_one(tag):
                       # The Log's filters.
                       ("lf_all", "All"), ("lf_mine", "Yours"),
                       ("lf_rivals", "Rivals"), ("lf_ranks", "Ranks"),
-                      ("log_empty_filter", "Nothing of this kind yet. Press All to see "
-                                           "every entry.")):
+                      ("log_empty_filter", 'No matching entries. Press All to see every entry.')):
         loc.append({"key": "derpy_gg_" + key, "text": text, "tooltip": "false"})
     for dk, d in sorted(DEMAND_KINDS.items()):
         loc.append({"key": "derpy_gg_demand_name_" + dk, "text": d["name"],
@@ -2653,22 +3849,13 @@ def _build_one(tag):
     # 801 characters under a three-line card - 17 lines of tooltip (screenshot
     # 2026-09-28). Each card now says its own part; the Help tab's Court page has the rest.
     for key, text in (
-            ("court_intro", "The Court holds the three things a guild does that you do "
-                            "not choose. Hover a card for its part; the Help tab's Court "
-                            "page has the full rules."),
-            ("court_help_lead", "The leader alone gets an extra bonus and, unless the "
-                                "settings say otherwise, the guild's dearest service. "
-                                "Out-earn them to take it."),
-            ("court_help_demand", "Pay it and your reputation with this guild jumps. Let "
-                                  "the deadline pass and it falls, which can cost a "
-                                  "rank."),
-            ("court_help_no_demand", "Now and then a guild that knows you asks for gold, "
-                                     "or for you to renounce the favour you hold with its "
-                                     "rival. It appears here, with a deadline."),
-            ("court_help_patron", "A patron is one of your lords, bound to one guild: "
-                                  "their army is the better for it, this guild's "
-                                  "reputation pays more, and its services cost up to "
-                                  "%d%% less. One lord, one guild." % PATRON_DISCOUNT)):
+            ("court_intro", 'Manage demands, leadership and patronage here. Hover a card for details or read the Court page in Help.'),
+            ("court_help_lead", 'The leader gets an extra bonus and exclusive access to the finest service. Out-earn them to take the lead.'),
+            ("court_help_demand",
+             'Pay to gain Reputation with this guild. Missing the deadline costs nothing.' if expiry_free(tag) else
+             'Pay to gain Reputation with this guild. Miss the deadline and your Reputation falls, which may cost a rank.'),
+            ("court_help_no_demand", 'Guilds you have earned with may demand gold or Favour held with their rival. Their terms and deadline appear here.'),
+            ("court_help_patron", 'Appoint a lord as Patron to one guild. Their army gains %s, you earn %d%% more Reputation with that guild and its services cost up to %d%% less. One lord, one guild.' % (patron_clause(), PATRON_REP_SHARE, PATRON_DISCOUNT))):
         loc.append({"key": "derpy_gg_" + key, "text": text, "tooltip": "false"})
 
     # The feed, both halves. A demand that arrives silently is a deadline nobody saw.
@@ -2680,10 +3867,12 @@ def _build_one(tag):
     loc.append({"key": "message_event_text_text_derpy_gg_demand_secondary",
                 "text": "They do not ask twice.", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_title",
-                "text": "A Guild Is Answered With Silence", "tooltip": "false"})
+                "text": 'A Guild Demand Ignored', "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_primary",
-                "text": "The deadline has passed and nothing was paid. Your reputation "
-                        "with that guild has fallen.", "tooltip": "false"})
+                "text": "The deadline has passed and nothing was paid. "
+                        + ("Nobody in the Under-Empire expected otherwise." if expiry_free(tag)
+                           else 'Your Reputation with that guild has fallen.'),
+                "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_secondary",
                 "text": "The ledger is kept whether you read it or not.",
                 "tooltip": "false"})
@@ -2691,11 +3880,9 @@ def _build_one(tag):
     # A FAILED BOUNTY, on the demand record: a feed record is presentation, and a guild
     # taking reputation back for work not done looks the same whichever way it was owed.
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_title",
-                "text": "A Guild Is Left Waiting", "tooltip": "false"})
+                "text": 'A Guild Bounty Failed', "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_primary",
-                "text": "Work you took from a guild has gone undone. The favour you put "
-                        "up is lost, and reputation with the guild with it; the card "
-                        "named the sum. Handing an offer back costs only the favour.",
+                "text": 'You failed a guild bounty. You lose your Favour stake and the Reputation shown on the card. Returning a bounty costs only the stake.',
                 "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_secondary",
                 "text": "A promise in the ledger is a debt.", "tooltip": "false"})
@@ -2703,21 +3890,25 @@ def _build_one(tag):
     # ONLY THE EMPTY SLOT SHOWS THIS. It used to sit under every offer as well, six lines
     # repeating the Help tab's Bounties page; an offer now says its own terms instead.
     loc.append({"key": "derpy_gg_bounty_help",
-                "text": "A guild posts work it wants done here. Taking it turns it into a "
-                        "mission. The Help tab's Bounties page explains the rest.",
+                "text": 'Accept a guild bounty here to start a mission. See the Bounties page in Help for the rules.',
                 "tooltip": "false"})
     loc.append({"key": "derpy_gg_locked_hint",
-                "text": "Your rank with this guild is too low. Keep earning reputation.",
+                "text": 'Your rank with this guild is too low. Keep earning Reputation.',
                 "tooltip": "false"})
+    # A shut card's reasons, filled by the panel (GGUI.draw_card): %n, %m, %r and %d.
+    for _k, _t in (("tip_short_rep", "You have %n Reputation with them and need %m for %r: %d more."),
+                   ("tip_cooldown", "On cooldown for %n more turns."),
+                   ("tip_cooldown_1", "On cooldown for 1 more turn."),
+                   ("tip_short_fav", "You need %n Favour with this guild.")):
+        loc.append({"key": "derpy_gg_" + _k, "text": _t, "tooltip": "false"})
 
     # The feed message the player sees when a hostile service lands on them.
     loc.append({"key": "message_event_text_text_derpy_gg_hit_title",
                 "text": "A Guild Moves Against You", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hit_primary",
-                "text": "A rival has bought the favour of a guild, and it has been "
-                        "spent on you.", "tooltip": "false"})
+                "text": 'A rival has paid a guild to act against you.', "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hit_secondary",
-                "text": "Their favour buys more than goods.", "tooltip": "false"})
+                "text": 'Their Favour buys more than goods.', "tooltip": "false"})
 
     # A rival paid to take what is yours (2026-09-29). Fixed text: the Log names who and what.
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_title",
@@ -2725,13 +3916,12 @@ def _build_one(tag):
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_primary",
                 "text": "A guild has hired a rival against you.", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_secondary",
-                "text": "The Guilds panel's Log names who, and what they were paid to take.",
+                "text": 'The Log tab of the Great Guilds panel names the rival and their target.',
                 "tooltip": "false"})
     # The guilds redrew their services (2026-09-29 pools). Same text for every race.
     for part, text in (("title", "New Services"),
                        ("primary", "The guilds have changed what they offer."),
-                       ("secondary", "Each guild's three services have been drawn again. "
-                                     "Open the Guilds panel to see them.")):
+                       ("secondary", 'Each guild has three new service offers. Open the Great Guilds panel to see them.')):
         loc.append({"key": "message_event_text_text_derpy_gg_rotation_" + part,
                     "text": text, "tooltip": "false"})
 
@@ -2762,20 +3952,15 @@ def _build_one(tag):
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_title" % _g,
                     "text": "%s Answer To You" % _full, "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_primary" % _g,
-                    "text": "You now hold more reputation with %s than any other power "
-                            "in the world. Their leader's bonus is yours, and, unless "
-                            "the settings say otherwise, their finest service is sold to "
-                            "nobody else." % _full,
+                    "text": "You now lead %s. You gain their leader's bonus and exclusive access to their finest service." % _full,
                     "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_secondary" % _g,
-                    "text": "It is taken back the same way it was won.",
+                    "text": "A rival who out-earns you takes the lead back.",
                     "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_lost_%s_title" % _g,
                     "text": "%s Have Turned Away" % _full, "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_lost_%s_primary" % _g,
-                    "text": "A rival has out-earned you with %s. Their leader's bonus "
-                            "went with them, and so, unless the settings say otherwise, "
-                            "did the sole right to their finest service." % _full,
+                    "text": "A rival now leads %s. You lose the leader's bonus and exclusive access to their finest service." % _full,
                     "tooltip": "false"})
         loc.append({"key":
                     "message_event_text_text_derpy_gg_lead_lost_%s_secondary" % _g,
@@ -2804,14 +3989,21 @@ def _build_one(tag):
             # WHAT THE RANK OPENS, measured off SERVICES (logic audit, 2026-09-29): ranks 2
             # and 3 open services, every rank 4 service is sold only to the guild's leader,
             # and rank 5 opens none. One sentence for all four promised a service at 5.
-            _opens = {4: " Their finest service opens at this rank, but, unless the "
-                         "settings say otherwise, only to whoever leads them.",
+            _opens = {4: " Their finest service opens at this rank, but only to "
+                         "whoever leads them.",
                       5: " There is no higher rank."}.get(
                 _r, " A service that was closed to you is open.")
-            loc.append({"key": _stem + "_primary",
-                        "text": "Your rank with %s has risen to %s. Their bonus to "
-                                "you has grown.%s" % (_full, _rank, _opens),
-                        "tooltip": "false"})
+            _body = ('With %s, you are now %s. Your rank bonus has increased.%s'
+                     % (_full, _rank, _opens))
+            loc.append({"key": _stem + "_primary", "text": _body, "tooltip": "false"})
+            # A HALL THIS RANK OPENS (spec 2026-10-04): level n opens at HALL_RANK[n]. Its
+            # own key, which GG.announce_rank picks only while guild_halls is on - the
+            # line would otherwise promise a hall the locks keep shut.
+            if tag in HALL_TAGS and _r in HALL_RANK[:2]:
+                loc.append({"key": _stem + "_primary_hall",
+                            "text": _body + " You may now raise a %s." % hall_name(
+                                _g, HALL_RANK.index(_r), tag),
+                            "tooltip": "false"})
             loc.append({"key": _stem + "_secondary",
                         "text": "Favour is spent on the Guilds tab.",
                         "tooltip": "false"})
@@ -2822,14 +4014,12 @@ def _build_one(tag):
     # key is whichever one happened to trigger it.
     _NOTICE = {
         "first": ("%s Have Noticed You",
-                  "Word of your doings has reached %s. They keep a ledger of every power "
-                  "in the world, and your name is now in it. Reputation with them is earned "
-                  "by playing as you already play; what it buys is on the Guilds panel.",
+                  'Your deeds have caught the attention of %s. Your name is in their ledger. Campaign actions earn Reputation with them; the Great Guilds panel shows their services.',
                   "The guild crest at the top of your screen opens it."),
         "half": ("%s Are Watching Closely",
                  "You are halfway to your first rank with %s. At " + RANK_NAMES[1]
                  + " they open their first service to you.",
-                 "The Guilds panel shows how far every guild has come."),
+                 'The Great Guilds panel shows your progress with each guild.'),
     }
     for _tag in ("first", "half"):
         _title, _primary, _secondary = _NOTICE[_tag]
@@ -2850,27 +4040,32 @@ def _build_one(tag):
     # the whole line has to fit 750px and it already carries three numbers.
     loc.append({"key": "derpy_gg_rivals", "text": "Rivals last turn:",
                 "tooltip": "false"})
-    loc.append({"key": "derpy_gg_rivals_bought", "text": "services bought",
-                "tooltip": "false"})
-    loc.append({"key": "derpy_gg_rivals_demands", "text": "demands paid",
-                "tooltip": "false"})
-    loc.append({"key": "derpy_gg_rivals_patrons", "text": "patrons appointed",
-                "tooltip": "false"})
+    # Each with its _1 form for one (GGUI.count).
+    for _k, _many, _one in (("bought", "services bought", "service bought"),
+                            ("demands", "demands paid", "demand paid"),
+                            ("patrons", "patrons appointed", "patron appointed")):
+        loc.append({"key": "derpy_gg_rivals_" + _k, "text": _many, "tooltip": "false"})
+        loc.append({"key": "derpy_gg_rivals_%s_1" % _k, "text": _one, "tooltip": "false"})
     loc.append({"key": "derpy_gg_rivals_idle",
-                "text": "Rivals have not moved yet - end a turn.", "tooltip": "false"})
+                "text": "Rivals have not moved yet. End a turn to see them.", "tooltip": "false"})
     loc.append({"key": "derpy_gg_rivals_help",
-                "text": "What the other powers of the world did with their guilds "
-                        "last turn: services they bought with favour, "
-                        "demands they answered, and lords serving as guild "
-                        "patrons.||Every one of these is a tool you have too. The "
-                        "rivals are playing for the same six guilds you are."
-                        "||Each row below names who leads that guild, how much "
-                        "reputation the leader gained last turn, and marks the "
-                        "name in yellow when the guild changed hands.",
+                "text": "Last turn's rival activity: services bought with Favour, demands paid and lords appointed as Patrons.||Rivals use the same guilds and services as you.||Each row names a guild's leader and their Reputation earned last turn. Yellow names mark a change in leadership.",
                 "tooltip": "false"})
     loc.append({"key": "derpy_gg_took", "text": "changed hands this turn",
                 "tooltip": "false"})
     loc.append({"key": "derpy_gg_gained", "text": "gained", "tooltip": "false"})
+
+    # ONE COMPLETION LINE PER GUILD (antislop audit 2026-10-09): all 210 rows said the same
+    # sentence. Race-neutral, since every race's guild of a key does the same trade.
+    MISSION_DONE = {
+        "brass": "The debt is settled and entered in the ledger. Your reward is paid.",
+        "immortals": "The oath is kept. Your reward is paid.",
+        "daemonsmiths": "The work is judged sound. Your reward is paid.",
+        "khanate": "The job is done, and no questions are asked. Your reward is paid.",
+        "overseers": "The last stone is set. Your reward is paid.",
+        "slavers": "The spoils are counted and shared out. Your reward is paid.",
+        "temple": "The faithful give thanks. Your reward is paid.",
+    }
 
     # THE BOUNTY MISSION ROWS. Shaped field-for-field like CA's own ogre contract
     # rows (69 of them, read out of the vanilla missions table on 2026-09-11): the real
@@ -2886,7 +4081,7 @@ def _build_one(tag):
     for g in GUILDS:
         kind = BOUNTIES[g][0]
         title, desc = F["bounties"][g]
-        done = "The guild has been paid in full, and so have you."
+        done = MISSION_DONE[g]
         missions.append({
             "key": bounty_key(g), "mission_type": BOUNTY_KINDS[kind]["mtype"],
             "localised_title": title, "localised_description": desc,
@@ -2970,9 +4165,11 @@ def tag_loc_key(key, tag):
     """Where a flavour's tag goes in a loc key - the same place the Lua puts it.
 
     Before the engine's own suffix on a message-event key, because the Lua passes a stem
-    and appends _title / _primary / _secondary itself. At the end of everything else.
+    and appends _title / _primary / _secondary (or _primary_hall) itself. At the end of
+    everything else.
     """
-    m = re.match(r"(message_event_text_text_.+?)(_title|_primary|_secondary)$", key)
+    m = re.match(r"(message_event_text_text_.+?)(_title|_primary_hall|_primary|_secondary)$",
+                 key)
     if m:
         return m.group(1) + tag + m.group(2)
     return key + tag
@@ -3042,6 +4239,8 @@ def build():
     for table, rows in built_tables().items():
         out.setdefault(table, []).extend(rows)
     for table, rows in minted_tables().items():
+        out.setdefault(table, []).extend(rows)
+    for table, rows in hall_tables().items():
         out.setdefault(table, []).extend(rows)
     return out
 
@@ -3119,13 +4318,17 @@ def check_flavours():
                            % (r["effect_bundle_key"], tag, r["effect_key"], r["value"],
                               unwanted[r["effect_key"]]))
     own_fx =dict((service_bundle_key(s["key"]), s) for s in SERVICES if s.get("for_tag"))
+    temple_rank = dict((bundle_key("temple", r), r) for r in range(2, 6))
     for tag in FLAVOURS:
         if not tag:
             continue
         t = retag(_build_one(tag), tag)
         mine = set(tag_loc_key(k, tag) for k in RACE_LOC)
         got = set(r["key"] for r in t["loc"] if r["key"] not in mine)
-        want = set(tag_loc_key(k, tag) for k in base_keys)
+        # The halls help page and the promotions' hall lines are only a HALL_TAGS race's.
+        want = set(tag_loc_key(k, tag) for k in base_keys
+                   if tag in HALL_TAGS or not (k in ("derpy_gg_help_p7", "derpy_gg_help_t7")
+                                               or k.endswith("_primary_hall")))
         for k in sorted(want - got)[:5]:
             out.append("flavour %r ships no %s, so it draws its own key" % (tag, k))
         for k in sorted(got - want)[:5]:
@@ -3142,6 +4345,12 @@ def check_flavours():
             # A service with a per-race override mirrors ITS OWN rows for this flavour.
             if bk in own_fx:
                 rows = [(ek, sc, str(int(v))) for ek, sc, v in service_effects(own_fx[bk], tag)]
+            # So does the temple's rank and lead ladder: its own lore per race (TEMPLE_LORE).
+            if bk in temple_rank or bk == lead_key("temple"):
+                ek, sc = rank_effect("temple", tag)
+                v = (lead_value("temple", tag) if bk == lead_key("temple")
+                     else rank_value("temple", temple_rank[bk], tag))
+                rows = [(ek, sc, str(v * good_sign("temple", tag)))]
             if sorted(fx.get(bk + tag, [])) != sorted(rows):
                 out.append("%s%s does not carry exactly the effects of %s - that race's "
                            "bonus differs" % (bk, tag, bk))
@@ -3170,11 +4379,15 @@ def check_table_versions():
         for table, (name, ver) in sorted(TSV_META.items()):
             if table == "loc":
                 continue        # Loc is not a DB table and has no vanilla counterpart
-            if not R.have(table):
-                out.append("no cached vanilla %s to check the version against - run "
-                           "tools/fetch_vanilla_tables.py %s" % (table, table))
-                continue
-            ca = R.version(table)
+            if R.have(table):
+                ca = R.version(table)
+            else:
+                from read_vanilla_db import load, DB_PACK
+                vers = {v for _p, v, _rows in load(DB_PACK, name)}
+                if len(vers) != 1:
+                    out.append("cannot read one live version of %s (got %r)" % (name, vers))
+                    continue
+                ca = vers.pop()
             if ca != ver:
                 out.append("%s is declared at version %d but CA's own file declares %d "
                            "- the game parses the rows against the wrong field shape and "
@@ -3315,7 +4528,7 @@ def _check_help_pages_for(tag):
     """Every page must be renderable, and the panel must know how many there are."""
     out = []
     pages = help_pages(tag)
-    if len(pages) != len(HELP_PAGE_TITLES):
+    if len(pages) != len(HELP_PAGE_TITLES) - (0 if tag in HALL_TAGS else 1):
         out.append("%d help pages and %d titles" % (len(pages), len(HELP_PAGE_TITLES)))
     for gk in GUILDS:
         if gk not in EARN_SHORT:
@@ -3373,9 +4586,10 @@ def _check_help_pages_for(tag):
     m = re.search(r"GGUI\.HELP_PAGES\s*=\s*(\d+)", lua)
     if not m:
         out.append("GGUI.HELP_PAGES is not declared, so the pager has no range")
-    elif int(m.group(1)) != len(pages):
-        out.append("GGUI.HELP_PAGES is %s and there are %d help pages - the extra ones "
-                   "are unreachable" % (m.group(1), len(pages)))
+    elif int(m.group(1)) != len(pages) - (1 if tag in HALL_TAGS else 0):
+        out.append("GGUI.HELP_PAGES is %s and there are %d help pages (one of them the "
+                   "halls page, which the panel adds on its own) - the extra ones are "
+                   "unreachable" % (m.group(1), len(pages)))
     return out
 
 
@@ -3534,13 +4748,32 @@ def check_mct_names():
                    % UI_LUA)
     mct = io.open(MCT_LUA, encoding="utf-8").read()
     for g in GUILDS:
-        want = FLAVOURS["_gen"]["guilds"][g]
-        for key in ("rate_" + g, "cap_" + g):
-            m = re.search(r'\{"%s",\s*"([^"]*)"' % key, mct)
-            if not m or m.group(1) != want:
-                out.append("%s labels %s %r in the frontend, not the role name %r"
-                           % (MCT_LUA, key, m and m.group(1), want))
+        rates = TEMPLE_RATE_KEYS if g == "temple" else ("rate_" + g,)
+        for key in rates + ("cap_" + g,):
+            problem = _mct_label_problem(mct, key, g)
+            if problem:
+                out.append(problem)
     return out
+
+
+# THE TEMPLE'S RATES (ruling 9, 2026-10-04): one per route, so there is no rate_temple.
+# Their labels name the route after the role name and a colon; GGUI.name_mct renames only
+# cap_temple, since a route is not a guild name.
+TEMPLE_RATE_KEYS = ("rate_temple_devout", "rate_temple_chaos", "rate_temple_holy",
+                    "rate_temple_taint")
+
+
+def _mct_label_problem(mct, key, g):
+    want = FLAVOURS["_gen"]["guilds"][g]
+    m = re.search(r'\{"%s",\s*"([^"]*)"' % key, mct)
+    if key in TEMPLE_RATE_KEYS:
+        ok = m and m.group(1).startswith(want + ":")
+    else:
+        ok = m and m.group(1) == want
+    if not ok:
+        return ("%s labels %s %r in the frontend, not the role name %r"
+                % (MCT_LUA, key, m and m.group(1), want))
+    return None
 
 
 def check_flavour_mirror():
@@ -3645,6 +4878,112 @@ def check_hire_units():
     return out
 
 
+def _route_line(culture, r):
+    return "%s|%d|%d|%d|%s|%s" % (culture, bool(r.get("devout")), bool(r.get("chaos")),
+                                  bool(r.get("vampiric")), ",".join(sorted(r.get("holy", []))),
+                                  ",".join(sorted(r.get("priests", []))))
+
+
+# The Lua's test for "this foreign slot is an under-city" (gg_undercity_building).
+UNDERCITY_SET_MARK = "_slot_set_underempire"
+
+
+def check_undercity_levels(rows=None, tags=None):
+    """Two things the under-city building listener rests on, read off CA's tables.
+
+    1. UNDERCITY_SET_MARK picks out exactly the slot sets of an UNDEREMPIRE type: a set it
+       misses pays nothing, and one it catches wrongly pays for an allied outpost.
+    2. GG.level_of splits every level of every Skaven chain those slots can hold as
+       "<chain>_<n>" (skaven ruling 6), or a building there pays the wrong guild or none.
+       The chains come from the slots themselves - slot set, template, chain set, chain
+       or super chain - not from a name pattern, which missed the warlock lab and the
+       endgame chains. The chain sets are shared by every race's foreign slots, so they
+       are cut to the chains covered_chains() gives the Skaven.
+    `rows` and `tags` stand in for live_rows and covered_chains() in the selftest.
+    """
+    rows = rows or live_rows
+    tags = covered_chains() if tags is None else tags
+    out = []
+    sets = set()
+    for r in rows("slot_sets"):
+        under = r["type"].startswith("UNDEREMPIRE")
+        if under != (UNDERCITY_SET_MARK in r["key"]):
+            out.append("slot set %s (%s): the Lua's under-city test says %s"
+                       % (r["key"], r["type"], not under))
+        if under:
+            sets.add(r["key"])
+    temps = {r["slot_template"] for r in rows("slot_set_items") if r["slot_set"] in sets}
+    perm = [r for r in rows("slot_template_permitted_building_chains")
+            if r["slot_template"] in temps]
+    csets = {r["chain_set"] for r in perm if r["chain_set"]}
+    items = [r for r in rows("building_chain_set_items") if r["set"] in csets] + perm
+    chains = {r["chain"] for r in items if r["chain"]}
+    supers = {r["super_chain"] for r in items if r["super_chain"]}
+    chains |= {r["key"] for r in rows("building_chains")
+               if r["building_superchain"] in supers}
+    chains = {c for c in chains if tags.get(c) == "_skv"}
+    seen = 0
+    for r in rows("building_levels"):
+        ch, lv = r["chain"], r["level_name"]
+        if ch not in chains:
+            continue
+        seen += 1
+        m = re.match(r"^(.*?)_(\d+)$", lv)
+        if not m or m.group(1) != ch:
+            out.append("under-city level %s does not split to its chain %s" % (lv, ch))
+    if not seen:
+        out.append("no Skaven chain an under-city slot can hold - the under-city check "
+                   "read nothing")
+    return out
+
+
+def check_temple_routes():
+    """The Lua's temple routes equal the mirror, every culture and subtype key exists, and
+    every covered culture has a route entry (a missing one earns the temple nothing,
+    silently)."""
+    import subprocess
+    import tempfile
+    out = []
+    lua = io.open(MODEL_LUA, encoding="utf-8").read()
+    block = re.search(r"-- BEGIN TEMPLE ROUTES\n(.*?)-- END TEMPLE ROUTES", lua, re.S)
+    if not block:
+        return ["GG.TEMPLE_ROUTES block markers not found in " + MODEL_LUA]
+    prog = ("GG = {}\n" + block.group(1) + "\nfor c, r in pairs(GG.TEMPLE_ROUTES) do\n"
+            "  local h, p = {}, {}\n"
+            "  for _, v in ipairs(r.holy or {}) do h[#h + 1] = v end\n"
+            "  for _, v in ipairs(r.priests or {}) do p[#p + 1] = v end\n"
+            "  table.sort(h); table.sort(p)\n"
+            "  local function b(x) return x and 1 or 0 end\n"
+            "  io.write(c, '|', b(r.devout), '|', b(r.chaos), '|', b(r.vampiric), '|',\n"
+            "           table.concat(h, ','), '|', table.concat(p, ','), '\\n')\n"
+            "end\n")
+    fd, path = tempfile.mkstemp(suffix=".lua")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(prog)
+        got = subprocess.run([LUA_EXE, path], capture_output=True, text=True,
+                             check=True).stdout.split()
+    finally:
+        os.remove(path)
+    want = [_route_line(c, r) for c, r in TEMPLE_ROUTES.items()]
+    if sorted(got) != sorted(want):
+        out.append("GG.TEMPLE_ROUTES and TEMPLE_ROUTES differ:\n  lua %s\n  py  %s"
+                   % (sorted(set(got) - set(want)), sorted(set(want) - set(got))))
+    cultures = {r["key"] for r in live_rows("cultures")}
+    subtypes = {r["key"] for r in live_rows("agent_subtypes")}
+    for c, r in TEMPLE_ROUTES.items():
+        for k in [c] + r.get("holy", []):
+            if k not in cultures:
+                out.append("temple route culture %s is not in cultures_tables" % k)
+        for k in r.get("priests", []):
+            if k not in subtypes:
+                out.append("temple priest subtype %s is not in agent_subtypes_tables" % k)
+    for tag, F in FLAVOURS.items():
+        if F.get("culture") and F["culture"] not in TEMPLE_ROUTES:
+            out.append("%s (%s) has no temple route" % (tag, F["culture"]))
+    return out
+
+
 def check_building_theme():
     """The building theme table must be matchable, unambiguous and real.
 
@@ -3690,7 +5029,7 @@ def check_building_theme():
     MAGIC = set("^$()%.[]*+-?")
     for guild, toks in entries:
         if guild not in GUILDS:
-            out.append("GG.BUILDING_THEME names the guild %r, which is not one of the six "
+            out.append("GG.BUILDING_THEME names the guild %r, which is not one of the guilds "
                        "- GG.capped_grant would find no track for it and the building "
                        "would pay nothing at all, silently" % guild)
         words = re.findall(r'"([^"]*)"', toks)
@@ -3717,10 +5056,14 @@ def check_building_theme():
                            % (w, owner[w], guild))
             owner[w] = guild
 
+    # The temple is paid by race tokens only (temple spec: the shared words stay untouched),
+    # so a guild counts as paid when either list names it.
+    by_race = set(g for entries_r in building_theme_race().values() for g, _ in entries_r)
     for g in GUILDS:
-        if g not in theme:
-            out.append("GG.BUILDING_THEME has no entry for %s, so no building in the game "
-                       "can ever pay it" % g)
+        if g not in theme and g not in by_race:
+            out.append("GG.BUILDING_THEME has no entry for %s, and no race list in "
+                       "GG.BUILDING_THEME_RACE names it, so no building in the game can ever "
+                       "pay it" % g)
 
     # ------------------------------------------------- against CA's real chain keys ----
     try:
@@ -3763,6 +5106,41 @@ def check_building_theme():
                    "cover the culture the content is for, or every building a Chaos Dwarf "
                    "builds still pays the Overseers"
                    % (len(missed), len(chd), ", ".join(missed[:3])))
+
+    # THE RACE LISTS (temple spec §3.1). The same four rules, per tag, and the fourth is a
+    # REFUSAL here: a race token names a chain of that race on purpose, so one that matches
+    # nothing that race can build is a typo, never a mod's chain.
+    race = building_theme_race()
+    if not race:
+        out.append("GG.BUILDING_THEME_RACE is not declared in " + lua_path)
+    set_chains = {}
+    for r in live_rows("building_chain_availability_sets"):
+        set_chains.setdefault(r["id"], set()).add(r["building_chain"].lower())
+    for tag, entries_r in sorted(race.items()):
+        if tag not in FLAVOURS:
+            out.append("GG.BUILDING_THEME_RACE names the tag %r, which is no flavour" % tag)
+            continue
+        R = HALL_RACES.get(tag, {})
+        mine = set()
+        for s in [R.get("set")] + R.get("extra_sets", []):
+            mine |= set_chains.get(s, set())
+        seen = {}
+        for guild, words in entries_r:
+            if guild not in GUILDS:
+                out.append("GG.BUILDING_THEME_RACE[%r] names the guild %r, which is not one "
+                           "of the guilds - the building would pay nothing" % (tag, guild))
+            for w in words:
+                bad = sorted(MAGIC & set(w))
+                if not w or bad or w != w.lower():
+                    out.append("GG.BUILDING_THEME_RACE[%r] token %r is empty, not lowercase "
+                               "or holds Lua pattern magic %s" % (tag, w, bad))
+                if w in seen and seen[w] != guild:
+                    out.append("GG.BUILDING_THEME_RACE[%r] token %r is claimed by both %s "
+                               "and %s" % (tag, w, seen[w], guild))
+                seen[w] = guild
+                if w and not any(w in c for c in mine):
+                    out.append("GG.BUILDING_THEME_RACE[%r] token %r (%s) matches no chain "
+                               "that race can build" % (tag, w, guild))
     return out
 
 
@@ -3784,6 +5162,13 @@ def check_building_theme():
 # different guild. Those still pay, and so do a mod's chains; they just do not say so.
 BUILT_EFFECT = "derpy_gg_built_%s%s"      # guild, flavour tag
 BUILT_SCOPE = "building_to_building_own"
+
+
+def built_rep(level):
+    """What GG.on_building pays for finishing a building of this DB `level` (the number
+    building_level() returns), at the default rate: rate x level clamped to 1..10. It is
+    the card line's junction value, which its text prints through %n."""
+    return RATES["overseers"]["per_building_level"] * min(10, max(1, int(level)))
 MODEL_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_guilds.lua"
 LUA_EXE = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 
@@ -3798,16 +5183,33 @@ def building_theme():
             for g, toks in re.findall(r'\{"([a-z_]+)",\s*\{(.*?)\}\}', block.group(1), re.S)]
 
 
-def guild_of_chain(chain, theme):
-    """GG.guild_of_chain: the longest token wins, the first-listed guild on a tie, None
-    when nothing matches. check_built_effects runs the Lua itself to prove they agree."""
+def building_theme_race():
+    """{tag: [(guild, [token, ...]), ...]} exactly as GG.BUILDING_THEME_RACE declares it."""
+    lua = io.open(MODEL_LUA, encoding="utf-8").read()
+    block = re.search(r"^GG\.BUILDING_THEME_RACE = \{(.*?)\n\}", lua, re.S | re.M)
+    if not block:
+        return {}
+    out = {}
+    for tag, body in re.findall(r'\["(_?[a-z]*)"\] = \{(.*?)\n    \},', block.group(1), re.S):
+        out[tag] = [(g, re.findall(r'"([^"]*)"', toks))
+                    for g, toks in re.findall(r'\{"([a-z_]+)",\s*\{(.*?)\}\}', body, re.S)]
+    return out
+
+
+def guild_of_chain(chain, theme, race=None):
+    """GG.guild_of_chain: the race's words first (GG.BUILDING_THEME_RACE[tag]), then the
+    shared ones; in each, the longest token wins, the first-listed guild on a tie, None when
+    nothing matches. check_built_effects runs the Lua itself to prove they agree."""
     chain = chain.lower()
-    best, best_len = None, 0
-    for guild, words in theme:
-        for w in words:
-            if w and w in chain and len(w) > best_len:
-                best, best_len = guild, len(w)
-    return best
+    for words_of in ([race] if race else []) + [theme]:
+        best, best_len = None, 0
+        for guild, words in words_of:
+            for w in words:
+                if w and w in chain and len(w) > best_len:
+                    best, best_len = guild, len(w)
+        if best:
+            return best
+    return None
 
 
 _LIVE = {}
@@ -3856,6 +5258,7 @@ def covered_chains():
 def built_tables():
     """The effects rows, their building junction rows and their loc."""
     theme = building_theme()
+    race = building_theme_race()
     icon_of = {r["effect"]: r["icon"] for r in live_rows("effects")}
     effects, junction, loc = [], [], []
     for tag, F in FLAVOURS.items():
@@ -3864,13 +5267,17 @@ def built_tables():
         for g in GUILDS:
             key = BUILT_EFFECT % (g, tag)
             # The icon of the vanilla effect this guild's rank rewards already use.
-            icon = icon_of[RANK_EFFECTS[g][0]]
+            icon = icon_of[rank_effect(g, tag)[0]]
             effects.append({"effect": key, "icon": icon, "priority": "1",
                             "icon_negative": icon, "category": "campaign",
                             "is_positive_value_good": "true"})
             loc.append({"key": "effects_description_" + key,
-                        "text": "[[col:yellow]]Completing this earns reputation with the "
-                                "%s[[/col]]" % short_name(g, tag),
+                        # %n is the junction value, built_rep(level): THE NUMBER, which the
+                        # line went without until 2026-10-04 (asked for in game). ONE %n:
+                        # the engine fills only the first and prints a second one raw
+                        # ("10 Reputation and %n Favour", seen in game 2026-10-04).
+                        "text": "[[col:yellow]]Complete this for %%n Reputation with the "
+                                "%s and matching Favour[[/col]]" % short_name(g, tag),
                         "tooltip": "false"})
     owner = covered_chains()
     for r in sorted(live_rows("building_levels"), key=lambda r: r["level_name"]):
@@ -3878,30 +5285,43 @@ def built_tables():
         if tag is None or r["level_name"].endswith("_ruin") or not r["visible_in_ui"]:
             continue
         # What GG.on_building pays when no word matches.
-        g = guild_of_chain(r["chain"], theme) or "overseers"
+        g = guild_of_chain(r["chain"], theme, race.get(tag)) or "overseers"
         junction.append({"building": r["level_name"], "effect": BUILT_EFFECT % (g, tag),
-                         "effect_scope": BUILT_SCOPE, "value": "1.0000",
-                         "value_damaged": "1.0000", "value_ruined": "0.0000",
+                         "effect_scope": BUILT_SCOPE,
+                         "value": "%d.0000" % built_rep(r["level"]),
+                         "value_damaged": "%d.0000" % built_rep(r["level"]),
+                         "value_ruined": "0.0000",
                          "context_requirement": ""})
     return {"effects": effects, "building_effects_junction": junction, "loc": loc}
 
 
-def _lua_guilds_of(chains):
-    """{chain: guild or None} from the SHIPPED GG.guild_of_chain, run under lua.exe."""
+def _lua_guilds_of(chains, owner=None):
+    """{chain: guild or None} from the SHIPPED GG.guild_of_chain, run under lua.exe, each
+    chain asked with its owner's flavour tag (`owner`, {chain: tag}; none: no tag)."""
     import subprocess
     import tempfile
+    owner = owner or {}
     lua = io.open(MODEL_LUA, encoding="utf-8").read()
-    theme = re.search(r"^GG\.BUILDING_THEME = \{.*?\n\}", lua, re.S | re.M)
-    fn = re.search(r"^function GG\.guild_of_chain\(chain\)\n.*?\nend\n", lua, re.S | re.M)
-    if not theme or not fn:
-        raise RuntimeError("GG.BUILDING_THEME or GG.guild_of_chain not found in " + MODEL_LUA)
-    prog = ("GG = {}\n" + theme.group(0) + "\n" + fn.group(0)
-            + "for c in io.lines() do io.write((GG.guild_of_chain(c) or '-') .. '\\n') end\n")
+    parts = [re.search(p, lua, re.S | re.M) for p in (
+        r"^GG\.BUILDING_THEME = \{.*?\n\}",
+        r"^GG\.BUILDING_THEME_RACE = \{.*?\n\}",
+        r"^function GG\.guild_of_chain\(chain, tag\)\n.*?\nend\n",
+        r"^function GG\.longest_token\(chain, theme\)\n.*?\nend\n")]
+    if not all(parts):
+        raise RuntimeError("GG.BUILDING_THEME(_RACE), GG.guild_of_chain or GG.longest_token "
+                           "not found in " + MODEL_LUA)
+    prog = ("GG = {}\n" + "\n".join(p.group(0) for p in parts)
+            + "for line in io.lines() do\n"
+            + "  local c, t = string.match(line, '^(.-)\\t(.*)$')\n"
+            + "  if t == '-' then t = nil end\n"
+            + "  io.write((GG.guild_of_chain(c, t) or '-') .. '\\n')\nend\n")
+    chains = list(chains)
+    lines = ["%s\t%s" % (c, owner.get(c, "-")) for c in chains]
     fd, path = tempfile.mkstemp(suffix=".lua")
     try:
         with os.fdopen(fd, "w") as fh:
             fh.write(prog)
-        res = subprocess.run([LUA_EXE, path], input="\n".join(chains) + "\n",
+        res = subprocess.run([LUA_EXE, path], input="\n".join(lines) + "\n",
                              capture_output=True, text=True, check=True)
     finally:
         os.remove(path)
@@ -3923,16 +5343,34 @@ def check_built_effects():
     except Exception as exc:                                   # noqa: BLE001
         return ["cannot build the building-card rows: %r" % (exc,)]
     chain_of = {r["level_name"]: r["chain"] for r in live_rows("building_levels")}
+    # THE NUMBER THE LINE PRINTS IS WHAT THE SCRIPT PAYS: each row's value is built_rep of
+    # its level, and built_rep is GG.on_building's own formula, read out of the Lua.
+    level_of = {r["level_name"]: r["level"] for r in live_rows("building_levels")}
+    for r in t["building_effects_junction"]:
+        want = "%d.0000" % built_rep(level_of[r["building"]])
+        if r["value"] != want:
+            out.append("%s prints %s but GG.on_building pays %s"
+                       % (r["building"], r["value"], want))
+    src = io.open(MODEL_LUA, encoding="utf-8").read()
+    for need in ("if tier < 1 then tier = 1 end", "if tier > 10 then tier = 10 end",
+                 '(GG.setting("rate_overseers") or %d) * tier'
+                 % RATES["overseers"]["per_building_level"],
+                 "rate_overseers = %d," % RATES["overseers"]["per_building_level"]):
+        if need not in src:
+            out.append("GG.on_building no longer reads %r, so built_rep (the number every "
+                       "building card prints) may not be what it pays" % need)
     chains = sorted({chain_of[r["building"]] for r in t["building_effects_junction"]})
+    owner = covered_chains()
     try:
-        lua = _lua_guilds_of(chains)
+        lua = _lua_guilds_of(chains, owner)
     except Exception as exc:                                   # noqa: BLE001
         return ["cannot run the shipped GG.guild_of_chain: %r" % (exc,)]
-    theme = building_theme()
+    theme, race = building_theme(), building_theme_race()
     for c in chains:
-        if guild_of_chain(c, theme) != lua[c]:
+        mine = guild_of_chain(c, theme, race.get(owner.get(c)))
+        if mine != lua[c]:
             out.append("chain %s: the card would name %s and the script pays %s"
-                       % (c, guild_of_chain(c, theme), lua[c]))
+                       % (c, mine, lua[c]))
     for r in t["building_effects_junction"]:
         g = lua[chain_of[r["building"]]] or "overseers"
         if not r["effect"].startswith(BUILT_EFFECT % (g, "")):
@@ -3945,6 +5383,10 @@ def check_built_effects():
     for k in sorted(keys - described):
         out.append("effect %s has no effects_description_ loc, so the card draws an "
                    "empty line" % k)
+    for r in t["loc"]:
+        if r["text"].count("%n") + r["text"].count("%+n") > 1:
+            out.append("%s has two value placeholders: the engine fills only the first and "
+                       "prints the second as '%%n'" % r["key"])
     pairs = [(r["building"], r["effect"]) for r in t["building_effects_junction"]]
     if len(pairs) != len(set(pairs)):
         out.append("duplicate building_effects_junction rows - the game drops the table")
@@ -4175,7 +5617,7 @@ def bounty_buildings():
     for r in levels:
         if r["chain"] in owner and not r["level_name"].endswith("_ruin"):
             by_chain.setdefault(r["chain"], []).append(r)
-    lua = _lua_guilds_of(sorted(by_chain))
+    lua = _lua_guilds_of(sorted(by_chain), owner)
     variants = live_rows("building_culture_variants")
     superchain = {r["key"]: r["building_superchain"] for r in live_rows("building_chains")}
     open_chains = chains_open_to_a_race()
@@ -4443,11 +5885,11 @@ def check_promotion_text():
     out = []
     for tag in FLAVOURS:
         for row in _build_one(tag)["loc"]:
-            m = re.match(r"message_event_text_text_derpy_gg_rank_\w+_(\d)_primary$",
+            m = re.match(r"message_event_text_text_derpy_gg_rank_([a-z]+)_(\d)_primary(_hall)?$",
                          row["key"])
             if not m:
                 continue
-            r = int(m.group(1))
+            g, r = m.group(1), int(m.group(2))
             at = [s for s in SERVICES if s["rank"] == r]
             if not at:
                 want = "There is no higher rank."
@@ -4458,6 +5900,25 @@ def check_promotion_text():
             if want not in row["text"]:
                 out.append("%s%s reads %r - rank %d should say %r"
                            % (row["key"], tag, row["text"], r, want))
+            # The hall line lives in _primary_hall alone: plain _primary is what a
+            # campaign with guild_halls off reads.
+            says = "You may now raise a " in row["text"]
+            if m.group(3) and not (tag in HALL_TAGS and r in HALL_RANK[:2]):
+                out.append("%s%s: a hall promotion key for a rank that opens no hall"
+                           % (row["key"], tag))
+            elif m.group(3):
+                hall = hall_name(g, HALL_RANK.index(r), tag)
+                if "You may now raise a %s." % hall not in row["text"]:
+                    out.append("%s%s does not say which hall rank %d opens"
+                               % (row["key"], tag, r))
+            elif says:
+                out.append("%s%s promises a hall with guild_halls off - that line "
+                           "belongs in _primary_hall" % (row["key"], tag))
+        hall_keys = {row["key"] for row in _build_one(tag)["loc"]
+                     if row["key"].endswith("_primary_hall")}
+        if tag in HALL_TAGS and len(hall_keys) != len(GUILDS) * 2:
+            out.append("%s: %d hall promotion keys, want %d (two hall ranks per guild)"
+                       % (tag or "chd", len(hall_keys), len(GUILDS) * 2))
     return out
 
 
@@ -4604,7 +6065,8 @@ def check_presets():
     # One nesting level only, which is all this table has: `name = { ... },`
     presets = set(re.findall(r"(?m)^    ([a-z_]+) = \{", block.group(1)))
 
-    drops = set(re.findall(r'add_dropdown_value\("([a-z_]+)"', mct))
+    # The DIFFICULTY dropdown's values only: the file has other dropdowns (Panel size).
+    drops = set(re.findall(r'o_preset:add_dropdown_value\("([a-z_]+)"', mct))
     custom = "custom"
     if custom not in drops:
         out.append("the MCT dropdown offers no %r value, so the player can never reach "
@@ -4850,11 +6312,12 @@ def check_race_keys(lua=None):
 # guild each pays, and the Log line each writes is built from the route key.
 EARN_ROUTES = {"caravan": "brass", "grudges": "immortals", "reclaimed": "immortals",
                "motherland": "daemonsmiths", "chivalry": "immortals",
-               "captives": "slavers", "court": "khanate"}
+               "captives": "slavers", "court": "khanate", "undercity": "khanate"}
 EARN_OF = {"wh3_dlc23_chd_chaos_dwarfs": "caravan", "wh3_main_cth_cathay": "caravan",
            "wh_main_dwf_dwarfs": "grudges", "wh_main_emp_empire": "reclaimed",
            "wh3_main_ksl_kislev": "motherland", "wh_main_brt_bretonnia": "chivalry",
-           "wh2_main_def_dark_elves": "captives", "wh2_main_hef_high_elves": "court"}
+           "wh2_main_def_dark_elves": "captives", "wh2_main_hef_high_elves": "court",
+           "wh2_main_skv_skaven": "undercity"}
 
 
 # EACH RACE BENDS ONE RULE, mirrored from GG.TWISTS (whole percentages).
@@ -4867,6 +6330,7 @@ TWISTS = {
     "wh3_main_cth_cathay": {"rate_rivalry": 50},
     "wh2_main_def_dark_elves": {"rate_rivalry": 150, "hostile_price": 75},
     "wh2_main_hef_high_elves": {"favour_cap": 150},
+    "wh2_main_skv_skaven": {"rate_rivalry": 150, "demand_penalty": 0},
 }
 
 # EACH RACE'S OWN WORDS for its page and its cards: the label on a race card, how its
@@ -4878,8 +6342,8 @@ RACE_TEXT = {
          "twist": ("Hashut's tithe", "the guilds make demands more often, and a demand "
                    "you pay is worth half again as much.")},
     "_emp": {"label": "Empire",
-             "earn": "Taking a settlement in the lands of the old Empire, from anyone who "
-                     "is not of the Empire, pays the {g}.",
+             "earn": "Taking a settlement in the old Empire from a faction that "
+                     "is not of the Empire pays the {g}.",
              "twist": ("Petty rivalries", "earning with a guild takes half again as much "
                        "from its rival.")},
     "_dwf": {"label": "Dwarf",
@@ -4887,7 +6351,7 @@ RACE_TEXT = {
              "twist": ("Never forgotten", "a bounty you fail costs half again as much "
                        "Reputation, and a demand you let expire costs twice as much.")},
     "_brt": {"label": "Bretonnia",
-             "earn": "Chivalry you earn pays the {g}, one Reputation for every five "
+             "earn": "Earning Chivalry pays the {g}: one Reputation for every five "
                      "points.",
              "twist": ("Noblesse oblige", "a demand you pay is worth half again as much, "
                        "and one you let expire costs twice as much.")},
@@ -4897,17 +6361,20 @@ RACE_TEXT = {
                        "rival.")},
     "_ksl": {"label": "Kislev",
              "earn": "Beginning a Motherland ritual pays the {g}.",
-             "twist": ("Hardy folk", "the upkeep every guild charges is halved.")},
+             "twist": ("Hardy folk", "each guild charges half the upkeep.")},
     "_def": {"label": "Dark Elf",
-             "earn": "Slaves taken in battle or by raiding pay the {g}, one Reputation for "
+             "earn": "Slaves taken in battle or raids pay the {g}: one Reputation for "
                      "every twenty.",
              "twist": ("Cutthroat", "earning with a guild takes half again as much from "
                        "its rival, and services aimed at your enemies cost a quarter "
                        "less.")},
     "_hef": {"label": "High Elf",
-             "earn": "A court action that succeeds pays the {g}.",
+             "earn": "A successful court action pays the {g}.",
              "twist": ("Ancient houses", "each guild lets you hold half again as much "
-                       "favour.")},
+                       "Favour.")},
+    "_skv": {"label": "Skaven", "earn": "Founding an under-city pays the {g}.",
+             "twist": ("Treachery", "earning with a guild takes half again as much from its "
+                       "rival, and a demand you let expire costs nothing.")},
     "_gen": {"label": "Own", "earn": None, "twist": None},
 }
 
@@ -5006,6 +6473,299 @@ def check_extra_effects():
     return out
 
 
+def _race_roster(avail_set):
+    """Every unit a vanilla building in this availability set trains."""
+    chains_r = {r["building_chain"] for r in live_rows("building_chain_availability_sets")
+                if r["id"] == avail_set}
+    lv_chain = {r["level_name"]: r["chain"] for r in live_rows("building_levels")}
+    return {r["unit"] for r in live_rows("building_units_allowed")
+            if lv_chain.get(r["building"]) in chains_r}
+
+
+def _dlc_problems(tag, units, fallbacks, avail_set):
+    """Spec §8.2: a hall unit not every player of the race owns needs a base-game fallback
+    that every such player does own and the race's vanilla buildings train."""
+    out = []
+    roster = _race_roster(avail_set)
+    for g, u in units.items():
+        if u is None:                     # a hall with no unit (HALL_EXTRA)
+            continue
+        if _owned_by_race(u, tag):
+            continue
+        fb = fallbacks.get(u)
+        if not fb:
+            out.append("%s%s: %s needs a pack the race does not come with and has no "
+                       "HALL_FALLBACK entry" % (g, tag, u))
+        elif not _owned_by_race(fb, tag):
+            out.append("%s%s: fallback %s of %s is itself a pack unit" % (g, tag, fb, u))
+        elif fb not in roster:
+            out.append("%s%s: fallback %s is on no vanilla %s building" % (g, tag, fb, avail_set))
+    return out
+
+
+def _roster_problems(rows, tag):
+    """Each building_units_allowed row of THIS race's halls must name a unit one of the
+    race's vanilla buildings trains."""
+    out = []
+    R = HALL_RACES[tag]
+    roster = _race_roster(R["set"])
+    for r in rows:
+        if hall_tag_of(r["building"]) == tag and r["unit"] not in roster:
+            out.append("%s unlocks %s, which no %s building does in vanilla"
+                       % (r["building"], r["unit"], FLAVOURS[tag]["culture"]))
+    return out
+
+
+def _desc_problems(ht):
+    """Every hall level's description names exactly the units on its building_units_allowed
+    rows (in its "Trains" clause), says nothing of Trains on a level with none, and a level
+    holding a pack unit without its fallback says the unit needs the pack."""
+    out = []
+    on = {}
+    for r in ht["building_units_allowed"]:
+        on.setdefault(r["building"], []).append(r["unit"])
+    desc = {r["key"]: r["text"] for r in ht["loc"]}
+    for r in ht["building_levels"]:
+        lv = r["level_name"]
+        tag = hall_tag_of(lv)
+        text = desc["building_short_description_texts_short_description_" + lv]
+        clause = text.split("Trains", 1)[1] if "Trains" in text else None
+        units = on.get(lv, [])
+        if not units:
+            if clause is not None:
+                out.append("%s has no unit but its description says Trains" % lv)
+            continue
+        if clause is None:
+            out.append("%s trains units but its description names none" % lv)
+            continue
+        g = lv.split("_")[3]
+        unit = HALL_RACES[tag]["units"][g]
+        for u in {unit, HALL_FALLBACK.get(unit)} - {None}:
+            if (unit_name(u) in clause) != (u in units):
+                out.append("%s: description %s %s, which its rows %s" % (
+                    lv, "names" if u not in units else "omits", unit_name(u),
+                    "lack" if u not in units else "hold"))
+        fb = HALL_FALLBACK.get(unit)
+        if unit in units and fb not in units and not _owned_by_race(unit, tag) \
+                and "if you own the DLC" not in clause:
+            out.append("%s holds %s, a pack unit, with no fallback and does not say so"
+                       % (lv, unit))
+    return out
+
+
+def _set_problems(ht):
+    """A faction of a hall race whose OWN availability set replaces the race set (Lokhir,
+    Aislinn) never sees a hall unless that set carries every hall chain of its race too.
+    Rows are matched to a race by their culture column, else their sub_culture's, else their
+    faction's; the prologue's rows (non-empty campaign column) are skipped."""
+    sub = {r["subculture"]: r["culture"] for r in live_rows("cultures_subcultures")}
+    fac = {r["key"]: sub.get(r["subculture"], "") for r in live_rows("factions")}
+    tag_of = {FLAVOURS[t]["culture"]: t for t in HALL_TAGS}
+    have = {(r["building_chain"], r["id"]) for r in ht["building_chain_availability_sets"]}
+    out = []
+    for r in live_rows("building_chain_availabilities"):
+        if r["campaign"] or r["set_id"] in HALL_SET_EXCEPTIONS:
+            continue
+        tag = tag_of.get(r["culture"] or sub.get(r["sub_culture"], "")
+                         or fac.get(r["faction"], ""))
+        if tag is None:
+            continue
+        missing = [g for g in GUILDS if (hall_chain(g, tag), r["set_id"]) not in have]
+        if missing:
+            out.append("availability set %s (%s) lacks the %s halls %s - add it to "
+                       "HALL_RACES[%r]['extra_sets'] or HALL_SET_EXCEPTIONS"
+                       % (r["set_id"], r["faction"] or r["culture"], tag or "chd",
+                          ", ".join(missing), tag))
+    return out
+
+
+def _hall_set_problems(ht):
+    """The Guild Halls tab, one building set per race. Every hall chain is junctioned to its
+    race's own set and to nothing else; the set is shown in the UI, its icon is a lowercase
+    FULL path to a staged file (a bare stem or `placeholder` draws the magenta square), and
+    it has a name and a description in loc."""
+    out = []
+    sets = {r["key"]: r for r in ht["building_sets"]}
+    names = {r["key"] for r in ht["loc"]}
+    for tag in HALL_TAGS:
+        k = hall_set_key(tag)
+        row = sets.get(k)
+        if row is None:
+            out.append("race %r has no building_sets row %s" % (tag, k))
+            continue
+        if row["show_in_ui"] != "true":
+            out.append("%s is not shown in the UI - the tab never draws" % k)
+        icon = row["icon"]
+        path = os.path.join("Modding Files", "pack", *icon.split("/"))
+        if icon != icon.lower() or not icon.startswith("ui/buildings/icons/")                 or not icon.endswith(".png") or not os.path.isfile(path):
+            out.append("%s icon %r is not a lowercase full path to a staged file (%s) - "
+                       "run tools/make_guild_icons.py" % (k, icon, path))
+        for pre in ("building_sets_onscreen_name_", "building_sets_onscreen_description_"):
+            if pre + k not in names:
+                out.append("%s%s is missing from loc - the tab draws no %s" % (
+                    pre, k, "title" if "name" in pre else "tooltip"))
+    by_chain = {}
+    for r in ht["building_set_to_building_junctions"]:
+        by_chain.setdefault(r["building_chain"], []).append(r["building_set"])
+    for r in ht["building_chains"]:
+        want = hall_set_key(hall_tag_of(r["key"]))
+        got = by_chain.get(r["key"], [])
+        if got != [want]:
+            out.append("%s is filed under %s, not only its race's set %s - a set that is "
+                       "not a Guild Halls set shows it on the wrong tab or not at all"
+                       % (r["key"], ", ".join(got) or "nothing", want))
+    return out
+
+
+def _stype_problems(ht):
+    """A race whose own chains are mostly tied to settlement types (the Chaos Dwarfs' factory,
+    outpost and tower) offers a slot only the chains listed for its type: every hall chain
+    needs a row for each such type, or it is buildable nowhere. A type the race's chains do
+    not mostly use is an occupation type (Norscan altars, daemon realms) and a hall must not
+    carry it - a chain listed for some types is no longer generic."""
+    import collections
+    out = []
+    avail = collections.defaultdict(set)
+    for r in live_rows("building_chain_availability_sets"):
+        avail[r["building_chain"]].add(r["id"])
+    st = collections.defaultdict(set)
+    for r in live_rows("settlement_type_to_building_chains_junctions"):
+        if not r["exclude"]:
+            st[r["building_chain"]].add(r["settlement_type"])
+    have = collections.defaultdict(set)
+    for r in ht["settlement_type_to_building_chains_junctions"]:
+        have[r["building_chain"]].add(r["settlement_type"])
+    for tag in HALL_TAGS:
+        R = HALL_RACES[tag]
+        sets = {R["set"]} | set(R.get("extra_sets", []))
+        own = [c for c, s in avail.items() if s and s <= sets]
+        used = collections.Counter(t for c in own for t in st.get(c, ()))
+        need = {t for t, n in used.items() if n * 2 > len(own)}
+        for g in GUILDS:
+            ch = hall_chain(g, tag)
+            for t in sorted(need - have[ch]):
+                out.append("%s has no settlement type %s, which %d of the race's %d own chains "
+                           "carry - no settlement of that type will offer it"
+                           % (ch, t, used[t], len(own)))
+            for t in sorted(have[ch] - need):
+                out.append("%s is tied to settlement type %s, which the race's own chains do "
+                           "not mostly use - it would vanish from every other settlement" % (ch, t))
+    return out
+
+
+def check_halls(_break=None):
+    """What a hall needs to appear, unlock and be honest - each fails silently in game."""
+    out = []
+    ht = hall_tables()
+    if _break == "placement":
+        ht["building_chain_availability_sets"] = []
+    if _break == "instance":
+        ht["building_levels"][0]["building_instance_key"] = "derpy_gg_hall_brass"
+    if _break == "unit":
+        ht["building_units_allowed"][0]["unit"] = "wh_main_emp_inf_greatswords"
+    if _break == "value":
+        for r in ht["building_effects_junction"]:
+            if r["effect"] == HALL_EFFECT["khanate"][0]:
+                r["value"] = "9"
+    chains = [r["key"] for r in ht["building_chains"]]
+    for r in ht["building_culture_variants"]:
+        icon = os.path.join("Modding Files", "pack", "ui", "buildings", "icons",
+                            r["icon"] + ".png")
+        if r["icon"] != r["icon"].lower() or not os.path.isfile(icon):
+            out.append("%s draws icon %s, which is not a lowercase file at %s - run "
+                       "tools/make_guild_icons.py" % (r["building"], r["icon"], icon))
+    for table, col in (("building_chain_set_items", "chain"),
+                       ("building_set_to_building_junctions", "building_chain"),
+                       ("building_chain_availability_sets", "building_chain"),
+                       ("cai_construction_system_building_values", "building_chain")):
+        have = {r[col] for r in ht[table]}
+        for c in chains:
+            if c not in have:
+                out.append("%s has no %s row - the chain never appears, or the AI never "
+                           "builds it" % (c, table))
+    inst = [r for r in ht["building_instances"] if r["key"] == HALL_INSTANCE]
+    if len(inst) != 1 or inst[0]["num_instances"] != "1":
+        out.append("%s is not one row capped at 1 - two halls could share a settlement"
+                   % HALL_INSTANCE)
+    for r in ht["building_levels"]:
+        if r["building_instance_key"] != HALL_INSTANCE:
+            out.append("%s names instance key %r, not %s - it escapes the one-per-settlement cap"
+                       % (r["level_name"], r["building_instance_key"], HALL_INSTANCE))
+    if _break == "panel":
+        ht["building_set_to_building_junctions"][0]["building_set"] = \
+            "wh3_dlc29_set_dwf_military_support_partial"
+    if _break == "score":
+        ht["cai_construction_system_building_values"][0].update(
+            score_or_score_start_inclusive="0", score_end_inclusive="0")
+    out += _set_problems(ht)
+    if _break == "set":      # a chain filed under CA's set: the tab it was in before
+        ht["building_set_to_building_junctions"][1]["building_set"] =             "wh3_dlc23_set_chd_military_support"
+    if _break == "seticon":
+        ht["building_sets"][0]["icon"] = "placeholder"
+    if _break == "seticon_case":
+        ht["building_sets"][0]["icon"] = ht["building_sets"][0]["icon"].replace("derpy", "Derpy")
+    if _break == "setloc":
+        ht["loc"] = [r for r in ht["loc"] if not r["key"].startswith(
+            "building_sets_onscreen_name_derpy_gg_set_guild_halls")]
+    out += _hall_set_problems(ht)
+    if _break == "stype":
+        ht["settlement_type_to_building_chains_junctions"] = [
+            r for r in ht["settlement_type_to_building_chains_junctions"]
+            if r["settlement_type"] != "wh3_dlc23_chd_factory"]
+    out += _stype_problems(ht)
+    for r in ht["cai_construction_system_building_values"]:
+        if not _cai_scores(r):
+            out.append("%s's AI values row scores 0 - the AI never builds it"
+                       % r["building_chain"])
+    # Units: on that race's vanilla roster (fallbacks included), never a DLC unit alone.
+    # The "dlc" break empties the fallback table, so the REAL pick of every race is unguarded.
+    fallbacks = {} if _break == "dlc" else HALL_FALLBACK
+    for tag in HALL_TAGS:
+        out += _roster_problems(ht["building_units_allowed"], tag)
+        out += _dlc_problems(tag, HALL_RACES[tag]["units"], fallbacks,
+                             HALL_RACES[tag]["set"])
+    if _break == "desc":     # the pre-fix text: a DLC-only level promising the unit outright
+        for r in ht["loc"]:
+            if r["key"].endswith("short_description_derpy_gg_hall_khanate_0_cth"):
+                r["text"] = ("Pays Reputation to the Crow Society each turn. Lowers the price "
+                             "of their services. Trains Onyx Crowmen.")
+    out += _desc_problems(ht)
+    # Effect values: within 1.5x of vanilla's largest magnitude on the same effect and scope.
+    biggest = {}
+    for r in live_rows("building_effects_junction"):
+        k = (r["effect"], r["effect_scope"])
+        biggest[k] = max(biggest.get(k, 0), abs(float(r["value"])))
+    for r in ht["building_effects_junction"]:
+        k = (r["effect"], r["effect_scope"])
+        if r["effect"].startswith("derpy_gg_built_"):
+            continue
+        if k not in biggest:
+            out.append("%s pairs %s with %s, which vanilla never does" % ((r["building"],) + k))
+        elif abs(float(r["value"])) > biggest[k] * VALUE_RANGE_TOLERANCE:
+            out.append("%s puts %s on %s, over 1.5x vanilla's largest (%s)"
+                       % (r["building"], r["value"], k[0], biggest[k]))
+    return out
+
+
+def check_hall_mirror(lua=None):
+    """GG.HALL_RANK / HALL_REP / HALL_OFF_MAX and the HALL_TAGS set must equal the generator's."""
+    lua = lua if lua is not None else io.open(MODEL_LUA, encoding="utf-8").read()
+    out = []
+    for name, want in (("HALL_RANK", HALL_RANK), ("HALL_REP", HALL_REP)):
+        m = re.search(r"^GG\.%s = \{([^}]*)\}" % name, lua, re.M)
+        got = [int(x) for x in re.findall(r"-?\d+", m.group(1))] if m else None
+        if got != want:
+            out.append("GG.%s is %r, the generator says %r" % (name, got, want))
+    m = re.search(r"^GG\.HALL_OFF_MAX = (\d+)", lua, re.M)
+    if not m or int(m.group(1)) != HALL_OFF_MAX:
+        out.append("GG.HALL_OFF_MAX disagrees with the generator")
+    m = re.search(r"^GG\.HALL_TAGS = \{([^}]*)\}", lua, re.M)
+    tags = sorted(re.findall(r'\["([^"]*)"\] = true', m.group(1))) if m else None
+    if tags != sorted(HALL_TAGS):
+        out.append("GG.HALL_TAGS is %r, the generator builds %r" % (tags, HALL_TAGS))
+    return out
+
+
 def check():
     """Refuses to write on anything that fails silently in game."""
     out = []
@@ -5032,6 +6792,8 @@ def check():
     out += check_race_resources()
     out += check_race_keys()
     out += check_race_mirror()
+    out += check_temple_routes()
+    out += check_undercity_levels()
     out += check_no_redefinition()
     out += check_rival_mirror()
     out += check_help_pages()
@@ -5047,6 +6809,8 @@ def check():
     out += check_player_scope()
     out += check_building_theme()
     out += check_built_effects()
+    out += check_halls()
+    out += check_hall_mirror()
     out += check_bounty_data()
     out += check_live_references()
     out += check_presets()
@@ -5074,7 +6838,11 @@ def check():
             vanilla_range[pair] = (max(hi, v), n + 1)
         pairs_to_check = [(g, k, sc) for g, (k, sc) in RANK_EFFECTS.items()]
         pairs_to_check += [(g, x[0], x[1]) for g, x in RANK_EFFECTS_EXTRA.items()]
+        pairs_to_check += [("temple" + t, L["rank"][0], L["rank"][1])
+                           for t, L in TEMPLE_LORE.items() if "rank" in L]
         pairs_to_check += [("patron", k, sc) for k, sc, _v in PATRON_EFFECTS]
+        pairs_to_check += [("seat_" + g + t, seat_effect(g, t)[0], seat_effect(g, t)[1])
+                           for g in GUILDS for t in HALL_TAGS]
         pairs_to_check += [(s["key"], ek, sc) for s in SERVICES for t in FLAVOURS
                            for ek, sc, _v in service_effects(s, t)]
         # A minted effect is judged by its donor's pairs: same scope or nothing.
@@ -5090,15 +6858,24 @@ def check():
         # the player harder the more they earn, drawn in red, with nothing to catch it.
         good = dict((r["effect"], str(r.get("is_positive_value_good")).lower() == "true")
                     for r in eff_rows)
-        for g, (k, sc) in RANK_EFFECTS.items():
+        for g, t in [(g, "") for g in GUILDS] + [("temple", t) for t in TEMPLE_LORE]:
+            k = rank_effect(g, t)[0]
             if k not in good:
                 continue
             want = 1 if good[k] else -1
-            if EFFECT_GOOD_SIGN.get(g) != want:
-                out.append("%s: %s has is_positive_value_good=%s so the value must be "
-                           "%s, but EFFECT_GOOD_SIGN is %+d"
-                           % (g, k, good[k], "positive" if want > 0 else "negative",
-                              EFFECT_GOOD_SIGN.get(g, 0)))
+            if good_sign(g, t) != want:
+                out.append("%s%s: %s has is_positive_value_good=%s so the value must be "
+                           "%s, but its sign is %+d"
+                           % (g, t, k, good[k], "positive" if want > 0 else "negative",
+                              good_sign(g, t)))
+        # THE SEAT'S SIGN is the hall's own, so it must agree with the effect's flag:
+        # construction cost is the one hall effect where negative is the reward.
+        for g in GUILDS:
+            for t in HALL_TAGS:
+                k, _sc, v = seat_effect(g, t)
+                if k in good and (v > 0) != good[k]:
+                    out.append("seat %s%s: %s has is_positive_value_good=%s, but the Seat "
+                               "pays %+d" % (g, t, k, good[k], v))
         for k, _sc, v in PATRON_EFFECTS:
             if k in good and good[k] and v <= 0:
                 out.append("patron effect %s is is_positive_value_good, so %g makes "
@@ -5268,6 +7045,25 @@ TSV_META = {
     "building_effects_junction": ("building_effects_junction_tables", 0),
     # MINTED_EFFECTS' unit-set binding. 0, what CA's own file declares.
     "effect_bonus_value_ids_unit_sets": ("effect_bonus_value_ids_unit_sets_tables", 0),
+    # GUILD HALLS (2026-10-04). Versions read from CA's db.pack with read_vanilla_db.
+    "building_superchains": ("building_superchains_tables", 0),
+    "building_chains": ("building_chains_tables", 10),
+    "building_levels": ("building_levels_tables", 3),
+    "building_upgrades_junction": ("building_upgrades_junction_tables", 0),
+    "building_culture_variants": ("building_culture_variants_tables", 5),
+    "building_chain_set_items": ("building_chain_set_items_tables", 0),
+    "building_set_to_building_junctions": ("building_set_to_building_junctions_tables", 0),
+    "building_chain_availability_sets": ("building_chain_availability_sets_tables", 0),
+    # THE GUILD HALLS TAB (2026-10-04): one building_sets row per hall race. Version 5, read
+    # off CA's db.pack with read_vanilla_db.
+    "building_sets": ("building_sets_tables", 5),
+    "building_instances": ("building_instances_tables", 0),
+    # Version 1, read off CA's db.pack with read_vanilla_db 2026-10-04.
+    "settlement_type_to_building_chains_junctions":
+        ("settlement_type_to_building_chains_junctions_tables", 1),
+    "building_units_allowed": ("building_units_allowed_tables", 4),
+    "cai_construction_system_building_values":
+        ("cai_construction_system_building_values_tables", 0),
     "loc": ("Loc", 1),
 }
 PACK_NAME = "derpy_great_guilds"
@@ -5321,8 +7117,30 @@ def write_tsvs(outdir):
 
 
 def selftest():
-    assert len(GUILDS) == 6, "six guilds"
-    assert len(set(GUILDS)) == 6, "guild keys unique"
+    assert len(GUILDS) == 7, "seven guilds"
+    # THE UNDER-CITY CHECK MEASURES: a set the Lua's mark misses, a set it catches wrongly
+    # and a Skaven level that will not split are each reported, off CA-shaped rows.
+    fake = {
+        "slot_sets": [{"key": "a_slot_set_underempire", "type": "UNDEREMPIRE"},
+                      {"key": "b_slot_set_hidden", "type": "UNDEREMPIRE_ENDGAME"},
+                      {"key": "c_slot_set_underempire_ally", "type": "ALLIED"}],
+        "slot_set_items": [{"slot_template": "t", "slot_set": "a_slot_set_underempire"}],
+        "slot_template_permitted_building_chains": [
+            {"slot_template": "t", "chain_set": "cs", "chain": "", "super_chain": ""}],
+        "building_chain_set_items": [{"set": "cs", "chain": "skv_lab", "super_chain": ""},
+                                     {"set": "cs", "chain": "", "super_chain": "sup"},
+                                     {"set": "cs", "chain": "kho_cult", "super_chain": ""}],
+        "building_chains": [{"key": "skv_deep", "building_superchain": "sup"}],
+        "building_levels": [{"chain": "skv_lab", "level_name": "skv_lab_1"},
+                            {"chain": "skv_deep", "level_name": "skv_deep_2a"},
+                            {"chain": "kho_cult", "level_name": "kho_cult_x"}]}
+    got = check_undercity_levels(lambda t: fake[t],
+                                 {"skv_lab": "_skv", "skv_deep": "_skv"})
+    assert any("b_slot_set_hidden" in g for g in got), got
+    assert any("c_slot_set_underempire_ally" in g for g in got), got
+    assert any("skv_deep_2a" in g for g in got), got
+    assert not any("kho_cult" in g or "skv_lab_1" in g for g in got), got
+    assert len(set(GUILDS)) == 7, "guild keys unique"
     assert all(g.islower() and g.isalpha() for g in GUILDS), "keys lowercase alpha"
     assert RANK_THRESHOLDS == sorted(RANK_THRESHOLDS), "thresholds ascend"
     assert RANK_THRESHOLDS[0] == 0, "rank 1 starts at zero"
@@ -5351,8 +7169,8 @@ def selftest():
         found = check_no_redefinition({"zzz_derpy_guilds.lua": lua, "x.lua": dup})
         assert any(f.startswith("GG.refund is defined") for f in found), (dup, found)
     keys = [bundle_key(g, r) for g in GUILDS for r in range(2, 6)]
-    assert len(keys) == 24, "24 rank bundles"
-    assert len(set(keys)) == 24, "bundle keys unique"
+    assert len(keys) == 28, "28 rank bundles"
+    assert len(set(keys)) == 28, "bundle keys unique"
     assert all(k == k.lower() for k in keys), "bundle keys lowercase"
     # THE CHAOS DWARF PASS. Every count below is one flavour's; the block at the end of
     # this function holds build(), which ships all of them, to the same shape.
@@ -5373,7 +7191,7 @@ def selftest():
     assert not check_bounties(), check_bounties()
     eb = tables["effect_bundles"]
     rank_rows = [r for r in eb if r["key"].startswith("derpy_gg_rank_")]
-    assert len(rank_rows) == 24, "24 rank bundle rows, got %d" % len(rank_rows)
+    assert len(rank_rows) == 28, "28 rank bundle rows, got %d" % len(rank_rows)
     assert all(r["is_global_effect"] == "true" for r in eb), "is_global_effect must be true"
     # EVERY bundle is faction-target EXCEPT the patron, which lands on one army, and the
     # pools' army and settlement services (2026-09-29), which land where their kind says.
@@ -5397,7 +7215,8 @@ def selftest():
     # The patron bundle carries two effects, so it is one bundle and two junctions.
     patron_extra = len(PATRON_EFFECTS) - 1
     # And so does a service that carries two effects - one bundle, one junction each.
-    service_extra = sum(len(s["effects"]) - 1 for s in SERVICES
+    # The Chaos Dwarf pass's own effects: a for_tag override may carry fewer (Consecration).
+    service_extra = sum(len(service_effects(s, "")) - 1 for s in SERVICES
                         if s.get("effects") and drawn_in(s, ""))
     want = len(eb) + extra_rows + patron_extra + service_extra
     assert len(j) == want, (
@@ -5416,7 +7235,9 @@ def selftest():
         "advancement_stage must match vanilla's 16351-of-16430 default"
     # Except the spec's three (§5): vanilla has no visible pair for Sow Discord, Enforcers
     # or Web of Whispers, so their line is hidden and the bundle text states the number.
-    unseen_ok = set(service_bundle_key(k) for k in ("sow_discord", "enforcers", "web_of_whispers"))
+    # The temple's three settlement services (2026-10-04) for the same reason.
+    unseen_ok = set(service_bundle_key(k) for k in ("sow_discord", "enforcers", "web_of_whispers",
+                                                    "forge_sermons", "purge_unclean", "anathema"))
     desc = dict((r["key"], r["text"]) for r in tables["loc"])
     for r in j:
         if "unseen" not in r["effect_scope"]:
@@ -5449,9 +7270,9 @@ def selftest():
             # value to substitute and the placeholder renders as itself.
             assert not re.search(r"%[-+]?n", r["text"]),                 "a bundle description has no value to substitute: " + r["key"]
     shared = [s for s in SERVICES if not s.get("race")]
-    assert len(shared) == 54, "54 shared services, got %d" % len(shared)
-    assert len(SERVICES) - len(shared) == 29, (
-        "29 race services, got %d" % (len(SERVICES) - len(shared)))
+    assert len(shared) == 63, "63 shared services, got %d" % len(shared)
+    assert len(SERVICES) - len(shared) == 32, (
+        "32 race services, got %d" % (len(SERVICES) - len(shared)))
     assert len(set(s["key"] for s in SERVICES)) == len(SERVICES), "service keys unique"
     for g in GUILDS:
         mine = [s for s in shared if s["guild"] == g]
@@ -5459,12 +7280,12 @@ def selftest():
         assert sorted(s["rank"] for s in mine) == [2] * 3 + [3] * 3 + [4] * 3, "%s ranks" % g
         assert sorted(s["cost"] for s in mine) == [50] * 3 + [150] * 3 + [400] * 3, "%s costs" % g
     bundled = [s for s in shared if s["kind"] == "bundle"]
-    assert len(bundled) == 34, "34 bundle services, got %d" % len(bundled)
+    assert len(bundled) == 36, "36 bundle services, got %d" % len(bundled)
     minted = [s for s in SERVICES if s.get("effects") and drawn_in(s, "")]
-    assert len(minted) == 34, "34 services with their own effects, got %d" % len(minted)
-    want_eb = 24 + 12 + len(minted) + len(GUILDS) + 1
+    assert len(minted) == 42, "42 services with their own effects, got %d" % len(minted)
+    want_eb = 28 + 12 + len(minted) + len(GUILDS) + 1
     assert len(eb) == want_eb, (
-        "24 rank + 12 service + %d own-effect + %d leadership + 1 patron = %d, got %d"
+        "28 rank + 12 service + %d own-effect + %d leadership + 1 patron = %d, got %d"
         % (len(minted), len(GUILDS), want_eb, len(eb)))
     lead_rows = [r for r in eb if r["key"].startswith("derpy_gg_lead_")]
     assert len(lead_rows) == len(GUILDS), (
@@ -5488,14 +7309,15 @@ def selftest():
     assert len(hostile) == 1, "exactly one outward-facing service, got %d" % len(hostile)
     # ------------------------------------------------------------ the flavours ---
     assert list(FLAVOURS) == ["", "_emp", "_dwf", "_brt", "_cth", "_ksl", "_def", "_hef",
-                             "_gen"], list(FLAVOURS)
+                             "_skv", "_gen"], list(FLAVOURS)
     full = build()
     n = len(FLAVOURS)
     assert len(full["missions"]) == want_rows * n, len(full["missions"])
     # Every bundle once per flavour, except the patron, which is one shared row.
     # Plus each race bundle, once, in its own race's flavour.
     race_minted = sum(1 for s in SERVICES if s.get("race") and s.get("effects"))
-    assert len(full["effect_bundles"]) == (want_eb - 1) * n + 1 + race_minted, \
+    seats = len(GUILDS) * len(HALL_TAGS)           # one Seat bundle per guild per hall race
+    assert len(full["effect_bundles"]) == (want_eb - 1) * n + 1 + race_minted + seats, \
         len(full["effect_bundles"])
     assert len(full["event_feed_message_events"]) == 6 * n
     # The fifth, per flavour, is the transient located warning at 5005 + the offset.
@@ -5511,6 +7333,9 @@ def selftest():
     assert len(rot) == n and all(r["event"] == "scripted_persistent_event"
                                  and r["instant_open"] == "false" for r in rot), rot
     assert idx[FEED_GROUP_ROTATION] == "5006" and idx[FEED_GROUP_ROTATION + "_emp"] == "5016"
+    rank = [r for r in full["event_feed_message_events"]
+            if r["group"].startswith(FEED_GROUP_RANK)]
+    assert len(rank) == n and all(r["instant_open"] == "false" for r in rank), rank
     text = dict((r["key"], r["text"]) for r in full["loc"])
     assert len(text) == len(full["loc"]), "a loc key is emitted twice"
     assert text["derpy_gg_guild_name_brass"] == "The Brass Tablets"
@@ -5543,6 +7368,18 @@ def selftest():
     assert (tag_loc_key("message_event_text_text_derpy_gg_demand_fail_title", "_emp")
             == "message_event_text_text_derpy_gg_demand_fail_emp_title")
     assert tag_loc_key("derpy_gg_guild_name_brass", "_dwf") == "derpy_gg_guild_name_brass_dwf"
+    # TREACHERY'S TEXT (final review, 2026-10-05): an expired Skaven demand costs nothing,
+    # so no Skaven line may say it costs reputation - and the Empire's still does.
+    for _t, _free in (("_skv", True), ("_emp", False)):
+        _loc = dict((r["key"], r["text"]) for r in retag(_build_one(_t), _t)["loc"])
+        _fail = _loc["message_event_text_text_derpy_gg_demand_fail%s_primary" % _t]
+        _court = _loc["derpy_gg_court_help_demand%s" % _t]
+        _help = " ".join(" ".join(p) for p in help_pages(_t))
+        _says = ("fallen" in _fail, "falls" in _court, "Reputation falls" in _help,
+                 # page 1's list of losses and page 5's section; the race page's own
+                 # "a demand you let expire costs nothing" is the rule, and stays.
+                 "demand you let expire, to a" in _help or "#A demand you let expire" in _help)
+        assert _says == ((False,) * 4 if _free else (True,) * 4), (_t, _says)
     # THE FLAVOUR CHECKS MUST BE ABLE TO FAIL, or a clean run proves nothing.
     keep = FLAVOURS["_emp"]["guilds"]["brass"]
     try:
@@ -5588,7 +7425,11 @@ def selftest():
         assert [(r["effect_key"], r["effect_scope"], r["value"]) for r in j] == [
             ("wh_main_effect_force_all_campaign_movement_range", "force_to_force_own", "20")], j
         d = [r for r in t["loc"] if r["key"] == "derpy_gg_service_desc_t_probe"][0]["text"]
-        assert d.startswith("+20% campaign movement for the army you select, for 3 turns."), d
+        # CA's own picture of the effect leads the sentence, as it does in CA's effect
+        # lists (asked for in game, 2026-10-05: "no icons for the effects").
+        assert d.startswith("[[img:ui/campaign ui/effect_bundles/campaign_movement.png]]"
+                            "[[/img]] +20% campaign movement for the army you select, "
+                            "for 3 turns."), d
         # A buyer-side effect at the wrong sign is reported...
         probe["effects"] = [("wh_main_effect_force_all_campaign_movement_range",
                              "force_to_force_own", -20)]
@@ -5682,6 +7523,318 @@ def selftest():
     # The twist mirror measures: a drifted percentage fails it.
     lua_bad = lua.replace("demand_every = 67", "demand_every = 70")
     assert any("TWISTS" in p for p in check_race_mirror(lua_bad)), "a drifted twist slipped by"
+    # GUILD HALLS (spec 2026-10-04-great-guilds-halls-design.md)
+    ht = hall_tables()
+    assert [r["key"] for r in ht["building_superchains"]] == \
+        ["derpy_gg_hall" + t for t in HALL_TAGS]
+    assert sorted(r["key"] for r in ht["building_chains"]) == \
+        sorted(hall_chain(g, t) for g in GUILDS for t in HALL_TAGS)
+    levels = sorted(r["level_name"] for r in ht["building_levels"])
+    assert levels == sorted(hall_key(g, n, t) for g in GUILDS for n in range(3)
+                            for t in HALL_TAGS)
+    assert all(r["building_superchain"] == "derpy_gg_hall" + hall_tag_of(r["key"])
+               for r in ht["building_chains"])
+    by_lv = {r["level_name"]: r for r in ht["building_levels"]}
+    assert by_lv["derpy_gg_hall_brass_0"]["faction_unique"] == "false"
+    assert by_lv["derpy_gg_hall_brass_1"]["faction_unique"] == "true"
+    assert by_lv["derpy_gg_hall_brass_2"]["primary_slot_building_building_level_requirement"] == "4"
+    assert by_lv["derpy_gg_hall_brass_2"]["create_cost"] == "6000"
+    var_icon = {r["building"]: r["icon"] for r in ht["building_culture_variants"]}
+    assert var_icon["derpy_gg_hall_khanate_2_emp"] == "derpy_gg_hall_khanate_2_emp", "per level"
+    assert var_icon["derpy_gg_hall_khanate_2_dwf"] == "derpy_gg_hall_khanate_2_dwf", "per level"
+    assert var_icon["derpy_gg_hall_khanate_2"] == "derpy_gg_hall_khanate_2", "per level"
+    assert var_icon["derpy_gg_hall_khanate_2_brt"] == "derpy_gg_hall_khanate_brt", "per chain"
+    edges ={(r["from"], r["to"]) for r in ht["building_upgrades_junction"]}
+    assert ("derpy_gg_hall_slavers_0", "derpy_gg_hall_slavers_1") in edges and len(edges) == 14 * len(HALL_TAGS)
+    inst = {r["key"]: r["num_instances"] for r in ht["building_instances"]}
+    assert inst["derpy_gg_hall"] == "1", "one guild per settlement rides on this row"
+    assert len(ht["building_chain_set_items"]) == 14 * len(HALL_TAGS)
+    assert {r["id"] for r in ht["building_chain_availability_sets"]} == \
+        {s for t in HALL_TAGS for s in [HALL_RACES[t]["set"]] + HALL_RACES[t].get("extra_sets", [])}
+    assert all(k == k.lower() for t in ht.values() for r in t for k in
+               (r.get("key", ""), r.get("level_name", ""), r.get("building", "")))
+    bej = {(r["building"], r["effect"]): r for r in ht["building_effects_junction"]}
+    assert ("derpy_gg_hall_brass_2", "derpy_gg_built_brass") in bej, "card line"
+    assert bej[("derpy_gg_hall_overseers_2",
+                "wh_main_effect_building_construction_cost_mod")]["value"] == "-15"
+    units = {(r["building"], r["unit"]): r["XP"] for r in ht["building_units_allowed"]}
+    assert units[("derpy_gg_hall_immortals_1", "wh3_dlc23_chd_inf_infernal_guard")] == "1"
+    assert len({r["building_chain"] for r in
+                ht["cai_construction_system_building_values"]}) == 7 * len(HALL_TAGS)
+    # F7: a damaged hall pays half its bonus (toward zero), a ruined one nothing.
+    assert bej[("derpy_gg_hall_brass_2", "wh_main_effect_economy_gdp_mod_all")][
+        "value_damaged"] == "7"
+    assert bej[("derpy_gg_hall_overseers_2",
+                "wh_main_effect_building_construction_cost_mod")]["value_damaged"] == "-7"
+    assert bej[("derpy_gg_hall_khanate_0", "wh_main_effect_agent_recruitment_xp_all_agents")][
+        "value_damaged"] == "0"
+    assert all(r["value_ruined"] == "0" for r in ht["building_effects_junction"])
+    # F2: each guild's AI row cloned from a role donor picked by rule, limit 3 kept.
+    donors = {g: _cai_donor(HALL_RACES[""], g, True)[1].split(" -> ")[1].split(" ")[0]
+              for g in GUILDS}
+    assert donors == {"brass": "wh3_dlc23_chd_outpost_scavangers_hovel",
+                      "immortals": "wh3_dlc23_chd_military_chaos_dwarf_infantry",
+                      "daemonsmiths": "wh3_dlc23_chd_military_kdaai",
+                      "khanate": "wh3_dlc23_chd_military_hobgoblins",
+                      "overseers": "wh3_dlc23_chd_outpost_mine",
+                      "slavers": "wh3_dlc23_chd_outpost_scavangers_hovel",
+                      "temple": "wh3_dlc23_chd_outpost_watch_towers"}, donors
+    # THE TEMPLE'S AI DONOR (2026-10-09): rule 1 matches the race's own lore hall effect
+    # where a candidate chain carries it (Dwarfs, Bretonnia, Kislev, Skaven); the other
+    # five find none and fall to the "order" role's word test. Never the old public
+    # order hall effect - that is what every race matched before TEMPLE_LORE.
+    for _t in HALL_TAGS:
+        _why = _cai_donor(HALL_RACES[_t], "temple", True)[1]
+        if _t in ("_dwf", "_brt", "_ksl", "_skv"):
+            assert "carries the hall's own effect " + hall_effect("temple", _t)[0] in _why, \
+                (_t, _why)
+        else:
+            assert "has an effect naming public_order" in _why, (_t, _why)
+    # THE SEAT'S SENTENCE IS FILLED FROM ITS VALUE, so the number cannot drift from the row.
+    _orig = TEMPLE_LORE["_dwf"]["seat"]
+    TEMPLE_LORE["_dwf"]["seat"] = (_orig[0], _orig[1], 4)
+    try:
+        assert seat_text("temple", "_dwf") == "Leadership +4 in every army", \
+            seat_text("temple", "_dwf")
+    finally:
+        TEMPLE_LORE["_dwf"]["seat"] = _orig
+    assert seat_text("temple", "_emp") == "Spell cost -5% in every army", seat_text("temple", "_emp")
+    cai = {r["building_chain"]: r for r in ht["cai_construction_system_building_values"]}
+    assert cai["derpy_gg_hall_khanate"]["score_or_score_start_inclusive"] == "1250"
+    assert all(r["per_faction_building_limit_start"] == "3" for r in cai.values())
+    # F3: the Seat carries the hall's own effect, faction-wide, at a third of level 2
+    # (the temple's Seat is its own per race; seat_effect covers both).
+    seat = {r["effect_bundle_key"]: r for r in ht["effect_bundles_to_effects_junctions"]}
+    assert len(seat) == 7 * len(HALL_TAGS)
+    for g in GUILDS:
+        for t in HALL_TAGS:
+            r = seat[seat_key(g, t)]
+            assert (r["effect_key"], r["effect_scope"]) == seat_effect(g, t)[:2], (g, t, r)
+            assert r["effect_scope"].startswith("faction_to_"), r
+    assert [seat_value(g) for g in GUILDS] == [5, 5, 2, 1, -5, 10, 2]
+    assert sorted(r["key"] for r in ht["effect_bundles"]) == \
+        sorted(seat_key(g, t) for g in GUILDS for t in HALL_TAGS)
+    loc = {r["key"]: r["text"] for r in ht["loc"]}
+    assert loc["building_culture_variants_name_derpy_gg_hall_brass_0"] == \
+        "Lodge of the Brass Tablets"
+    assert "campaign_localised_strings_string_derpy_gg_hall_tip_lead_brass" in loc
+    # STAGE 2 TASK 1: the halls' multi-race rules, each broken once.
+    assert hall_tag_of("derpy_gg_hall_brass_0") == ""
+    assert [r["key"] for r in ht["building_instances"]] == [HALL_INSTANCE]
+    assert all(r["building_instance_key"] == HALL_INSTANCE for r in ht["building_levels"])
+    _chd_l2 = {
+        "brass": "Earns 15 Reputation and 15 Favour with the Brass Tablets each turn. Income from all buildings in this province +15%. Lowers the price of their services. Trains Hobgoblin Wolf Raiders (Bows).",
+        "immortals": "Earns 15 Reputation and 15 Favour with the Immortals each turn. Casualty replenishment +15% for armies in this province. Lowers the price of their services. Trains Infernal Guard.",
+        "daemonsmiths": "Earns 15 Reputation and 15 Favour with the Daemonsmiths each turn. Research points +6 for your faction. Lowers the price of their services. Trains K'daai Fireborn.",
+        "khanate": "Earns 15 Reputation and 15 Favour with the Khanate each turn. Heroes recruited in this province start at rank +3. Lowers the price of their services. Trains Hobgoblin Sneaky Gits.",
+        "overseers": "Earns 15 Reputation and 15 Favour with the Overseers each turn. Construction cost -15% in this province. Lowers the price of their services. Trains Chaos Dwarf Warriors.",
+        "slavers": "Earns 15 Reputation and 15 Favour with the Slavers each turn. Income from post-battle loot +30% for armies in the regions around. Lowers the price of their services. Trains Hobgoblin Cutthroats.",
+        "temple": "Earns 15 Reputation and 15 Favour with the Temple of Hashut each turn. Conclave Influence +15 each turn. Lowers the price of their services. Trains %s." % unit_name("wh3_dlc23_chd_mon_lammasu")}
+    for _g, _want in _chd_l2.items():
+        assert hall_desc(_g, 2) == _want, (_g, hall_desc(_g, 2))
+    # THE TEMPLE (2026-10-04): no unit below its level (Lammasu is level 1), and the
+    # Empire's College trains none at all and raises the wizard cap instead.
+    assert "Trains" not in hall_desc("temple", 0), hall_desc("temple", 0)
+    assert hall_desc("temple", 0, "_emp") == ("Earns 4 Reputation and 4 Favour with the Colleges of Magic each turn. Battle Wizards recruited in this province start at rank +1. Lowers the price of their services. Wizards you may recruit +1."), hall_desc("temple", 0, "_emp")
+    assert hall_name("temple", 2, "") == "High Temple of Hashut"
+    assert unit_name("wh3_dlc23_chd_inf_infernal_guard") == "Infernal Guard"
+    assert _hall_donor("") == "wh3_dlc23_chd_military_kdaai"
+    assert race_products("") == {"TW_WH3_CHAOS_DWARFS"}, race_products("")
+    # the donor RULE (no named donor) never lands on a landmark chain, for any of the eight
+    for _t, _set in (("_emp", "wh_main_bas_emp"), ("_dwf", "wh_main_bas_dwf"),
+                     ("_brt", "wh_main_bas_brt"), ("_cth", "wh3_main_bas_cth"),
+                     ("_ksl", "wh3_main_bas_ksl"), ("_def", "wh2_main_bas_def"),
+                     ("_hef", "wh2_main_bas_hef"), ("_skv", "wh2_main_bas_skv")):
+        _old_r = HALL_RACES.get(_t)
+        HALL_RACES[_t] = {"set": _set, "nouns": ("a", "b", "c"), "units": {}}
+        try:
+            _d = _hall_donor(_t)
+        finally:
+            if _old_r is None:
+                del HALL_RACES[_t]
+            else:
+                HALL_RACES[_t] = _old_r
+        assert "foreign_slot" not in _d, (_t, _d)
+    # the donor's variant is the unqualified one whatever the row order (Kislev's bears
+    # chain has a second, faction-specific level-0 row)
+    _bl0 = next(r["level_name"] for r in live_rows("building_levels")
+                if r["chain"] == "wh3_main_ksl_bears" and str(r["level"]) == "0")
+    _bv = [r for r in live_rows("building_culture_variants") if r["building"] == _bl0]
+    assert len(_bv) > 1
+    for _rows in (_bv, _bv[::-1]):
+        assert _pick_variant(_rows, "wh3_main_ksl_kislev")["faction"] == ""
+    assert _pick_variant([dict(r, faction="x") for r in _bv], "wh3_main_ksl_kislev") is None
+    # a DLC pick is NOT owned by every player of its race, its fallback is
+    assert not _owned_by_race("wh2_dlc13_emp_inf_huntsmen_0", "_emp")
+    assert _owned_by_race("wh_main_emp_inf_crossbowmen", "_emp")
+    for _dlc, _fb in HALL_FALLBACK.items():
+        _t = "_" + next(p for p in _dlc.split("_") if p in
+                        ("emp", "dwf", "brt", "cth", "ksl", "def", "hef", "skv"))
+        assert not _owned_by_race(_dlc, _t) and _owned_by_race(_fb, _t), (_dlc, _t)
+    # the roster check reads a row's OWN race: an _emp level naming an Empire unit is no
+    # finding under tag "" (endswith("") matched every key), a CHD unit on it is under _emp
+    _old_emp = HALL_RACES.get("_emp")
+    HALL_RACES["_emp"] = {"set": "wh_main_bas_emp", "nouns": ("a", "b", "c"), "units": {}}
+    try:
+        assert hall_tag_of("derpy_gg_hall_brass_0_emp") == "_emp"
+        _emp_row = {"building": "derpy_gg_hall_brass_0_emp", "unit": "wh_main_emp_inf_crossbowmen"}
+        assert _roster_problems([_emp_row], "") == [], _roster_problems([_emp_row], "")
+        assert _roster_problems([_emp_row], "_emp") == []
+        _bad = dict(_emp_row, unit="wh3_dlc23_chd_inf_infernal_guard")
+        assert _roster_problems([_bad], "_emp"), "a Chaos Dwarf unit on an Empire hall slipped by"
+        assert _roster_problems([_bad], "") == []
+    finally:
+        if _old_emp is None:
+            del HALL_RACES["_emp"]
+        else:
+            HALL_RACES["_emp"] = _old_emp
+    # check_halls bites: a placement table emptied, a unit off the roster, a value too big,
+    # one level off the shared instance key, a DLC unit with its fallback removed
+    assert check_halls() == [], check_halls()          # clean FIRST: a break on a dirty run proves nothing
+    for breakage in ("placement", "unit", "value", "instance", "dlc", "desc", "panel", "score",
+                     "set", "seticon", "seticon_case", "setloc", "stype"):
+        assert check_halls(_break=breakage), "check_halls missed " + breakage
+    # THE GUILD HALLS TAB: each of the 9 races has its own shown set, a lowercase full-path
+    # icon, a name and a description, every hall chain is junctioned to it and nothing else,
+    # and no set key collides with a CA one.
+    _hs = {r["key"]: r for r in ht["building_sets"]}
+    assert sorted(_hs) == sorted(hall_set_key(t) for t in HALL_TAGS) and len(_hs) == 9
+    _ca_keys = {r["key"] for r in live_rows("building_sets")}
+    assert not (set(_hs) & _ca_keys), "a hall set key is one of CA's"
+    assert all(r["show_in_ui"] == "true" and r["icon"] == r["icon"].lower()
+               and r["icon"].startswith("ui/buildings/icons/") for r in _hs.values())
+    assert all(r["building_set"] == hall_set_key(hall_tag_of(r["building_chain"]))
+               for r in ht["building_set_to_building_junctions"])
+    assert len(ht["building_set_to_building_junctions"]) == 7 * len(HALL_TAGS)
+    assert _hall_set_problems(ht) == [], _hall_set_problems(ht)
+    # I1: a playable faction's own availability set dropped from extra_sets is found
+    _xs = HALL_RACES["_def"].pop("extra_sets")
+    try:
+        assert any("wh3_main_def_lokhir" in p for p in check_halls()), \
+            "Lokhir's availability set without halls slipped by"
+    finally:
+        HALL_RACES["_def"]["extra_sets"] = _xs
+    assert hall_tip("immortals", 1, "_emp").startswith("[[col:red]]Needs the rank of "), \
+        hall_tip("immortals", 1, "_emp")
+    assert _dlc_problems("_emp", {"brass": "wh2_dlc13_emp_inf_huntsmen_0"}, HALL_FALLBACK,
+                         "wh_main_bas_emp") == []
+    assert _dlc_problems("_emp", {"brass": "wh2_dlc13_emp_inf_huntsmen_0"},
+                         {"wh2_dlc13_emp_inf_huntsmen_0": "wh2_dlc13_emp_inf_huntsmen_0"},
+                         "wh_main_bas_emp"), "a fallback that is itself a pack unit slipped by"
+    assert _dlc_problems("_emp", {"brass": "wh2_dlc13_emp_inf_huntsmen_0"},
+                         {"wh2_dlc13_emp_inf_huntsmen_0": "wh_main_dwf_inf_quarrellers_0"},
+                         "wh_main_bas_emp"), "a fallback off the roster slipped by"
+    _lua = io.open(MODEL_LUA, encoding="utf-8").read()
+    assert check_hall_mirror(_lua.replace("GG.HALL_REP = {4, 8, 15}", "GG.HALL_REP = {4, 8, 16}"))
+    assert check_hall_mirror(_lua.replace("GG.HALL_OFF_MAX = 15", "GG.HALL_OFF_MAX = 16"))
+    assert check_hall_mirror() == [], check_hall_mirror()
+    # THE TEMPLE'S HALLS AND SEATS BY LORE (2026-10-09 spec §3.2-§3.3).
+    ht2 = hall_tables()
+    hj = {}
+    for r in ht2["building_effects_junction"]:
+        hj.setdefault(r["building"], []).append(r)
+    want_hall = {
+        "_emp": ("wh_main_effect_agent_recruitment_xp_wizard_empire", [1, 2, 3]),
+        "_dwf": ("wh_main_effect_agent_recruitment_xp_runesmith", [1, 2, 3]),
+        "_brt": ("wh_dlc07_effect_chivalry_building", [10, 20, 30]),
+        "_cth": ("wh3_main_effect_agent_recruitment_xp_cth_astromancer", [1, 2, 3]),
+        "_ksl": ("wh3_main_effect_ksl_orthodoxy_support_buildings", [1, 2, 3]),
+        "_def": ("wh2_main_effect_building_unit_xp_levels_def_resource_medicine", [1, 1, 2]),
+        "_hef": ("wh2_main_effect_agent_recruitment_xp_hef_mage", [1, 2, 3]),
+        "_skv": ("wh3_main_effect_corruption_skaven_buildings", [2, 4, 6]),
+        "": ("wh3_dlc23_effect_pooled_resource_conclave_influence_gain_temples", [5, 10, 15]),
+    }
+    for t, (ek, vals) in want_hall.items():
+        for n in range(3):
+            got = [r for r in hj[hall_key("temple", n, t)] if r["effect"] == ek]
+            assert len(got) == 1 and got[0]["value"] == str(vals[n]), (t, n, hj[hall_key("temple", n, t)])
+            # A damaged hall pays half, toward zero: the Dark Elf 1s pay nothing damaged.
+            assert got[0]["value_damaged"] == str(int(vals[n] / 2)), got
+        assert not any(r["effect"] == "wh_main_effect_public_order_base"
+                       for n in range(3) for r in hj[hall_key("temple", n, t)]), t
+    # The Empire keeps its wizard cap; the Skaven extra became the main effect, once.
+    assert sum(r["effect"] == "wh_main_effect_agent_cap_increase_wizard_empire"
+               for r in hj[hall_key("temple", 2, "_emp")]) == 1
+    assert sum(r["effect"] == "wh3_main_effect_corruption_skaven_buildings"
+               for r in hj[hall_key("temple", 2, "_skv")]) == 1
+    sj = {r["effect_bundle_key"]: r for r in ht2["effect_bundles_to_effects_junctions"]}
+    want_seat = {
+        "_emp": ("wh2_dlc14_effect_magic_cost_all_lores_percentage", "-5"),
+        "_dwf": ("wh_main_effect_force_stat_leadership", "3"),
+        "_brt": ("wh_main_effect_agent_recruitment_xp_wizard_bretonnia", "2"),
+        "_cth": ("wh_main_effect_technology_research_points", "5"),
+        "_ksl": ("wh3_main_effect_agent_recruitment_xp_ksl_frost_maiden", "2"),
+        "_def": ("wh2_main_effect_agent_cap_increase_def_death_hag", "1"),
+        "_hef": ("wh_main_effect_force_stat_magic_resistance", "5"),
+        "_skv": ("wh3_main_effect_corruption_skaven_events", "2"),
+        "": ("wh_main_effect_force_stat_magic_resistance", "5"),
+    }
+    for t, (ek, v) in want_seat.items():
+        r = sj[seat_key("temple", t)]
+        assert (r["effect_key"], r["value"]) == (ek, v), (t, r)
+    hl = {r["key"]: r["text"] for r in ht2["loc"]}
+    seat_emp = hl["effect_bundles_localised_description_" + seat_key("temple", "_emp")]
+    assert "Spell cost -5% in every army" in seat_emp and "--" not in seat_emp, seat_emp
+    assert not any(seat_key("temple", "_gen") in k for k in sj), "_gen has no halls"
+    assert "Battle Wizards recruited in this province start at rank +1" in \
+        hall_desc("temple", 0, "_emp"), hall_desc("temple", 0, "_emp")
+    # THE TEMPLE BY ITS OWN LORE (2026-10-09 spec §3.1): rank and leader per race.
+    _w = "wh3_main_effect_winds_of_magic_pool_cap"
+    want_rank = {
+        "": (_w, [3, 6, 10, 15], 10), "_emp": (_w, [3, 6, 10, 15], 10),
+        "_cth": (_w, [3, 6, 10, 15], 10), "_skv": (_w, [3, 6, 10, 15], 10),
+        "_dwf": ("wh_main_effect_force_stat_magic_resistance", [3, 6, 10, 15], 10),
+        "_brt": ("wh_main_effect_force_stat_ward_save", [2, 4, 6, 8], 5),
+        "_hef": ("wh_main_effect_force_stat_ward_save", [2, 4, 6, 8], 5),
+        "_ksl": ("wh_main_effect_force_stat_leadership", [2, 4, 6, 8], 5),
+        "_gen": ("wh_main_effect_force_stat_leadership", [2, 4, 6, 8], 5),
+        "_def": ("wh_main_effect_force_stat_melee_attack", [2, 3, 4, 6], 4),
+    }
+    jn = {}
+    for r in full["effect_bundles_to_effects_junctions"]:
+        jn.setdefault(r["effect_bundle_key"], []).append(r)
+    for t, (ek, ladder, lead) in want_rank.items():
+        for rank, v in zip(range(2, 6), ladder):
+            rows = jn[bundle_key("temple", rank) + t]
+            assert [(r["effect_key"], r["effect_scope"], r["value"]) for r in rows] == \
+                [(ek, "faction_to_force_own", str(v))], (t, rank, rows)
+        rows = jn[lead_key("temple") + t]
+        assert [(r["effect_key"], r["value"]) for r in rows] == [(ek, str(lead))], (t, rows)
+    # Every other guild is untouched.
+    assert jn[bundle_key("brass", 2) + "_emp"][0]["effect_key"] == RANK_EFFECTS["brass"][0]
+    lt = {r["key"]: r["text"] for r in full["loc"]}
+    # A FLAT NUMBER, not a percentage: CA's own text is "Winds of Magic power reserve
+    # capacity: %+n" (final review, 2026-10-09).
+    assert "+15 Winds of Magic reserve capacity for every army" in \
+        lt["effect_bundles_localised_description_" + bundle_key("temple", 5) + "_emp"]
+    # The Help tab's Seat line must hold for the temple too, whose Seat has its own bonus.
+    _seat_help = " ".join(x for pg in help_pages("_emp") for x in pg)
+    assert "a third of its strength" not in _seat_help, "the temple's Seat is not a third"
+    assert "The Seat grants a bonus across all your lands" in _seat_help, _seat_help[-400:]
+    # THE THREE SIGNATURE SERVICES PER RACE (2026-10-09 spec §4).
+    def _svc(key, t):
+        return sorted((r["effect_key"], r["effect_scope"], r["value"])
+                      for r in jn[service_bundle_key(key) + t])
+    F2F, FAC = "force_to_force_own", "faction_to_force_own"
+    MR, MC = ("wh_main_effect_force_stat_magic_resistance",
+              "wh2_dlc14_effect_magic_cost_all_lores_percentage")
+    WE, WS = "wh3_main_effect_winds_of_magic_events", "wh_main_effect_force_stat_ward_save"
+    LD = "wh_main_effect_force_stat_leadership"
+    assert _svc("hashut_blessing", "_emp") == [(MR, F2F, "15")]
+    assert _svc("zeal", "_emp") == [(MC, F2F, "-20")]
+    assert _svc("holy_war", "_emp") == sorted([(WE, FAC, "5"), (MC, FAC, "-10")])
+    assert _svc("hashut_blessing", "_brt") == [(WS, F2F, "15")]
+    assert _svc("holy_war", "_skv") == sorted([(WE, FAC, "5"),
+                                              ("wh_main_effect_character_stat_miscast", FAC, "-10")])
+    assert _svc("hashut_blessing", "") == [("wh_main_effect_force_stat_physical_resistance", F2F, "10")]
+    assert _svc("zeal", "_dwf") == _svc("zeal", "_gen"), "Slayer's Oath keeps the shared zeal"
+    assert _svc("holy_war", "_gen") == sorted([(LD, FAC, "6"),
+        ("wh_main_effect_force_all_campaign_replenishment_rate", FAC, "10")]), "_gen unchanged"
+    assert not any(e[0] == WE for k in ("hashut_blessing", "zeal", "holy_war")
+                   for e in _svc(k, "_dwf")), "no Winds for the Dwarfs"
+    # The Tithe left the Engineers for the Colleges.
+    assert _svc("spirit_siphon", "_emp") == [("wh_main_effect_force_stat_physical_resistance", FAC, "5")]
+    assert FLAVOURS["_emp"]["services"]["spirit_siphon"] == "Proofed Armour"
     print("selftest ok: %d guilds, %d services, %d bundles, %d loc"
           % (len(GUILDS), len(SERVICES), len(eb), len(loc)))
 
@@ -5698,4 +7851,12 @@ if __name__ == "__main__":
         problems = check()
         for p in problems:
             print("PROBLEM: " + p)
+        # spec §6: the AI donor each hall chain cloned, and why - printed so it can be read.
+        for _t in HALL_TAGS:
+            _d = _hall_donor(_t)
+            print("hall donor %s: %s (availability set %s, panel set %s)" % (
+                _t, _d, ", ".join([HALL_RACES[_t]["set"]] + HALL_RACES[_t].get("extra_sets", [])),
+                _hall_panel_row(_d)["building_set"]))
+            for _g in GUILDS:
+                print("hall AI donor: " + _cai_donor(HALL_RACES[_t], _g, True)[1])
         sys.exit(1 if problems else 0)

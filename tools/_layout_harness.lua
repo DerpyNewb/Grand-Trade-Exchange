@@ -1332,6 +1332,60 @@ EX.screen = function() return 1600, 900 end
 EX.house_page = 1
 EX.layout()
 report("near_again", " pw=" .. tostring(PANEL.w) .. " ph=" .. tostring(PANEL.h))
+
+-- THE LARGE SIZE (2026-10-07): MCT's "ui_size". The layout is worked out for the screen at 3/4
+-- and multiplied back up by 4/3, so on 1920x1080 it is the 1600x900 layout, zoomed. Every
+-- component is parked at -1 first, so "placed outside the panel" counts only this pass.
+EX.set_size("large")
+EX.screen = function() return 1920, 1080 end
+EX.house_page = 1
+for _, c in ipairs(ALL) do c.x, c.y = -1, -1 end
+EX.layout()
+report("large_p1")
+do
+    local px, py, pw, ph = PANEL.x, PANEL.y, PANEL.w, PANEL.h
+    local outside = 0
+    local function walk(c)
+        for _, k in pairs(c.kids) do
+            if k.vis and k.x ~= -1 and (k.x < px or k.y < py or k.x >= px + pw
+                                         or k.y >= py + ph) then
+                outside = outside + 1
+            end
+            if k.vis then walk(k) end
+        end
+    end
+    walk(PANEL)
+    local r1 = HOLDER.kids[EX.ROW .. "_" .. EX.short(HOUSES[1])]
+    local r2 = HOLDER.kids[EX.ROW .. "_" .. EX.short(HOUSES[2])]
+    local r20 = HOLDER.kids[EX.ROW .. "_" .. EX.short(HOUSES[20])]
+    print("large_geo pw=" .. tostring(pw) .. " ph=" .. tostring(ph) .. " px=" .. px
+        .. " py=" .. py .. " pitch=" .. (r2.y - r1.y) .. " span=" .. (r20.y - r1.y)
+        .. " row_w=" .. tostring(r1.w)
+        .. " row_h=" .. tostring(r1.h) .. " holder_h=" .. tostring(HOLDER.h)
+        .. " close_x=" .. (PANEL.kids["close_button"].x - px)
+        .. " footer_y=" .. (PANEL.kids["footer_text"].y - py)
+        .. " name_x=" .. (r1.kids["row_name"].x - px) .. " outside=" .. outside)
+end
+
+-- AND ONLY WHERE IT FITS: Large on the 1600x900 floor would be 1227x981, so it stays Normal.
+do
+    local keep_raw, want = EX.mct_raw, nil
+    EX.mct_raw = function(k) if k == "ui_size" then return want end return keep_raw(k) end
+    want = "large"
+    local fits = EX.want_size()
+    EX.screen = function() return 1600, 900 end
+    local small = EX.want_size()
+    want = "huge"
+    local junk = EX.want_size()
+    want = nil
+    local unset = EX.want_size()
+    EX.mct_raw = keep_raw
+    print("large_want fits=" .. fits .. " small=" .. small .. " junk=" .. junk
+        .. " unset=" .. unset)
+end
+EX.set_size("normal")
+EX.screen = function() return 1600, 900 end
+EX.layout()
 EX.mode = EX.MODE_TRADE
 
 -- ANOTHER PLAYER'S CLICK DRAWS NOTHING ON THIS MACHINE (2026-09-30). The deal, fwd, idx and
