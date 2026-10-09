@@ -490,21 +490,27 @@ local ECONOMIC = {
     "pos_step",
 }
 
+-- PCALLED: MctFinalized fires while MCT tears its panel down, and set_locked redraws the
+-- option. A dropdown whose page was opened and then left still holds its dead component,
+-- finds no list in it and throws (in game, 2026-10-09). MCT sets the flag before the
+-- redraw, so the lock stands; only the redraw is lost, and the page is rebuilt on open.
+local function lock(o, on, why) pcall(o.set_locked, o, on, why) end
+
 local function relock()
     local custom = o_preset:get_finalized_setting() == "custom"
     for _, k in ipairs(ECONOMIC) do
         local o = m:get_option_by_key(k)
         if o then
             if IN_CAMPAIGN then
-                o:set_locked(true, LOCK_REASON)
+                lock(o, true, LOCK_REASON)
             elseif not custom then
-                o:set_locked(true, CUSTOM_ONLY)
+                lock(o, true, CUSTOM_ONLY)
             else
-                o:set_locked(false)
+                lock(o, false)
             end
         end
     end
-    if IN_CAMPAIGN then o_preset:set_locked(true, LOCK_REASON) end
+    if IN_CAMPAIGN then lock(o_preset, true, LOCK_REASON) end
 end
 
 -- The callback fires on MctOptionSelectedSettingSet, BEFORE the value is

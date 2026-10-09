@@ -3092,6 +3092,7 @@ def selftest():
     check_shock_news()
     check_shock_source()
     check_click_filter()
+    check_click_first()
     check_panel_cell_shows()
     check_lua_hover()
     check_lua_warehouse()
@@ -7561,21 +7562,27 @@ def build_mct():
     for i in range(0, len(economic), 4):
         out.append("    " + ", ".join('"%s"' % k for k in economic[i:i + 4]) + ",")
     out += ["}", "",
+            "-- PCALLED: MctFinalized fires while MCT tears its panel down, and set_locked redraws the",
+            "-- option. A dropdown whose page was opened and then left still holds its dead component,",
+            "-- finds no list in it and throws (in game, 2026-10-09). MCT sets the flag before the",
+            "-- redraw, so the lock stands; only the redraw is lost, and the page is rebuilt on open.",
+            "local function lock(o, on, why) pcall(o.set_locked, o, on, why) end",
+            "",
             "local function relock()",
             "    local custom = o_preset:get_finalized_setting() == \"custom\"",
             "    for _, k in ipairs(ECONOMIC) do",
             "        local o = m:get_option_by_key(k)",
             "        if o then",
             "            if IN_CAMPAIGN then",
-            "                o:set_locked(true, LOCK_REASON)",
+            "                lock(o, true, LOCK_REASON)",
             "            elseif not custom then",
-            "                o:set_locked(true, CUSTOM_ONLY)",
+            "                lock(o, true, CUSTOM_ONLY)",
             "            else",
-            "                o:set_locked(false)",
+            "                lock(o, false)",
             "            end",
             "        end",
             "    end",
-            "    if IN_CAMPAIGN then o_preset:set_locked(true, LOCK_REASON) end",
+            "    if IN_CAMPAIGN then lock(o_preset, true, LOCK_REASON) end",
             "end",
             "",
             "-- The callback fires on MctOptionSelectedSettingSet, BEFORE the value is",
@@ -22795,6 +22802,42 @@ def check_panel_cell_shows():
                             len(re.findall(r'set_text\(panel, "', code))))
 
 
+def check_click_first():
+    """The click listener must sit FIRST in the ComponentLClickUp queue, and must not throw.
+
+    Since 9.1 lib_core calls listeners unprotected: another mod's click handler that throws
+    abandons every listener queued behind it, and this one registers at the first tick, behind
+    all of them (a Great Guilds player, 2026-10-09: "click sound, nothing opens"). EX.init moves
+    it to the front with EX.click_first; EX.click_safe pcalls the body so that being first
+    cannot make it the one that starves the rest. The move is RUN against a thrower; the call
+    site is read, because EX.init cannot run without a whole campaign behind it.
+    """
+    lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
+    assert re.search(r'EX\.click_safe, true\)\s*\n\s*EX\.click_first\("zharr_exchange_click"\)',
+                     lua), ("EX.init no longer calls EX.click_first right after registering "
+                            "zharr_exchange_click, so the button queues behind every other mod")
+    if not os.path.isfile(LUA_EXE):
+        print("  (skipped click-first run: no lua.exe)")
+        return
+    import subprocess, tempfile
+    harness = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "_clickfirst_harness.lua"), encoding="utf-8").read()
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(harness % LUA_SCRIPT.replace(chr(92), chr(92) * 2))
+        tmp = fh.name
+    try:
+        got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
+    finally:
+        os.unlink(tmp)
+    assert "reached true" in got, (
+        "a throwing click listener queued earlier starves zharr_exchange_click: " + got)
+    assert "swallowed true" in got, (
+        "a throw inside the click handler escaped EX.click_safe, so with the listener first "
+        "it would starve every other mod's: " + got)
+    print("  click first: zharr_exchange_click runs ahead of a throwing listener, and its own "
+          "throw is contained")
+
+
 def check_click_filter():
     """Every name EX.click_dispatch handles must also be in the ComponentLClickUp FILTER.
 
@@ -22819,7 +22862,7 @@ def check_click_filter():
     dispatch = body(r"function EX\.click_dispatch\(context\)",
                     r"\nfunction |\nlocal function ")
     listener = body(r'core:add_listener\("zharr_exchange_click", "ComponentLClickUp",',
-                    r"EX\.click_dispatch, true\)")
+                    r"EX\.click_safe, true\)")
 
     # THE ROW WALK IS PART OF THE HANDLER. btn_buy, btn_sell and row_name are panel-filtered
     # by name but dispatched by ROW - EX.click_dispatch falls through to EX.row_click, which

@@ -14033,6 +14033,29 @@ end
 -- and no live campaign. tools/_orders_harness.lua drives a Place click through THIS function,
 -- and proves the ticket branch runs before UIComponent(clicked:Parent()) by handing it a
 -- component whose Parent() would resolve to a row.
+-- FIRST IN THE CLICK QUEUE (Great Guilds player report, 2026-10-09: "click sound, nothing
+-- opens"). Since 9.1 lib_core calls listeners unprotected, so one mod's ComponentLClickUp
+-- handler that throws abandons every listener queued behind it, logging nothing - and this
+-- one registers at the first tick, behind every listener registered at load. EX.click_safe is
+-- what the listener calls: pcall'd, so being first cannot make this the handler that starves
+-- the rest.
+function EX.click_first(name)
+    pcall(function()
+        local list = core.event_listeners.ComponentLClickUp
+        for i = #list, 2, -1 do
+            if list[i].name == name then
+                table.insert(list, 1, table.remove(list, i))
+                return
+            end
+        end
+    end)
+end
+
+function EX.click_safe(context)
+    local ok, err = pcall(EX.click_dispatch, context)
+    if not ok then EX.say("error", "click on " .. tostring(context.string) .. " failed: " .. tostring(err)) end
+end
+
 function EX.click_dispatch(context)
     local s = context.string
     if s == EX.BUTTON then
@@ -14616,8 +14639,9 @@ function EX.init()
         end,
         -- THE BODY IS EX.click_dispatch, a top-level function outside EX.init - see its own
         -- comment for why the whole dispatch, not just the tails it calls into, has to be a
-        -- named function a harness can drive directly.
-        EX.click_dispatch, true)
+        -- named function a harness can drive directly. EX.click_safe pcalls it.
+        EX.click_safe, true)
+    EX.click_first("zharr_exchange_click")
 end
 
 core:add_listener("zharr_exchange_init", "ScriptEventFirstTickAfterWorldCreated",
