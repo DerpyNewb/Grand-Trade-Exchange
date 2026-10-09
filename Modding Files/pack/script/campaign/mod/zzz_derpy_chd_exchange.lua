@@ -8941,7 +8941,7 @@ EX.sort_dir = 1
 -- Hi ranks above every rise and Lo below every fall - pinned at the ceiling is the strongest
 -- reading of that column, pinned at the floor the weakest.
 --
--- FINITE SENTINELS, not math.huge: EX.sorted uses -math.huge for a value it could not read,
+-- FINITE SENTINELS: EX.sorted uses EX.SORT_FLOOR for a value it could not read,
 -- and a floor row is not an error. A delta cannot exceed EX.RUNGS, so RUNGS + 1 clears them.
 function EX.trend_rank(res)
     local now = EX.current[res] or 0
@@ -9008,6 +9008,10 @@ end
 --
 -- A comparator that ERRORS takes the whole refresh down, so the value is pcall'd and anything
 -- that is not a number sorts to the bottom rather than throwing.
+--
+-- NOT -math.huge: the game's math library has no `huge`, so with no other mod defining it
+-- (OvN's json shim does) the fallback itself threw. Below any value a column can hold.
+EX.SORT_FLOOR = -1e30
 function EX.sorted(list)
     local f = EX.sort_fn(EX.sort_col)
     if not f then return list end
@@ -9018,12 +9022,12 @@ function EX.sorted(list)
         -- STRINGS ARE ACCEPTED for the Houses view's name column; every other sorter returns
         -- a number.
         keyed[i] = { r = r, i = i,
-                     v = (ok and (t == "number" or t == "string")) and v or -math.huge }
+                     v = (ok and (t == "number" or t == "string")) and v or EX.SORT_FLOOR }
     end
     table.sort(keyed, function(a, b)
         if a.v ~= b.v then
             -- MIXED TYPES ONLY ARISE WHEN AN ACCESSOR ERRORED. One column has one accessor, so
-            -- every good value in it is the same type and the -math.huge fallback above is the
+            -- every good value in it is the same type and the EX.SORT_FLOOR fallback above is the
             -- only other thing in the table. Lua 5.1 THROWS on `number < string`, and a throw
             -- inside table.sort takes the whole refresh down - so this branch is load-bearing
             -- rather than defensive. The errored row sinks in BOTH directions instead of
@@ -14033,18 +14037,27 @@ end
 -- and no live campaign. tools/_orders_harness.lua drives a Place click through THIS function,
 -- and proves the ticket branch runs before UIComponent(clicked:Parent()) by handing it a
 -- component whose Parent() would resolve to a row.
--- FIRST IN THE CLICK QUEUE (Great Guilds player report, 2026-10-09: "click sound, nothing
--- opens"). Since 9.1 lib_core calls listeners unprotected, so one mod's ComponentLClickUp
--- handler that throws abandons every listener queued behind it, logging nothing - and this
--- one registers at the first tick, behind every listener registered at load. EX.click_safe is
--- what the listener calls: pcall'd, so being first cannot make this the handler that starves
--- the rest.
+-- OUT OF CORE'S QUEUE ALTOGETHER (Great Guilds player report, 2026-10-09: "click sound,
+-- nothing opens", and again after the first fix). Since 9.0 lib_core calls listeners
+-- unprotected, and core:event_callback tests EVERY listener's condition before it calls any
+-- callback (lib_core.lua 1978-1990): one mod's condition that throws drops the whole click,
+-- so index 1 of core.event_listeners was not first enough. This lifts the listener into
+-- events.ComponentLClickUp, the engine's own list that core's dispatcher is one entry of -
+-- CA's wh2_campaign_traits.lua writes to events.* the same way. Inserted there BEFORE it
+-- leaves core's, so a missing events table leaves it where core put it; the wrapper never
+-- throws into the engine. EX.click_safe pcalls the body as well, so a failure is logged.
 function EX.click_first(name)
     pcall(function()
         local list = core.event_listeners.ComponentLClickUp
-        for i = #list, 2, -1 do
-            if list[i].name == name then
-                table.insert(list, 1, table.remove(list, i))
+        for i = #list, 1, -1 do
+            local l = list[i]
+            if l.name == name then
+                table.insert(events.ComponentLClickUp, 1, function(context)
+                    pcall(function()
+                        if l.condition == true or l.condition(context) then l.callback(context) end
+                    end)
+                end)
+                table.remove(list, i)
                 return
             end
         end

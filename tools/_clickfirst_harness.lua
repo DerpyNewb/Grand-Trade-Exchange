@@ -1,13 +1,14 @@
--- Proves the Exchange's click handler still runs when another mod's click handler throws.
+-- Proves the Exchange's click handler still runs when another mod's click CONDITION throws.
 --
 -- The failure being modelled was reported on 2026-10-09 (a Great Guilds player: "click sound,
--- nothing opens"): since 9.1 lib_core calls listeners unprotected, so a throwing
--- ComponentLClickUp handler unwinds the dispatch loop and every listener queued behind it
--- never runs that click. The Exchange registers at the first tick, behind every listener any
--- mod registered at load.
+-- nothing opens", and again after the listener was moved to the front of core's queue): since
+-- 9.0 lib_core calls listeners unprotected, and core:event_callback tests every listener's
+-- condition before it calls any callback, so one throwing condition drops the whole click
+-- wherever ours sits in core's queue.
 --
--- The harness queues a thrower, then the Exchange's record the way EX.init registers it, runs
--- EX.click_first, and walks the queue the way lib_core does, with no protection.
+-- The harness builds the engine's list, events.ComponentLClickUp, with core's two-pass
+-- dispatcher as its one entry, queues a thrower and the Exchange's record the way EX.init
+-- registers it, runs EX.click_first, and walks the engine's list with no protection.
 cm = {
     add_first_tick_callback = function() end,
     add_loading_game_callback = function() end,
@@ -21,22 +22,31 @@ dofile([[%s]])
 
 local q = {}
 core.event_listeners.ComponentLClickUp = q
-q[#q + 1] = { name = "stranger_throws", condition = true,
-              callback = function() error("another mod's click handler") end }
+events = { ComponentLClickUp = { function(context)
+    local go = {}
+    for _, l in ipairs(core.event_listeners.ComponentLClickUp) do
+        if l.condition == true or l.condition(context) then go[#go + 1] = l end
+    end
+    for _, l in ipairs(go) do l.callback(context) end
+end } }
+local throws = true
+q[#q + 1] = { name = "stranger_throws", callback = function() end, condition = function()
+    if throws then error("another mod's click condition") end
+    return false
+end }
 q[#q + 1] = { name = "zharr_exchange_click", condition = true, callback = EX.click_safe }
 EX.click_first("zharr_exchange_click")
 
-local ran = {}
-EX.click_dispatch = function() end
-pcall(function()
-    for _, l in ipairs(q) do
-        ran[#ran + 1] = l.name
-        l.callback({ string = "harness_nothing" })
-    end
-end)
-local reached = false
-for _, n in ipairs(ran) do if n == "zharr_exchange_click" then reached = true end end
-print("reached " .. tostring(reached))
+-- Then a click the stranger lets through: a copy left in core's queue would run it twice.
+local seen = 0
+EX.click_dispatch = function() seen = seen + 1 end
+for _, t in ipairs({ true, false }) do
+    throws, seen = t, 0
+    pcall(function()
+        for _, fn in ipairs(events.ComponentLClickUp) do fn({ string = "harness_nothing" }) end
+    end)
+    print("reached " .. seen)
+end
 
 -- AND BEING FIRST MUST NOT MAKE US THE THROWER.
 EX.click_dispatch = function() error("dispatch failed") end

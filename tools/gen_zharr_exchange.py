@@ -22803,14 +22803,15 @@ def check_panel_cell_shows():
 
 
 def check_click_first():
-    """The click listener must sit FIRST in the ComponentLClickUp queue, and must not throw.
+    """The click listener must run outside core's queue, exactly once, and must not throw.
 
-    Since 9.1 lib_core calls listeners unprotected: another mod's click handler that throws
-    abandons every listener queued behind it, and this one registers at the first tick, behind
-    all of them (a Great Guilds player, 2026-10-09: "click sound, nothing opens"). EX.init moves
-    it to the front with EX.click_first; EX.click_safe pcalls the body so that being first
-    cannot make it the one that starves the rest. The move is RUN against a thrower; the call
-    site is read, because EX.init cannot run without a whole campaign behind it.
+    Since 9.0 lib_core calls listeners unprotected, and core:event_callback tests every
+    listener's condition before it calls any callback: one mod's condition that throws drops
+    the whole click, wherever this one sits in core's queue (a Great Guilds player, 2026-10-09:
+    "click sound, nothing opens", and again after the first fix put it at core's index 1).
+    EX.click_first lifts it into events.ComponentLClickUp, the engine's own list; EX.click_safe
+    pcalls the body so it cannot starve anyone else. The lift is RUN against a throwing
+    condition; the call site is read, because EX.init cannot run without a campaign behind it.
     """
     lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
     assert re.search(r'EX\.click_safe, true\)\s*\n\s*EX\.click_first\("zharr_exchange_click"\)',
@@ -22829,13 +22830,14 @@ def check_click_first():
         got = subprocess.check_output([LUA_EXE, tmp], universal_newlines=True)
     finally:
         os.unlink(tmp)
-    assert "reached true" in got, (
-        "a throwing click listener queued earlier starves zharr_exchange_click: " + got)
+    assert got.count("reached 1\n") == 2, (
+        "a click must reach zharr_exchange_click exactly once, past a throwing condition and "
+        "past one that lets it through: " + got)
     assert "swallowed true" in got, (
         "a throw inside the click handler escaped EX.click_safe, so with the listener first "
         "it would starve every other mod's: " + got)
-    print("  click first: zharr_exchange_click runs ahead of a throwing listener, and its own "
-          "throw is contained")
+    print("  click first: zharr_exchange_click runs once past a throwing condition, and its "
+          "own throw is contained")
 
 
 def check_click_filter():

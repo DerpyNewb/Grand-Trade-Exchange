@@ -113,7 +113,11 @@ print("name_click " .. tostring(EX.sort_click("hdr_name"))
 -- and reads a live pooled resource; a null interface there threw for a whole build.
 EX.held = function(r) if r == "c" then error("boom") end return HELD[r] or 0 end
 EX.sort_col, EX.sort_dir = "hdr_hold", 1
+-- Run without math.huge: the game's math library has none, and the fallback once used it.
+local huge = math.huge
+math.huge = nil
 local ok, res = pcall(order)
+math.huge = huge
 print("erroring_accessor ok=" .. tostring(ok) .. " " .. tostring(res))
 EX.held = function(r) return HELD[r] or 0 end
 
