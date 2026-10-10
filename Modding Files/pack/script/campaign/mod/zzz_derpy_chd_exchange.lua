@@ -5894,8 +5894,16 @@ end
 -- ENOUGH OF THE GUILD AT WAR AND THE EXCHANGE SHUTS. Weighted by book rather than counted by
 -- head: one large house closing its book matters more than three small ones. Returns the
 -- largest belligerent so the tooltip can name somebody.
+--
+-- ONE ANSWER PER HOLD. It is the same for every row, and buy_refusal and buy_tip ask it on
+-- every row: unmemoised, a Trade refresh at 54 goods and 161 houses walked the guild 108 times,
+-- 34,800 cm:get_faction calls 0.1s after every trade. Every reader inside a hold asks before
+-- that hold writes a book (EX.apply_trade_held refuses before it settles), so the memo
+-- cannot go stale.
 function EX.market_closed()
     if not EX.setting("war_lock") then return nil end
+    local hd = EX.guild_hold
+    if hd and hd.closed ~= nil then return hd.closed or nil end
     local total, at_war, worst, worst_n = 0, 0, nil, 0
     for _, house in ipairs(EX.guild()) do
         local n = 0
@@ -5906,8 +5914,8 @@ function EX.market_closed()
             if n >= worst_n then worst, worst_n = house, n end
         end
     end
-    if total <= 0 then return nil end
-    if (at_war / total) < EX.opt("guild_close") then return nil end
+    if total <= 0 or (at_war / total) < EX.opt("guild_close") then worst = nil end
+    if hd then hd.closed = worst or false end
     return worst
 end
 
@@ -6928,6 +6936,19 @@ end
 --
 -- Called BEFORE EX.decay_shocks and BEFORE the guard is cleared, which is the only window
 -- where both halves of the gate are still true.
+--
+-- WHICH WAY THE PRICE WENT, AND WHY. Every EX.SHOCK_KINDS multiplier is positive, so a war
+-- only ever raises a price; EX.share_shocks multiplies a culture's share change by a signed
+-- want and moves it either way. One bulletin for all three said "prices rise" over a fall.
+-- The cause is the named hit (EX.shock_why), the direction is the price's own.
+EX.SHARE_SHOCK_KINDS = { collapse = true, surge = true }
+
+function EX.shock_stem(res)
+    if EX.shock_shift(res) < 0 then return "shockfall_" end
+    if EX.SHARE_SHOCK_KINDS[EX.shock_why[res] or ""] then return "shockrise_" end
+    return "shock_"
+end
+
 function EX.announce_shocks()
     if not next(EX.shocked) then return end
     local fname = EX.who()
@@ -6941,8 +6962,9 @@ function EX.announce_shocks()
     -- One message per commodity, because the goods have to be named and the text is a static
     -- loc string - the same reason the demand messages are per (tier, commodity). The KIND is
     -- deliberately not in the key: it would multiply 17 messages by four for a word the
-    -- panel's own footer already prints beside the commodity.
-    local m = EX.PREFIX .. "shock_" .. EX.short(best)
+    -- panel's own footer already prints beside the commodity. The DIRECTION is, as one of
+    -- three stems (EX.shock_stem), because the text has to say which way the price moved.
+    local m = EX.PREFIX .. EX.shock_stem(best) .. EX.short(best)
     -- false, not true: both shock records are transient and the flag has to agree with the
     -- record or nothing draws. LOCATED when the named hit has a place the map can find, so the
     -- message takes the player to it; the text cannot name the attacker - it is a fixed loc

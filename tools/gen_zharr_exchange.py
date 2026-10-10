@@ -688,12 +688,32 @@ REFUSE_CHOICE = "SECOND"
 # thing this subsystem exists to remove.
 DEMAND_TIERS = [
     ("tithe", 1, 6, 4, "The Tithe of Hashut",
-     "It is a small thing. The Bull God asks small things often, and remembers each one."),
+     "A small tithe, and Hashut asks for small ones often."),
     ("hunger", 3, 12, 8, "Hashut's Hunger",
-     "This is more than the altar usually takes. It is also not phrased as a request."),
+     "This is more than the altar usually takes, and the priests do not phrase it as a "
+     "request."),
     ("wrath", 6, 24, 15, "The Bull God is Greedy",
-     "This is not a tithe. Hashut has seen the hoard, and Hashut wants the hoard."),
+     "The priests have seen your hoard, and Hashut wants it."),
 ]
+
+# THE FEED MESSAGE LAYOUT, CA's: _primary draws large under the title as a short subtitle,
+# _secondary is the body in the dark box below it. This mod shipped them the other way round
+# (screenshot, 2026-10-10). check_message_text() holds the line.
+MESSAGE_PRIMARY_MAX = 36
+# The demand's subtitle. "Pay", because the longest good's name is 28 characters and "Pay 180
+# Griffon and Pegasus Feathers" is exactly the 36 a subtitle has; it is also the verb on the
+# button the player clicks ("Pay tithe").
+DEMAND_SUBTITLE = "Pay %d %s"
+# The demand's body: flavour, the tier's closer, then what to do and what it costs. Every
+# number comes from DEMAND_TIERS / DEMAND_GRACE, which check_demands pins against the script.
+DEMAND_BODY = ("%s %s Pay the tithe on the Offerings tab of the %s within %d turns for %d turns "
+               "of %s's favour. Leave it unpaid and %s's wrath lasts %d turns.")
+# The outcome messages' last sentence, shared by every race: the bundles behind them are
+# (PLEASED_EFFECTS / WRATH_EFFECTS), and the turn counts are in the demand message.
+PAID_FACT = ("%s's favour adds public order in every province and leadership to every army "
+             "for the turns the demand named, on top of the offering's own boon.")
+WRATH_FACT = ("%s's wrath cuts public order in every province and slows replenishment for "
+              "every army, for the turns the demand named.")
 # Per cent, rolled when a demand fires. Must sum to 100 - the Lua walks these as a cumulative
 # threshold and a short list would silently make the last tier unreachable.
 DEMAND_WEIGHTS = [55, 32, 13]
@@ -864,53 +884,80 @@ FEED = [
 # message PER COMMODITY, which works for seventeen fixed names and not for a share count crossed
 # with a price.
 #
-# What CAN be stated is the MULTIPLIER, because it is a constant - and it is interpolated from
-# BUYOUT_PREMIUM / WINDUP rather than typed, so the sentence cannot drift from the payout. The
-# actual gold is in the script log (EX.settle_house's out() line) and nowhere on screen.
+# NOT THE MULTIPLIER EITHER (2026-10-10). BUYOUT_PREMIUM / WINDUP are only the default preset's
+# values: the presets move them (1.50/1.60/2.00, 0.75/0.30/0.15) and each race's tune scales
+# windup again (Empire 1.4, Skaven 0.3), so a stated "1.25 times" was false in most campaigns.
+# The direction, above or below the last price, holds at every setting. The actual gold is in
+# the script log (EX.settle_house's out() line) and nowhere on screen.
 DELIST_BUYOUT_MSG = PREFIX + "delist_buyout"
 DELIST_BUYOUT_TEXT = (
     "A House Bought Out",
-    "The house is finished and its seat is ours. The Exchange settles its paper against the "
-    "estate we now hold, which is worth more than the last price anyone quoted for it.",
-    "Your shares are paid out at %g times the last price, and the row is closed."
-    % BUYOUT_PREMIUM)
+    "Your Shares Settle at a Premium",
+    "The house is finished and you hold its capital. The Exchange settles its shares against "
+    "the estate you now own, so they pay out above the last quoted price, and the house comes "
+    "off the board.")
 DELIST_WINDUP_MSG = PREFIX + "delist_windup"
 DELIST_WINDUP_TEXT = (
     "A House Wound Up",
+    "Your Shares Settle at a Discount",
     "The house is finished and somebody else took what was left of it. The Exchange winds up "
-    "its paper for whatever a creditor will give, which is not what you paid for it.",
-    "Your shares are paid out at %g times the last price, and the row is closed."
-    % WINDUP)
+    "its shares for whatever a creditor will give, so they pay out below the last quoted "
+    "price, and the house comes off the board.")
 
 # THE SHOCK BULLETIN, one message per commodity - the goods have to be named and the text is a
 # static loc string, the same constraint that makes the demand messages per (tier, commodity).
 # The KIND is deliberately not in the key: four times seventeen messages for a word the panel
 # footer already prints beside the commodity.
 #
-# The name goes in a slot that works for every one of CA's display names, which include
-# "Tusks", "Dwarf Beer" and "Carved Obsidian"; a template reading "the %s trade" produces
-# "the Tusks trade".
+# The name sits in the BODY as "the %s trade", the wording the user chose on 2026-10-10 for
+# every shock, which gives "the Tusks trade" for that one good. The subtitle carries no name:
+# the title already does.
 SHOCK_MSG = PREFIX + "shock_"
 SHOCK_MSG_TEXT = (
     "Trade Disrupted: %s",
-    "Burned settlements and armies astride the caravan roads. Word reaches the Exchange of one "
-    "line in particular: %s. The price is marked up on the news alone, before a warehouse "
-    "anywhere has run dry.",
-    "The spike fades as the roads clear. Sell into it or wait it out.")
+    "Prices Rise on the News",
+    "Burned settlements and armies on the caravan roads threaten the %s trade. Traders mark "
+    "the price up on the news alone, before any warehouse runs dry. The spike fades as the "
+    "roads clear: sell into it, or wait it out.")
+# THE OTHER TWO DIRECTIONS (2026-10-10). The text above is a war's, and a war only ever raises a
+# price; EX.share_shocks moves one either way off a culture's share of the map times a signed
+# want, and used to be announced as burned settlements and a rise over a fall. EX.shock_stem
+# picks the stem: a fall from anything, a rise whose named hit is a share shock, else the war.
+SHOCK_RISE_MSG = PREFIX + "shockrise_"
+SHOCK_RISE_TEXT = (
+    "The Map Shifts: %s",
+    "Prices Climb With Demand",
+    "The powers that buy %s hold more of the world than they did, or the powers that sell it "
+    "hold less. Traders mark the price up to match. The jump fades over a few turns, though "
+    "the new borders keep their pull on the price while they stand: sell into it, or wait it "
+    "out.")
+SHOCK_FALL_MSG = PREFIX + "shockfall_"
+SHOCK_FALL_TEXT = (
+    "The Map Shifts: %s",
+    "Prices Fall With Demand",
+    "The powers that buy %s hold less of the world than they did, or the powers that sell it "
+    "hold more. Traders mark the price down to match. The drop fades over a few turns, though "
+    "the new borders keep their pull on the price while they stand: buy into it, or wait it "
+    "out.")
+SHOCK_MSGS = ((SHOCK_MSG, SHOCK_MSG_TEXT), (SHOCK_RISE_MSG, SHOCK_RISE_TEXT),
+              (SHOCK_FALL_MSG, SHOCK_FALL_TEXT))
 
 # The two outcome messages. Generic, because they say what happened rather than how much - the
 # amount and the commodity are in the DEMAND message, which is per (tier, commodity).
+# (title, body). The subtitle is the race's pleased / wrath BUNDLE title, so the message names
+# the effect the player then finds under Faction Effects, and the body ends on PAID_FACT /
+# WRATH_FACT.
 PAID_MSG = "derpy_chd_ex_dem_paid"
 # _MSG_TEXT, not _TEXT: WRATH_TEXT is the wrath BUNDLE's description further down, and shadowing
-# it turns the three message parts into 'T', 'h', 'e' (text[0..2] of a string) with every key
-# still existing. The loc length assert in check_demands catches that.
+# it turns the message parts into 'T', 'h' (text[0..1] of a string) with every key still
+# existing. The loc length assert in check_demands catches that.
 PAID_MSG_TEXT = ("The Offering Accepted",
-             "The goods went into the altar fires before the priests had finished counting.",
-             "Hashut is content, for a while.")
+             "The priests fed the goods into the altar fires before they had finished "
+             "counting.")
 WRATH_MSG = "derpy_chd_ex_dem_wrath"
 WRATH_MSG_TEXT = ("The Tithe Unpaid",
-              "The altar stayed cold. The priests closed their ledgers and went to report it.",
-              "Hashut takes what he is owed in other coin.")
+              "The altar stayed cold, and the priests closed their ledgers and went to "
+              "report it.")
 
 WRATH_BUNDLE = PREFIX + "hashut_wrath"
 WRATH_TITLE = "Hashut's Displeasure"
@@ -966,16 +1013,17 @@ WRATH_EFFECTS = [
 # Per-commodity opening line. The Temple has to know what it is asking for, or all 51 messages
 # read as the same one. Keyed by commodity, checked exhaustive against COMMODITIES.
 DEMAND_FLAVOUR = {
-    "res_rom_iron": "The forges are asked how much iron went in and how much came out. The "
-                    "difference is sitting in your stores, and the priests have the ledger.",
+    "res_rom_iron": "The priests ask the forges how much iron went in and how much came out. "
+                    "The difference is sitting in your stores, and the priests have the "
+                    "ledger.",
     "res_obsidian": "Obsidian remembers what is burned near it. The Sorcerer-Prophets say the "
                     "black glass in your vaults has been listening to nothing at all.",
     "res_rom_marble": "Marble was cut for the Temple and stopped somewhere on the way. The "
                       "priests have walked the road and found where.",
-    "res_rom_timber": "Good timber burns hot and burns fast, which is the point. Yours has "
-                      "been stacked and counted and stacked again.",
-    "res_rom_wine": "Wine is drunk at your table and not poured on the altar. The Temple has "
-                    "been keeping a list of the vintages.",
+    "res_rom_timber": "Good timber burns hot and fast, which is the point. The priests have "
+                      "counted your stacks twice.",
+    "res_rom_wine": "You drink your wine at table instead of pouring it on the altar. The "
+                    "Temple has been keeping a list of the vintages.",
     "res_spices": "The smoke of the altar has been thin lately. The priests know exactly what "
                   "would fix that and exactly where it is stored.",
     "res_rom_glass": "Glass in the Temple windows cracked in the heat and was not replaced. "
@@ -986,8 +1034,8 @@ DEMAND_FLAVOUR = {
                 "it and the roof they are sitting under.",
     "res_trinkets": "Small worked things please Hashut, who does not care that they are small. "
                     "You have a great many small worked things.",
-    "res_gold_idols": "Idols are made to be melted. Yours are being kept, which the priests "
-                      "regard as a category error.",
+    "res_gold_idols": "Idols are made to be melted, and you are keeping yours, which the "
+                      "priests regard as a category error.",
     "res_ivory": "Tusk and bone burn with a smell the Temple has not had in some time. Your "
                  "stores could give it back to them.",
     "res_animals": "The menageries are loud. The priests have suggested, at length, that they "
@@ -995,7 +1043,7 @@ DEMAND_FLAVOUR = {
     "res_medicine": "The infirmaries are full and the altar is empty. The Temple has views on "
                     "which of those it would rather correct.",
     "res_rom_lead": "Salt keeps meat and keeps grudges. The Temple's cellars are low and yours "
-                    "are not, and both facts are written down.",
+                    "are not, and the priests have written both facts down.",
     "res_rom_furs": "Furs burn badly and smell worse, which the priests consider a virtue. "
                     "They know how many bales you are sitting on.",
     "res_rom_textiles": "Cloth goes on the fire in one breath. The Temple has counted your "
@@ -1209,80 +1257,83 @@ MR_OFFERING = {
 # and its "wants %d" line, so it names no patron and no god - "the priests" reads wrong from
 # the Celestial Bureaucracy and the Council of Thirteen alike. The race's voice is in the lines
 # either side of it.
+#
+# AN ACTOR IN EVERY LINE (2026-10-10). "Your barrels have been counted" ran through a third of
+# these with nobody doing the counting. The counter is now someone from the good's own trade -
+# harbour-masters, rug-sellers, the ogre tribes - which names an actor without naming a patron.
 MR_FLAVOUR = {
     "salted_fish": "Salted fish feeds sailors, soldiers and the poor through the lean months. "
-                   "Your barrels have been counted.",
+                   "The harbour-masters know how many barrels you hold.",
     "whale_oil": "Lamp oil burns in every hall that can afford the light. Yours is sitting in "
                  "barrels in the dark.",
     "sea_dragon_hide": "Sea dragon hide turns a blade, and there is less of it every year. "
                        "Somebody knows how much of it you hold.",
-    "rum": "Rum keeps crews at sea and quiet ashore. Your kegs have been noticed by people "
-           "who keep lists.",
-    "amber": "Amber is prized by jewellers and wizards alike. Your chests of it have not gone "
-             "unremarked.",
+    "rum": "Rum keeps crews at sea and quiet ashore. People who keep lists have noticed your "
+           "kegs.",
+    "amber": "Amber is prized by jewellers and wizards alike, and both have noticed your "
+             "chests of it.",
     "grain": "Grain is bread for the cities and fodder for the armies. Your granaries are "
              "full while others are not.",
     "warhorses": "A warhorse eats every day it is not ridden. Your stables are full, and the "
-                 "count has been taken.",
-    "pipeweed": "Pipeweed is smoked in every tavern from Altdorf to Marienburg. Your bales are "
-                "known to more than the tax-man.",
-    "books": "Books are knowledge, and knowledge is owed. Your crates of them have been "
-             "catalogued by somebody else.",
-    "olive_oil": "Olive oil lights the lamps and dresses the bread of the Middle Sea. Your "
-                 "barrels have been tallied.",
-    "silk": "Silk is what the Ivory Road carries west. Your bolts have been measured by "
-            "somebody other than your factor.",
-    "tea": "Tea is poured at every audience worth attending. Your chests of it have been "
-           "weighed.",
+                 "horse-dealers have taken the count.",
+    "pipeweed": "Pipeweed is smoked in every tavern from Altdorf to Marienburg. More people "
+                "than the tax-man know about your bales.",
+    "books": "Books are knowledge, and knowledge is owed. Somebody else has catalogued your "
+             "crates of them.",
+    "olive_oil": "Olive oil lights the lamps and dresses the bread of the Middle Sea. The oil "
+                 "merchants have tallied your barrels.",
+    "silk": "Silk is what the Ivory Road carries west. Somebody other than your factor has "
+            "measured your bolts.",
+    "tea": "Tea is poured at every audience worth attending. Every tea-house knows what your "
+           "chests of it weigh.",
     "jade": "Jade is carved into charms, seals and statues. Your slabs of it are on a list.",
     "coal": "Every forge and furnace burns coal. Yours is stacked in sacks while other fires "
             "go hungry.",
-    "silver": "Silver is coin, plate and a blade-edge against the dead. Your ingots have been "
-              "weighed twice.",
+    "silver": "Silver is coin, plate and a blade-edge against the dead. Somebody has weighed "
+              "your ingots twice.",
     "gromril": "Gromril is the hardest metal there is and the scarcest. Nobody has forgotten "
                "that you hold some.",
-    "quicksilver": "Every alchemist and engineer wants quicksilver. Your flasks have been "
-                   "counted.",
-    "brimstone": "Brimstone feeds the furnace and the powder mill both. Your sacks of it have "
-                 "not gone unnoticed.",
-    "brass": "Brass is cast for gears, guns and idols. Your ingots are written into a ledger "
-             "that is not yours.",
-    "blackpowder": "Blackpowder is the cannon's bread. Your kegs are known, and so is how dry "
-                   "you are keeping them.",
-    "ithilmar": "Ithilmar is found in one land only, and every ingot outside it is accounted "
-                "for. Yours included.",
+    "quicksilver": "Every alchemist and engineer wants quicksilver, and every one of them has "
+                   "counted your flasks.",
+    "brimstone": "Brimstone feeds the furnace and the powder mill both. The powder-makers have "
+                 "noticed your sacks of it.",
+    "brass": "Brass is cast for gears, guns and idols. Your ingots sit in a ledger that is not "
+             "yours.",
+    "blackpowder": "Blackpowder is the cannon's bread. The gunners know about your kegs, and "
+                   "how dry you are keeping them.",
+    "ithilmar": "Ithilmar is found in one land only, and Ulthuan keeps account of every ingot "
+                "that leaves it, yours included.",
     "dragon_bone": "Dragon bone grows rarer every century. Your crates of it are a matter of "
                    "record.",
-    "lustrian_plumes": "Lustrian plumes are worth their weight in gold at court. Yours have "
-                       "been counted feather by feather.",
+    "lustrian_plumes": "Lustrian plumes are worth their weight in gold at court. The courtiers "
+                       "have counted yours feather by feather.",
     "black_lotus": "Black lotus is sought by assassins and healers alike. Somebody knows "
                    "exactly how many ounces you hold.",
     "incense": "Incense burns in every temple and every tomb. Your sacks of it can be smelled "
                "from the street.",
-    "salted_meat": "Salted meat keeps, and armies march on it. Your barrels have been "
-                   "counted.",
-    "carpets": "Arabyan carpets are knotted in patterns older than the Empire. Your rolls have "
-               "been unrolled and priced.",
-    "kvas": "Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and that has "
-            "been noticed.",
-    "rhinox_hides": "Rhinox hide is tough enough to make armour of. Your stacks of it have "
-                    "been counted.",
-    "mead": "Mead is drunk from horns before every raid. Your kegs have been counted by "
-            "thirsty men.",
-    "glassware": "Fine glass is easily broken and dearly bought. Your crates of it have been "
-                 "counted, carefully.",
+    "salted_meat": "Salted meat keeps, and armies march on it. Every army's quartermaster knows "
+                   "how many barrels you hold.",
+    "carpets": "Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers "
+               "have unrolled and priced every one of yours.",
+    "kvas": "Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the "
+            "neighbours have noticed.",
+    "rhinox_hides": "Rhinox hide is tough enough to make armour of. The ogre tribes have "
+                    "counted your stacks of it.",
+    "mead": "Mead is drunk from horns before every raid. Thirsty men have counted your kegs.",
+    "glassware": "Fine glass is easily broken and dearly bought. Somebody has counted your "
+                 "crates of it, carefully.",
     "wool": "Wool is spun and woven in every town. Your bales are stacked to the rafters and "
             "somebody has climbed up to count them.",
     "porcelain": "Porcelain is fired in Cathay and treasured everywhere else. Your crates of "
                  "it are on a list.",
     "pearls": "Pearls come up from the warm seas and go round the neck of anyone who can pay. "
-              "Yours have been counted.",
-    "starwood": "Starwood is given by the trees of Athel Loren and never cut. That you hold "
-                "any at all has been noticed.",
+              "The jewellers have counted yours.",
+    "starwood": "Starwood is given by the trees of Athel Loren and never cut. Athel Loren has "
+                "noticed that you hold any at all.",
     "feathers": "Griffon and pegasus feathers are gathered from the high eyries at some risk. "
-                "Your bundles have been counted.",
-    "wyvern_scales": "Wyvern scales are taken at great cost from the nesting peaks. Yours have "
-                     "been counted.",
+                "The fletchers have counted your bundles.",
+    "wyvern_scales": "Wyvern scales are taken at great cost from the nesting peaks. Every "
+                     "armourer in the north has counted yours.",
 }
 
 
@@ -1459,7 +1510,6 @@ def _chd_race_text():
         "tiers": [(sfx, title, closer)
                   for sfx, _m, _t, _w, title, closer in DEMAND_TIERS],
         "flavour": DEMAND_FLAVOUR,
-        "wants_fmt": "The altar wants %d, and it wants them today.",
         "market": "Zharr Exchange",
         "offer_title_fmt": "Offering to Hashut: %s",
         "offer_text": OFFERING_TEXT,
@@ -1491,14 +1541,14 @@ OFFERING_OVERRIDE = dict(
 # somewhere off the page. The Temple keeps ledgers and mentions the poor.
 EMP_TIERS = [
     ("tithe", "The Temple's Tithe",
-     "It is a small thing, and the Temple keeps a long memory of small things."),
+     "A small tithe, and the Temple keeps a record of who pays it."),
     ("hunger", "Sigmar's Need",
-     "This is more than the collection plate takes. The war does not wait on your "
-     "bookkeeping."),
+     "This is more than the collection plate takes, and the Temple says the war will not "
+     "wait on your bookkeeping."),
     # "The Grand Theogonist Asks" is 25 characters and the tier title prefixes a commodity
     # name in the feed entry's title line. Cut to the shorter form for the room.
     ("wrath", "The Theogonist Asks",
-     "This is not alms. The Temple has read your ledgers and wants what is written in them."),
+     "The Temple has read your ledgers and wants what is written in them."),
 ]
 
 EMP_FLAVOUR = {
@@ -1510,9 +1560,9 @@ EMP_FLAVOUR = {
     "res_rom_marble": "The cathedral's east front has stood scaffolded for eleven years. The "
                       "masons say they are waiting on stone, and they have named yours.",
     "res_rom_timber": "The Temple's roofs and the Empire's pike shafts come out of the same "
-                      "forests. Only one of them is being supplied.",
-    "res_rom_wine": "Communion wine has been watered since Mitterfruhl. The priests know "
-                    "whose cellars it was watered to protect.",
+                      "forests, and this year the armies are taking all of it.",
+    "res_rom_wine": "Somebody has been watering the communion wine since Mitterfruhl to spare "
+                    "their own cellars, and the priests know whose.",
     "res_spices": "Incense has been thin at every service this season. The censer-bearers "
                   "can recite your inventory from memory.",
     "res_rom_glass": "Dwarf beer is drunk at the guild feasts the Temple is invited to and "
@@ -1533,7 +1583,7 @@ EMP_FLAVOUR = {
     "res_medicine": "The plague houses are full and the Temple's stores are not. The priests "
                     "have been very patient about which of those is your doing.",
     "res_rom_lead": "Salt preserves the army's meat and the Temple's patience. Both are "
-                    "running low, and only one is being restocked.",
+                    "running low, and your stores could restock either.",
     "res_rom_furs": "Winter came early on the Ostland road and the almshouses have no "
                     "blankets. Your bales are three days' cart from them.",
     "res_rom_textiles": "Pottery is what the poor eat from, when the Temple can afford to "
@@ -1567,12 +1617,12 @@ EMP_OFFER_TEXT = {
 # violence. Nothing is demanded; assessments are revised.
 CTH_TIERS = [
     ("tithe", "The Assessment",
-     "A small levy, correctly filed. The Bureaucracy files everything and forgets nothing."),
+     "A small levy, filed correctly and copied to every office that keeps your file."),
     ("hunger", "Revised Assessment",
-     "The assessment has been adjusted upward. You were not consulted, as is proper."),
+     "The Court has adjusted the assessment upward without consulting you, as is proper."),
     ("wrath", "Court Requisition",
-     "This is no longer an assessment. The Court has read your ledgers and finds them out of "
-     "harmony."),
+     "The Court has read your ledgers, finds them out of harmony, and requisitions the "
+     "difference."),
 ]
 
 CTH_FLAVOUR = {
@@ -1584,8 +1634,8 @@ CTH_FLAVOUR = {
     "res_rom_marble": "Three pavilions on the Ivory Road stand unfinished. The stone was "
                       "requisitioned, dispatched and never delivered, and the clerks have "
                       "traced it as far as your warehouse.",
-    "res_rom_timber": "The Wall consumes timber the way the Bureaucracy consumes paper. Your "
-                      "holdings are noted in both ledgers.",
+    "res_rom_timber": "The Wall consumes timber the way the Bureaucracy consumes paper, and "
+                      "the clerks have noted your holdings in both ledgers.",
     "res_rom_wine": "The autumn banquets require a grade of wine the Court no longer "
                     "receives. An inspector has visited your cellars and written a very "
                     "courteous report.",
@@ -1594,27 +1644,27 @@ CTH_FLAVOUR = {
     "res_rom_glass": "Dwarf beer crossed the border under a tariff schedule that does not "
                      "exist. The Bureaucracy proposes to resolve the irregularity by taking "
                      "the beer.",
-    "res_gems": "Jade is counted by the Court, and everything that is not jade is counted "
-                "twice as a precaution. Your gemstones have been counted twice.",
-    "res_dyes": "The Court's silks are dyed to a standard set four hundred years ago. The "
-                "standard has not moved. Your dyes have.",
+    "res_gems": "The Court counts jade once and everything that is not jade twice, as a "
+                "precaution. It has counted your gemstones twice.",
+    "res_dyes": "The Court's silks are dyed to a standard set four hundred years ago, and "
+                "the dye that meets it is sitting in your stores.",
     "res_trinkets": "Elven goods enter under a treaty of sixteen clauses. Your consignment "
                     "satisfies fifteen of them.",
     "res_gold_idols": "Foreign idols are permitted for study and not for storage. The "
                       "distinction is subtle, and the Court has made it in writing.",
     "res_ivory": "Tusk is a controlled good on the Ivory Road, which is named for it. The "
-                 "irony has been noted in the file.",
+                 "clerks have noted the irony in the file.",
     "res_animals": "Beasts crossing the Wall require a permit for each animal. The Court "
                    "holds your permits, or rather, the Court holds the absence of them.",
     "res_medicine": "The plague wards at Nan Gau are rationing. The Bureaucracy has "
-                    "calculated precisely how long your stores would end that, and has "
+                    "calculated precisely how soon your stores would end that, and has "
                     "written the number down.",
     "res_rom_lead": "Salt has been a state monopoly since the Dragon Emperor's first ledger. "
                     "Your holdings are therefore, technically, the state's.",
     "res_rom_furs": "The northern garrisons are cold and the requisition was approved eleven "
                     "months ago. The clerks have found where it stopped.",
-    "res_rom_textiles": "Pottery is taxed by weight and yours has not been weighed. An "
-                        "inspector is available, or the goods may simply be surrendered.",
+    "res_rom_textiles": "The Court taxes pottery by weight, and no inspector has weighed yours. "
+                        "One is available, or you may simply surrender the goods.",
 }
 
 CTH_OFFER_TEXT = {
@@ -1650,12 +1700,12 @@ CTH_OFFER_TEXT = {
 # Compact asks for a signature, and it has already had one witnessed.
 TEB_TIERS = [
     ("tithe", "A Note Presented",
-     "A modest draft against your account, drawn in the ordinary way and payable on sight."),
+     "A modest draft against your account, drawn in the ordinary way."),
     ("hunger", "The Compact Calls",
      "Larger than a season's dues, and the covering letter mentions your signature twice."),
     ("wrath", "The Debt Called In",
-     "The full sum, at once. Three houses have bought the paper between them and they have "
-     "stopped writing letters."),
+     "Three houses have bought the paper between them, and they have stopped writing "
+     "letters."),
 ]
 
 TEB_FLAVOUR = {
@@ -1672,7 +1722,7 @@ TEB_FLAVOUR = {
     "res_spices": "A galley out of Sartosa failed to arrive and took the season's pepper "
                   "with it. The Compact would rather buy yours than explain the shortfall.",
     "res_rom_glass": "Estalian glass went to the bottom off Bilbali and the orders did not "
-                     "sink with it. Somebody must fill them, and somebody has been chosen.",
+                     "sink with it. Somebody must fill them, and the Compact has chosen you.",
     "res_gems": "A dowry is being assembled for a marriage that settles two wars, and the "
                 "stones set aside for it have been found to be paste.",
     "res_dyes": "Purple is worn by three princes this year and made by nobody. What is left "
@@ -1683,7 +1733,7 @@ TEB_FLAVOUR = {
                       "not, and the Temple has a use for it that is not being written down.",
     "res_ivory": "The Arabyan trade has closed for the season and the sculptors of Verezzo "
                  "have work booked through the winter. They are asking, politely, twice.",
-    "res_animals": "The menageries are empty and a triumph has been promised. A parade with "
+    "res_animals": "The menageries are empty, and a prince has promised a triumph. A parade with "
                    "nothing in the cages is a parade about the man who paid for it.",
     "res_medicine": "Camp fever went through two companies before the muster and the "
                     "surgeons have been buying at any price. Yours is the last stock inland.",
@@ -1691,8 +1741,8 @@ TEB_FLAVOUR = {
                     "most. All three have applied to the Compact, and the Compact to you.",
     "res_rom_furs": "The passes freeze early this year and every company marching north has "
                     "the same line unfilled in its inventory.",
-    "res_rom_textiles": "Four thousand men have been contracted and not one of them has been "
-                        "clothed. The tailors are waiting on cloth, and the cloth is yours.",
+    "res_rom_textiles": "The condottieri have signed four thousand men and clothed not one of "
+                        "them. The tailors are waiting on cloth, and the cloth is yours.",
 }
 
 TEB_OFFER_TEXT = {
@@ -1727,12 +1777,12 @@ TEB_OFFER_TEXT = {
 # like the Chaos Dwarf text - no phonetic stammer in prose.
 SKV_TIERS = [
     ("tithe", "The Council's Tithe",
-     "A small thing. The Council asks small things of everyone, and writes down who refused."),
+     "A small tithe, and the Council writes down who refuses."),
     ("hunger", "The Council is Hungry",
-     "This is more than the Council usually takes. It has not been phrased as a question."),
+     "This is more than the Council usually takes, and it has not phrased this as a "
+     "question."),
     ("wrath", "The Thirteenth Demand",
-     "This is no tithe. The Grey Seers have seen the hoard, and the hoard is already spoken "
-     "for."),
+     "The Grey Seers have seen your hoard, and the Council already counts it as spoken for."),
 ]
 
 SKV_FLAVOUR = {
@@ -1742,10 +1792,10 @@ SKV_FLAVOUR = {
                     "interesting to exactly the wrong Seers. They know where yours is.",
     "res_rom_marble": "Stone is for above-ground fools, says the Council, which has "
                       "nonetheless found a use for yours and will not be explaining it.",
-    "res_rom_timber": "Props hold up tunnels and tunnels hold up everything. Three collapses "
-                      "this season have been blamed on your unwillingness to share.",
+    "res_rom_timber": "Props hold up tunnels and tunnels hold up everything. The Council "
+                      "blames three collapses this season on your unwillingness to share.",
     "res_rom_wine": "Man-drink is worth more than it should be and the Council has developed "
-                    "a taste for it. Your cellars have been surveyed by something small.",
+                    "a taste for it. Something small has surveyed your cellars.",
     "res_spices": "Spice hides the smell of what Clan Moulder calls meat. Demand has never "
                   "been higher and your stores have never been fuller.",
     "res_rom_glass": "Dwarf beer is the only thing the Council and Clan Mors have agreed on "
@@ -1754,7 +1804,7 @@ SKV_FLAVOUR = {
                 "precisely what a Grey Seer prefers to be paid in.",
     "res_dyes": "Seer-robes are dyed by a process nobody has survived describing. The dye "
                 "itself is ordinary, and yours is closer.",
-    "res_trinkets": "Elf-things are cursed, worthless, and wanted by the Council immediately.",
+    "res_trinkets": "Elf-things are cursed and worthless, and the Council wants yours anyway.",
     "res_gold_idols": "Gold idols melt into gold and gold buys clanrats. The Council has done "
                       "this arithmetic and would like you to do it too.",
     "res_ivory": "Bone and tusk feed the flesh-vats, and Clan Moulder has been petitioning "
@@ -1765,8 +1815,8 @@ SKV_FLAVOUR = {
                     "wants your medicine for reasons it declines to state.",
     "res_rom_lead": "Salt keeps meat edible in a tunnel for weeks. The Council knows how much "
                     "you have, and exactly how many mouths that is.",
-    "res_rom_furs": "Warmth is a luxury and luxuries are taxed. The tax is your entire stock "
-                    "of furs.",
+    "res_rom_furs": "Warmth is a luxury and luxuries are taxed, and the Council has set the "
+                    "tax on your furs.",
     "res_rom_textiles": "Pottery is fragile, useless and being hoarded by you, which is the "
                         "only part the Council finds suspicious.",
 }
@@ -1799,13 +1849,12 @@ SKV_OFFER_TEXT = {
 # forgotten. Everything is a matter of record, and the record is read aloud.
 DWF_TIERS = [
     ("tithe", "The Ancestors' Due",
-     "A small entry, and the Ancestors keep the book that small entries are written in."),
+     "A small due, and the Guild enters it in the Book all the same."),
     ("hunger", "A Debt Recorded",
-     "More than the season's due. It has been entered against your name, which is not a "
-     "threat, only a record."),
+     "More than the season's due, and the Guild has entered it against your name."),
     ("wrath", "The Grudge Entered",
-     "The full sum. The Longbeards have stopped calling it a due and started calling it "
-     "something with its own page."),
+     "The Longbeards have stopped calling it a due and started calling it something with its "
+     "own page."),
 ]
 
 DWF_FLAVOUR = {
@@ -1880,18 +1929,16 @@ DWF_OFFER_TEXT = {
 # Everything is courtesy, and the courtesy is the instrument.
 HEF_TIERS = [
     ("tithe", "The Court's Request",
-     "A small thing, asked politely, in a manner that does not admit of refusal."),
+     "A small request, made politely, in a manner that does not admit of refusal."),
     ("hunger", "A Matter of Duty",
-     "More than a courtesy. Ulthuan has been doing this since before your people had a "
-     "written language, and it is asking."),
+     "More than a courtesy, and the Court expects it of you as a duty to Ulthuan."),
     ("wrath", "The Court Insists",
-     "The full sum, now. The request has been made three times and the Court does not make a "
-     "fourth."),
+     "The Court has made this request three times, and it does not make a fourth."),
 ]
 
 HEF_FLAVOUR = {
-    "res_gems": "The Court does not buy gemstones. It accepts them, notes the giver, and the "
-                "giver's name is read out at the next audience.",
+    "res_gems": "The Court accepts gemstones as gifts, notes the giver, and reads the "
+                "giver's name out at the next audience.",
     "res_spices": "Lothern's kitchens have priced the season and decided that what you are "
                   "holding is fashionable. Fashion in Ulthuan is not a short thing.",
     "res_rom_wine": "The vineyards of Ellyrion came in thin this year, which is a matter of "
@@ -1902,22 +1949,22 @@ HEF_FLAVOUR = {
                     "sold, once, at a fair price. The Gate is not sentimental about them.",
     "res_obsidian": "The mages of Saphery want black glass and will not say what for, which "
                     "in Saphery is not unusual and is never cheap.",
-    "res_rom_marble": "The White Tower is always being repaired, and Chrace has run short of "
-                      "the correct stone, which is not the same as running short of stone.",
+    "res_rom_marble": "The White Tower is always under repair, and Chrace has run short of "
+                      "the one stone its masons will use.",
     "res_rom_timber": "Athel Loren will not sell, Chrace will not cut, and the shipwrights of "
                       "Lothern have a fleet to keep afloat.",
     "res_rom_glass": "A cargo of Dwarf ale reached Lothern by an accident of trade and "
                      "became, to everyone's embarrassment, sought after.",
     "res_dyes": "Sea-silk takes a dye once and holds it for a century. The dye has to be "
                 "perfect, and perfect is bought rather than made.",
-    "res_gold_idols": "Crude work, melted without ceremony, and the Court would rather this "
-                      "were not minuted. It is being minuted.",
+    "res_gold_idols": "Crude work, melted without ceremony, and the Court is minuting it with "
+                      "some reluctance.",
     "res_ivory": "Tusk for the scrimshaw of the Sea Guard, who have been at it six hundred "
                  "years and have never once run short until now.",
     "res_animals": "The menageries of Lothern are a tool of diplomacy. An ambassador who "
                    "has been shown one is easier to talk to afterwards.",
-    "res_medicine": "Ulthuan's healers are the finest in the world, and the finest in the "
-                    "world still need the plant. Chrace's crop failed.",
+    "res_medicine": "Ulthuan's healers are the finest in the world and still need the plant, "
+                    "and Chrace's crop failed this year.",
     "res_rom_lead": "The fleets keep the sea lanes and salt keeps the fleets. It is "
                     "unglamorous, and the Gate has never once let it run out.",
     "res_rom_furs": "Cold water and long watches, and the Sea Guard hold opinions about "
@@ -1961,14 +2008,13 @@ HEF_OFFER_TEXT = {
 # rather than squalid - that is what separates this from the Under-Market.
 DEF_TIERS = [
     ("tithe", "Khaine's Portion",
-     "A small offering. The temple keeps count, and the temple's count is the only one that "
-     "matters."),
+     "A small portion, and the temple keeps count of every one."),
     ("hunger", "The Temple Thirsts",
-     "More than the usual portion. The Hag Queens were consulted and were not in a moderate "
-     "humour."),
+     "More than the usual portion: the temple consulted the Hag Queens, and they were not in "
+     "a moderate humour."),
     ("wrath", "The Blood Price",
-     "The full sum, at once. The knives have been counted out onto the table, which is how "
-     "the temple asks a second time."),
+     "The temple has counted its knives out onto the table, which is how it asks a second "
+     "time."),
 ]
 
 DEF_FLAVOUR = {
@@ -2045,7 +2091,6 @@ RACE_TEXT = {
     CHD_CULTURE: _chd_race_text(),
     "wh_main_emp_empire": {
         "tiers": EMP_TIERS, "flavour": EMP_FLAVOUR,
-        "wants_fmt": "The Temple wants %d, and it wants them today.",
         "market": "Imperial Bourse",
         "offer_title_fmt": "Tithe to Sigmar: %s", "offer_text": EMP_OFFER_TEXT,
         "wrath_title": "The Temple's Displeasure",
@@ -2055,16 +2100,13 @@ RACE_TEXT = {
         "pleased_text": "The tithe was paid in full and on the day it was asked. The Temple "
                         "says so from the pulpit too.",
         "paid": ("The Tithe Received",
-                 "The wagons reached the Temple before the clerks had finished the tally.",
-                 "Sigmar is served, and the ledger is closed for this season."),
+                 "The wagons reached the Temple before the clerks had finished the tally."),
         "unpaid": ("The Tithe Unpaid",
-                   "The plate went round the province and came back empty. The priests "
-                   "closed their books and went to report it.",
-                   "The Temple collects what it is owed in other coin."),
+                   "The plate went round the province and came back empty, and the priests "
+                   "closed their books and went to report it."),
     },
     "wh3_main_cth_cathay": {
         "tiers": CTH_TIERS, "flavour": CTH_FLAVOUR,
-        "wants_fmt": "The Court requires %d, and requires them today.",
         "market": "Ivory Road",
         "offer_title_fmt": "Levied by the Court: %s", "offer_text": CTH_OFFER_TEXT,
         "wrath_title": "Found Out of Harmony",
@@ -2074,17 +2116,14 @@ RACE_TEXT = {
         "pleased_text": "The levy was surrendered in full and on the day named. The record "
                         "says so, and the record is what matters.",
         "paid": ("The Levy Surrendered",
-                 "The goods were counted, sealed and entered against your name in a hand "
-                 "nobody could fault.",
-                 "The Court is satisfied. The file remains open, as all files do."),
+                 "The clerks counted the goods, sealed them and entered them against your "
+                 "name in a hand nobody could fault."),
         "unpaid": ("The Assessment Lapsed",
                    "No goods arrived, and the clerk who expected them wrote down that none "
-                   "had. The note was countersigned the same afternoon.",
-                   "The Court adjusts its regard for you, correctly and in writing."),
+                   "had. A second clerk countersigned the note the same afternoon."),
     },
     TEB_CULTURE: {
         "tiers": TEB_TIERS, "flavour": TEB_FLAVOUR,
-        "wants_fmt": "The Compact requires %d, payable on presentation.",
         "market": "Merchant Compact",
         "offer_title_fmt": "Consigned to the Temple: %s", "offer_text": TEB_OFFER_TEXT,
         "wrath_title": "Protested for Non-Payment",
@@ -2094,17 +2133,14 @@ RACE_TEXT = {
         "pleased_text": "The consignment was delivered, weighed and receipted without a "
                         "query. The Compact extends terms it does not extend to everyone.",
         "paid": ("The Note Discharged",
-                 "The goods went out under the Temple's seal and the draft was cancelled in "
-                 "front of witnesses, as the form requires.",
-                 "Myrmidia is served, and your credit is a little better than it was."),
+                 "The goods went out under the Temple's seal, and the Compact cancelled the "
+                 "draft in front of witnesses, as the form requires."),
         "unpaid": ("The Note Protested",
-                   "Nothing was tendered by the day named. The notary attended, recorded "
-                   "that nothing was tendered, and filed it where such things are filed.",
-                   "The Compact recovers its money the other way, and marks the ledger."),
+                   "You tendered nothing by the day named. The notary attended, recorded "
+                   "that nothing was tendered, and filed it where such things are filed."),
     },
     "wh_main_dwf_dwarfs": {
         "tiers": DWF_TIERS, "flavour": DWF_FLAVOUR,
-        "wants_fmt": "The Ancestors are owed %d, and the Book says today.",
         "market": "Long Ledger",
         "offer_title_fmt": "Offered to Grungni: %s", "offer_text": DWF_OFFER_TEXT,
         "wrath_title": "A Grudge Recorded",
@@ -2116,16 +2152,14 @@ RACE_TEXT = {
                         "struck through, which is as close to praise as the Book allows.",
         "paid": ("The Due Rendered",
                  "The wagons reached the hold gate before the tally was finished, which the "
-                 "gatekeeper remarked on approvingly and out loud.",
-                 "The Ancestors are served, and the entry is struck."),
+                 "gatekeeper remarked on approvingly and out loud. The Guild has struck the "
+                 "entry."),
         "unpaid": ("The Due Withheld",
                    "Nothing came up the road by the day named. The Guild's clerk waited out "
-                   "the full day, wrote one line, and closed the book.",
-                   "The Ancestors are patient. The Book is not short of room."),
+                   "the full day, wrote one line, and closed the book."),
     },
     "wh2_main_hef_high_elves": {
         "tiers": HEF_TIERS, "flavour": HEF_FLAVOUR,
-        "wants_fmt": "The Court requests %d, and requests them today.",
         "market": "Emerald Gate",
         "offer_title_fmt": "Tribute to Asuryan: %s", "offer_text": HEF_OFFER_TEXT,
         "wrath_title": "Noted at Court",
@@ -2135,17 +2169,14 @@ RACE_TEXT = {
         "pleased_text": "The tribute was rendered in full and on the day named. The Court has "
                         "said so once, in public, which is a great deal.",
         "paid": ("The Tribute Rendered",
-                 "The consignment reached the Gate under seal and was accepted without a word "
-                 "of query, which is how the Court says thank you.",
-                 "The Court is satisfied, and your name is spoken well of for a season."),
+                 "The consignment reached the Gate under seal, and the Gate accepted it "
+                 "without a word of query, which is how the Court says thank you."),
         "unpaid": ("The Request Unmet",
-                   "Nothing was tendered by the day named. The clerk of the Gate closed the "
-                   "entry, and the entry was read at the next audience.",
-                   "The Court adjusts its regard. It does not raise its voice."),
+                   "You tendered nothing by the day named. The clerk of the Gate closed the "
+                   "entry and read it out at the next audience."),
     },
     "wh2_main_def_dark_elves": {
         "tiers": DEF_TIERS, "flavour": DEF_FLAVOUR,
-        "wants_fmt": "The temple requires %d, and requires them today.",
         "market": "Black Ark Market",
         "offer_title_fmt": "Given to the Temple: %s", "offer_text": DEF_OFFER_TEXT,
         "wrath_title": "Marked at the Temple",
@@ -2158,16 +2189,13 @@ RACE_TEXT = {
                         "alternative.",
         "paid": ("The Portion Given",
                  "The goods went in through the temple gate and did not come out again, which "
-                 "is the correct outcome and the only receipt offered.",
-                 "Khaine is served. The knives went back in the drawer."),
+                 "is the correct outcome and the only receipt offered."),
         "unpaid": ("The Portion Withheld",
-                   "Nothing was brought by the day named. The temple sent nobody to ask why, "
-                   "which is not the mercy it appears to be.",
-                   "The temple takes its portion in the other currency, eventually."),
+                   "You brought nothing by the day named. The temple sent nobody to ask why, "
+                   "which is not the mercy it appears to be."),
     },
     "wh2_main_skv_skaven": {
         "tiers": SKV_TIERS, "flavour": SKV_FLAVOUR,
-        "wants_fmt": "The Council wants %d, and wants them today.",
         "market": "Under-Market",
         "offer_title_fmt": "Tribute to the Council: %s", "offer_text": SKV_OFFER_TEXT,
         "wrath_title": "Marked by the Council",
@@ -2178,12 +2206,10 @@ RACE_TEXT = {
                         "expecting and has decided to reward anyway.",
         "paid": ("The Tribute Taken",
                  "The crates went down the tunnel and did not come back, which is how the "
-                 "Council prefers to receive things.",
-                 "The Council is pleased, briefly, and says so to fewer clans than it might."),
+                 "Council prefers to receive things."),
         "unpaid": ("The Tribute Withheld",
-                   "Nothing went down the tunnel. Thirteen of the wrong sort were told, "
-                   "individually, by someone hoping to be rewarded for telling them.",
-                   "The Council takes what it is owed by other arrangements."),
+                   "Nothing went down the tunnel. Someone hoping to be rewarded for it told "
+                   "thirteen of the wrong sort, one at a time."),
     },
 }
 
@@ -2355,35 +2381,40 @@ def build():
         #
         # ONE MESSAGE PER (TIER, COMMODITY): the amount and the goods have to appear in the text,
         # and that text is a static loc string.
+        # Mid-sentence the patron takes a small article: "the Court's favour".
+        pat = race["patron"]
+        pat_mid = "the " + pat[4:] if pat.startswith("The ") else pat
         for res in ALL_GOODS:
             name = display_name(res)
-            for (sfx, tier_title, closer), (_s, mult, _t, _w, _T, _c) in zip(
+            for (sfx, tier_title, closer), (_s, mult, boon_t, wrath_t, _T, _c) in zip(
                     text["tiers"], DEMAND_TIERS):
                 amount = demand_amount(mult)
                 key = "%s%sdem_%s_%s" % (PREFIX, seg, sfx, short(res))
                 loc.append((key + "_title", "%s: %s" % (tier_title, name)))
-                loc.append((key + "_primary", "%s %s %s"
-                            % (flavour(text, res), text["wants_fmt"] % amount, closer)))
-                loc.append((key + "_secondary",
-                            "Sacrifice %d %s in the %s within %d turns, or answer for it."
-                            % (amount, name, text["market"], DEMAND_GRACE)))
+                loc.append((key + "_primary", DEMAND_SUBTITLE % (amount, name)))
+                loc.append((key + "_secondary", DEMAND_BODY
+                            % (flavour(text, res), closer, text["market"], DEMAND_GRACE,
+                               boon_t, pat_mid, pat_mid, wrath_t)))
 
         # The two outcome messages. Generic within a race, because they say what happened
         # rather than how much - the amount and the commodity are in the demand message.
-        for stem, parts in (("dem_paid", text["paid"]), ("dem_wrath", text["unpaid"])):
+        for stem, parts, sub, fact in (
+                ("dem_paid", text["paid"], text["pleased_title"], PAID_FACT),
+                ("dem_wrath", text["unpaid"], text["wrath_title"], WRATH_FACT)):
             base_key = PREFIX + seg + stem
             loc.append((base_key + "_title", parts[0]))
-            loc.append((base_key + "_primary", parts[1]))
-            loc.append((base_key + "_secondary", parts[2]))
+            loc.append((base_key + "_primary", sub))
+            loc.append((base_key + "_secondary", "%s %s" % (parts[1], fact % pat)))
 
     # The shock bulletin, one per commodity. Keyed on short(), which is the same function
     # EX.short mirrors in the script - the Lua builds this key at runtime and a mismatch here
     # is a message that resolves to nothing and draws an empty feed entry.
     for res in ALL_GOODS:
         name = display_name(res)
-        loc.append((SHOCK_MSG + short(res) + "_title", SHOCK_MSG_TEXT[0] % name))
-        loc.append((SHOCK_MSG + short(res) + "_primary", SHOCK_MSG_TEXT[1] % name))
-        loc.append((SHOCK_MSG + short(res) + "_secondary", SHOCK_MSG_TEXT[2]))
+        for stem, text in SHOCK_MSGS:
+            loc.append((stem + short(res) + "_title", text[0] % name))
+            loc.append((stem + short(res) + "_primary", text[1]))
+            loc.append((stem + short(res) + "_secondary", text[2] % name))
 
     # The two delisting bulletins. Not per house - the houses ship in the lords pack and are
     # discovered by culture, so there is no key here to write text against.
@@ -2636,6 +2667,7 @@ def selftest():
     check_against_vanilla(t)
     check_chd_identity(t)
     check_loc_complete(t)
+    check_message_text(t)
 
     # NO RITUAL TABLES. The trade is cm:treasury_mod + cm:faction_add_pooled_resource, and every
     # ritual row was doing nothing but being hidden and counted. If one of these ever comes back,
@@ -6014,13 +6046,13 @@ def check_race_table():
             "an extra entry here is text for a bundle that is never generated."
             % (culture, sorted(set(text["offer_text"]) - wanted),
                sorted(wanted - set(text["offer_text"]))))
-        assert "%d" in text["wants_fmt"], (
-            "%s's wants_fmt has no amount placeholder - the demand would never say how much"
-            % culture)
+        # (title, body): the subtitle is the race's pleased / wrath bundle title.
         for field in ("paid", "unpaid"):
-            assert len(text[field]) == 3 and all(text[field]), (
-                "%s's %s message is %r - show_message_event takes three parts and a blank one "
+            assert len(text[field]) == 2 and all(text[field]), (
+                "%s's %s message is %r - it takes a title and a body, and a blank one "
                 "draws an empty line in the feed" % (culture, field, text[field]))
+    assert "%d" in DEMAND_SUBTITLE, (
+        "DEMAND_SUBTITLE has no amount placeholder - the demand would never say how much")
 
     # THE BOON OVERRIDE LABEL. The panel prints it beside a Sacrifice button, so it has to
     # describe the effect that race's bundle actually carries - the whole reason the override
@@ -6912,6 +6944,30 @@ def write_baseline(tables):
                 total += 1
     io.open(BASELINE, "w", encoding="utf-8", newline=NL).write(NL.join(out) + NL)
     return total
+
+
+def check_message_text(tables):
+    """Every feed message follows CA's layout: _primary a short subtitle, _secondary the body.
+
+    The primary draws in a large font under the title, so a sentence there wraps into a wall;
+    a blank secondary draws an empty black plate. This mod shipped every message the other way
+    round, body in _primary and a tip in _secondary (screenshot, 2026-10-10).
+    """
+    loc = dict((r[0], r[1]) for r in tables["loc"][1])
+    bad = []
+    for key in sorted(k for k in loc if k.endswith("_primary")):
+        sub = loc[key].strip()
+        body = loc.get(key[:-len("_primary")] + "_secondary", "").strip()
+        if not sub or len(sub) > MESSAGE_PRIMARY_MAX or sub.endswith(".") or NL in sub:
+            bad.append("%s is %r - a subtitle of at most %d characters on one line, no full "
+                       "stop" % (key, sub, MESSAGE_PRIMARY_MAX))
+        if not body:
+            bad.append("%s has an empty _secondary, which draws an empty black plate" % key)
+    assert not bad, "%d feed message faults. First 5: %s" % (len(bad), bad[:5])
+    print("  feed messages: %d subtitles, longest %d of %d characters, every body filled"
+          % (sum(1 for k in loc if k.endswith("_primary")),
+             max(len(v) for k, v in loc.items() if k.endswith("_primary")),
+             MESSAGE_PRIMARY_MAX))
 
 
 def check_loc_complete(tables):
@@ -9396,14 +9452,22 @@ def check_demands():
 
     # EVERY (TIER, COMMODITY) MESSAGE, all three parts. The script builds this key by
     # concatenation, so a missing row is a blank event panel and no error anywhere.
+    segs = sorted(set(r["seg"] for r in race_table().values()))
     for res in COMMODITIES:
-        for sfx, mult, _turns, _wturns, _title, _closer in DEMAND_TIERS:
-            key = "%sdem_%s_%s" % (PREFIX, sfx, short(res))
+        for (sfx, mult, turns, wturns, _title, _closer), seg in (
+                (tier, seg) for tier in DEMAND_TIERS for seg in segs):
+            key = "%s%sdem_%s_%s" % (PREFIX, seg, sfx, short(res))
             for part in ("_title", "_primary", "_secondary"):
                 assert key + part in loc, "no loc for %s" % (key + part)
-            # The amount the text promises must be the amount the script takes.
-            assert str(demand_amount(mult)) in loc[key + "_primary"], (
-                "%s does not name the %d it charges" % (key, demand_amount(mult)))
+            # The amount the text promises must be the amount the script takes. It lives in
+            # the SUBTITLE ("Pay 30 Salt"), and the durations in the body.
+            assert re.search(r"\b%d\b" % demand_amount(mult), loc[key + "_primary"]), (
+                "%s's subtitle %r does not name the %d it charges"
+                % (key, loc[key + "_primary"], demand_amount(mult)))
+            body = loc[key + "_secondary"]
+            assert "%d turns of" % turns in body and "lasts %d turns" % wturns in body, (
+                "%s's body does not name the %d turns of favour and %d of wrath the script "
+                "applies: %r" % (key, turns, wturns, body))
     for msg in (PAID_MSG, WRATH_MSG):
         for part in ("_title", "_primary", "_secondary"):
             assert msg + part in loc, "no loc for %s" % (msg + part)
@@ -13261,6 +13325,25 @@ EX.free_guild()
 print("memo_same " .. tostring(math.abs(loose - held) < 0.000001))
 print("memo_calls " .. held_calls)
 print("memo_loose_calls " .. loose_calls)
+-- AND THE WAR LOCK, ONCE PER HOLD (2026-10-09). EX.market_closed is one guild-wide answer,
+-- but buy_refusal and buy_tip ask it on every row: at 54 goods and 161 houses that was 34,800
+-- of a Trade refresh's 37,200 cm:get_faction calls, 0.1s after every Buy and Sell.
+GF_CALLS = 0
+for _ = 1, 4 do EX.market_closed() end
+print("closed_loose_calls " .. GF_CALLS)
+EX.hold_guild()
+GF_CALLS = 0
+for _ = 1, 4 do EX.market_closed() end
+print("closed_held_calls " .. GF_CALLS)
+local open_held = EX.market_closed()
+EX.free_guild()
+-- SCOPED, NOT CACHED: the next hold reads the war that started after the last one.
+for i = 1, 14 do TREATY["house" .. i] = "war" end
+EX.hold_guild()
+local war_held = EX.market_closed()
+EX.free_guild()
+TREATY = {}
+print("closed_fresh " .. tostring(open_held == nil and war_held ~= nil))
 -- AND THE HOLD'S OWN CONSTRUCTION ON A FRIENDLY BOARD (2026-09-30). Every house that likes you
 -- asks EX.best_standing for its rank; memoised in the hold, that is one walk, and without the
 -- memo it is one walk PER HOUSE - O(houses^2) on every refresh, the hang in a new costume.
@@ -17905,6 +17988,19 @@ def check_lua_books():
         "four hostility() asks inside one EX.hold_guild() still made %s cm:get_faction calls. "
         "The whole point is that the guild is walked ONCE per refresh; %s were made without "
         "the hold." % (have["memo_calls"], have["memo_loose_calls"]))
+    # THE WAR LOCK IS ONE ANSWER PER HOLD. Four asks inside one hold cost one guild walk.
+    assert int(have["closed_loose_calls"]) > 0, (
+        "four EX.market_closed() asks made no cm:get_faction calls unheld, so the scene is not "
+        "measuring the walk")
+    assert int(have["closed_held_calls"]) * 4 == int(have["closed_loose_calls"]), (
+        "four EX.market_closed() asks inside one EX.hold_guild() made %s cm:get_faction calls, "
+        "%s unheld. buy_refusal and buy_tip ask it on every row, so unmemoised it walks the "
+        "guild twice per row: 34,800 calls per Trade refresh at 54 goods and 161 houses, the "
+        "lag after every trade (2026-10-09)."
+        % (have["closed_held_calls"], have["closed_loose_calls"]))
+    assert have["closed_fresh"] == "true", (
+        "EX.market_closed's memo outlived its hold: a war declared between two refreshes "
+        "did not close the market on the second")
     # BUILDING THE HOLD IS LINEAR TOO. 14 friendly houses: 12 calls a house with
     # EX.best_standing memoised in it; one guild walk per house without, 40 a house.
     assert int(have["memo_build_calls"]) <= 14 * 14, (
@@ -21552,8 +21648,9 @@ def check_more_resources(t):
             for sfx, _m, _t, _w, _T, _c in DEMAND_TIERS:
                 for part in ("_title", "_primary", "_secondary"):
                     assert demand_key(r, sfx, race["seg"]) + part in loc, (culture, r, sfx)
-        for part in ("_title", "_primary", "_secondary"):
-            assert SHOCK_MSG + short(r) + part in loc, r
+        for stem, _text in SHOCK_MSGS:
+            for part in ("_title", "_primary", "_secondary"):
+                assert stem + short(r) + part in loc, (stem, r)
 
     if not os.path.isfile(LUA_EXE):
         print("  (skipped more resources run: no lua.exe)")
@@ -23559,8 +23656,10 @@ def check_shock_news():
     All five fail in silence and none shows up as an error:
 
     1. A MESSAGE KEY WITH NO LOC draws an empty feed entry. The script builds the key by
-       concatenation at runtime (EX.PREFIX .. "shock_" .. EX.short(res)), so a renamed prefix
-       on either side is a bulletin that resolves to nothing.
+       concatenation at runtime (EX.PREFIX .. EX.shock_stem(res) .. EX.short(res)), so a
+       renamed prefix or stem on either side is a bulletin that resolves to nothing. The stem
+       is the DIRECTION: a war shock and a share shock that raised the price, or a fall,
+       and the run below drives all three.
     2. THE PERSISTENT FLAG MUST AGREE WITH THE RECORD. show_message_event's 5th argument picks
        which event type the index resolves against - true for scripted_persistent_event, false
        for scripted_transient_event - and a mismatch draws NOTHING at all rather than drawing
@@ -23589,23 +23688,31 @@ def check_shock_news():
     fn = re.search(r"function EX\.announce_shocks\(\).*?\nend", code, re.S)
     assert fn, ("EX.announce_shocks is gone - a shock now moves a price with no trace "
                 "outside the panel")
-    m = re.search(r'EX\.PREFIX \.\. "([a-z_]+)" \.\. EX\.short\(', fn.group(0))
-    assert m, ("EX.announce_shocks no longer builds its message key from EX.PREFIX and "
-               "EX.short - the loc keys below cannot be checked against anything")
-    assert PREFIX + m.group(1) == SHOCK_MSG, (
-        "the script builds %r and the generator writes %r; every bulletin would resolve to no "
-        "loc and draw an empty feed entry" % (PREFIX + m.group(1), SHOCK_MSG))
+    assert re.search(r"EX\.PREFIX \.\. EX\.shock_stem\(best\) \.\. EX\.short\(best\)",
+                     fn.group(0)), (
+        "EX.announce_shocks no longer builds its message key from EX.PREFIX, EX.shock_stem and "
+        "EX.short - the loc keys below cannot be checked against anything")
+    # THE STEMS ARE WHAT EX.shock_stem RETURNS, all of them: a branch whose stem has no loc is
+    # the rarer direction shipping blank.
+    sfn = re.search(r"function EX\.shock_stem\(res\).*?\nend", code, re.S)
+    assert sfn, "EX.shock_stem is gone - the bulletin cannot say which way the price moved"
+    stems = sorted(PREFIX + s for s in re.findall(r'return "([a-z_]+)"', sfn.group(0)))
+    assert stems == sorted(s for s, _t in SHOCK_MSGS), (
+        "the script picks among %r and the generator writes %r; a stem with no loc draws an "
+        "empty feed entry" % (stems, sorted(s for s, _t in SHOCK_MSGS)))
     for res in COMMODITIES:
-        for part in ("_title", "_primary", "_secondary"):
-            key = SHOCK_MSG + short(res) + part
-            assert key in loc, "no loc for %s" % key
-            # THE SHADOWING TRAP check_demands carries: a text tuple shadowed by a string
-            # indexes to three single CHARACTERS, and every key still exists.
-            assert len(loc[key]) > 20, (
-                "%s is %r - a message part that short means the text tuple was indexed as a "
-                "string, which is what shadowing it with a str does" % (key, loc[key]))
-        assert display_name(res) in loc[SHOCK_MSG + short(res) + "_title"], (
-            "the bulletin for %s does not name it" % res)
+        for stem, _text in SHOCK_MSGS:
+            for part in ("_title", "_primary", "_secondary"):
+                key = stem + short(res) + part
+                assert key in loc, "no loc for %s" % key
+                # THE SHADOWING TRAP check_demands carries: a text tuple shadowed by a string
+                # indexes to three single CHARACTERS, and every key still exists. > 12, the
+                # delist check's bound: "The Map Shifts: Dyes" is exactly 20.
+                assert len(loc[key]) > 12, (
+                    "%s is %r - a message part that short means the text tuple was indexed "
+                    "as a string, which is what shadowing it with a str does" % (key, loc[key]))
+            assert display_name(res) in loc[stem + short(res) + "_title"], (
+                "the bulletin for %s does not name it" % res)
 
     # 2. THE RECORD AND THE FLAG, which have to agree or nothing draws.
     crit = {r["member"]: r["value"]
@@ -23808,6 +23915,18 @@ print("title " .. tostring(MSGS[#MSGS] and MSGS[#MSGS][1]))
 print("persist " .. tostring(MSGS[#MSGS] and MSGS[#MSGS][2]))
 print("index " .. tostring(MSGS[#MSGS] and MSGS[#MSGS][3]))
 
+-- A SHARE SHOCK EACH WAY. The war text says "prices rise" and blames burned settlements, so
+-- a culture's share moving the price must pick its own stem, and a fall must say so.
+EX.shock, EX.shock_why, EX.shock_src = {}, {}, {}
+EX.shocked = { ["cshare|x"] = true }
+EX.bump_shock("res_gems", -3, "collapse")
+EX.announce_shocks()
+print("fall " .. tostring(MSGS[#MSGS] and MSGS[#MSGS][1]))
+EX.shock, EX.shock_why, EX.shock_src = {}, {}, {}
+EX.bump_shock("res_gems", 3, "surge")
+EX.announce_shocks()
+print("rise " .. tostring(MSGS[#MSGS] and MSGS[#MSGS][1]))
+
 -- SUB-RUNG. New events, but a sixtieth of the world's timber moved no price at all.
 EX.supply = { res_rom_timber = 600 }
 EX.shock, EX.shocked = {}, {}
@@ -23861,6 +23980,12 @@ print("cleared " .. tostring(SAVED["zharr_shocked"] == ""))
         "the bulletin named %r. Obsidian moved 6 rungs (clamped) against gems' 3, and gems is "
         "the earlier of the two in EX.COMMODITIES - so naming gems means the loop takes the "
         "first commodity over a rung rather than the largest." % have["title"])
+    assert have["fall"] == SHOCK_FALL_MSG + "gems_title", (
+        "a share shock that LOWERED the price of gems announced %r - the war bulletin says "
+        "prices rose" % have["fall"])
+    assert have["rise"] == SHOCK_RISE_MSG + "gems_title", (
+        "a share shock that raised the price of gems announced %r - the war bulletin blames "
+        "burned settlements for a change in who holds the map" % have["rise"])
     assert have["persist"] == "false", (
         "the bulletin passed persistent=%s; the record is scripted_transient_event and a "
         "mismatch draws nothing" % have["persist"])
@@ -24304,6 +24429,7 @@ if __name__ == "__main__":
     else:
         tables = build()
         check_against_vanilla(tables)
+        check_message_text(tables)
         for table, (cols, rows) in sorted(tables.items()):
             ver = "loc" if table == "loc" else table_version(table)
             print("  %5d  %-48s v%s" % (len(rows), table, ver))

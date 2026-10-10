@@ -3859,22 +3859,32 @@ def _build_one(tag):
         loc.append({"key": "derpy_gg_" + key, "text": text, "tooltip": "false"})
 
     # The feed, both halves. A demand that arrives silently is a deadline nobody saw.
+    # CA'S LAYOUT (2026-10-10): _primary draws large under the title as a short subtitle,
+    # _secondary is the body in the dark box below. This mod had them the other way round;
+    # check_message_text() holds the line.
     loc.append({"key": "message_event_text_text_derpy_gg_demand_title",
                 "text": "A Guild Asks", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_primary",
-                "text": "One of the Great Guilds has made a demand of you. The Court "
-                        "tab holds the terms and the deadline.", "tooltip": "false"})
+                "text": "A Demand with a Deadline", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_secondary",
-                "text": "They do not ask twice.", "tooltip": "false"})
+                "text": "One of the Great Guilds has made a demand of you. The Court tab "
+                        "shows the terms and the deadline. Pay it to gain Reputation with "
+                        "that guild. "
+                        + ("Miss the deadline and you lose nothing." if expiry_free(tag)
+                           else "Miss the deadline and your Reputation with it falls."),
+                "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_title",
                 "text": 'A Guild Demand Ignored', "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_primary",
-                "text": "The deadline has passed and nothing was paid. "
-                        + ("Nobody in the Under-Empire expected otherwise." if expiry_free(tag)
-                           else 'Your Reputation with that guild has fallen.'),
+                "text": ("It Costs You Nothing" if expiry_free(tag)
+                         else "Your Reputation Has Fallen"),
                 "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_demand_fail_secondary",
-                "text": "The ledger is kept whether you read it or not.",
+                "text": "The deadline passed and you paid nothing. "
+                        + ("Your Reputation is untouched: nobody in the Under-Empire "
+                           "expected otherwise." if expiry_free(tag)
+                           else "Your Reputation with that guild has fallen. The Guilds tab "
+                                "shows your Reputation with each guild."),
                 "tooltip": "false"})
 
     # A FAILED BOUNTY, on the demand record: a feed record is presentation, and a guild
@@ -3882,10 +3892,11 @@ def _build_one(tag):
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_title",
                 "text": 'A Guild Bounty Failed', "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_primary",
-                "text": 'You failed a guild bounty. You lose your Favour stake and the Reputation shown on the card. Returning a bounty costs only the stake.',
-                "tooltip": "false"})
+                "text": "You Lose Your Stake and Reputation", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_bounty_fail_secondary",
-                "text": "A promise in the ledger is a debt.", "tooltip": "false"})
+                "text": "The guild keeps your Favour stake and takes back the Reputation "
+                        "shown on the bounty's card. Returning a bounty you cannot finish "
+                        "costs only the stake.", "tooltip": "false"})
 
     # ONLY THE EMPTY SLOT SHOWS THIS. It used to sit under every offer as well, six lines
     # repeating the Help tab's Bounties page; an offer now says its own terms instead.
@@ -3906,22 +3917,29 @@ def _build_one(tag):
     loc.append({"key": "message_event_text_text_derpy_gg_hit_title",
                 "text": "A Guild Moves Against You", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hit_primary",
-                "text": 'A rival has paid a guild to act against you.', "tooltip": "false"})
+                "text": "Hired by a Rival", "tooltip": "false"})
+    # The Log's "hit" line names the service and the buyer (GGAI.log_purchase).
     loc.append({"key": "message_event_text_text_derpy_gg_hit_secondary",
-                "text": 'Their Favour buys more than goods.', "tooltip": "false"})
+                "text": "A rival has paid a guild to use one of its services against you. "
+                        "The Log tab of the Great Guilds panel names the rival and the "
+                        "service.", "tooltip": "false"})
 
     # A rival paid to take what is yours (2026-09-29). Fixed text: the Log names who and what.
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_title",
                 "text": "A Price on Your Holdings", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_primary",
-                "text": "A guild has hired a rival against you.", "tooltip": "false"})
+                "text": "A Rival Takes the Bounty", "tooltip": "false"})
     loc.append({"key": "message_event_text_text_derpy_gg_hunted_secondary",
-                "text": 'The Log tab of the Great Guilds panel names the rival and their target.',
-                "tooltip": "false"})
+                "text": "A guild has put a bounty on one of your settlements, lords or heroes, "
+                        "and a rival has taken it. The Log tab of the Great Guilds panel "
+                        "names the rival and their target.", "tooltip": "false"})
     # The guilds redrew their services (2026-09-29 pools). Same text for every race.
+    # "Redrawn", not "three new": GG.draw_cards keeps a card whose pool holds one service.
     for part, text in (("title", "New Services"),
-                       ("primary", "The guilds have changed what they offer."),
-                       ("secondary", 'Each guild has three new service offers. Open the Great Guilds panel to see them.')):
+                       ("primary", "The Guilds Change Their Offers"),
+                       ("secondary", "Each guild has redrawn its three services. Open the "
+                                     "Great Guilds panel to see them; its footer counts "
+                                     "down to the next change.")):
         loc.append({"key": "message_event_text_text_derpy_gg_rotation_" + part,
                     "text": text, "tooltip": "false"})
 
@@ -3952,19 +3970,20 @@ def _build_one(tag):
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_title" % _g,
                     "text": "%s Answer To You" % _full, "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_primary" % _g,
-                    "text": "You now lead %s. You gain their leader's bonus and exclusive access to their finest service." % _full,
-                    "tooltip": "false"})
+                    "text": "You Lead Them Now", "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_won_%s_secondary" % _g,
-                    "text": "A rival who out-earns you takes the lead back.",
-                    "tooltip": "false"})
+                    "text": "You gain the leader's bonus and exclusive access to their "
+                            "finest service. A rival who out-earns you in Reputation takes "
+                            "the lead.", "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_lost_%s_title" % _g,
                     "text": "%s Have Turned Away" % _full, "tooltip": "false"})
         loc.append({"key": "message_event_text_text_derpy_gg_lead_lost_%s_primary" % _g,
-                    "text": "A rival now leads %s. You lose the leader's bonus and exclusive access to their finest service." % _full,
-                    "tooltip": "false"})
+                    "text": "A Rival Leads Them Now", "tooltip": "false"})
         loc.append({"key":
                     "message_event_text_text_derpy_gg_lead_lost_%s_secondary" % _g,
-                    "text": "The Leaderboard tab names who holds it now.",
+                    "text": "You lose the leader's bonus and exclusive access to their "
+                            "finest service. The Leaderboard tab shows who leads them. "
+                            "Out-earn them in Reputation to take the lead back.",
                     "tooltip": "false"})
 
     # THE PROMOTION TEXT. One key set per guild per rank, 72 rows, for the same reason the
@@ -3989,37 +4008,39 @@ def _build_one(tag):
             # WHAT THE RANK OPENS, measured off SERVICES (logic audit, 2026-09-29): ranks 2
             # and 3 open services, every rank 4 service is sold only to the guild's leader,
             # and rank 5 opens none. One sentence for all four promised a service at 5.
-            _opens = {4: " Their finest service opens at this rank, but only to "
-                         "whoever leads them.",
-                      5: " There is no higher rank."}.get(
-                _r, " A service that was closed to you is open.")
-            _body = ('With %s, you are now %s. Your rank bonus has increased.%s'
-                     % (_full, _rank, _opens))
-            loc.append({"key": _stem + "_primary", "text": _body, "tooltip": "false"})
+            # (subtitle, body sentence, where to look), check_promotion_text measures the body.
+            _sub, _opens, _look = {
+                4: ("Your Rank Bonus Has Grown",
+                    " Their finest service opens at this rank, but only to whoever leads "
+                    "them.", " The Guilds tab shows your new bonus."),
+                5: ("You Hold Their Highest Rank", " There is no higher rank.",
+                    " The Guilds tab shows your new bonus.")}.get(
+                _r, ("A New Service Opens", " A service that was closed to you is open.",
+                     " Buy it with Favour on the Guilds tab."))
+            _body = "Your rank bonus has increased.%s%s" % (_opens, _look)
+            loc.append({"key": _stem + "_primary", "text": _sub, "tooltip": "false"})
+            loc.append({"key": _stem + "_secondary", "text": _body, "tooltip": "false"})
             # A HALL THIS RANK OPENS (spec 2026-10-04): level n opens at HALL_RANK[n]. Its
             # own key, which GG.announce_rank picks only while guild_halls is on - the
-            # line would otherwise promise a hall the locks keep shut.
+            # line would otherwise promise a hall the locks keep shut. A sentence, so it is
+            # a _secondary variant (2026-10-10; it was _primary_hall).
             if tag in HALL_TAGS and _r in HALL_RANK[:2]:
-                loc.append({"key": _stem + "_primary_hall",
+                loc.append({"key": _stem + "_secondary_hall",
                             "text": _body + " You may now raise a %s." % hall_name(
                                 _g, HALL_RANK.index(_r), tag),
                             "tooltip": "false"})
-            loc.append({"key": _stem + "_secondary",
-                        "text": "Favour is spent on the Guilds tab.",
-                        "tooltip": "false"})
 
     # THE TWO ONE-TIME NOTICES. First contact and halfway to the first rank, per guild
     # because the guild is the thing with flavour and the thing that tells the player where
     # to look. Both fire at most once per campaign, not once per guild - the guild in the
     # key is whichever one happened to trigger it.
     _NOTICE = {
-        "first": ("%s Have Noticed You",
-                  'Your deeds have caught the attention of %s. Your name is in their ledger. Campaign actions earn Reputation with them; the Great Guilds panel shows their services.',
-                  "The guild crest at the top of your screen opens it."),
-        "half": ("%s Are Watching Closely",
-                 "You are halfway to your first rank with %s. At " + RANK_NAMES[1]
-                 + " they open their first service to you.",
-                 'The Great Guilds panel shows your progress with each guild.'),
+        "first": ("%s Have Noticed You", "Your Name Is in Their Ledger",
+                  "Your deeds earn Reputation with them. The guild crest at the top of "
+                  "your screen opens the Great Guilds panel, which lists their services."),
+        "half": ("%s Are Watching Closely", "Halfway to Your First Rank",
+                 "At " + RANK_NAMES[1] + " they open their first service to you. The Great "
+                 "Guilds panel shows your progress with each guild."),
     }
     for _tag in ("first", "half"):
         _title, _primary, _secondary = _NOTICE[_tag]
@@ -4031,7 +4052,7 @@ def _build_one(tag):
             # reads wrong for its entire earn route.
             loc.append({"key": _stem + "_title", "text": _title % _full,
                         "tooltip": "false"})
-            loc.append({"key": _stem + "_primary", "text": _primary % _full,
+            loc.append({"key": _stem + "_primary", "text": _primary,
                         "tooltip": "false"})
             loc.append({"key": _stem + "_secondary", "text": _secondary,
                         "tooltip": "false"})
@@ -4165,10 +4186,10 @@ def tag_loc_key(key, tag):
     """Where a flavour's tag goes in a loc key - the same place the Lua puts it.
 
     Before the engine's own suffix on a message-event key, because the Lua passes a stem
-    and appends _title / _primary / _secondary (or _primary_hall) itself. At the end of
+    and appends _title / _primary / _secondary (or _secondary_hall) itself. At the end of
     everything else.
     """
-    m = re.match(r"(message_event_text_text_.+?)(_title|_primary_hall|_primary|_secondary)$",
+    m = re.match(r"(message_event_text_text_.+?)(_title|_primary|_secondary_hall|_secondary)$",
                  key)
     if m:
         return m.group(1) + tag + m.group(2)
@@ -4328,7 +4349,7 @@ def check_flavours():
         # The halls help page and the promotions' hall lines are only a HALL_TAGS race's.
         want = set(tag_loc_key(k, tag) for k in base_keys
                    if tag in HALL_TAGS or not (k in ("derpy_gg_help_p7", "derpy_gg_help_t7")
-                                               or k.endswith("_primary_hall")))
+                                               or k.endswith("_secondary_hall")))
         for k in sorted(want - got)[:5]:
             out.append("flavour %r ships no %s, so it draws its own key" % (tag, k))
         for k in sorted(got - want)[:5]:
@@ -5885,7 +5906,7 @@ def check_promotion_text():
     out = []
     for tag in FLAVOURS:
         for row in _build_one(tag)["loc"]:
-            m = re.match(r"message_event_text_text_derpy_gg_rank_([a-z]+)_(\d)_primary(_hall)?$",
+            m = re.match(r"message_event_text_text_derpy_gg_rank_([a-z]+)_(\d)_secondary(_hall)?$",
                          row["key"])
             if not m:
                 continue
@@ -5900,7 +5921,7 @@ def check_promotion_text():
             if want not in row["text"]:
                 out.append("%s%s reads %r - rank %d should say %r"
                            % (row["key"], tag, row["text"], r, want))
-            # The hall line lives in _primary_hall alone: plain _primary is what a
+            # The hall line lives in _secondary_hall alone: plain _secondary is what a
             # campaign with guild_halls off reads.
             says = "You may now raise a " in row["text"]
             if m.group(3) and not (tag in HALL_TAGS and r in HALL_RANK[:2]):
@@ -5913,12 +5934,42 @@ def check_promotion_text():
                                % (row["key"], tag, r))
             elif says:
                 out.append("%s%s promises a hall with guild_halls off - that line "
-                           "belongs in _primary_hall" % (row["key"], tag))
+                           "belongs in _secondary_hall" % (row["key"], tag))
         hall_keys = {row["key"] for row in _build_one(tag)["loc"]
-                     if row["key"].endswith("_primary_hall")}
+                     if row["key"].endswith("_secondary_hall")}
         if tag in HALL_TAGS and len(hall_keys) != len(GUILDS) * 2:
             out.append("%s: %d hall promotion keys, want %d (two hall ranks per guild)"
                        % (tag or "chd", len(hall_keys), len(GUILDS) * 2))
+    return out
+
+
+MESSAGE_PRIMARY_MAX = 36
+
+
+def check_message_text(build_one=None):
+    """Every message event follows CA's layout: _primary a short subtitle, _secondary the body.
+
+    The primary draws in a large font under the title, so a sentence there wraps into a
+    wall; a blank secondary draws an empty black plate. This mod shipped every message
+    the other way round, body in _primary and an aphorism in _secondary (screenshot,
+    2026-10-10). `build_one` is for the selftest, to feed a broken string through.
+    """
+    out = []
+    for tag in FLAVOURS:
+        for row in (build_one or _build_one)(tag)["loc"]:
+            m = re.match(r"message_event_text_text_derpy_gg_.+_(primary|secondary)(_hall)?$",
+                         row["key"])
+            if not m:
+                continue
+            t = row["text"].strip()
+            if m.group(1) == "primary" and (not t or len(t) > MESSAGE_PRIMARY_MAX
+                                             or t.endswith(".")):
+                out.append("%s%s is %r - a primary is a subtitle of at most %d characters "
+                           "with no full stop; the sentence belongs in _secondary"
+                           % (row["key"], tag, t, MESSAGE_PRIMARY_MAX))
+            elif m.group(1) == "secondary" and not t:
+                out.append("%s%s is empty, so the message draws an empty black plate"
+                           % (row["key"], tag))
     return out
 
 
@@ -6803,6 +6854,7 @@ def check():
     out += check_feed_images()
     out += check_titles()
     out += check_promotion_text()
+    out += check_message_text()
     out += check_hire_units()
     out += check_flavour_mirror()
     out += check_mct_names()
@@ -7348,9 +7400,9 @@ def selftest():
     assert (text["message_event_text_text_derpy_gg_rank_brass_3_emp_title"]
             == "The Merchant Guilds Name You Journeyman")
     assert "At Apprentice they open" in \
-        text["message_event_text_text_derpy_gg_notice_half_brass_emp_primary"]
+        text["message_event_text_text_derpy_gg_notice_half_brass_emp_secondary"]
     assert "At Indebted they open" in \
-        text["message_event_text_text_derpy_gg_notice_half_brass_primary"]
+        text["message_event_text_text_derpy_gg_notice_half_brass_secondary"]
     assert "a forge the Engineers' School" in text["derpy_gg_help_p2_emp"]
     assert "a forge the Daemonsmiths, a dock the Brass Tablets" in text["derpy_gg_help_p2"]
     assert "effect_bundles_localised_title_%s_emp" % PATRON_BUNDLE not in text, \
@@ -7372,14 +7424,28 @@ def selftest():
     # so no Skaven line may say it costs reputation - and the Empire's still does.
     for _t, _free in (("_skv", True), ("_emp", False)):
         _loc = dict((r["key"], r["text"]) for r in retag(_build_one(_t), _t)["loc"])
-        _fail = _loc["message_event_text_text_derpy_gg_demand_fail%s_primary" % _t]
+        # Both slots of each message: the subtitle can say it as well as the body.
+        _msg = lambda s: " ".join(_loc["message_event_text_text_derpy_gg_%s%s_%s" % (s, _t, p)]
+                                  for p in ("primary", "secondary")).lower()
+        _fail, _ask = _msg("demand_fail"), _msg("demand")
         _court = _loc["derpy_gg_court_help_demand%s" % _t]
         _help = " ".join(" ".join(p) for p in help_pages(_t))
         _says = ("fallen" in _fail, "falls" in _court, "Reputation falls" in _help,
                  # page 1's list of losses and page 5's section; the race page's own
                  # "a demand you let expire costs nothing" is the rule, and stays.
-                 "demand you let expire, to a" in _help or "#A demand you let expire" in _help)
-        assert _says == ((False,) * 4 if _free else (True,) * 4), (_t, _says)
+                 "demand you let expire, to a" in _help or "#A demand you let expire" in _help,
+                 "falls" in _ask)
+        assert _says == ((False,) * 5 if _free else (True,) * 5), (_t, _says)
+    # THE MESSAGE LAYOUT CHECK MUST BE ABLE TO FAIL: the old sentence back in a primary,
+    # and a blank body.
+    def _broken(t):
+        b = _build_one(t)
+        bad = {"message_event_text_text_derpy_gg_hit_primary":
+                   "A rival has paid a guild to act against you.",
+               "message_event_text_text_derpy_gg_hunted_secondary": " "}
+        return dict(b, loc=[dict(r, text=bad.get(r["key"], r["text"])) for r in b["loc"]])
+    _p = check_message_text(_broken)
+    assert any("hit_primary" in p for p in _p) and any("hunted_secondary" in p for p in _p), _p
     # THE FLAVOUR CHECKS MUST BE ABLE TO FAIL, or a clean run proves nothing.
     keep = FLAVOURS["_emp"]["guilds"]["brass"]
     try:

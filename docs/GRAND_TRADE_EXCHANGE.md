@@ -9,7 +9,7 @@ This is the **reference for what shipped**.
 | | |
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
-| Size / md5 | 1,733,633 B / `c58588eb` (2026-09-30: contracts, the index, bonds and loans, the logic-sweep fixes, who caused a trade disruption with the located bulletin, the 09-30 fault fixes, the Houses/Deals sub-tabs, the index opening on load, No gold on the index and house Buy, and themed funds on the Funds tab with the listed fund in yellow, member counts and a Listing footer - §12, §11.1, §17, §18; deployed to the Workshop folder and the restore overlay, byte-verified; not yet uploaded - Steam has the 2026-09-27 10:51 build `4d33c778`) |
+| Size / md5 | 1,733,633 B / `c58588eb` (2026-09-30: contracts, the index, bonds and loans, the logic-sweep fixes, who caused a trade disruption with the located bulletin, the 09-30 fault fixes, the Houses/Deals sub-tabs, the index opening on load, No gold on the index and house Buy, and themed funds on the Funds tab with the listed fund in yellow, member counts and a Listing footer - §12, §11.1, §17, §18; deployed to the Workshop folder and the restore overlay, byte-verified; **uploaded to Steam 2026-09-30 23:48**, manifest 7189675962742021229) |
 | Rows | 681 DB across 10 tables, plus 1,776 loc = 2,457 |
 | Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 15,169 lines, 488 `EX.*` functions (855 `EX.*` names in all, every one read: `check_no_orphans`) |
 | Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
@@ -466,6 +466,24 @@ measured live 2026-10-03, 4.06s per click at 148 houses, against 0.27s for the h
 The deals page prices every candidate the same way, the likeliest cause of a 70-80s pause
 after the last faction's turn. The selftest counts the walks both save.
 
+**The war lock, once per hold (2026-10-09).** The hold memoised `EX.stance_of` but not
+`EX.market_closed()`, a guild-wide answer that `EX.buy_refusal` and `EX.buy_tip` asked on every
+row. Each ask walked every house's treaties. At 54 goods (Resource Overhaul's 37 joined the 17
+on 2026-10-01) and 161 houses, a Trade refresh made 34,800 of its 37,200 `cm:get_faction` calls
+there, 0.1s after every Buy and Sell. It is now memoised in the hold (`hd.closed`), which brings
+the refresh down to about 2,400. That is safe because every reader in a hold asks before the
+hold writes a book. `check_lua_books` pins one walk for four held asks, and a fresh answer for
+the next hold.
+
+The walk is older than the lag. Every archived build from the 09-23 fix on carries it, at about
+11,000 calls per refresh with 17 goods. The 09-23 fix removed the stance walks, and the leftover
+only became noticeable when the list tripled. Measured per build, all at 161 houses.
+
+**The script log cannot see this cost.** "repriced" is the last line before
+`EX.after_holding_change` → `EX.refresh_panel`, and the redraw writes nothing. So "click,
+bought and repriced inside 0.1s" (above) says nothing about the redraw. In
+the measured log the only bound is the next click: 0.7-1.0s.
+
 ### Who is on the other side
 
 Every commodity trade settles against a real faction through
@@ -873,7 +891,7 @@ Where it shows:
 |---|---|---|
 | Chart page note | `Shaken 4.5 steps (sacked by Skarbrand's Exiles and others).` | when drawn |
 | Log | `Demand shock: prices +4 step(s) (sacked by ...).` | when the Log is drawn - the entry stores the faction **key** between two `EX.LOG_NAME` marks (`string.char(29)`), because a name looked up inside the turn round took the process down at turn 1 on 2026-09-07 |
-| Bulletin | unchanged text - it is a fixed loc key per good | never. Clicking it moves the camera to the named hit's settlement (`EX.region_xy`); a region the map cannot find, or a shock with no place, takes the plain record |
+| Bulletin | one of three fixed loc keys per good, picked by `EX.shock_stem` (2026-10-10): `shock_` when a war raised the price, `shockrise_` when a culture's share did, `shockfall_` for any fall. Every `EX.SHOCK_KINDS` multiplier is positive, so only a share shock can lower a price, and the one war text used to announce those as a rise | never. Clicking it moves the camera to the named hit's settlement (`EX.region_xy`); a region the map cannot find, or a shock with no place, takes the plain record |
 | Footer | unchanged: `Shaken: Iron (sacked).` | never. Line 1 is at ~110 of its 118-character budget at its widest, and one name is up to 34 |
 
 **A faction name can be a pointer.** 26 of CA's `factions_screen_name_` entries are only
