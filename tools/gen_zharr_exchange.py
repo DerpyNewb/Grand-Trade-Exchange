@@ -3242,6 +3242,13 @@ HEADER_LABEL_PX = {
 # 1.4x (Sigmar grants 117 -> 84). The patron header's box is 250px against a longest bound of
 # 216, so a label never clips, by arithmetic. What is lost is precision: replace each one with
 # a real reading the next time the panel is open, and delete its entry here.
+# AN ESTIMATE, NOT A MEASUREMENT: how much wider a header is at Large (body_16) than the reading
+# above. The author's Large screenshot of 2026-10-11 put body_12 at ~1.10x these readings
+# (Commodity 80, Output 49, Held / rent 74, Last 12 turns 89 UI px), and body_16 is 16/12 of
+# body_12: 1.47, rounded up. check_header_labels holds every Large header to it. Measure the
+# labels live at body_16 and replace this.
+LARGE_HEADER_FACTOR = 1.5
+
 HEADER_LABEL_BOUND = {
     "Grungni grants": 126,           # 14 chars
     "Asuryan grants": 126,            # 14 chars
@@ -12161,16 +12168,19 @@ def check_header_labels():
     lua = io.open(LUA_SCRIPT, encoding="utf-8").read()
     # ALIGNMENT AND OFFSET COME OFF THE SHIPPED XML, not off the generator that wrote it - this
     # is the file the game reads, and a header's text metrics are static across all four modes.
-    xml = io.open(os.path.join(ROOT, "Modding Files", "pack", "ui", "campaign ui",
-                               "derpy_chd_exchange_panel.twui.xml"), encoding="utf-8").read()
-    metrics = {}
-    for blk in re.finditer(r'<(hdr_\w+)\s[^>]*>\s*<states>(.*?)</states>', xml, re.S):
-        a = re.search(r'texthalign="(\w+)"', blk.group(2))
-        o = re.search(r'textxoffset="([\d.]+)', blk.group(2))
-        if a and o:
-            metrics[blk.group(1)] = (a.group(1), float(o.group(1)))
-    assert len(metrics) >= 7, ("only %d headers found in the panel twui.xml - the parse is "
-                               "wrong, or gen_exchange_ui.py has not been run" % len(metrics))
+    def header_metrics(name):
+        xml = io.open(os.path.join(ROOT, "Modding Files", "pack", "ui", "campaign ui", name),
+                      encoding="utf-8").read()
+        out = {}
+        for blk in re.finditer(r'<(hdr_\w+)\s[^>]*>\s*<states>(.*?)</states>', xml, re.S):
+            a = re.search(r'texthalign="(\w+)"', blk.group(2))
+            o = re.search(r'textxoffset="([\d.]+)', blk.group(2))
+            if a and o:
+                out[blk.group(1)] = (a.group(1), float(o.group(1)))
+        assert len(out) >= 7, ("only %d headers found in %s - the parse is wrong, or "
+                               "gen_exchange_ui.py has not been run" % (len(out), name))
+        return out
+    metrics = header_metrics("derpy_chd_exchange_panel.twui.xml")
     block = re.search(r"EX\.HEADERS = \{(.*?)" + chr(10) + r"\}", lua, re.S)
     assert block, "EX.HEADERS is gone"
     # A LABEL IS A LUA EXPRESSION, NOT ALWAYS A LITERAL. hdr_spark is
@@ -12190,50 +12200,59 @@ def check_header_labels():
     tables = {"trade": "EX.PANEL_LAYOUT", "stats": "EX.PANEL_LAYOUT_STATS",
               "offer": "EX.PANEL_LAYOUT_OFFER", "houses": "EX.PANEL_LAYOUT_HOUSES",
               "help": "EX.PANEL_LAYOUT_HELP"}
+    # AT BOTH SIZES. Large is this layout zoomed by EX.z (gen_exchange_ui.zl) with every header
+    # at body_16, and no label has a live reading at that font, so its widths are ESTIMATED:
+    # the measured width times LARGE_HEADER_FACTOR. An estimate, named as one. It catches a box
+    # that is plainly too small and nothing finer; replace it with live body_16 readings.
+    import gen_exchange_ui as U
+    sizes = (("normal", metrics, lambda v: v, 1.0),
+             ("large", header_metrics("derpy_chd_exchange_panel_large.twui.xml"), U.zl,
+              LARGE_HEADER_FACTOR))
     checked = 0
-    for mode, tbl in tables.items():
-        m = re.search(mode + r"\s*=\s*\{(.*?)\}", body, re.S)
-        assert m, "EX.HEADERS.%s is gone" % mode
-        labels = dict(re.findall(r'(hdr_\w+)\s*=\s*"([^"]*)"', m.group(1)))
-        lay = re.search(re.escape(tbl) + r" = \{(.*?)" + chr(10) + r"\}", lua, re.S)
-        assert lay, "%s is gone" % tbl
-        boxes = dict((n, int(w)) for n, w in
-                     re.findall(r'\{\s*"(hdr_\w+)"\s*,\s*-?\d+\s*,\s*-?\d+\s*,\s*(\d+)',
-                                lay.group(1)))
-        xs = dict((n, int(x)) for n, x in
-                  re.findall(r'\{\s*"(hdr_\w+)"\s*,\s*(-?\d+)', lay.group(1)))
-        spans = {}
-        for hid, text in labels.items():
-            if hid not in boxes:
-                continue                      # no explicit width: the xml default applies
-            align, tx = metrics[hid]
-            assert text in HEADER_LABEL_PX, (
-                "%s header %s is %r, which has never been measured. Add it to HEADER_LABEL_PX "
-                "from a live TextDimensionsForText reading - do NOT estimate from a character "
-                "count, which is how a 38px \"Trend\" went into a 36px box and drew \"Tr...\"."
-                % (mode, hid, text))
-            need = HEADER_LABEL_PX[text]
-            checked += 1
-            assert need <= boxes[hid] - tx, (
-                "%s header %s is %r - %dpx of text in a %dpx box less %.0fpx of "
-                "textxoffset, so it clips mid-word with no error and only a screenshot would "
-                "show it" % (mode, hid, text, need, boxes[hid], tx))
-            # Where the LABEL actually lands, which is the only thing a reader sees.
-            if align == "Right":
-                end = xs[hid] + boxes[hid] - tx
-                spans[hid] = (end - need, end)
-            elif align == "Center":
-                mid = xs[hid] + boxes[hid] / 2.0
-                spans[hid] = (mid - need / 2, mid + need / 2)
-            else:
-                spans[hid] = (xs[hid] + tx, xs[hid] + tx + need)
-        ordered = sorted((v[0], k) for k, v in spans.items())
-        for (_s1, a), (_s2, b) in zip(ordered, ordered[1:]):
-            gap = spans[b][0] - spans[a][1]
-            assert gap >= 12, (
-                "%s: %r and %r are %.0fpx apart and read as one run-on phrase. That is how "
-                "the header row once read \"Trend Last 12 turns\" (2026-09-05)."
-                % (mode, labels[a], labels[b], gap))
+    for size, mets, z, factor in sizes:
+        for mode, tbl in tables.items():
+            m = re.search(mode + r"\s*=\s*\{(.*?)\}", body, re.S)
+            assert m, "EX.HEADERS.%s is gone" % mode
+            labels = dict(re.findall(r'(hdr_\w+)\s*=\s*"([^"]*)"', m.group(1)))
+            lay = re.search(re.escape(tbl) + r" = \{(.*?)" + chr(10) + r"\}", lua, re.S)
+            assert lay, "%s is gone" % tbl
+            boxes = dict((n, z(int(w))) for n, w in
+                         re.findall(r'\{\s*"(hdr_\w+)"\s*,\s*-?\d+\s*,\s*-?\d+\s*,\s*(\d+)',
+                                    lay.group(1)))
+            xs = dict((n, z(int(x))) for n, x in
+                      re.findall(r'\{\s*"(hdr_\w+)"\s*,\s*(-?\d+)', lay.group(1)))
+            spans = {}
+            for hid, text in labels.items():
+                if hid not in boxes:
+                    continue                      # no explicit width: the xml default applies
+                align, tx = mets[hid]
+                assert text in HEADER_LABEL_PX, (
+                    "%s header %s is %r, which has never been measured. Add it to HEADER_LABEL_PX "
+                    "from a live TextDimensionsForText reading - do NOT estimate from a character "
+                    "count, which is how a 38px \"Trend\" went into a 36px box and drew \"Tr...\"."
+                    % (mode, hid, text))
+                need = HEADER_LABEL_PX[text] * factor
+                checked += 1
+                assert need <= boxes[hid] - tx, (
+                    "%s %s header %s is %r - %dpx of text in a %dpx box less %.0fpx of "
+                    "textxoffset, so it clips mid-word with no error and only a screenshot would "
+                    "show it" % (size, mode, hid, text, need, boxes[hid], tx))
+                # Where the LABEL actually lands, which is the only thing a reader sees.
+                if align == "Right":
+                    end = xs[hid] + boxes[hid] - tx
+                    spans[hid] = (end - need, end)
+                elif align == "Center":
+                    mid = xs[hid] + boxes[hid] / 2.0
+                    spans[hid] = (mid - need / 2, mid + need / 2)
+                else:
+                    spans[hid] = (xs[hid] + tx, xs[hid] + tx + need)
+            ordered = sorted((v[0], k) for k, v in spans.items())
+            for (_s1, a), (_s2, b) in zip(ordered, ordered[1:]):
+                gap = spans[b][0] - spans[a][1]
+                assert gap >= 12, (
+                    "%s %s: %r and %r are %.0fpx apart and read as one run-on phrase. That is how "
+                    "the header row once read \"Trend Last 12 turns\" (2026-09-05)."
+                    % (size, mode, labels[a], labels[b], gap))
     assert checked >= 12, "only %d header labels were measured - the parse is wrong" % checked
 
     # THE RUNTIME VARIANTS. EX.bind_race rewrites EX.HEADERS.offer.hdr_trend to

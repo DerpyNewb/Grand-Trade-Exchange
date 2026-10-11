@@ -7997,7 +7997,7 @@ EX.PANEL_LAYOUT_STATS = {
     { "hdr_supply",   240,  50,  60 },
     { "hdr_trend",    320,  50, 190 },
     { "hdr_price",    532,  50,  70 },
-    { "hdr_hold",     636,  50, 100 },
+    { "hdr_hold",     616,  50, 120 },
     { "hdr_spark",    780,  50, 108 },
     { "rows_holder",   20,  78 },
     -- BOTH FOOTERS KEEP THE FULL 880: they reach 114 and 118 characters at worst case in a
@@ -8027,7 +8027,9 @@ EX.ROW_LAYOUT_STATS = {
     { "row_supply", 220,  5,  60 },
     { "row_trend",  300,  5, 190 },
     { "row_price",  512,  5,  70 },
-    { "row_hold",   616,  5, 100 },
+    -- 120 from 596, not 100 from 616: "Cartel premium" at Large's body_16 needs ~138px. Grown
+    -- LEFTWARD, so the right-aligned figures keep their edge at 716.
+    { "row_hold",   596,  5, 120 },
     { "spark",      760,  1 },
 }
 

@@ -180,12 +180,12 @@
 						texthalign="Right"
 						textvalign="Center"
 						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="13"
+						font_m_size="12"
 						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
-						fontcat_name="body_13"/>
+						fontcat_name="body_12"/>
 				</standard>
 			</states>
 		</row_price>
@@ -207,12 +207,12 @@
 						texthalign="Right"
 						textvalign="Center"
 						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="13"
+						font_m_size="12"
 						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
-						fontcat_name="body_13"/>
+						fontcat_name="body_12"/>
 				</standard>
 			</states>
 		</row_sell>
@@ -233,13 +233,13 @@
 					<component_text
 						texthalign="Right"
 						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="13"
+						font_m_size="12"
 						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
-						fontcat_name="body_13"/>
+						fontcat_name="body_12"/>
 				</standard>
 			</states>
 		</row_supply>
@@ -260,13 +260,13 @@
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
-						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="13"
+						font_m_size="12"
 						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
-						fontcat_name="body_13"/>
+						fontcat_name="body_12"/>
 				</standard>
 			</states>
 		</row_trend>
@@ -713,7 +713,7 @@
 						texthalign="Right"
 						textvalign="Center"
 						textxoffset="4.00,0.00"
-						textyoffset="8.00,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="12"
 						font_m_colour="#FFF8D7FF"

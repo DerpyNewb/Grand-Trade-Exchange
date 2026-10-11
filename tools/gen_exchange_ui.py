@@ -452,7 +452,13 @@ def _state(c, name, sguid, entries, target):
                 '\t\t\t\t\t\tfont_m_leading="3"\n\t\t\t\t\t\tfontcat_name="%s"/>\n'
                 % (kw.get("align", "Left"), kw.get("valign", "Center"),
                    kw.get("tx", "4.00,0.00"),
-                   kw.get("ty", "8.00,0.00"), kw.get("size", 12),
+                   # NO TOP PADDING BY DEFAULT. textyoffset is (top, bottom) padding and the
+                   # engine draws a line at the box's FREE height: the old "8.00,0.00" default
+                   # left the Trade numbers and both footers at well under the body size they
+                   # name, beside names and buttons that set 0 (author's screenshot,
+                   # 2026-10-11: "the text and numbers inside the table ... remain way too
+                   # small" at Large).
+                   kw.get("ty", "0.00,0.00"), kw.get("size", 12),
                    kw.get("colour", "#FFF8D7FF"),
                    # NAMED by large(); the normal files still build it from the size.
                    kw.get("fontcat", "body_%d" % kw.get("size", 12))))
@@ -614,13 +620,18 @@ def build_panel():
     # view). A view-only header aliasing another's cell makes EX.TIP_CELL point two headers at
     # one cell, and EX.apply_tips walks pairs(), so that column answers with one of the two
     # tooltips at random.
-    for hid, w, align in (("hdr_name", 170, "Left"), ("hdr_price", 90, "Right"),
-                          ("hdr_sell", 74, "Right"),
-                          ("hdr_supply", 60, "Right"),
-                          ("hdr_trend", 36, "Left"), ("hdr_spark", 100, "Right"),
-                          ("hdr_hold", 100, "Right")):
+    # hdr_supply and hdr_trend have NO TEXT INSET, and nor do their cells (a header is aligned
+    # like its cell): at Large the headers are body_16 like the rows, and both boxes are at
+    # their ceiling - "Trend" and "Output" would have had ~0-4px to spare.
+    for hid, w, align, tx in (("hdr_name", 170, "Left", "4.00,0.00"),
+                              ("hdr_price", 90, "Right", "4.00,0.00"),
+                              ("hdr_sell", 74, "Right", "4.00,0.00"),
+                              ("hdr_supply", 60, "Right", "0.00,0.00"),
+                              ("hdr_trend", 36, "Left", "0.00,0.00"),
+                              ("hdr_spark", 100, "Right", "4.00,0.00"),
+                              ("hdr_hold", 100, "Right", "4.00,0.00")):
         p.add(C(hid, w, 20, text=True, size=11, colour="#C8B48CFF", align=align,
-                tx="4.00,0.00", ty="0.00,0.00"))
+                tx=tx, ty="0.00,0.00"))
     # Lua creates one derpy_chd_exchange_row per instrument into this.
     p.add(C("rows_holder", ROW_W, 560, dockpoint="Top Left", dock_offset="16.00,70.00"))
     # THE DEEP CHART, Trade page 2: one instrument, forty turns, the full width of the panel.
@@ -726,7 +737,7 @@ def build_panel():
     p.add(C("ord_down", 40, 26, interactive=True, image=BTN_BG, hover=tickhov,
             sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
             dockpoint="Top Left", dock_offset="276.00,508.00", tooltip=TIP_ORD_STEP))
-    p.add(C("ord_price", 100, 26, text=True, size=13, align="Center",
+    p.add(C("ord_price", 100, 26, text=True, size=12, align="Center",
             dockpoint="Top Left", dock_offset="324.00,508.00"))
     p.add(C("ord_up", 40, 26, interactive=True, image=BTN_BG, hover=tickhov,
             sound=SND_CLOSE, text=True, align="Center", ty="0.00,0.00",
@@ -787,17 +798,19 @@ def build_row():
     r.add(C("divider", ROW_W - 12, 2, image=DIVIDER, colour_img=DIVIDER_COLOUR))
     r.add(C("icon", 24, 24, image=ICON_BG))
     r.add(C("row_name", 170, 20, text=True, tx="4.00,0.00", ty="0.00,0.00"))
-    r.add(C("row_price", 90, 20, text=True, align="Right", size=13,
+    # THE NUMBERS ARE body_12, LIKE THE NAME. They were size 13, which emits body_13 - not a CA
+    # category, so the engine drew a fallback (memory wh3-fontcat-is-a-fixed-vocabulary).
+    r.add(C("row_price", 90, 20, text=True, align="Right", size=12,
             dockpoint="Top Left", dock_offset="196.00,10.00"))
     # THE SELL PRICE. Same shape as row_price and right beside it: the two numbers are read
     # together.
-    r.add(C("row_sell", 74, 20, text=True, align="Right", size=13,
+    r.add(C("row_sell", 74, 20, text=True, align="Right", size=12,
             dockpoint="Top Left", dock_offset="270.00,10.00"))
     # Map-wide supply - the number the price is actually derived from, so showing it makes the
     # pricing legible instead of magic. Layer-2 resources have no map supply and read "-".
-    r.add(C("row_supply", 60, 20, text=True, align="Right", size=13,
+    r.add(C("row_supply", 60, 20, text=True, align="Right", size=12, tx="0.00,0.00",
             dockpoint="Top Left", dock_offset="310.00,10.00"))
-    r.add(C("row_trend", 30, 20, text=True, size=13,
+    r.add(C("row_trend", 30, 20, text=True, size=12, tx="0.00,0.00",
             dockpoint="Top Left", dock_offset="292.00,10.00"))
     spark = r.add(C("spark", SPARK_BARS * 9, 26,
                     dockpoint="Top Left", dock_offset="324.00,7.00"))
@@ -875,9 +888,11 @@ def build_sp():
 # the wrong place.
 LARGE_N, LARGE_D, LARGE_SUFFIX = 4, 3, "_large"
 # size -> (font_m_size, fontcat_name), every name from CA's list. 4/3 is body_12 -> body_16,
-# the one step the list offers. The 11s are column headers and axis labels in boxes measured
-# tight at that size, so they take body_12, which fits 4/3 of the box with room to spare.
-LARGE_FONT = {11: (12, "body_12"), 12: (16, "body_16"), 13: (16, "body_16"),
+# the one step the list offers. ONE BODY SIZE AT LARGE (author, 2026-10-11: "make all the text
+# the same font size"): the 11s - column headers and chart axis labels - are body_16 like the
+# rows; only the two titles stay headings. They were body_12 because the header boxes were
+# tight, so hdr_supply/hdr_trend lost their text inset and the stats hold column widened.
+LARGE_FONT = {11: (16, "body_16"), 12: (16, "body_16"), 13: (16, "body_16"),
               16: (20, "header_20_bold")}
 
 
@@ -903,7 +918,7 @@ def large(root, prefix):
                            for lay in kw[key]]
         if kw.get("text"):
             kw["tx"] = _zpair(kw.get("tx", "4.00,0.00"))
-            kw["ty"] = _zpair(kw.get("ty", "8.00,0.00"))
+            kw["ty"] = _zpair(kw.get("ty", "0.00,0.00"))
             kw["size"], kw["fontcat"] = LARGE_FONT[kw.get("size", 12)]
     return assign(root, prefix)
 
@@ -995,6 +1010,10 @@ def selftest():
         for c in root.walk():
             assert xml.count('this="%s"' % c.gid) >= 2, "%s: %s unpaired" % (name, c.name)
         assert xml.count("<root") == 2 and xml.count("</layout>") == 1
+        # TEXT IS CENTRED, NEVER PADDED: the engine draws a line at its box's free height, and
+        # an 8px top pad drew the Trade numbers at a fraction of the names' size (2026-10-11).
+        pads = set(re.findall(r'textyoffset="([^"]+)"', xml)) - {"0.00,0.00"}
+        assert not pads, "%s pads text vertically %s - text draws small" % (name, sorted(pads))
         # the names the Lua reaches for must exist
     row = build_row()
     names = {c.name for c in row.walk()}
@@ -1002,6 +1021,11 @@ def selftest():
                  "spark", "divider", "icon", "row_supply"]:
         assert want in names, want
     assert sum(1 for n in names if n.startswith("bar_")) == SPARK_BARS
+    # THE TABLE NAMES REAL CATEGORIES ONLY (CA's body sizes are 10, 12 and 16). An invented one
+    # draws a fallback at a size nobody chose. The panel's body_11 headers are older and untouched.
+    for rf in (build_row(), large(build_row(), "DE1D")):
+        cats = set(re.findall(r'fontcat_name="([^"]+)"', layout(rf, "t")))
+        assert cats <= {"body_10", "body_12", "body_16"}, "the row names %s" % sorted(cats)
     panel = {c.name for c in build_panel().walk()}
     for want in ["title_text", "close_button", "derpy_chd_ex_mode", "derpy_chd_ex_prev",
                  "nav_page", "btn_help", "rows_holder",

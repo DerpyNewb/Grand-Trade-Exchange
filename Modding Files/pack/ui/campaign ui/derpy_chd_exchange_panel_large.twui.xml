@@ -1402,10 +1402,10 @@
 						textxoffset="5.33,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_name>
@@ -1429,10 +1429,10 @@
 						textxoffset="5.33,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_price>
@@ -1456,10 +1456,10 @@
 						textxoffset="5.33,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_sell>
@@ -1480,13 +1480,13 @@
 					<component_text
 						texthalign="Right"
 						textvalign="Center"
-						textxoffset="5.33,0.00"
+						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_supply>
@@ -1507,13 +1507,13 @@
 					<component_text
 						texthalign="Left"
 						textvalign="Center"
-						textxoffset="5.33,0.00"
+						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_trend>
@@ -1537,10 +1537,10 @@
 						textxoffset="5.33,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_spark>
@@ -1564,10 +1564,10 @@
 						textxoffset="5.33,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</hdr_hold>
@@ -3147,10 +3147,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_y_hi>
@@ -3174,10 +3174,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_y_mid>
@@ -3201,10 +3201,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_y_lo>
@@ -3228,10 +3228,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_x_left>
@@ -3255,10 +3255,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_x_mid>
@@ -3282,10 +3282,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_x_right>
@@ -3309,10 +3309,10 @@
 						textxoffset="0.00,0.00"
 						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
-						font_m_size="12"
+						font_m_size="16"
 						font_m_colour="#C8B48CFF"
 						font_m_leading="3"
-						fontcat_name="body_12"/>
+						fontcat_name="body_16"/>
 				</standard>
 			</states>
 		</chart_axis>
@@ -3649,7 +3649,7 @@
 						texthalign="Center"
 						textvalign="Center"
 						textxoffset="5.33,0.00"
-						textyoffset="10.67,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#FFF8D7FF"
@@ -3850,7 +3850,7 @@
 						texthalign="Left"
 						textvalign="Center"
 						textxoffset="5.33,0.00"
-						textyoffset="10.67,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#C8B48CFF"
@@ -4399,7 +4399,7 @@
 						texthalign="Left"
 						textvalign="Center"
 						textxoffset="5.33,0.00"
-						textyoffset="10.67,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#C8B48CFF"
@@ -4426,7 +4426,7 @@
 						texthalign="Left"
 						textvalign="Center"
 						textxoffset="5.33,0.00"
-						textyoffset="10.67,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#FFF8D7FF"
@@ -4453,7 +4453,7 @@
 						texthalign="Left"
 						textvalign="Center"
 						textxoffset="5.33,0.00"
-						textyoffset="10.67,0.00"
+						textyoffset="0.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#FFF8D7FF"

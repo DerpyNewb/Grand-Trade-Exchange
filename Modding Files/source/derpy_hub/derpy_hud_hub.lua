@@ -1,7 +1,8 @@
 -- THE DERPY HUD HUB. With two or three of the Iron Court, the Great Guilds and the Zharr
 -- Exchange installed, one button sits in the slot beside the resource strip and shows the
--- mods' own buttons in a column on a plate under it while the mouse is over it. With one installed, nothing here
--- does anything. Spec: docs/superpowers/specs/2026-10-01-derpy-hud-hub-design.md.
+-- mods' own buttons in a column on a plate under it while the mouse is over it. With one
+-- installed, it only hides that mod's button off the main screen (HUB.on_map). Spec:
+-- docs/superpowers/specs/2026-10-01-derpy-hud-hub-design.md.
 --
 -- ONE SOURCE, THREE SHIPPED COPIES. Edit Modding Files/source/derpy_hub/derpy_hud_hub.lua
 -- only. tools/sync_derpy_hub.py writes script/campaign/mod/derpy_hub_<tag>.lua into each mod
@@ -15,7 +16,7 @@
 -- UI-ONLY AND LOCAL: nothing here touches the model or the save, so it cannot desync
 -- multiplayer. It moves, hides and shows the mods' buttons and nothing else. Each mod keeps
 -- its button's creation, click, tooltip, greying and pulse.
-local HUB_VERSION = 4            -- 4: the column folds away as well as out; a baked plate
+local HUB_VERSION = 5            -- 5: off the main screen, every button of ours hides
 local HUB_TAG = "src"            -- rewritten per copy by tools/sync_derpy_hub.py
 
 local HUB = {
@@ -49,6 +50,7 @@ local HUB = {
     grey = nil,
     pulsing = nil,
     started = false,
+    stowed = {},                 -- id -> true for each of ours hidden off the main screen
 }
 
 function HUB.manages(key)
@@ -347,9 +349,61 @@ function HUB.hover(hub, here, plate)
     end
 end
 
+-- OFF THE MAIN SCREEN, NOTHING OF OURS SHOWS (author, 2026-10-10: "it should go invisible when
+-- you're not at the main screen, so it won't show up and clutter other UIs"). Off means a panel
+-- on CA's own blocking list is open - lib_campaign_ui.lua's "fullscreen/blocking" panels:
+-- diplomacy, technology, character details, the Escape menu, the Tower of Zharr - or the strip
+-- has slid away for a cutscene or the end of turn. No strip at all is not "off": that is the
+-- release case, and the Exchange's docker fallback still needs its button.
+function HUB.on_map(root)
+    local ok, panel = pcall(function()
+        return cm:get_campaign_ui_manager():get_open_blocking_panel()
+    end)
+    if ok and panel then return false end
+    local bar = find_uicomponent(root, "resources_bar")
+    if not is_uicomponent(bar) then return true end
+    local _, by = bar:Position()
+    return by >= -HUB.SIZE
+end
+
+-- This is the one file all four mods ship, so it hides a lone button as well as the hub and its
+-- column: whatever of ours is showing is hidden and remembered, and only that comes back. An
+-- open column is shut on the spot, with no fold, since nobody is looking at it; its alpha is
+-- left as it was, because the next open fades it in from 0 anyway.
+function HUB.stow(root, here)
+    if HUB.open or HUB.folding then
+        HUB.open, HUB.folding, HUB.away, HUB.last_over = false, false, 0, nil
+        HUB.anim, HUB.anim_gen = 1, HUB.anim_gen + 1
+    end
+    local list = {find_uicomponent(root, HUB.NAME), find_uicomponent(root, HUB.PLATE)}
+    for _, e in ipairs(here) do list[#list + 1] = e.c end
+    for _, c in ipairs(list) do
+        if is_uicomponent(c) and c:Visible() then
+            c:SetVisible(false)
+            HUB.stowed[c:Id()] = true
+        end
+    end
+end
+
+-- Back on the map. A column button restored here is hidden again further down this same tick
+-- if the column is shut, so nothing draws in between.
+function HUB.unstow(root)
+    if next(HUB.stowed) == nil then return end
+    for id in pairs(HUB.stowed) do
+        local c = find_uicomponent(root, id)
+        if is_uicomponent(c) then c:SetVisible(true) end
+    end
+    HUB.stowed = {}
+end
+
 function HUB.tick()
     local root = core:get_ui_root()
     local here = HUB.present(root)
+    if not HUB.on_map(root) then
+        HUB.stow(root, here)
+        return
+    end
+    HUB.unstow(root)
     -- NO STRIP, NO HUB. A CA rename or a HUD mod that drops resources_bar would leave a hub
     -- that is never placed hiding every button it holds; handed back instead, the Exchange
     -- still reaches its faction_buttons_docker fallback.

@@ -61,7 +61,7 @@ end
 local function reset(sw)
     W = {comps = {}, repeats = {}, listeners = {}, ticks = {}, timers = {},
          bar = {x = 431, y = -4, w = 1019, h = 60}, sw = sw or 1920, sh = 1080,
-         created = 0, path = nil, paths = {}, kids = {}}
+         created = 0, path = nil, paths = {}, kids = {}, panel = false}
     W.comps.resources_bar = {
         Position = function() return W.bar.x, W.bar.y end,
         Dimensions = function() return W.bar.w, W.bar.h end,
@@ -108,6 +108,10 @@ local function reset(sw)
             end)
         end,
         remove_real_callback = function() error("remove_real_callback leaks in CA's timer_manager") end,
+        -- CA's answer: a blocking panel's name, or false. W.panel is the panel that is up.
+        get_campaign_ui_manager = function()
+            return {get_open_blocking_panel = function() return W.panel end}
+        end,
     }
     -- false, not nil, for an absent component: that is what the engine returns.
     find_uicomponent = function(_root, name) return W.comps[name] or false end
@@ -478,7 +482,7 @@ check("unsettled strip: everything stays hidden and unmoved until it settles", f
     world()
     W.bar.y = -600
     tick()
-    assert(W.comps.derpy_hub and W.comps.derpy_hub.vis == false, "hub shown off a sliding strip")
+    assert(not (W.comps.derpy_hub and W.comps.derpy_hub.vis), "hub shown off a sliding strip")
     assert(not W.comps.ic_btn.vis and W.comps.ic_btn.moves == 0, "column shown or moved mid-slide")
     W.bar.y = -4
     tick()
@@ -575,6 +579,70 @@ check("no resources_bar at all: the hub manages nothing and the mods keep their 
     assert(not DERPY_HUB.manages("ic") and not DERPY_HUB.manages("ex"),
            "with no strip the hub claimed buttons it can never show")
     assert(W.comps.ic_btn.vis and W.comps.ic_btn.moves == 0, "a mod's button was hidden or moved")
+end)
+
+-- OFF THE MAIN SCREEN (author, 2026-10-10: "it should go invisible when you're not at the main
+-- screen, so it won't show up and clutter other UIs").
+check("a CA screen hides the hub and an open column; leaving it brings the hub back, column shut",
+      function()
+    world()
+    tick()
+    mouse("derpy_hub"); tick()
+    frame()                                       -- mid-unfold, translucent
+    local hub, plate = W.comps.derpy_hub, W.comps.derpy_hub_plate
+    W.panel = "diplomacy_dropdown"
+    tick()
+    for _, n in ipairs({"derpy_hub", "derpy_hub_plate", "ic_btn", "gg_btn", "ex_btn"}) do
+        assert(W.comps[n].vis == false, n .. " shows over diplomacy")
+    end
+    frames()                                      -- a frame left over must not re-show it
+    wait(GRACE * 3)
+    assert(not hub.vis and not W.comps.ic_btn.vis and not plate.vis, "re-shown under diplomacy")
+    W.panel = false
+    mouse(nil)
+    tick()
+    assert(hub.vis and hub.x == HUB_X, "the hub did not come back")
+    assert(not W.comps.ic_btn.vis and not plate.vis, "the column came back open")
+    mouse("derpy_hub"); tick()
+    frames()
+    local ex = W.comps.ex_btn
+    assert(ex.vis and ex.y == COL_Y + 96 and ex.alpha == 255 and plate.alpha == 255,
+           "reopened at y" .. ex.y .. " alpha " .. ex.alpha .. ", plate alpha " .. plate.alpha)
+end)
+
+check("the strip sliding away for the end of turn hides a placed hub", function()
+    world()
+    tick()
+    W.bar.y = -600
+    tick()
+    assert(not W.comps.derpy_hub.vis, "the hub floats with the strip gone")
+    W.bar.y = -4
+    tick()
+    assert(W.comps.derpy_hub.vis, "the hub did not come back with the strip")
+end)
+
+check("one button: hidden off the main screen, given back unmoved, and never made to show",
+      function()
+    world({gg = false, ex = false})
+    tick()
+    local ic = W.comps.ic_btn
+    W.panel = "technology_panel"
+    tick()
+    assert(ic.vis == false, "the lone button shows over the technology panel")
+    W.panel = false
+    tick()
+    assert(ic.vis == true and ic.moves == 0 and W.created == 0, "the lone button was not given back")
+    ic.vis = false                                -- its mod has not placed it yet
+    W.panel = "esc_menu"; tick()
+    W.panel = false; tick()
+    assert(ic.vis == false, "the return showed a button its mod never showed")
+end)
+
+check("a ui manager that throws counts as the main screen", function()
+    world()
+    cm.get_campaign_ui_manager = function() error("no ui manager") end
+    tick()
+    assert(W.comps.derpy_hub.vis, "a broken ui manager hid the hub")
 end)
 
 check("manages() is false before the first tick and for an unknown key", function()
