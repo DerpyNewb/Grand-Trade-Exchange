@@ -1,21 +1,27 @@
-"""The Derpy HUD hub: one source, four shipped copies.
+"""The Derpy HUD hub: one source, five shipped copies.
 
-    py tools/sync_derpy_hub.py             write the four Lua copies, eight .twui.xml and the
-                                           plate .png (needs the game installed)
+    py tools/sync_derpy_hub.py             write the five Lua copies, ten .twui.xml and the
+                                           two baked .png (needs the game installed)
     py tools/sync_derpy_hub.py --check     exit 1 if a shipped file differs from the source
     py tools/sync_derpy_hub.py --selftest  run the hub harness on the source and the copies,
                                            and prove --check sees drift
+    py tools/sync_derpy_hub.py --pack-left-bar
+                                           build Modding Files/Modpacks/derpy_hub_left_bar.pack
+                                           (needs RPFM open)
 
 Edit only Modding Files/source/derpy_hub/derpy_hud_hub.lua. Each mod ships its own copy
 under its own path (derpy_hub_ic / _gg / _ex / _mr), so every installed copy loads, and the
-highest HUB_VERSION serves all three at runtime. The copies differ from the source in ONE
-line, `local HUB_TAG = "<tag>"`, which names that copy's own .twui.xml. Each .twui.xml has
-its own GUID prefix, because a GUID that collides with another file's is a silent non-draw.
+highest HUB_VERSION serves all of them at runtime. The fifth copy, _lb, is the LEFT BAR
+SUBMOD's (2026-10-11): it sets DERPY_HUB_LEFT_BAR and the hub moves into CA's top-left menu
+bar. The copies differ from the source in ONE line, `local HUB_TAG = "<tag>"`, which names
+that copy's own .twui.xml. Each .twui.xml has its own GUID prefix, because a GUID that
+collides with another file's is a silent non-draw.
 
 An unknown flag is refused: tools here have no --help, and a flag that was ignored once
 built and deployed a pack nobody asked for.
 """
 import io
+import json
 import os
 import re
 import shutil
@@ -32,8 +38,8 @@ HARNESS = os.path.join(ROOT, "tools", "_hub_harness.lua")
 LUA = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 
 # tag -> GUID prefix. Registered in docs/CUSTOM_UI.md's prefix table.
-TAGS = {"ic": "DH01", "gg": "DH02", "ex": "DH03", "mr": "DH07"}
-PLATE_TAGS = {"ic": "DH04", "gg": "DH05", "ex": "DH06", "mr": "DH08"}
+TAGS = {"ic": "DH01", "gg": "DH02", "ex": "DH03", "mr": "DH07", "lb": "DH09"}
+PLATE_TAGS = {"ic": "DH04", "gg": "DH05", "ex": "DH06", "mr": "DH08", "lb": "DH10"}
 HUB_W = HUB_H = 48          # must match HUB.SIZE in the source; check() asserts it
 # Chosen by the author from tools/hub_icon_sheet.py's contact sheet (#212), 2026-10-01.
 ICON = "ui/skins/default/tech_tree_tab_chd_sorcery.png"
@@ -60,6 +66,15 @@ PAD = 14                    # must match HUB.PAD; check() asserts it
 PLATE_MIN = 56              # must match HUB.PLATE_MIN, and clear both margin sums
 PLATE_W = HUB_W + 2 * PAD
 TAG_LINE = re.compile(r'^local HUB_TAG = "src"', re.M)
+# THE LEFT BAR'S ICON. There the hub is CA's round_small_button, whose image 0 draws at the
+# full 38px; CA's own icons for it are 38px files with the glyph inset (icon_options: 22px at
+# 9,9). The hub's 60px icon drawn there would cover the button's ring, so it is baked down
+# onto a 38px canvas the same way. Only the submod ships it.
+SMALL = "ui/derpy_hub/icon_small.png"
+SMALL_REL = "Modding Files/pack/" + SMALL
+SMALL_W, SMALL_GLYPH = 38, 24
+BAR_TEMPLATE = "ui/templates/round_small_button.twui.xml"
+LB_PACK = os.path.join(ROOT, "Modding Files", "Modpacks", "derpy_hub_left_bar.pack")
 
 
 def _layers(state):
@@ -86,9 +101,11 @@ def plate_rel(tag):
 
 
 def pack_files(tag):
-    """(workspace-relative source, path inside the pack) for one mod's three hub files."""
-    return [(rel, rel.replace("Modding Files/pack/", ""))
-            for rel in (lua_rel(tag), ui_rel(tag), plate_rel(tag), BACK_REL)]
+    """(workspace-relative source, path inside the pack) for one mod's hub files."""
+    rels = [lua_rel(tag), ui_rel(tag), plate_rel(tag), BACK_REL]
+    if tag == "lb":
+        rels.append(SMALL_REL)
+    return [(rel, rel.replace("Modding Files/pack/", "")) for rel in rels]
 
 
 def build_lua(tag, src_text=None):
@@ -109,8 +126,8 @@ def build_ui(tag):
     return EU.layout(root, "Derpy HUD hub - one button for the author's mods")
 
 
-def bake_plate():
-    """PNG bytes: CA's panel_stack joined down to PLATE_W x BACK_H, quadrant by quadrant."""
+def _ca_png(want):
+    """A PIL image of one png out of CA's ui packs."""
     from PIL import Image
     import preview_guilds_panel as PV
     from read_pack_index import read
@@ -119,12 +136,30 @@ def bake_plate():
     for pk in PV.PACKS:
         fp = os.path.join(PV.GAME, pk)
         if os.path.isfile(fp):
-            for path, comp, blob in read(fp, BACK_SRC):
-                if path.lower() == BACK_SRC:
+            for path, comp, blob in read(fp, want):
+                if path.lower() == want:
                     data = _decompress(blob) if comp else blob
     if not data or data[:4] != b"\x89PNG":
-        raise SystemExit("cannot read %s out of CA's ui packs" % BACK_SRC)
-    src = Image.open(io.BytesIO(data)).convert("RGBA")
+        raise SystemExit("cannot read %s out of CA's ui packs" % want)
+    return Image.open(io.BytesIO(data)).convert("RGBA")
+
+
+def bake_icon():
+    """PNG bytes: the hub's icon at SMALL_GLYPH px, centred on a SMALL_W px clear canvas."""
+    from PIL import Image
+    glyph = _ca_png(ICON).resize((SMALL_GLYPH, SMALL_GLYPH), Image.LANCZOS)
+    out = Image.new("RGBA", (SMALL_W, SMALL_W))
+    at = (SMALL_W - SMALL_GLYPH) // 2
+    out.paste(glyph, (at, at))
+    buf = io.BytesIO()
+    out.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def bake_plate():
+    """PNG bytes: CA's panel_stack joined down to PLATE_W x BACK_H, quadrant by quadrant."""
+    from PIL import Image
+    src = _ca_png(BACK_SRC)
     w, h = src.size
     out = Image.new("RGBA", (PLATE_W, BACK_H))
     left, top = PLATE_W // 2, BACK_H // 2
@@ -152,11 +187,12 @@ def built(tag):
 
 
 def write(root=ROOT):
-    path = os.path.join(root, BACK_REL)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as fh:
-        fh.write(bake_plate())
-    print("wrote", BACK_REL)
+    for rel, bake in ((BACK_REL, bake_plate), (SMALL_REL, bake_icon)):
+        path = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as fh:
+            fh.write(bake())
+        print("wrote", rel)
     for tag in TAGS:
         for rel, text in built(tag).items():
             path = os.path.join(root, rel)
@@ -180,8 +216,12 @@ def check(root=ROOT):
     top, right, bottom, left = BACK_MARGIN
     if top + bottom >= PLATE_MIN or left + right >= PLATE_W:
         problems.append("the plate's nine-slice margins overlap at its smallest size")
-    if not os.path.isfile(os.path.join(root, BACK_REL)):
-        problems.append("missing: " + BACK_REL)
+    for name, want in (("BAR_ICON", SMALL), ("BAR_TEMPLATE", BAR_TEMPLATE[:-len(".twui.xml")])):
+        if '%s = "%s",' % (name, want) not in src:
+            problems.append("HUB.%s in the source is not %s" % (name, want))
+    for rel in (BACK_REL, SMALL_REL):
+        if not os.path.isfile(os.path.join(root, rel)):
+            problems.append("missing: " + rel)
     for tag in TAGS:
         for rel, want in built(tag).items():
             path = os.path.join(root, rel)
@@ -199,9 +239,12 @@ def check_assets():
     import preview_guilds_panel as PV
     problems = []
     have = EU._game_assets()
-    for p in [PLATE % s for s in ("underlay", "active", "hover")] + [ICON, BACK_SRC]:
+    for p in [PLATE % s for s in ("underlay", "active", "hover")] + [ICON, BACK_SRC, BAR_TEMPLATE]:
         if p not in have:
             problems.append("not in CA's ui packs: " + p)
+    path = os.path.join(ROOT, SMALL_REL)
+    if os.path.isfile(path) and open(path, "rb").read() != bake_icon():
+        problems.append("stale bake: " + SMALL_REL + " (run py tools/sync_derpy_hub.py)")
     # THE BAKED PLATE IS TODAY'S BAKE, at the size the twui and the margins assume.
     path = os.path.join(ROOT, BACK_REL)
     if os.path.isfile(path):
@@ -266,6 +309,46 @@ def selftest():
     print("sync_derpy_hub selftest: ok")
 
 
+def pack_left_bar():
+    """Build the left bar submod from scratch, then read the SAVED file back with RPFM shut out
+    of the loop: every path present and byte for byte what the workspace holds."""
+    import datetime
+    from check_skill_trees import _rpc, _call
+    from read_pack_index import entries
+    found = check() + check_assets()
+    if found:
+        raise SystemExit("refusing to pack:\n" + "\n".join(found))
+    files = [(os.path.join(ROOT, s), d) for s, d in pack_files("lb")]
+    if os.path.exists(LB_PACK):
+        backup = os.path.join(ROOT, "Modding Files", "Backup", "derpy_hub_left_bar_%s.pack"
+                              % datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+        os.makedirs(os.path.dirname(backup), exist_ok=True)
+        shutil.copy2(LB_PACK, backup)
+        print("backed up the old pack to", os.path.relpath(backup, ROOT))
+    _rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
+                        "clientInfo": {"name": "sync_derpy_hub", "version": "1"}})
+    _rpc("notifications/initialized", notify=True)
+    _call("set_game_selected", {"game_name": "warhammer_3", "rebuild_dependencies": False})
+    key = _call("new_pack", {})["String"]
+    _call("set_pack_file_type", {"pack_key": key, "pack_file_type": '"Mod"'})
+    _call("add_packed_files", {"pack_key": key, "source_paths": [s for s, _d in files],
+                               "destination_paths": json.dumps([{"File": d} for _s, d in files])})
+    _call("save_pack_as", {"pack_key": key, "path": LB_PACK})
+    fh, index = entries(LB_PACK)
+    got = {}
+    for path, size, offset, comp in index:
+        fh.seek(offset)
+        got[path] = (comp, fh.read(size))
+    fh.close()
+    for src, dest in files:
+        comp, data = got.get(dest, (None, None))
+        assert data is not None, "not in the saved pack: " + dest
+        assert comp == 0 and data == open(src, "rb").read(), "differs in the saved pack: " + dest
+    extra = sorted(set(got) - {d for _s, d in files})
+    assert all(p.endswith(".rpfm_reserved") for p in extra), "unexpected in the pack: %s" % extra
+    print("saved and verified %s: %d files" % (os.path.relpath(LB_PACK, ROOT), len(files)))
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args == []:
@@ -277,5 +360,8 @@ if __name__ == "__main__":
         sys.exit(1 if found else 0)
     elif args == ["--selftest"]:
         selftest()
+    elif args == ["--pack-left-bar"]:
+        selftest()
+        pack_left_bar()
     else:
         raise SystemExit("unknown arguments %r - see the docstring" % (args,))

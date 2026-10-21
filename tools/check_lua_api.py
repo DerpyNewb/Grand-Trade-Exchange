@@ -177,6 +177,8 @@ NONEXISTENT = {
 CA_USED = {
     "cm:entity_add_pooled_resource_transaction":
         "wh3_campaign_grudges.lua:870, wh3_cp1_bhashiva.lua:1354-1356 (negative values too)",
+    "cm:set_victory_mission_rewards_disabled":
+        "main_warhammer/victory_objectives_config.lua:13909 (true, every load of a 9.0 IE game)",
 }
 
 

@@ -55,8 +55,8 @@ ICON_DIR = "ui/campaign ui/effect_bundles"
 #         "farm" / "hunt" / "craft" / "forge" / "dig" / "stables" / ...  the buildings that
 #                       make that kind of thing, chosen by name and description, per
 #                       culture (KIND_CHAINS). No fallback: a culture with none of that kind makes
-#                       none of those goods (Norsca raids, Chaos Dwarfs trade for food, the dead
-#                       do not farm) - they get them by trade, as the lore has it.
+#                       none of those farm goods. Basic preserved provisions use a separate
+#                       provisioning pool on selected main settlements; the dead do not farm.
 #         ("settlement", race...) only those races' main-settlement chains (Norscan mead:
 #                       the jarl's hall is the mead hall)
 #         "settlement"  every main-settlement chain (4/6/8/10/12 by level) - for goods placed
@@ -159,10 +159,8 @@ GOODS = {
         sources=[("port", AREA("kislev", "norsca"))]),
     "grain": dict(
         unit="sacks", price=10.0, name="Grain",
-        desc="Wheat, rye and barley from the farmland of the Old World and the barley fields of "
-             "the Dwarf holds. Bread for cities and fodder for armies.",
-        # one row per building and effect, so the Dwarf Barley Field's grain joins the farm rule
-        sources=[("farm", ANY(ALL(CLIM("climate_temperate"), AREA(*FARMLAND)), ORIGIN("dwf")))]),
+        desc="Wheat, rye and barley from working farms. Bread for cities and fodder for armies.",
+        sources=[("farm", None)]),
     "warhorses": dict(
         unit="derpy_horses", price=16.0, name="Warhorses",
         desc="Bretonnian destriers, Kislevite steppe horses, Arabyan coursers, Ellyrian steeds, "
@@ -269,9 +267,10 @@ GOODS = {
                               ALL(AREA("ind"), CLIM("climate_desert", "climate_savannah", "climate_temperate"))))]),
     "salted_meat": dict(
         unit="barrels", price=10.0, name="Salted Meat",
-        desc="Ogre herds and hunting grounds fill the barrels. Meat keeps; armies march on it.",
-        sources=[("hunt", ANY(ORIGIN("ogr"), AREA("mountains_of_mourn"))),
-                 ("farm", ANY(ORIGIN("ogr"), AREA("mountains_of_mourn")))]),
+        desc="Hunting grounds, herds and settlement provisioners fill the barrels. Meat keeps; armies march on it.",
+        sources=[("hunt", None),
+                 ("farm", ANY(ORIGIN("ogr"), AREA("mountains_of_mourn"))),
+                 (("provisioning", "chd", "grn", "chs", "skv", "cth", "nor"), None)]),
     # second batch, 2026-10-01
     "carpets": dict(
         unit="derpy_rolls", price=16.0, name="Arabyan Carpets",
@@ -321,6 +320,21 @@ GOODS = {
         desc="Scales of the wyverns that nest in the Badlands and the Mountains of Mourn.",
         sources=[("settlement", ALL(CLIM("climate_mountain"), AREA("badlands", "mountains_of_mourn")))]),
 }
+
+GOODS.update({
+    "hardtack": dict(unit="sacks", price=10.0, name="Hardtack",
+        desc="Hard ship's biscuit, baked dry for long voyages and campaign wagons. It keeps better than fresh bread.",
+        sources=[]),
+    "leather": dict(unit="bundle", price=12.0, name="Leather",
+        desc="Cured hides for boots, harness, armour straps and stretcher slings.", sources=[("hunt", None)]),
+    "cloth": dict(unit="derpy_bolts", price=12.0, name="Cloth",
+        desc="Plain woven cloth for tents, work clothes and clean dressings. A necessity rather than a courtly luxury.",
+        sources=[("craft", None)]),
+    "tools": dict(unit="derpy_crates", price=14.0, name="Tools",
+        desc="Hammers, tongs, chisels and saws. Every work gang needs them; every campaign wears them out.",
+        sources=[("forge", None)]),
+})
+
 
 # CA's OWN common goods, made as common as ours (user, 2026-10-02): CA put Salt, Furs, Pottery and
 # Wine on only 11-13 deposits each. Same sources and lore gates as GOODS, but the row carries CA's
@@ -382,7 +396,8 @@ def store_fx(stem):
 # a junction's bounds decide which way stock may move (CA's wh3_cp1_cth_relics_settlements_other
 # is -max..0, _uncovered 0..max), and a raid books OUT of the victim and IN to the raider on the
 # same factor. CA ships 456 two-way junctions, 7 on REGION pools.
-FLOW_FACTORS = (("raided", "Raid spoils", "Raided"), ("plundered", "Plunder", "Plundered"),
+FLOW_FACTORS = (("processed", "Processed", "Processing reversed"),
+                ("raided", "Raid spoils", "Raided"), ("plundered", "Plunder", "Plundered"),
                 ("traded", "Traded in", "Traded out"), ("eaten", "Eaten", "Eaten"),
                 ("moved", "Moved in", "Moved out"), ("spent", "Spent", "Spent"), ("sold", "Sold", "Sold"))
 
@@ -404,6 +419,111 @@ USE_BUNDLES = (
      [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 3)]),
 )
 BUNDLE_DONOR = "wh2_dlc15_hef_mist_of_yvresse_rite_empowered"   # global, not in 3D, owner only
+
+# Additional paid batches; the buildings' passive production is unchanged.
+PROCESSING = {
+    "brew": dict(label="Brewing", races=("dwf", "emp", "brt"), cost={"grain": 12}, output=("beer", 8),
+                 chains=("wh_main_DWARFS_tavern", "wh_main_EMPIRE_industry_basic", "wh_main_BRETONNIA_farm_extra")),
+    "preserve": dict(label="Meat preservation", races=("ogr",), cost={"animals": 8, "salt": 4},
+                     output=("salted_meat", 8), chains=("wh3_main_ogr_farm",)),
+    "powder": dict(label="Powder mixing", races=("dwf", "chd"), cost={"coal": 8, "brimstone": 4},
+                   output=("blackpowder", 8), chains=("wh_main_DWARFS_industry",
+                   "wh3_dlc23_chd_tower_furnace", "wh3_dlc23_chd_factory_assembly_line")),
+    "print": dict(label="Printing", races=("emp",), cost={"timber": 8, "dyes": 4},
+                  output=("books", 8), chains=("wh_main_EMPIRE_industry_basic",)),
+    "weave": dict(label="Carpet weaving", races=("cth",), cost={"wool": 8, "dyes": 4},
+                  output=("carpets", 8), chains=("wh3_main_cth_income_yin",)),
+}
+PROCESSING.update({
+    "bake": dict(label="Campaign biscuits", races=("dwf", "emp", "brt", "hef", "def", "ksl", "cth", "chd"),
+        cost={"grain": 8, "salt": 2}, output=("hardtack", 12),
+        chains=("wh_main_DWARFS_farm", "wh_main_EMPIRE_farm_basic", "wh_main_BRETONNIA_farm_extra",
+                "wh2_main_hef_farm", "wh2_main_def_farm", "wh3_main_ksl_growth_xp",
+                "wh3_main_cth_income_yin", "wh3_dlc23_chd_tower_living_quaters")),
+    "tan": dict(label="Hide curing", races=("lzd", "wef", "ogr", "emp", "brt", "hef", "def", "cth", "ksl"),
+        cost={"animals": 6, "salt": 2}, output=("leather", 8),
+        chains=("wh2_main_lzd_farm", "wh_dlc05_wef_growth", "wh3_main_ogr_farm",
+                "wh_main_EMPIRE_industry_basic", "wh_main_BRETONNIA_industry_basic", "wh2_main_hef_industry",
+                "wh2_main_def_industry", "wh3_main_cth_income_yin", "wh3_main_ksl_trade_order")),
+    "cloth": dict(label="Plain weaving", races=("emp", "brt", "hef", "def", "cth", "ksl", "lzd"),
+        cost={"wool": 8}, output=("cloth", 8), chains=("wh_main_EMPIRE_industry_basic",
+        "wh_main_BRETONNIA_industry_basic", "wh2_main_hef_industry", "wh2_main_def_industry",
+        "wh3_main_cth_income_yin", "wh3_main_ksl_trade_order", "wh2_main_lzd_industry")),
+    "toolmaking": dict(label="Toolmaking", races=("dwf", "chd", "emp", "cth"),
+        cost={"iron": 6, "timber": 2}, output=("tools", 8), chains=("wh_main_DWARFS_industry",
+        "wh3_dlc23_chd_tower_furnace", "wh3_dlc23_chd_factory_assembly_line",
+        "wh_main_EMPIRE_industry_basic", "wh3_main_cth_income_yang")),
+})
+ESSENTIAL_RACES = ("dwf", "hef", "def", "wef", "brt", "emp", "grn", "ogr", "skv", "lzd", "cth", "ksl", "chd", "nor", "chs")
+
+SERVICES = {
+    "halls": dict(label="Drinking halls", races=("dwf",), cost={"beer": 4, "pipeweed": 1},
+                  benefit="Province control +2", effect="wh_main_effect_public_order_events", value=2,
+                  icon="public_order_happy.png"),
+    "records": dict(label="Civic records", races=("emp",), cost={"books": 2, "glassware": 1},
+                    benefit="Province growth +5", effect="wh_main_effect_province_growth_events", value=5,
+                    icon="growth.png"),
+    "tea": dict(label="Tea houses", races=("cth",), cost={"tea": 3, "porcelain": 1},
+                benefit="Province control +2", effect="wh_main_effect_public_order_events", value=2,
+                icon="public_order_happy.png"),
+    "feasts": dict(label="Village feasts", races=("brt",), cost={"wine": 3, "salted_meat": 2},
+                   benefit="Province control +2", effect="wh_main_effect_public_order_events", value=2,
+                   icon="public_order_happy.png"),
+    "archives": dict(label="Scholars' halls", races=("hef",), cost={"books": 2, "trinkets": 1},
+                     benefit="Province growth +5", effect="wh_main_effect_province_growth_events", value=5,
+                     icon="growth.png"),
+    "mess": dict(label="Factory mess", races=("chd",), cost={"salted_meat": 3, "beer": 2},
+                 benefit="Province control +2", effect="wh_main_effect_public_order_events", value=2,
+                 icon="public_order_happy.png"),
+}
+
+SERVICES.update({
+    "builders": dict(label="Builders' yards", races=ESSENTIAL_RACES, cost={"tools": 2, "cloth": 1},
+        benefit="Province construction cost -5%", effect="wh_main_effect_building_construction_cost_mod_all",
+        scope="region_to_region_own_provincewide", value=-5, icon="construction.png"),
+    "hospital": dict(label="Field hospitals", races=ESSENTIAL_RACES, cost={"cloth": 2, "leather": 1, "medicine": 1},
+        benefit="Own armies in the province: replenishment +3%", effect="wh_main_effect_force_all_campaign_replenishment_rate",
+        scope="region_to_force_own_provincewide", value=3, icon="replenishment.png"),
+})
+
+
+def economy_definitions():
+    levels = db("building_levels_tables")[1]
+    known = set(store_stems())
+    out = {}
+    for key, definition in sorted(dict(PROCESSING, **SERVICES).items()):
+        d = dict(definition)
+        assert d["cost"] and set(d["cost"]) <= known, key
+        assert all(type(n) is int and n > 0 for n in d["cost"].values()), key
+        if key in PROCESSING:
+            d["kind"] = "processing"
+            d["levels"] = {r["level_name"]: True for r in levels if r["chain"] in d["chains"]}
+            for chain in d["chains"]:
+                assert any(r["chain"] == chain for r in levels), "missing processing chain: " + chain
+            assert d["output"][0] in known and d["output"][1] > 0, key
+            assert d["output"][0] not in d["cost"], key
+        else:
+            d["kind"] = "services"
+            d["bundle"] = "derpy_mr_service_" + key
+        out[key] = d
+    return out
+
+
+def provision_bundles():
+    return [("derpy_mr_army_hungry", "growth.png", "Short rations",
+             "Two missed meals. Refill locally or buy field rations where available.",
+             [("wh_main_effect_force_all_campaign_movement_range", "force_to_force_own", -5)]),
+            ("derpy_mr_army_starved", "growth.png", "Empty provision wagons",
+             "Three or more missed meals. A full meal clears these penalties.",
+             [("wh_main_effect_force_all_campaign_movement_range", "force_to_force_own", -10),
+              ("wh_main_effect_force_all_campaign_replenishment_rate", "force_to_force_own", -10)])]
+
+
+def service_bundles():
+    return [("service_" + key, "derpy_mr_service_" + key, d["icon"], d["label"],
+             "Paid each turn from this province capital's stores. " + d["benefit"] + ".",
+             [(d["effect"], d.get("scope", "region_to_province_own_unseen"), d["value"])])
+            for key, d in sorted(SERVICES.items())]
 
 # PHASE 7 (spending spec section 5): the panel's three orders, each a faction bundle bought with
 # ORDER_COST of one use. (key, use, bundle, icon, title, what it does, [(effect, scope, value)])
@@ -449,7 +569,7 @@ EVENTS = (
                  "A feast paid for from this settlement's stores: public order and growth are up.",
                  [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 5),
                   ("wh_main_effect_province_growth_events", "region_to_province_own_unseen", 20)])),
-    dict(key="siege", use="provisions", cost=60, where="region", image="food_merchant",
+    dict(key="siege", use="provisions", cost=60, where="region", image="besieged",
          title="Siege Stores", text="%s is under siege, and its stores still hold provisions. Open them "
          "to the garrison and it can hold out without starving." % _RT,
          accept=("Open the stores", "Spend 60 provisions: the garrison suffers no siege attrition for 2 turns."),
@@ -480,6 +600,14 @@ EVENTS = (
          bundle=("derpy_mr_event_restore", "public_order_happy.png", "Restored", 5,
                  "Repaired from this settlement's own stores: public order is up.",
                  [("wh_main_effect_public_order_events", "region_to_province_own_unseen", 5)])),
+    # ESCORT BATTLES (spec 2026-10-09): offered when a player's army walks onto an enemy cart, so not in
+    # the turn-start order and keeping no gap. Nothing is spent; FIRST starts the battle (flows.lua
+    # F.raid_answer). `use` only picks the cost line's icon: CA's weapon glyph.
+    dict(key="raid", use="war", cost=0, where="ship", image="all/ivory_road",
+         title="An Enemy Shipment", text="Your army has caught up with a shipment of "
+         "{{CcoCampaignEventDilemma:FirstTargetFactionNameWithIcon}}. Its escort will fight for the cargo.",
+         accept=("Attack the escort", "Fight the escort: win and the cargo goes to your nearest settlement."),
+         bundle=None, icon="convoy_icon.png", decline=("Let it pass", "The shipment goes on its way.")),
 )
 EVENT_DECLINE = ("Keep the stores", "Nothing is spent.")
 
@@ -504,14 +632,20 @@ SUPPLY = (
       ("wh_main_effect_force_army_campaign_recruitment_cost_artillery", "region_to_force_own", -15)]),
 )
 # SHIPMENTS: Send here and Supply the capital move goods on the map for SHIP_TURNS turns, drawn as
-# a marker an army at war with the owner can seize. CA's own Food Merchant cart, under our row.
+# a marker an army at war with the owner can seize. Our row is CA's Food Merchant marker with its
+# prefab swapped for Cathay's wagon circle: a marker type is the name of a prefabs/campaign/ file
+# (35 of CA's 52 types match one), and food_merchant itself draws Grom's troll, not a cart
+# (seen in game 2026-10-11).
 # A computer-run faction keeps at most SHIP_AI_CAP on the road; Supply the capital ships when the
 # capital holds under SHIP_STAND turns of a switched-on cost, enough for SHIP_AI_ON; a computer
 # switches a supply on at SHIP_AI_ON turns of it. SHIP_NEAR: how close an enemy army must stand at
 # the owner's turn start to seize one; SHIP_SPOT: CA's preferred distance from the settlement.
 SHIP_TURNS, SHIP_AI_CAP, SHIP_STAND, SHIP_AI_ON = 2, 1, 5, 10
 SHIP_RADIUS, SHIP_NEAR, SHIP_SPOT = 2, 3, 3
-SHIP_INFO, SHIP_MARKER = "derpy_mr_shipment", "food_merchant"
+SHIP_INFO, SHIP_MARKER, SHIP_PREFAB = "derpy_mr_shipment", "food_merchant", "cth_caravan_circle"
+# The marker with that prefab draws NOTHING (seen in game 2026-10-11) but still fires AreaEntered;
+# the look is CA's cth_caravan composite scene, added and removed with the marker by flows.lua.
+SHIP_SCENE = "cth_caravan"
 SHIP_NAME = "Shipment"
 SHIP_TIP = ("A shipment of resources on the road between two settlements. An army at war with its "
             "owner can seize it by marching in.")
@@ -1285,11 +1419,12 @@ def n_loc():
     chains = sum(len(rare_chains(g)) for g in RARE)
     return (LOC_PER_GOOD * len(GOODS) + 2 * len(UNITS) + LOC_PER_RARE_GOOD * len(RARE)
             + LOC_PER_CHAIN * chains + 5 * (len(GOODS) + len(CA_STEMS)) + 3 + 2 * len(FLOW_FACTORS)
-            + 2 * len(USE_BUNDLES) + 2 * len(ORDERS) + 2 * len(event_bundles()) + 8 * len(EVENTS) + 1   # 8: 6 dilemma lines, cost and reward; 1: Nothing is spent
+            + 2 * (len(USE_BUNDLES) + len(SERVICES)) + 2 * len(ORDERS) + 2 * len(event_bundles()) + 8 * len(EVENTS) + 1   # 8: 6 dilemma lines, cost and reward; 1: Nothing is spent
+            + sum(1 for e in EVENTS if e.get("decline"))   # an event's own decline line (the raid)
             + 2 * len(SUPPLY) + 2 + len(MINT_FX) + 2 + 2 * len(store_stems())   # Exports held; the hidden markers
             + 2 * len(WORK_UPGRADES) + 2 * sum(1 for w in WORK_ITEMS if not w[3])
             + 2   # Recruits
-            + 2 * len(recipe_bundles()) + 3 * sum(1 for w in works() if w["kind"] == "trait") + 2)   # recipes
+            + 2 * len(provision_bundles()) + 3 + 2 * len(recipe_bundles()) + 3 * sum(1 for w in works() if w["kind"] == "trait") + 2)   # recipes
 
 # Owners with no living people to make or eat a good: daemons, the dead, and beasts with no towns
 # to sell in. Matched on the CHAIN key, so a special variant for one of them goes too.
@@ -1302,7 +1437,7 @@ NOT_A_HARBOUR = re.compile(r"chd_factory_port|chd_outpost_port|lzd_port_nakai")
 NOT_A_MINE = re.compile(r"_military")
 # main-settlement chains that are not a living town: ruins, the prologue, dummies, endgame spawns
 SETTLE_SKIP = re.compile(r"ruin|prologue|dummy|endgame|horde")
-TABLES = {"port": [6, 8, 12], "mine": [6, 8, 12], "settlement": [4, 6, 8, 10, 12],
+TABLES = {"provisioning": [8, 12, 16, 20, 24], "port": [6, 8, 12], "mine": [6, 8, 12], "settlement": [4, 6, 8, 10, 12],
           **{k: [6, 8, 12] for k in ("farm", "hunt", "teahouse", "inn", "craft", "forge", "dig",
                                      "stables", "eyrie", "vineyard", "deep", "toolmaker", "engineer",
                                      "furstash", "coppermine", "darksteeds")}}
@@ -1577,7 +1712,7 @@ def pool_chains(pool):
         return {ch: bld_levels(ch) for _r, ch in rare_chains(pool[1])}
     else:
         _tr, perm, _cp, _t, _rc, sp = srm.load()
-        if _kind(pool) == "settlement":
+        if _kind(pool) in ("settlement", "provisioning"):
             tpls = {r["slot_template"] for r in sp if r["slot_type"] == "primary"}
             chains = {c for t in tpls for c in perm.get(t, ()) if not SETTLE_SKIP.search(c)}
             if pool != "settlement":
@@ -2005,19 +2140,23 @@ def build():
 
 
 def _shipments(add, loc):
-    """Phase 5's map marker: CA's Food Merchant cart under our own key, with our name and tooltip."""
+    """Phase 5's map marker: CA's Food Merchant marker under our own key, drawing the wagon circle,
+    with our name and tooltip."""
     donor, = [r for r in db("campaign_interactable_marker_infos_tables")[1] if r["key"] == SHIP_MARKER]
-    add("campaign_interactable_marker_infos_tables", dict(donor, key=SHIP_INFO, marker_type=SHIP_MARKER))
+    add("campaign_interactable_marker_infos_tables", dict(donor, key=SHIP_INFO, marker_type=SHIP_PREFAB))
     loc += [("campaign_interactable_marker_infos_name_" + SHIP_INFO, SHIP_NAME),
             ("campaign_interactable_marker_infos_tooltip_" + SHIP_INFO, SHIP_TIP)]
 
 
 def check_shipments(t, loc):
     """The marker row draws a prefab CA ships, and carries its name and tooltip."""
+    import read_pack_index as rpi
     rows = t["campaign_interactable_marker_infos_tables"][2]
     assert [r["key"] for r in rows] == [SHIP_INFO], rows
-    types = {r["marker_type"] for r in db("campaign_interactable_marker_infos_tables")[1]}
-    assert rows[0]["marker_type"] in types, "no CA marker prefab %s" % rows[0]["marker_type"]
+    prefab = "prefabs/campaign/%s.bmd" % rows[0]["marker_type"]
+    assert prefab in rpi.paths(os.path.join(os.path.dirname(rvd.DB_PACK), "data.pack")), "no CA prefab " + prefab
+    scenes = {r["id"] for r in db("campaign_composite_scenes_tables")[1]}
+    assert SHIP_SCENE in scenes, "no CA composite scene " + SHIP_SCENE
     keys = dict(loc)
     for pre in ("campaign_interactable_marker_infos_name_", "campaign_interactable_marker_infos_tooltip_"):
         assert keys.get(pre + SHIP_INFO), pre + SHIP_INFO
@@ -2026,7 +2165,7 @@ def check_shipments(t, loc):
 def _bundles(add, loc):
     """Phase 4's three region bundles, their effects and loc."""
     donor, = [r for r in db("effect_bundles_tables")[1] if r["key"] == BUNDLE_DONOR]
-    for _use, key, icon_, title, desc, fx in USE_BUNDLES:
+    for _use, key, icon_, title, desc, fx in USE_BUNDLES + tuple(service_bundles()):
         add("effect_bundles_tables", dict(donor, key=key, localised_title=title, localised_description=desc,
                                           ui_icon=icon_))
         for e, scope, v in fx:
@@ -2078,6 +2217,19 @@ def _bundles(add, loc):
     # THE NAMED RECIPES' BUNDLES (workshop expansion spec section 4): an army work's force bundle on
     # CA's force donor, a lasting work's faction bundle on the order donor
     force, = [r for r in db("effect_bundles_tables")[1] if r["key"] == FORCE_DONOR]
+    for key, icon_, title, desc, fx in provision_bundles():
+        add("effect_bundles_tables", dict(force, key=key, localised_title=title,
+            localised_description=desc, ui_icon=icon_))
+        for e, scope, v in fx:
+            add("effect_bundles_to_effects_junctions_tables", {
+                "effect_bundle_key": key, "effect_key": e, "effect_scope": scope, "value": float(v),
+                "advancement_stage": "start_turn_completed"})
+        loc += [("effect_bundles_localised_title_" + key, title),
+                ("effect_bundles_localised_description_" + key, desc)]
+    loc += [("event_feed_strings_text_derpy_mr_army_food_title", "Provision wagons running dry"),
+            ("event_feed_strings_text_derpy_mr_army_food_primary", "An army has missed its meal."),
+            ("event_feed_strings_text_derpy_mr_army_food_secondary",
+             "Open Resource Vault > Spending to check army provisions. Refill from your own unsieged local settlement above Keep. Repeated shortages reduce movement and replenishment.")]
     for target, key, icon_, fx in recipe_bundles():
         w = next(x for x in works() if x.get("bundle") == key)
         title, desc = w["name"], "Paid for from your stores: %s." % (w["gives"][0].lower() + w["gives"][1:])
@@ -2100,12 +2252,13 @@ def _bundles(add, loc):
 
 def all_bundles():
     """(target, key, icon, effects) of every bundle this pack mints."""
-    return [("region", k, i, fx) for _u, k, i, _t, _d, fx in USE_BUNDLES] + \
+    return [("region", k, i, fx) for _u, k, i, _t, _d, fx in USE_BUNDLES + tuple(service_bundles())] + \
            [("region", k, i, fx) for k, i, _t, _n, _d, fx in event_bundles()] + \
            [("region", k, i, fx) for _k, _u, k, i, _t, _w, fx in SUPPLY] + \
            [("region", WORK_UP_PREFIX + r, i, fx) for r, _t, _w, i, fx, _b in WORK_UPGRADES] + \
            [("faction", k, i, fx) for _o, _u, k, i, _t, _w, fx in ORDERS] + \
            [("faction", HOLD[0], HOLD[1], [])] + \
+           [("force", k, i, fx) for k, i, _t, _d, fx in provision_bundles()] + \
            recipe_bundles()   # its effects are the script's (HOLD)
 
 
@@ -2130,7 +2283,13 @@ def _dilemmas(add, loc):
                                     override_icon="", generate=False, prioritized=False, event_category="Event",
                                     is_large_dilemma=False))
         loc += [("dilemmas_localised_title_" + k, e["title"]), ("dilemmas_localised_description_" + k, e["text"])]
-        for choice, (label, line) in (("FIRST", e["accept"]), ("SECOND", EVENT_DECLINE)):
+        # WITHOUT GEN_TARGET_MODEL THE TEXT'S TARGET TOKENS DRAW BLANK, whatever the script hands
+        # trigger_dilemma_with_targets (seen 2026-10-11: region and faction names both empty; CA's own
+        # Middenland dilemma, which has the row, drew its name). CA's shape, on every dilemma it names a target in.
+        for opt, val in (("GEN_TARGET_MODEL", ""), ("VAR_CHANCE", "100")):
+            add("cdir_events_dilemma_option_junctions_tables", {
+                "dilemma_key": k, "id": work_link_key(k + opt), "option_key": opt, "value": val, "target": "default"})
+        for choice, (label, line) in (("FIRST", e["accept"]), ("SECOND", e.get("decline", EVENT_DECLINE))):
             add("cdir_events_dilemma_choice_details_tables",
                 {"choice_key": choice, "dilemma_key": k, "audio_event_hover": "", "audio_choice_vo": ""})
             pre = "cdir_events_dilemma_choice_details_localised_choice_"
@@ -2153,6 +2312,8 @@ def event_lines(e, choice):
     both read off the accept line, or 'Nothing is spent.' under the decline."""
     import gen_mr_ui
     if choice == "SECOND":
+        if e.get("decline"):   # its own words, so its own component: derpy_mr_dil_keep reads "Nothing is spent"
+            return [(event_dilemma(e["key"]) + "_pass", "", "default", e["decline"][1].rstrip("."))]
         return [("derpy_mr_dil_keep", "", "default", EVENT_DECLINE[1].rstrip("."))]
     cost, reward = e["accept"][1].rstrip(".").split(": ", 1)
     icon_ = e["bundle"][1] if e["bundle"] else e["icon"]
@@ -2164,6 +2325,28 @@ def event_lines(e, choice):
 EB_ICONS = "ui/campaign ui/effect_bundles/"
 
 
+@functools.lru_cache(None)
+def eventpic_folders():
+    """Picture name -> the ui/eventpics/ folders (a race's, or "all") CA ships it in."""
+    import read_pack_index as rpi
+    out = collections.defaultdict(set)
+    for p in rpi.paths(os.path.join(os.path.dirname(rvd.DB_PACK), "ui2.pack")):
+        parts = p.replace(chr(92), "/").lower().split("/")
+        if len(parts) == 4 and parts[:2] == ["ui", "eventpics"] and parts[3].endswith(".png"):
+            out[parts[3][:-4]].add(parts[2])
+    return out
+
+
+def eventpic_every_race(image):
+    """A dilemma picture every race sees: pinned to a folder CA ships it in ("all/ivory_road"), or
+    shipped per race as CA's general pictures are (20 to 25 folders). `food_merchant` is in one
+    folder, Greenskins', and drew Grom's troll on every race's dilemma (seen 2026-10-11)."""
+    if "/" in image:
+        folder, name = image.split("/", 1)
+        return folder in eventpic_folders().get(name, ())
+    return len(eventpic_folders().get(image, ())) >= 20
+
+
 def check_dilemmas(t, loc):
     """Each event's dilemma exists with two choices and every loc line; its image is one CA uses;
     its text names only targets the script hands it."""
@@ -2172,11 +2355,13 @@ def check_dilemmas(t, loc):
     rows = {r["key"]: r for r in t["dilemmas_tables"][2]}
     choices = t["cdir_events_dilemma_choice_details_tables"][2]
     pays = t["cdir_events_dilemma_payloads_tables"][2]
+    opts = t["cdir_events_dilemma_option_junctions_tables"][2]
     target ={"region": "RegionTargetName", "tribute": "FirstTargetFactionNameWithIcon",
-              "arsenal": "CharacterTargetName"}
+              "arsenal": "CharacterTargetName", "raid": "FirstTargetFactionNameWithIcon"}
     for e in EVENTS:
         k = event_dilemma(e["key"])
         assert rows[k]["ui_image"] in images, "no CA dilemma image %s" % rows[k]["ui_image"]
+        assert eventpic_every_race(rows[k]["ui_image"]), "not drawn for every race: %s" % rows[k]["ui_image"]
         assert sorted(c["choice_key"] for c in choices if c["dilemma_key"] == k) == ["FIRST", "SECOND"], k
         for pre in ("dilemmas_localised_title_", "dilemmas_localised_description_"):
             assert keys.get(pre + k), pre + k
@@ -2188,7 +2373,12 @@ def check_dilemmas(t, loc):
         assert tokens <= {want}, "%s names %s, the script hands it %s" % (k, tokens, want)
         for c in ("FIRST", "SECOND"):
             assert [p for p in pays if p["dilemma_key"] == k and p["choice_key"] == c], "%s%s draws no line" % (k, c)
+        mine = {(o["option_key"], o["value"]) for o in opts if o["dilemma_key"] == k}
+        assert {("GEN_TARGET_MODEL", ""), ("VAR_CHANCE", "100")} <= mine, "%s: no GEN_TARGET_MODEL, its names draw blank" % k
     assert len(rows) == len(EVENTS)
+    oids = [o["id"] for o in opts]
+    assert len(set(oids)) == len(oids), "two option rows share an id"
+    assert not set(oids) & {r["id"] for r in db("cdir_events_dilemma_option_junctions_tables")[1]}, "an option id CA uses"
     # the lines under the buttons: TEXT_DISPLAY only (the script pays), each with its text and a
     # legal state - anything outside CA's four draws nothing (RITUALS.md) - and an icon CA ships
     import gen_mr_emitter as E
@@ -2227,7 +2417,8 @@ def check_bundles(t, loc):
         for e, s, v in got:
             assert e in van_fx, "no CA effect %s" % e
             assert s in scopes, "no CA scope %s" % s
-            assert (v > 0) == van_fx[e]["is_positive_value_good"], "%s %s is a penalty" % (key, e)
+            penalty = key in {b[0] for b in provision_bundles()}
+            assert ((v > 0) == van_fx[e]["is_positive_value_good"]) != penalty, "%s %s has wrong sign" % (key, e)
     assert len(rows) == len(all_bundles()) + len(store_stems()), sorted(rows)   # + check_holds' markers
 
 
@@ -2322,8 +2513,11 @@ def audit():
 # unreadable offline reads as no, so the error runs towards not building, never towards a dead one.
 #
 # PLAYER-LIKE: CA's price per level (LEVEL_DONOR's create_cost), the settlement tier each level
-# needs, and a treasury reserve. cm:add_building_to_settlement picks the slot itself, and the
-# building is looked for afterwards: gold is charged only for a building that is really there.
+# needs, and a treasury reserve. Level 1 goes into an empty secondary slot through
+# cm:instantly_upgrade_building_in_region, which places it on the founding regions too, where the
+# slot template does not offer it (cm:add_building_to_settlement honours the template there and
+# places nothing; TRADE_RESOURCES.md 35a). The building is looked for afterwards: gold is charged
+# only for a building that is really there.
 AI_LUA = os.path.join(PACK, "script", "campaign", "mod", "derpy_more_resources_ai.lua")
 AI_PACE = 5        # turns between one AI faction's actions, staggered per faction
 AI_RESERVE = 2     # it pays only while it holds this many times the price
@@ -2372,6 +2566,18 @@ function MR_AI.find(region, chain)
     return nil, nil
 end
 
+-- An empty secondary slot, or nil.
+function MR_AI.free(region)
+    local slots = region:slot_list()
+    for i = 0, slots:num_items() - 1 do
+        local s = slots:item_at(i)
+        if s:active() and not s:has_building() and not s:is_working() and s:type() == "secondary" then
+            return s
+        end
+    end
+    return nil
+end
+
 -- What this faction may build: {good, chain, region} for every owned lore region.
 function MR_AI.options(faction)
     local out_, culture = {}, faction:culture()
@@ -2411,16 +2617,17 @@ function MR_AI.act(faction)
         end
     end
     for _, o in ipairs(opts) do
-        if not MR_AI.find(o[3], o[2]) and MR_AI.tier(o[3]) >= MR_AI.REQ[1] and afford(MR_AI.COST[1]) then
+        local free = not MR_AI.find(o[3], o[2]) and MR_AI.free(o[3])
+        if free and MR_AI.tier(o[3]) >= MR_AI.REQ[1] and afford(MR_AI.COST[1]) then
             local want = o[2] .. "_1"
-            cm:add_building_to_settlement(o[3]:name(), want)
+            cm:instantly_upgrade_building_in_region(free, want)
             if MR_AI.find(o[3], o[2]) then
                 cm:treasury_mod(fname, -MR_AI.COST[1])
                 say(fname .. " built " .. want .. " in " .. o[3]:name())
                 return "build " .. want .. " " .. o[3]:name()
             end
-            -- no free slot that takes it: try the next region, and say so once in the log
-            say(fname .. " found no slot for " .. want .. " in " .. o[3]:name())
+            -- the engine placed nothing: try the next region, and say so in the log
+            say(fname .. " could not build " .. want .. " in " .. o[3]:name())
         end
     end
     return nil
@@ -2443,11 +2650,12 @@ end
 
 def ai_regions():
     """good -> sorted region keys where its building can be built: the regions of its permitted
-    templates, over IE, RoC and every SUBMODS map."""
+    templates and its founding regions (found_regions), over IE, RoC and every SUBMODS map."""
     _by_reg, by_tpl = _secondary_templates()
     out = {}
     for good in RARE:
         regs = {k for t in rare_templates(good) for k in by_tpl[t]}
+        regs |= set(found_regions()[good])   # founded by script where no slot offers it
         for name in SUBMODS:
             if os.path.isfile(SUBMODS[name]["pack"]):
                 regs |= set(rare_submod_templates(good, name).values())
@@ -2456,17 +2664,15 @@ def ai_regions():
 
 
 def ai_script():
-    lvl = sorted((r for r in db("building_levels_tables")[1] if r["chain"] == LEVEL_DONOR),
-                 key=lambda r: r["level"])[:3]
+    costs, reqs = level_prices()
     regions = ai_regions()
     lines = ["-- Derpy Resource Overhaul: the AI builds the rare goods' buildings, only where they work.",
              "-- GENERATED by tools/gen_resource_overhaul.py (ai_script). Edit the generator, not this file.",
              "MR_AI = {}",
              "MR_AI.PACE = %d" % AI_PACE,
              "MR_AI.RESERVE = %d" % AI_RESERVE,
-             "MR_AI.COST = { %s }" % ", ".join(str(int(r["create_cost"])) for r in lvl),
-             "MR_AI.REQ = { %s }   -- the settlement tier each level needs" % ", ".join(
-                 str(int(r["primary_slot_building_building_level_requirement"])) for r in lvl),
+             "MR_AI.COST = { %s }" % ", ".join(str(c) for c in costs),
+             "MR_AI.REQ = { %s }   -- the settlement tier each level needs" % ", ".join(str(r) for r in reqs),
              "MR_AI.GOODS = { %s }" % ", ".join('"%s"' % g for g in sorted(RARE)),
              "MR_AI.CHAIN = {"]
     for good in sorted(RARE):
@@ -2578,6 +2784,59 @@ def check_rare_templates(t):
     return sum(len(v) for v in tpl_of.values())
 
 
+# FOUNDING (spec 2026-10-09): a lore region on a template other regions share is offered nothing by
+# a slot, so the Vault's settlement view founds the building there by script (flows.lua F.found),
+# and the AI script builds there too. 43 regions of IE and RoC on 2026-10-09; the map mods have none.
+@functools.lru_cache(None)
+def found_regions():
+    """good -> the sorted IE/RoC lore regions no permitted template reaches."""
+    _by_reg, by_tpl = _secondary_templates()
+    sig = {g["region"]: g for g in _signals().values()}
+    out = {}
+    for good in RARE:
+        lore = {k for k, g in sig.items() if evaluate(rare_cond(good), g)}
+        reached = {k for t in rare_templates(good) for k in by_tpl[t]}
+        out[good] = sorted(lore - reached)
+    return out
+
+
+def found_map():
+    """region -> its good; a region on two lists keeps the first in sorted order (check_found then fails)."""
+    out = {}
+    for good in sorted(RARE):
+        for k in found_regions()[good]:
+            out.setdefault(k, good)
+    return out
+
+
+def check_found(fm=None):
+    """Every founded region is a lore region its good's templates do not reach, and the AI builds there;
+    every lore region of IE/RoC is reached one way or the other."""
+    fm = found_map() if fm is None else fm
+    _by_reg, by_tpl = _secondary_templates()
+    sig = {g["region"]: g for g in _signals().values()}
+    ai = ai_regions()
+    for k, good in fm.items():
+        assert k in sig and evaluate(rare_cond(good), sig[k]), "%s founds %s outside its lore" % (k, good)
+        assert not any(k in by_tpl[t] for t in rare_templates(good)), "%s: a slot already offers %s" % (k, good)
+        assert rare_chains(good), good
+        assert k in ai[good], "%s: the AI does not build %s there" % (k, good)
+    for good in RARE:
+        lore = {k for k, g in sig.items() if evaluate(rare_cond(good), g)}
+        reached = {k for t in rare_templates(good) for k in by_tpl[t]}
+        left = sorted(lore - reached - {k for k, g in fm.items() if g == good})
+        assert not left, "%s: lore regions with no way to build it: %s" % (good, left[:3])
+    return len(fm)
+
+
+def level_prices():
+    """CA's gold price and settlement tier for levels 1-3, off the donor chain the rare levels clone."""
+    lvl = sorted((r for r in db("building_levels_tables")[1] if r["chain"] == LEVEL_DONOR),
+                 key=lambda r: r["level"])[:3]
+    return ([int(r["create_cost"]) for r in lvl],
+            [int(r["primary_slot_building_building_level_requirement"]) for r in lvl])
+
+
 def reach_table():
     """good -> {campaign: regions it can be made in}, from the region signals."""
     out = {}
@@ -2638,8 +2897,9 @@ def check(t, loc):
         assert not r["context_requirement"] or r["context_requirement"] in ctx, r
         assert (r["building"], r["effect"]) not in seen, "two sources give %s %s" % (r["building"], r["effect"])
         seen.add((r["building"], r["effect"]))
-    for good in GOODS:   # every good has rows
-        assert any(r["effect"] == effect(good) for r in t["building_effects_junction_tables"][2]), good
+    processed = {d["output"][0] for d in PROCESSING.values()}
+    for good in GOODS:
+        assert any(r["effect"] == effect(good) for r in t["building_effects_junction_tables"][2]) or (not GOODS[good]["sources"] and good in processed), good
     # CA's goods: CA's own effect, bound to that good, and no row of ours lands on a CA row's key
     assert not set(CA_GOODS) & set(GOODS)
     van_bind = {(r["effect"], r["bonus_value_id"]): r["resource"] for r in db("effect_bonus_value_resource_junction_tables")[1]}
@@ -2742,6 +3002,7 @@ def check_rare(t, ours):
              if r["effect"] in rare_fx and r["building"] not in ours]
     assert not stray, "rare good made outside its building: %s" % stray[:2]
     check_rare_templates(t)
+    check_found()
     # a minted bonus binds the donor's bonus value to CA unit sets that exist, and to nothing else
     sets = {r["unit_set"] for r in db("unit_set_to_unit_junctions_tables")[1]}
     bound = collections.defaultdict(set)
@@ -2797,7 +3058,7 @@ def check_stores(t, loc):
     each reachable by every owner, each with its gain-only junction, base_amount binding and loc."""
     import read_vanilla_loc as rvl
     stems = store_stems()
-    assert len(stems) == len(GOODS) + len(CA_STEMS) == 54, len(stems)
+    assert len(stems) == len(GOODS) + len(CA_STEMS) == 58, len(stems)
     assert not set(CA_STEMS.values()) & set(GOODS), "a CA stem shadows one of our goods"
     pools = {r["key"]: r for r in t["pooled_resources_tables"][2]}
     assert set(pools) == {store(s) for s in stems}, set(pools) ^ {store(s) for s in stems}
@@ -2933,7 +3194,7 @@ def submod_pool_chains(name, pool):
     port, prim, _perm = submod_slots(name)
     if pool == "port":
         out = {c: v for c, v in _sub_chains(name, port).items() if not NOT_A_HARBOUR.search(c)}
-    elif _kind(pool) == "settlement":
+    elif _kind(pool) in ("settlement", "provisioning"):
         out = {c: v for c, v in _sub_chains(name, prim).items() if not SETTLE_SKIP.search(c)
                and (pool == "settlement" or race(c) in pool[1:])}
     else:
@@ -3110,9 +3371,9 @@ def check_submod_reach(name):
     too), and a terrain rule over an area of one terrain blankets it honestly (the Old World's
     Athel Loren is all forest)."""
     ca_areas = {a for g in _signals().values() for a in g["areas"]}
-    # origin discriminates like terrain does: an all-Dwarf area is honestly all Dwarf holds
+    # Common staples are intentionally ungated; origin still discriminates specialized goods.
     plain = {good for good in list(GOODS) + list(CA_GOODS)
-             if not any(c is not None and ("climate_" in render(c) or "IsOriginatingSubculture" in render(c))
+             if good not in {"grain", "salted_meat", "leather", "cloth", "tools"} and not any(c is not None and ("climate_" in render(c) or "IsOriginatingSubculture" in render(c))
                         for _p, c in good_spec(good)["sources"])}
     bad = ["%s: %s in all %d regions" % (a, good, n)
            for a, (n, goods) in submod_reach(name).items() if n >= 10 and a not in ca_areas
@@ -3186,12 +3447,16 @@ def selftest():
         raise SystemExit("selftest: a broken bundle passed check_bundles()")
     for breakit in (lambda t, l: t["cdir_events_dilemma_choice_details_tables"][2].pop(),
                     lambda t, l: t["dilemmas_tables"][2][0].update(ui_image="no_such_image"),
+                    lambda t, l: t["dilemmas_tables"][2][0].update(ui_image="food_merchant"),
                     lambda t, l: l.remove([x for x in l if x[0].startswith("cdir_events_dilemma_choice_details")][0]),
                     lambda t, l: EVENTS[2].update(text=EVENTS[2]["text"] + " {{CcoCampaignEventDilemma:RegionTargetName}}"),
                     lambda t, l: t["campaign_payload_ui_details_tables"][2][0].update(state="text"),
                     lambda t, l: t["campaign_payload_ui_details_tables"][2][0].update(icon="ui/no_such.png"),
                     lambda t, l: t["cdir_events_dilemma_payloads_tables"][2].__setitem__(
-                        slice(None), [p for p in t["cdir_events_dilemma_payloads_tables"][2] if p["choice_key"] != "SECOND"])):
+                        slice(None), [p for p in t["cdir_events_dilemma_payloads_tables"][2] if p["choice_key"] != "SECOND"]),
+                    lambda t, l: t["cdir_events_dilemma_option_junctions_tables"][2].__setitem__(
+                        slice(None), [o for o in t["cdir_events_dilemma_option_junctions_tables"][2]
+                                      if o["option_key"] != "GEN_TARGET_MODEL" or o["dilemma_key"] != "derpy_mr_dil_tribute"])):
         saved = dict(EVENTS[2])
         bad, bloc = build()
         breakit(bad, bloc)
@@ -3236,6 +3501,23 @@ def selftest():
         except (AssertionError, KeyError):
             continue
         raise SystemExit("selftest: a broken hold passed check_holds()")
+    # check_found must fail a planted fault, or it proves nothing
+    print("found: %d regions" % check_found())
+    fm = found_map()
+    _r, by_tpl = _secondary_templates()
+    offered = next(k for t in rare_templates("gromril") for k in sorted(by_tpl[t]))
+    # each fault must fail on ITS assertion: Altdorf also trips "the AI does not build", which hid
+    # the lore assertion's deletion when any AssertionError was accepted
+    for bad, why in ((dict(fm, wh3_main_combi_region_altdorf="gromril"), "outside its lore"),
+                     (dict(fm, **{offered: "gromril"}), "a slot already offers"),
+                     (dict(list(fm.items())[1:]), "no way to build it")):
+        try:
+            check_found(bad)
+        except AssertionError as e:
+            if why in str(e):
+                continue
+            raise SystemExit("selftest: check_found() failed %r on another rule: %s" % (why, e))
+        raise SystemExit("selftest: a broken founding list passed check_found()")
     # a bad row must be caught, or the check proves nothing
     for breakit in (lambda t: t["building_effects_junction_tables"][2].append(
                         dict(t["building_effects_junction_tables"][2][0], building="wh3_main_dae_port_1")),

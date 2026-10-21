@@ -2238,6 +2238,8 @@ EX.MR = {
       "+10 winds of magic reserve" },
     { "res_derpy_carpets", "Arabyan Carpets", "ui/campaign ui/effect_bundles/resource_derpy_carpets.png",
       "+6% trade tariffs" },
+    { "res_derpy_cloth", "Cloth", "ui/campaign ui/effect_bundles/resource_derpy_cloth.png",
+      "-6% recruit cost" },
     { "res_derpy_coal", "Coal", "ui/campaign ui/effect_bundles/resource_derpy_coal.png",
       "-6% construction cost" },
     { "res_derpy_dragon_bone", "Dragon Bone", "ui/campaign ui/effect_bundles/resource_derpy_dragon_bone.png",
@@ -2250,6 +2252,8 @@ EX.MR = {
       "+6% replenishment" },
     { "res_derpy_gromril", "Gromril", "ui/campaign ui/effect_bundles/resource_derpy_gromril.png",
       "+4 armour, all armies" },
+    { "res_derpy_hardtack", "Hardtack", "ui/campaign ui/effect_bundles/resource_derpy_hardtack.png",
+      "+6% replenishment" },
     { "res_derpy_incense", "Incense", "ui/campaign ui/effect_bundles/resource_derpy_incense.png",
       "+10 winds of magic reserve" },
     { "res_derpy_ithilmar", "Ithilmar", "ui/campaign ui/effect_bundles/resource_derpy_ithilmar.png",
@@ -2258,6 +2262,8 @@ EX.MR = {
       "+6% trade tariffs" },
     { "res_derpy_kvas", "Kvas", "ui/campaign ui/effect_bundles/resource_derpy_kvas.png",
       "+4 public order" },
+    { "res_derpy_leather", "Leather", "ui/campaign ui/effect_bundles/resource_derpy_leather.png",
+      "+4 armour, all armies" },
     { "res_derpy_lustrian_plumes", "Lustrian Plumes", "ui/campaign ui/effect_bundles/resource_derpy_lustrian_plumes.png",
       "+6% trade tariffs" },
     { "res_derpy_mead", "Mead", "ui/campaign ui/effect_bundles/resource_derpy_mead.png",
@@ -2290,6 +2296,8 @@ EX.MR = {
       "+10 winds of magic reserve" },
     { "res_derpy_tea", "Tea", "ui/campaign ui/effect_bundles/resource_derpy_tea.png",
       "+4 public order" },
+    { "res_derpy_tools", "Tools", "ui/campaign ui/effect_bundles/resource_derpy_tools.png",
+      "-6% construction cost" },
     { "res_derpy_warhorses", "Warhorses", "ui/campaign ui/effect_bundles/resource_derpy_warhorses.png",
       "+6% movement range" },
     { "res_derpy_whale_oil", "Whale Oil", "ui/campaign ui/effect_bundles/resource_derpy_whale_oil.png",
@@ -2321,6 +2329,12 @@ function EX.join_more_resources()
             EX.COMMODITIES[#EX.COMMODITIES + 1] = r[1]
             EX.INFO[r[1]] = { r[2], r[3] }
             EX.BOON[r[1]] = r[4]
+            EX.WAR_APPETITE[r[1]] = EX.MR_WAR_APPETITE[r[1]]
+            EX.BUILD_APPETITE[r[1]] = EX.MR_BUILD_APPETITE[r[1]]
+            for culture, wants in pairs(EX.CULTURE_WANTS) do
+                local optional = EX.MR_CULTURE_WANTS[culture] or {}
+                wants[r[1]] = optional[r[1]] or 0
+            end
             EX.mr_joined = EX.mr_joined + 1
         end
     end
@@ -4536,7 +4550,8 @@ function EX.derived_fund(c)
     if not w or not EX.WANTS_NAME[c] then return nil end
     local t = {}
     for r, v in pairs(w) do
-        if v > 0 then t[#t + 1] = { r = r, v = v } end
+        -- Optional demand must not change an existing investment basket.
+        if v > 0 and not string.match(r, "^res_derpy_") then t[#t + 1] = { r = r, v = v } end
     end
     if #t < EX.INDEX_MIN then return nil end
     table.sort(t, function(a, b)
@@ -5021,6 +5036,17 @@ function EX.region_goods(region)
                     out_list[#out_list + 1] = { res, tonumber(n) }
                 end
             end
+        end
+    end
+    -- Hardtack has no passive producer. Count the last completed batch for one owner cycle.
+    local flows = DERPY_MR_FLOWS
+    local recipe = DERPY_MR_FLOWS_ECONOMY and DERPY_MR_FLOWS_ECONOMY.bake
+    local book = flows and flows.state and flows.state.economy and flows.state.economy[region:name()]
+    local paid = book and book.paid and book.paid.bake
+    if recipe and type(paid) == "number" and EX.is_commodity("res_derpy_hardtack") then
+        local turn = cm:model():turn_number()
+        if paid >= turn - 1 and paid <= turn and book.f == region:owning_faction():name() then
+            out_list[#out_list + 1] = { "res_derpy_hardtack", recipe.output[2] }
         end
     end
     return out_list
@@ -6295,6 +6321,155 @@ EX.BUILD_APPETITE = {
     res_ivory        = -0.5,   -- Tusks
     res_spices       = -0.5,
     res_rom_wine     = -0.6,
+}
+
+-- Optional tastes are merged per joined good. Zero entries keep war/build drift active
+-- for cultures with no distinct preference; they are not new physical consumption rules.
+EX.MR_CULTURE_WANTS = {
+    ["mixer_teb_southern_realms"] = { res_derpy_blackpowder = 0.7, res_derpy_warhorses = 0.6, res_derpy_books = 0.5, res_derpy_carpets = 0.5,
+        res_derpy_olive_oil = 0.4, res_derpy_grain = -0.5, res_derpy_glassware = -0.6, res_derpy_silk = -0.3, res_derpy_pearls = -0.3 },
+    ["wh_main_grn_greenskins"] = { res_derpy_blackpowder = 0.5, res_derpy_salted_meat = 0.7, res_derpy_warhorses = 0.4, res_derpy_rhinox_hides = 0.5,
+        res_derpy_wyvern_scales = 0.7, res_derpy_books = -0.8, res_derpy_porcelain = -0.7, res_derpy_silk = -0.5, res_derpy_glassware = -0.6, res_derpy_carpets = -0.5 },
+    ["wh_main_dwf_dwarfs"] = { res_derpy_coal = 0.8, res_derpy_gromril = 0.8, res_derpy_books = 0.4, res_derpy_salted_meat = 0.4,
+        res_derpy_pipeweed = 0.3, res_derpy_brass = -0.5, res_derpy_quicksilver = -0.5, res_derpy_brimstone = -0.4, res_derpy_silver = -0.5, res_derpy_black_lotus = -0.6, res_derpy_ithilmar = -0.5 },
+    ["wh_main_emp_empire"] = { res_derpy_hardtack = 0.6, res_derpy_leather = 0.4, res_derpy_cloth = 0.6, res_derpy_tools = 0.6,
+        res_derpy_blackpowder = 0.8, res_derpy_books = 0.6, res_derpy_warhorses = 0.5, res_derpy_glassware = 0.4,
+        res_derpy_coal = 0.5, res_derpy_salted_fish = 0.3, res_derpy_pipeweed = 0.4, res_derpy_grain = -0.5, res_derpy_wool = -0.5, res_derpy_salted_meat = -0.3 },
+    ["wh_main_brt_bretonnia"] = { res_derpy_warhorses = 0.8, res_derpy_ithilmar = 0.3, res_derpy_silk = 0.5, res_derpy_incense = 0.4,
+        res_derpy_carpets = 0.3, res_derpy_grain = -0.5, res_derpy_wool = -0.5, res_derpy_porcelain = -0.3, res_derpy_blackpowder = -0.6, res_derpy_wyvern_scales = -0.5 },
+    ["wh_main_vmp_vampire_counts"] = { res_derpy_hardtack = -0.8, res_derpy_books = 0.8, res_derpy_incense = 0.6, res_derpy_dragon_bone = 0.7, res_derpy_black_lotus = 0.5,
+        res_derpy_grain = -0.8, res_derpy_salted_fish = -0.8, res_derpy_salted_meat = -0.8, res_derpy_kvas = -0.5, res_derpy_mead = -0.5 },
+    ["wh3_dlc29_nag_undead_legions"] = { res_derpy_hardtack = -0.8, res_derpy_books = 0.8, res_derpy_incense = 0.6, res_derpy_dragon_bone = 0.7, res_derpy_black_lotus = 0.5,
+        res_derpy_grain = -0.8, res_derpy_salted_fish = -0.8, res_derpy_salted_meat = -0.8, res_derpy_kvas = -0.5, res_derpy_mead = -0.5 },
+    ["wh_main_chs_chaos"] = { res_derpy_dragon_bone = 0.7, res_derpy_wyvern_scales = 0.6, res_derpy_warhorses = 0.6, res_derpy_mead = 0.4,
+        res_derpy_porcelain = -0.7, res_derpy_carpets = -0.6, res_derpy_books = -0.4, res_derpy_glassware = -0.4, res_derpy_lustrian_plumes = -0.4 },
+    ["wh_dlc08_nor_norsca"] = { res_derpy_mead = 0.7, res_derpy_rum = 0.5, res_derpy_salted_fish = 0.5, res_derpy_dragon_bone = 0.6,
+        res_derpy_wool = -0.6, res_derpy_whale_oil = -0.7, res_derpy_amber = -0.5, res_derpy_silk = -0.4 },
+    ["wh_dlc03_bst_beastmen"] = { res_derpy_cloth = -0.7, res_derpy_tools = -0.6, res_derpy_leather = 0.5,
+        res_derpy_dragon_bone = 0.5, res_derpy_rhinox_hides = 0.4, res_derpy_salted_meat = 0.7, res_derpy_books = -0.9,
+        res_derpy_porcelain = -0.9, res_derpy_carpets = -0.8, res_derpy_glassware = -0.8, res_derpy_jade = -0.5, res_derpy_incense = -0.4 },
+    ["wh_dlc05_wef_wood_elves"] = { res_derpy_amber = 0.7, res_derpy_feathers = 0.6, res_derpy_starwood = 0.8, res_derpy_books = 0.3,
+        res_derpy_coal = -0.8, res_derpy_blackpowder = -0.8, res_derpy_brass = -0.5, res_derpy_dragon_bone = -0.4 },
+    ["wh2_main_hef_high_elves"] = { res_derpy_ithilmar = 0.8, res_derpy_silk = 0.6, res_derpy_pearls = 0.6, res_derpy_incense = 0.5,
+        res_derpy_tea = 0.4, res_derpy_starwood = -0.5, res_derpy_sea_dragon_hide = -0.5, res_derpy_warhorses = -0.3, res_derpy_gromril = -0.4 },
+    ["wh2_main_def_dark_elves"] = { res_derpy_black_lotus = 0.8, res_derpy_sea_dragon_hide = 0.7, res_derpy_blackpowder = 0.3, res_derpy_grain = -0.6,
+        res_derpy_salted_meat = -0.4, res_derpy_pearls = -0.5, res_derpy_tea = -0.3, res_derpy_silk = -0.4 },
+    ["wh2_main_lzd_lizardmen"] = { res_derpy_quicksilver = 0.5, res_derpy_incense = 0.6, res_derpy_lustrian_plumes = 0.8, res_derpy_ithilmar = 0.3,
+        res_derpy_books = -0.5, res_derpy_coal = -0.4, res_derpy_warhorses = -0.6, res_derpy_porcelain = -0.6, res_derpy_pearls = -0.3 },
+    ["wh2_main_skv_skaven"] = { res_derpy_blackpowder = 0.8, res_derpy_brimstone = 0.8, res_derpy_quicksilver = 0.8, res_derpy_salted_meat = 0.6,
+        res_derpy_silk = -0.7, res_derpy_porcelain = -0.7, res_derpy_carpets = -0.6, res_derpy_tea = -0.4, res_derpy_incense = -0.5 },
+    ["wh2_dlc09_tmb_tomb_kings"] = { res_derpy_hardtack = -0.9, res_derpy_dragon_bone = 0.6, res_derpy_incense = 0.7, res_derpy_jade = 0.5, res_derpy_books = 0.4,
+        res_derpy_glassware = 0.4, res_derpy_grain = -0.9, res_derpy_salted_fish = -0.9, res_derpy_salted_meat = -0.9, res_derpy_kvas = -0.7, res_derpy_rum = -0.7 },
+    ["wh2_dlc11_cst_vampire_coast"] = { res_derpy_rum = 0.8, res_derpy_blackpowder = 0.8, res_derpy_whale_oil = 0.6, res_derpy_sea_dragon_hide = 0.5,
+        res_derpy_grain = -0.5, res_derpy_tea = -0.5, res_derpy_warhorses = -0.6, res_derpy_carpets = -0.5 },
+    ["wh3_main_cth_cathay"] = { res_derpy_jade = 0.8, res_derpy_silk = 0.7, res_derpy_porcelain = 0.6, res_derpy_tea = 0.6,
+        res_derpy_incense = 0.4, res_derpy_grain = -0.4, res_derpy_glassware = -0.4, res_derpy_wool = -0.5, res_derpy_mead = -0.4, res_derpy_rhinox_hides = -0.3 },
+    ["wh3_main_ksl_kislev"] = { res_derpy_kvas = 0.8, res_derpy_warhorses = 0.7, res_derpy_blackpowder = 0.6, res_derpy_feathers = 0.5,
+        res_derpy_salted_meat = 0.5, res_derpy_wool = 0.4, res_derpy_silk = -0.6, res_derpy_porcelain = -0.5, res_derpy_carpets = -0.4 },
+    ["wh3_main_pro_ksl_kislev"] = { res_derpy_kvas = 0.8, res_derpy_warhorses = 0.7, res_derpy_blackpowder = 0.6, res_derpy_feathers = 0.5,
+        res_derpy_salted_meat = 0.5, res_derpy_wool = 0.4, res_derpy_silk = -0.6, res_derpy_porcelain = -0.5, res_derpy_carpets = -0.4 },
+    ["wh3_main_ogr_ogre_kingdoms"] = { res_derpy_salted_meat = 0.9, res_derpy_grain = 0.6, res_derpy_salted_fish = 0.7, res_derpy_rhinox_hides = 0.7,
+        res_derpy_warhorses = 0.5, res_derpy_olive_oil = 0.4, res_derpy_books = -0.8, res_derpy_porcelain = -0.7, res_derpy_glassware = -0.6, res_derpy_incense = -0.4 },
+    ["wh3_dlc23_chd_chaos_dwarfs"] = { res_derpy_grain = 0.7, res_derpy_salted_meat = 0.7, res_derpy_warhorses = 0.3, res_derpy_glassware = 0.4,
+        res_derpy_quicksilver = 0.6, res_derpy_silver = 0.4, res_derpy_coal = -0.8, res_derpy_brass = -0.7, res_derpy_brimstone = -0.6, res_derpy_blackpowder = -0.5 },
+    ["wh3_main_kho_khorne"] = { res_derpy_brass = 0.8, res_derpy_blackpowder = 0.4, res_derpy_dragon_bone = 0.6, res_derpy_rhinox_hides = 0.5,
+        res_derpy_silk = -0.8, res_derpy_porcelain = -0.8, res_derpy_carpets = -0.8, res_derpy_books = -0.7, res_derpy_tea = -0.8, res_derpy_pipeweed = -0.7 },
+    ["wh3_main_sla_slaanesh"] = { res_derpy_silk = 0.9, res_derpy_carpets = 0.8, res_derpy_pearls = 0.8, res_derpy_black_lotus = 0.7,
+        res_derpy_olive_oil = 0.6, res_derpy_lustrian_plumes = 0.6, res_derpy_coal = -0.8, res_derpy_brass = -0.6, res_derpy_brimstone = -0.5, res_derpy_salted_meat = -0.4 },
+    ["wh3_main_tze_tzeentch"] = { res_derpy_leather = -0.4, res_derpy_books = 0.9, res_derpy_quicksilver = 0.8, res_derpy_incense = 0.6, res_derpy_feathers = 0.5,
+        res_derpy_rhinox_hides = -0.6, res_derpy_salted_meat = -0.6, res_derpy_wool = -0.5, res_derpy_grain = -0.4 },
+    ["wh3_main_nur_nurgle"] = { res_derpy_black_lotus = 0.7, res_derpy_incense = 0.3, res_derpy_grain = 0.4, res_derpy_salted_fish = -0.7,
+        res_derpy_salted_meat = -0.7, res_derpy_glassware = -0.6, res_derpy_porcelain = -0.6, res_derpy_olive_oil = -0.4, res_derpy_feathers = -0.5 },
+    ["wh3_main_dae_daemons"] = { res_derpy_dragon_bone = 0.7, res_derpy_brass = 0.5, res_derpy_incense = 0.5, res_derpy_grain = -0.8,
+        res_derpy_salted_fish = -0.8, res_derpy_salted_meat = -0.8, res_derpy_books = -0.4, res_derpy_tea = -0.5 },
+}
+
+EX.MR_WAR_APPETITE = {
+    res_derpy_hardtack = 0.9,
+    res_derpy_leather = 0.6,
+    res_derpy_cloth = 0.4,
+    res_derpy_tools = 0.5,
+    res_derpy_amber = -0.4,
+    res_derpy_black_lotus = 0.6,
+    res_derpy_blackpowder = 1.0,
+    res_derpy_books = 0.0,
+    res_derpy_brass = 0.8,
+    res_derpy_brimstone = 0.9,
+    res_derpy_carpets = -0.6,
+    res_derpy_coal = 0.8,
+    res_derpy_dragon_bone = 0.6,
+    res_derpy_feathers = 0.6,
+    res_derpy_glassware = -0.1,
+    res_derpy_grain = 0.8,
+    res_derpy_gromril = 1.0,
+    res_derpy_incense = -0.3,
+    res_derpy_ithilmar = 1.0,
+    res_derpy_jade = -0.6,
+    res_derpy_kvas = 0.1,
+    res_derpy_lustrian_plumes = -0.5,
+    res_derpy_mead = 0.1,
+    res_derpy_olive_oil = 0.3,
+    res_derpy_pearls = -0.7,
+    res_derpy_pipeweed = -0.2,
+    res_derpy_porcelain = -0.7,
+    res_derpy_quicksilver = 0.5,
+    res_derpy_rhinox_hides = 0.6,
+    res_derpy_rum = 0.3,
+    res_derpy_salted_fish = 0.8,
+    res_derpy_salted_meat = 0.9,
+    res_derpy_sea_dragon_hide = 0.7,
+    res_derpy_silk = -0.6,
+    res_derpy_silver = 0.1,
+    res_derpy_starwood = 0.7,
+    res_derpy_tea = -0.2,
+    res_derpy_warhorses = 0.9,
+    res_derpy_whale_oil = 0.5,
+    res_derpy_wool = 0.5,
+    res_derpy_wyvern_scales = 0.7,
+}
+
+EX.MR_BUILD_APPETITE = {
+    res_derpy_hardtack = 0.3,
+    res_derpy_leather = 0.5,
+    res_derpy_cloth = 0.7,
+    res_derpy_tools = 0.9,
+    res_derpy_amber = -0.2,
+    res_derpy_black_lotus = 0.0,
+    res_derpy_blackpowder = 0.4,
+    res_derpy_books = 0.6,
+    res_derpy_brass = 0.6,
+    res_derpy_brimstone = 0.3,
+    res_derpy_carpets = -0.3,
+    res_derpy_coal = 0.7,
+    res_derpy_dragon_bone = 0.1,
+    res_derpy_feathers = 0.0,
+    res_derpy_glassware = 0.6,
+    res_derpy_grain = 0.4,
+    res_derpy_gromril = 0.3,
+    res_derpy_incense = 0.1,
+    res_derpy_ithilmar = 0.3,
+    res_derpy_jade = -0.3,
+    res_derpy_kvas = 0.0,
+    res_derpy_lustrian_plumes = -0.2,
+    res_derpy_mead = 0.0,
+    res_derpy_olive_oil = 0.3,
+    res_derpy_pearls = -0.4,
+    res_derpy_pipeweed = -0.1,
+    res_derpy_porcelain = -0.4,
+    res_derpy_quicksilver = 0.4,
+    res_derpy_rhinox_hides = 0.2,
+    res_derpy_rum = 0.0,
+    res_derpy_salted_fish = 0.4,
+    res_derpy_salted_meat = 0.4,
+    res_derpy_sea_dragon_hide = 0.1,
+    res_derpy_silk = -0.2,
+    res_derpy_silver = -0.3,
+    res_derpy_starwood = 0.9,
+    res_derpy_tea = 0.1,
+    res_derpy_warhorses = 0.5,
+    res_derpy_whale_oil = 0.5,
+    res_derpy_wool = 0.3,
+    res_derpy_wyvern_scales = 0.1,
 }
 
 -- ALL FOUR ARE UNCALIBRATED and ship deliberately small, so a wrong constant cannot dominate
@@ -11512,10 +11687,16 @@ end
 -- spend the one showing on a player who alt-F4'd before reading a line of it; marking it when
 -- they leave means they have at least clicked something. Saved immediately, because the panel
 -- is not a turn boundary and nothing else here would write it.
+--
+-- SENT, NOT SET. The flag is in the save, and the click that retires the page happens on one
+-- machine: set here, it was in that machine's save and no other's (tools/check_mp_sim.py).
+-- A second send before the first lands is harmless - the op only ever writes true.
 function EX.mark_intro_seen()
     if EX.intro_seen() then return end
-    EX.setp(EX.SAVE_INTRO, true)
+    EX.mp_send("intro", "")
 end
+
+EX.MP_OPS.intro = function() EX.setp(EX.SAVE_INTRO, true) end
 
 function EX.set_mode(mode)
     if EX.mode == mode then return end
@@ -12773,7 +12954,7 @@ end
 -- one the world did to them.
 --
 -- ON THE SUCCESS PATH ONLY. A refusal already answers through the return value, which the
--- ticket prints on the standing line and EX.ticket_click logs; logging here as well would put
+-- ticket prints on the standing line and EX.MP_OPS.ord logs; logging here as well would put
 -- two lines in the Log for one click.
 function EX.place_order(res, side, cmp, rung, qty)
     local why = EX.place_order_check(res, side, cmp, rung)
@@ -13057,7 +13238,12 @@ EX.MP_OPS.ord = function(arg)
     local res, side, cmp, rung, qty = EX.unpack_one(arg)
     if not res then return end
     local why = EX.place_order(res, side, cmp, rung, qty)
-    if why then EX.say("trade", "order refused: " .. why) end
+    if why then
+        EX.say("trade", "order refused: " .. why)
+        -- THE LOG LINE FOR A REFUSED PLACE, written here on every machine and not by the
+        -- click on one. pcall as at every other EX.log_add site.
+        pcall(function() EX.log_add(EX.log_subject(res), why) end)
+    end
 end
 
 EX.MP_OPS.ordx = function(arg)
@@ -13437,19 +13623,24 @@ end
 -- The sweep is all 42 steps of all 19 instruments, not just the recorded one: EX.current is
 -- restored from saved values, and a save older than that bookkeeping would leave a bundle
 -- nothing could name. Removing an unapplied bundle is a no-op. Runs once per save.
+-- EVERY HUMAN, NOT EX.me(): the flag below is one per save, so a sweep of this machine's
+-- player alone stripped a different faction on each machine and the others' never - a
+-- multiplayer desync found by tools/check_mp_sim.py.
 function EX.strip_legacy_bundles()
     if EX.getv(EX.SAVE_STRIPPED) then return end
-    local faction = EX.me()
-    if not faction then return end
-    for _, res in ipairs(EX.instruments()) do
-        -- HOUSES ARE SKIPPED. Houses came after the ladder bundles were retired, so
-        -- derpy_chd_ex_ladder_<house>_NN has never existed in any save; included, it is 42
-        -- no-op removes per house on a list that can be twenty-odd long.
-        if not EX.is_house(res) then
-            for rung = 1, EX.RUNGS do
-                pcall(function()
-                    cm:remove_effect_bundle(EX.bundle_key(res, rung), faction)
-                end)
+    local humans = EX.humans()
+    if #humans == 0 then return end
+    for _, faction in ipairs(humans) do
+        for _, res in ipairs(EX.instruments()) do
+            -- HOUSES ARE SKIPPED. Houses came after the ladder bundles were retired, so
+            -- derpy_chd_ex_ladder_<house>_NN has never existed in any save; included, it is 42
+            -- no-op removes per house on a list that can be twenty-odd long.
+            if not EX.is_house(res) then
+                for rung = 1, EX.RUNGS do
+                    pcall(function()
+                        cm:remove_effect_bundle(EX.bundle_key(res, rung), faction)
+                    end)
+                end
             end
         end
     end
@@ -13953,21 +14144,20 @@ function EX.ticket_click(s)
         EX.ord_rung = r
     elseif s == "ord_place" then
         local rung = EX.ord_rung or EX.current[res] or EX.neutral_rung()
-        -- THE DRY RUN FIRST. A refusal EX.place_order_check already knows about (the cap, a
-        -- duplicate, an invalid step) needs no network round trip, and reporting it locally
-        -- keeps the button and EX.MP_OPS.ord from disagreeing about why.
+        -- THE DRY RUN FIRST, for the ticket: a refusal EX.place_order_check already knows
+        -- about (the cap, a duplicate, an invalid step) is printed under the order at once,
+        -- from the same guard EX.MP_OPS.ord uses, so the two cannot disagree about why.
         local why = EX.place_order_check(res, EX.ord_side, EX.ord_cmp, rung)
         if why then
-            EX.say("trade", "order refused: " .. why)
             -- ON SCREEN, NOT ONLY IN THE SCRIPT LOG. EX.say is out() behind log_level >= 2 AND
             -- the log_trade debug toggle, so in a real game a refusal there leaves the button
-            -- looking dead. The ticket prints it and the Log view keeps it, the standard
-            -- EX.apply_trade's own refusals already hold to.
+            -- looking dead.
             EX.ord_refusal = why
-            EX.log_add(EX.log_subject(res), why)
-        else
-            EX.order_send(res, EX.ord_side, EX.ord_cmp, rung)
         end
+        -- SENT EITHER WAY. The Log is in the save, so a refusal written to it here was in this
+        -- machine's save and no other's (tools/check_mp_sim.py). The op refuses it again on
+        -- every machine and writes the Log line there.
+        EX.order_send(res, EX.ord_side, EX.ord_cmp, rung)
     end
     EX.refresh_panel()
 end
@@ -14274,7 +14464,11 @@ function EX.init()
     -- it. apply_stockpiles removes every tier it does not want, which makes a load self-heal
     -- even if the holding changed outside this script. EX.charge_carry is deliberately NOT
     -- called here: a load is not a turn, and five reloads would be five rent days.
-    EX.apply_stockpiles()
+    -- EVERY HUMAN'S, BOUND. Unbound, EX.who() is this machine's player, so each machine
+    -- resynced a different warehouse - a multiplayer desync found by tools/check_mp_sim.py.
+    for _, f in ipairs(EX.humans()) do
+        EX.with_player(f, function() EX.apply_stockpiles() end)
+    end
 
     -- The treasury bar, for ever. A find_uicomponent and a string compare every second; the
     -- engine owns this label and there is no event that fires when it changes.

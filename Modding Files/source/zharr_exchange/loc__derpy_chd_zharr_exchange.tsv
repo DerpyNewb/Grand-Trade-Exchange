@@ -24,16 +24,19 @@ pooled_resources_display_name_derpy_chd_ex_hold_derpy_books	Books	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_brass	Brass	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_brimstone	Brimstone	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_carpets	Arabyan Carpets	false
+pooled_resources_display_name_derpy_chd_ex_hold_derpy_cloth	Cloth	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_coal	Coal	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_dragon_bone	Dragon Bone	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_feathers	Griffon and Pegasus Feathers	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_glassware	Glassware	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_grain	Grain	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_gromril	Gromril	false
+pooled_resources_display_name_derpy_chd_ex_hold_derpy_hardtack	Hardtack	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_incense	Incense	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_ithilmar	Ithilmar	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_jade	Jade	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_kvas	Kvas	false
+pooled_resources_display_name_derpy_chd_ex_hold_derpy_leather	Leather	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_lustrian_plumes	Lustrian Plumes	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_mead	Mead	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_olive_oil	Olive Oil	false
@@ -50,6 +53,7 @@ pooled_resources_display_name_derpy_chd_ex_hold_derpy_silk	Silk	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_silver	Silver	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_starwood	Starwood	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_tea	Tea	false
+pooled_resources_display_name_derpy_chd_ex_hold_derpy_tools	Tools	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_warhorses	Warhorses	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_whale_oil	Whale Oil	false
 pooled_resources_display_name_derpy_chd_ex_hold_derpy_wool	Wool	false
@@ -270,6 +274,15 @@ derpy_chd_ex_teb_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_teb_dem_wrath_derpy_carpets_title	The Debt Called In: Arabyan Carpets	false
 derpy_chd_ex_teb_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_teb_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
+derpy_chd_ex_teb_dem_tithe_derpy_cloth_title	A Note Presented: Cloth	false
+derpy_chd_ex_teb_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_teb_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
+derpy_chd_ex_teb_dem_hunger_derpy_cloth_title	The Compact Calls: Cloth	false
+derpy_chd_ex_teb_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_teb_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. Larger than a season's dues, and the covering letter mentions your signature twice. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 12 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 8 turns.	false
+derpy_chd_ex_teb_dem_wrath_derpy_cloth_title	The Debt Called In: Cloth	false
+derpy_chd_ex_teb_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_teb_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
 derpy_chd_ex_teb_dem_tithe_derpy_coal_title	A Note Presented: Coal	false
 derpy_chd_ex_teb_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_teb_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
@@ -324,6 +337,15 @@ derpy_chd_ex_teb_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_teb_dem_wrath_derpy_gromril_title	The Debt Called In: Gromril	false
 derpy_chd_ex_teb_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_teb_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
+derpy_chd_ex_teb_dem_tithe_derpy_hardtack_title	A Note Presented: Hardtack	false
+derpy_chd_ex_teb_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_teb_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
+derpy_chd_ex_teb_dem_hunger_derpy_hardtack_title	The Compact Calls: Hardtack	false
+derpy_chd_ex_teb_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_teb_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. Larger than a season's dues, and the covering letter mentions your signature twice. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 12 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 8 turns.	false
+derpy_chd_ex_teb_dem_wrath_derpy_hardtack_title	The Debt Called In: Hardtack	false
+derpy_chd_ex_teb_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_teb_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
 derpy_chd_ex_teb_dem_tithe_derpy_incense_title	A Note Presented: Incense	false
 derpy_chd_ex_teb_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_teb_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
@@ -360,6 +382,15 @@ derpy_chd_ex_teb_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_teb_dem_wrath_derpy_kvas_title	The Debt Called In: Kvas	false
 derpy_chd_ex_teb_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_teb_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
+derpy_chd_ex_teb_dem_tithe_derpy_leather_title	A Note Presented: Leather	false
+derpy_chd_ex_teb_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_teb_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
+derpy_chd_ex_teb_dem_hunger_derpy_leather_title	The Compact Calls: Leather	false
+derpy_chd_ex_teb_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_teb_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. Larger than a season's dues, and the covering letter mentions your signature twice. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 12 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 8 turns.	false
+derpy_chd_ex_teb_dem_wrath_derpy_leather_title	The Debt Called In: Leather	false
+derpy_chd_ex_teb_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_teb_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
 derpy_chd_ex_teb_dem_tithe_derpy_lustrian_plumes_title	A Note Presented: Lustrian Plumes	false
 derpy_chd_ex_teb_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_teb_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
@@ -504,6 +535,15 @@ derpy_chd_ex_teb_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_teb_dem_wrath_derpy_tea_title	The Debt Called In: Tea	false
 derpy_chd_ex_teb_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_teb_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
+derpy_chd_ex_teb_dem_tithe_derpy_tools_title	A Note Presented: Tools	false
+derpy_chd_ex_teb_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_teb_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
+derpy_chd_ex_teb_dem_hunger_derpy_tools_title	The Compact Calls: Tools	false
+derpy_chd_ex_teb_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_teb_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. Larger than a season's dues, and the covering letter mentions your signature twice. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 12 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 8 turns.	false
+derpy_chd_ex_teb_dem_wrath_derpy_tools_title	The Debt Called In: Tools	false
+derpy_chd_ex_teb_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_teb_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. Three houses have bought the paper between them, and they have stopped writing letters. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 24 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 15 turns.	false
 derpy_chd_ex_teb_dem_tithe_derpy_warhorses_title	A Note Presented: Warhorses	false
 derpy_chd_ex_teb_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_teb_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A modest draft against your account, drawn in the ordinary way. Pay the tithe on the Offerings tab of the Merchant Compact within 3 turns for 6 turns of Myrmidia's favour. Leave it unpaid and Myrmidia's wrath lasts 4 turns.	false
@@ -762,6 +802,15 @@ derpy_chd_ex_def_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_def_dem_wrath_derpy_carpets_title	The Blood Price: Arabyan Carpets	false
 derpy_chd_ex_def_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_def_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
+derpy_chd_ex_def_dem_tithe_derpy_cloth_title	Khaine's Portion: Cloth	false
+derpy_chd_ex_def_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_def_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
+derpy_chd_ex_def_dem_hunger_derpy_cloth_title	The Temple Thirsts: Cloth	false
+derpy_chd_ex_def_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_def_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. More than the usual portion: the temple consulted the Hag Queens, and they were not in a moderate humour. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 12 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 8 turns.	false
+derpy_chd_ex_def_dem_wrath_derpy_cloth_title	The Blood Price: Cloth	false
+derpy_chd_ex_def_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_def_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
 derpy_chd_ex_def_dem_tithe_derpy_coal_title	Khaine's Portion: Coal	false
 derpy_chd_ex_def_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_def_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
@@ -816,6 +865,15 @@ derpy_chd_ex_def_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_def_dem_wrath_derpy_gromril_title	The Blood Price: Gromril	false
 derpy_chd_ex_def_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_def_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
+derpy_chd_ex_def_dem_tithe_derpy_hardtack_title	Khaine's Portion: Hardtack	false
+derpy_chd_ex_def_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_def_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
+derpy_chd_ex_def_dem_hunger_derpy_hardtack_title	The Temple Thirsts: Hardtack	false
+derpy_chd_ex_def_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_def_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. More than the usual portion: the temple consulted the Hag Queens, and they were not in a moderate humour. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 12 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 8 turns.	false
+derpy_chd_ex_def_dem_wrath_derpy_hardtack_title	The Blood Price: Hardtack	false
+derpy_chd_ex_def_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_def_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
 derpy_chd_ex_def_dem_tithe_derpy_incense_title	Khaine's Portion: Incense	false
 derpy_chd_ex_def_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_def_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
@@ -852,6 +910,15 @@ derpy_chd_ex_def_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_def_dem_wrath_derpy_kvas_title	The Blood Price: Kvas	false
 derpy_chd_ex_def_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_def_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
+derpy_chd_ex_def_dem_tithe_derpy_leather_title	Khaine's Portion: Leather	false
+derpy_chd_ex_def_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_def_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
+derpy_chd_ex_def_dem_hunger_derpy_leather_title	The Temple Thirsts: Leather	false
+derpy_chd_ex_def_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_def_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. More than the usual portion: the temple consulted the Hag Queens, and they were not in a moderate humour. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 12 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 8 turns.	false
+derpy_chd_ex_def_dem_wrath_derpy_leather_title	The Blood Price: Leather	false
+derpy_chd_ex_def_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_def_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
 derpy_chd_ex_def_dem_tithe_derpy_lustrian_plumes_title	Khaine's Portion: Lustrian Plumes	false
 derpy_chd_ex_def_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_def_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
@@ -996,6 +1063,15 @@ derpy_chd_ex_def_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_def_dem_wrath_derpy_tea_title	The Blood Price: Tea	false
 derpy_chd_ex_def_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_def_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
+derpy_chd_ex_def_dem_tithe_derpy_tools_title	Khaine's Portion: Tools	false
+derpy_chd_ex_def_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_def_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
+derpy_chd_ex_def_dem_hunger_derpy_tools_title	The Temple Thirsts: Tools	false
+derpy_chd_ex_def_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_def_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. More than the usual portion: the temple consulted the Hag Queens, and they were not in a moderate humour. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 12 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 8 turns.	false
+derpy_chd_ex_def_dem_wrath_derpy_tools_title	The Blood Price: Tools	false
+derpy_chd_ex_def_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_def_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The temple has counted its knives out onto the table, which is how it asks a second time. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 24 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 15 turns.	false
 derpy_chd_ex_def_dem_tithe_derpy_warhorses_title	Khaine's Portion: Warhorses	false
 derpy_chd_ex_def_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_def_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small portion, and the temple keeps count of every one. Pay the tithe on the Offerings tab of the Black Ark Market within 3 turns for 6 turns of Khaine's favour. Leave it unpaid and Khaine's wrath lasts 4 turns.	false
@@ -1254,6 +1330,15 @@ derpy_chd_ex_hef_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_hef_dem_wrath_derpy_carpets_title	The Court Insists: Arabyan Carpets	false
 derpy_chd_ex_hef_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_hef_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
+derpy_chd_ex_hef_dem_tithe_derpy_cloth_title	The Court's Request: Cloth	false
+derpy_chd_ex_hef_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_hef_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
+derpy_chd_ex_hef_dem_hunger_derpy_cloth_title	A Matter of Duty: Cloth	false
+derpy_chd_ex_hef_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_hef_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. More than a courtesy, and the Court expects it of you as a duty to Ulthuan. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 12 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 8 turns.	false
+derpy_chd_ex_hef_dem_wrath_derpy_cloth_title	The Court Insists: Cloth	false
+derpy_chd_ex_hef_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_hef_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
 derpy_chd_ex_hef_dem_tithe_derpy_coal_title	The Court's Request: Coal	false
 derpy_chd_ex_hef_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_hef_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
@@ -1308,6 +1393,15 @@ derpy_chd_ex_hef_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_hef_dem_wrath_derpy_gromril_title	The Court Insists: Gromril	false
 derpy_chd_ex_hef_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_hef_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
+derpy_chd_ex_hef_dem_tithe_derpy_hardtack_title	The Court's Request: Hardtack	false
+derpy_chd_ex_hef_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_hef_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
+derpy_chd_ex_hef_dem_hunger_derpy_hardtack_title	A Matter of Duty: Hardtack	false
+derpy_chd_ex_hef_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_hef_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. More than a courtesy, and the Court expects it of you as a duty to Ulthuan. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 12 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 8 turns.	false
+derpy_chd_ex_hef_dem_wrath_derpy_hardtack_title	The Court Insists: Hardtack	false
+derpy_chd_ex_hef_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_hef_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
 derpy_chd_ex_hef_dem_tithe_derpy_incense_title	The Court's Request: Incense	false
 derpy_chd_ex_hef_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_hef_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
@@ -1344,6 +1438,15 @@ derpy_chd_ex_hef_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_hef_dem_wrath_derpy_kvas_title	The Court Insists: Kvas	false
 derpy_chd_ex_hef_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_hef_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
+derpy_chd_ex_hef_dem_tithe_derpy_leather_title	The Court's Request: Leather	false
+derpy_chd_ex_hef_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_hef_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
+derpy_chd_ex_hef_dem_hunger_derpy_leather_title	A Matter of Duty: Leather	false
+derpy_chd_ex_hef_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_hef_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. More than a courtesy, and the Court expects it of you as a duty to Ulthuan. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 12 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 8 turns.	false
+derpy_chd_ex_hef_dem_wrath_derpy_leather_title	The Court Insists: Leather	false
+derpy_chd_ex_hef_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_hef_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
 derpy_chd_ex_hef_dem_tithe_derpy_lustrian_plumes_title	The Court's Request: Lustrian Plumes	false
 derpy_chd_ex_hef_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_hef_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
@@ -1488,6 +1591,15 @@ derpy_chd_ex_hef_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_hef_dem_wrath_derpy_tea_title	The Court Insists: Tea	false
 derpy_chd_ex_hef_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_hef_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
+derpy_chd_ex_hef_dem_tithe_derpy_tools_title	The Court's Request: Tools	false
+derpy_chd_ex_hef_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_hef_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
+derpy_chd_ex_hef_dem_hunger_derpy_tools_title	A Matter of Duty: Tools	false
+derpy_chd_ex_hef_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_hef_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. More than a courtesy, and the Court expects it of you as a duty to Ulthuan. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 12 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 8 turns.	false
+derpy_chd_ex_hef_dem_wrath_derpy_tools_title	The Court Insists: Tools	false
+derpy_chd_ex_hef_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_hef_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Court has made this request three times, and it does not make a fourth. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 24 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 15 turns.	false
 derpy_chd_ex_hef_dem_tithe_derpy_warhorses_title	The Court's Request: Warhorses	false
 derpy_chd_ex_hef_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_hef_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small request, made politely, in a manner that does not admit of refusal. Pay the tithe on the Offerings tab of the Emerald Gate within 3 turns for 6 turns of Asuryan's favour. Leave it unpaid and Asuryan's wrath lasts 4 turns.	false
@@ -1746,6 +1858,15 @@ derpy_chd_ex_skv_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_skv_dem_wrath_derpy_carpets_title	The Thirteenth Demand: Arabyan Carpets	false
 derpy_chd_ex_skv_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_skv_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
+derpy_chd_ex_skv_dem_tithe_derpy_cloth_title	The Council's Tithe: Cloth	false
+derpy_chd_ex_skv_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_skv_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
+derpy_chd_ex_skv_dem_hunger_derpy_cloth_title	The Council is Hungry: Cloth	false
+derpy_chd_ex_skv_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_skv_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. This is more than the Council usually takes, and it has not phrased this as a question. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 12 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 8 turns.	false
+derpy_chd_ex_skv_dem_wrath_derpy_cloth_title	The Thirteenth Demand: Cloth	false
+derpy_chd_ex_skv_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_skv_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
 derpy_chd_ex_skv_dem_tithe_derpy_coal_title	The Council's Tithe: Coal	false
 derpy_chd_ex_skv_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_skv_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
@@ -1800,6 +1921,15 @@ derpy_chd_ex_skv_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_skv_dem_wrath_derpy_gromril_title	The Thirteenth Demand: Gromril	false
 derpy_chd_ex_skv_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_skv_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
+derpy_chd_ex_skv_dem_tithe_derpy_hardtack_title	The Council's Tithe: Hardtack	false
+derpy_chd_ex_skv_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_skv_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
+derpy_chd_ex_skv_dem_hunger_derpy_hardtack_title	The Council is Hungry: Hardtack	false
+derpy_chd_ex_skv_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_skv_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. This is more than the Council usually takes, and it has not phrased this as a question. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 12 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 8 turns.	false
+derpy_chd_ex_skv_dem_wrath_derpy_hardtack_title	The Thirteenth Demand: Hardtack	false
+derpy_chd_ex_skv_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_skv_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
 derpy_chd_ex_skv_dem_tithe_derpy_incense_title	The Council's Tithe: Incense	false
 derpy_chd_ex_skv_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_skv_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
@@ -1836,6 +1966,15 @@ derpy_chd_ex_skv_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_skv_dem_wrath_derpy_kvas_title	The Thirteenth Demand: Kvas	false
 derpy_chd_ex_skv_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_skv_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
+derpy_chd_ex_skv_dem_tithe_derpy_leather_title	The Council's Tithe: Leather	false
+derpy_chd_ex_skv_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_skv_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
+derpy_chd_ex_skv_dem_hunger_derpy_leather_title	The Council is Hungry: Leather	false
+derpy_chd_ex_skv_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_skv_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. This is more than the Council usually takes, and it has not phrased this as a question. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 12 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 8 turns.	false
+derpy_chd_ex_skv_dem_wrath_derpy_leather_title	The Thirteenth Demand: Leather	false
+derpy_chd_ex_skv_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_skv_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
 derpy_chd_ex_skv_dem_tithe_derpy_lustrian_plumes_title	The Council's Tithe: Lustrian Plumes	false
 derpy_chd_ex_skv_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_skv_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
@@ -1980,6 +2119,15 @@ derpy_chd_ex_skv_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_skv_dem_wrath_derpy_tea_title	The Thirteenth Demand: Tea	false
 derpy_chd_ex_skv_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_skv_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
+derpy_chd_ex_skv_dem_tithe_derpy_tools_title	The Council's Tithe: Tools	false
+derpy_chd_ex_skv_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_skv_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
+derpy_chd_ex_skv_dem_hunger_derpy_tools_title	The Council is Hungry: Tools	false
+derpy_chd_ex_skv_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_skv_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. This is more than the Council usually takes, and it has not phrased this as a question. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 12 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 8 turns.	false
+derpy_chd_ex_skv_dem_wrath_derpy_tools_title	The Thirteenth Demand: Tools	false
+derpy_chd_ex_skv_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_skv_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Grey Seers have seen your hoard, and the Council already counts it as spoken for. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 24 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 15 turns.	false
 derpy_chd_ex_skv_dem_tithe_derpy_warhorses_title	The Council's Tithe: Warhorses	false
 derpy_chd_ex_skv_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_skv_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small tithe, and the Council writes down who refuses. Pay the tithe on the Offerings tab of the Under-Market within 3 turns for 6 turns of the Council's favour. Leave it unpaid and the Council's wrath lasts 4 turns.	false
@@ -2238,6 +2386,15 @@ derpy_chd_ex_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted in p
 derpy_chd_ex_dem_wrath_derpy_carpets_title	The Bull God is Greedy: Arabyan Carpets	false
 derpy_chd_ex_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
+derpy_chd_ex_dem_tithe_derpy_cloth_title	The Tithe of Hashut: Cloth	false
+derpy_chd_ex_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
+derpy_chd_ex_dem_hunger_derpy_cloth_title	Hashut's Hunger: Cloth	false
+derpy_chd_ex_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. This is more than the altar usually takes, and the priests do not phrase it as a request. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 12 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 8 turns.	false
+derpy_chd_ex_dem_wrath_derpy_cloth_title	The Bull God is Greedy: Cloth	false
+derpy_chd_ex_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
 derpy_chd_ex_dem_tithe_derpy_coal_title	The Tithe of Hashut: Coal	false
 derpy_chd_ex_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
@@ -2292,6 +2449,15 @@ derpy_chd_ex_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal the
 derpy_chd_ex_dem_wrath_derpy_gromril_title	The Bull God is Greedy: Gromril	false
 derpy_chd_ex_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
+derpy_chd_ex_dem_tithe_derpy_hardtack_title	The Tithe of Hashut: Hardtack	false
+derpy_chd_ex_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
+derpy_chd_ex_dem_hunger_derpy_hardtack_title	Hashut's Hunger: Hardtack	false
+derpy_chd_ex_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. This is more than the altar usually takes, and the priests do not phrase it as a request. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 12 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 8 turns.	false
+derpy_chd_ex_dem_wrath_derpy_hardtack_title	The Bull God is Greedy: Hardtack	false
+derpy_chd_ex_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
 derpy_chd_ex_dem_tithe_derpy_incense_title	The Tithe of Hashut: Incense	false
 derpy_chd_ex_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
@@ -2328,6 +2494,15 @@ derpy_chd_ex_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel of kv
 derpy_chd_ex_dem_wrath_derpy_kvas_title	The Bull God is Greedy: Kvas	false
 derpy_chd_ex_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
+derpy_chd_ex_dem_tithe_derpy_leather_title	The Tithe of Hashut: Leather	false
+derpy_chd_ex_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
+derpy_chd_ex_dem_hunger_derpy_leather_title	Hashut's Hunger: Leather	false
+derpy_chd_ex_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. This is more than the altar usually takes, and the priests do not phrase it as a request. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 12 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 8 turns.	false
+derpy_chd_ex_dem_wrath_derpy_leather_title	The Bull God is Greedy: Leather	false
+derpy_chd_ex_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
 derpy_chd_ex_dem_tithe_derpy_lustrian_plumes_title	The Tithe of Hashut: Lustrian Plumes	false
 derpy_chd_ex_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
@@ -2472,6 +2647,15 @@ derpy_chd_ex_dem_hunger_derpy_tea_secondary	Tea is poured at every audience wort
 derpy_chd_ex_dem_wrath_derpy_tea_title	The Bull God is Greedy: Tea	false
 derpy_chd_ex_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
+derpy_chd_ex_dem_tithe_derpy_tools_title	The Tithe of Hashut: Tools	false
+derpy_chd_ex_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
+derpy_chd_ex_dem_hunger_derpy_tools_title	Hashut's Hunger: Tools	false
+derpy_chd_ex_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. This is more than the altar usually takes, and the priests do not phrase it as a request. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 12 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 8 turns.	false
+derpy_chd_ex_dem_wrath_derpy_tools_title	The Bull God is Greedy: Tools	false
+derpy_chd_ex_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The priests have seen your hoard, and Hashut wants it. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 24 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 15 turns.	false
 derpy_chd_ex_dem_tithe_derpy_warhorses_title	The Tithe of Hashut: Warhorses	false
 derpy_chd_ex_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small tithe, and Hashut asks for small ones often. Pay the tithe on the Offerings tab of the Zharr Exchange within 3 turns for 6 turns of Hashut's favour. Leave it unpaid and Hashut's wrath lasts 4 turns.	false
@@ -2730,6 +2914,15 @@ derpy_chd_ex_cth_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_cth_dem_wrath_derpy_carpets_title	Court Requisition: Arabyan Carpets	false
 derpy_chd_ex_cth_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_cth_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
+derpy_chd_ex_cth_dem_tithe_derpy_cloth_title	The Assessment: Cloth	false
+derpy_chd_ex_cth_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_cth_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
+derpy_chd_ex_cth_dem_hunger_derpy_cloth_title	Revised Assessment: Cloth	false
+derpy_chd_ex_cth_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_cth_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Court has adjusted the assessment upward without consulting you, as is proper. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 12 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 8 turns.	false
+derpy_chd_ex_cth_dem_wrath_derpy_cloth_title	Court Requisition: Cloth	false
+derpy_chd_ex_cth_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_cth_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
 derpy_chd_ex_cth_dem_tithe_derpy_coal_title	The Assessment: Coal	false
 derpy_chd_ex_cth_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_cth_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
@@ -2784,6 +2977,15 @@ derpy_chd_ex_cth_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_cth_dem_wrath_derpy_gromril_title	Court Requisition: Gromril	false
 derpy_chd_ex_cth_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_cth_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
+derpy_chd_ex_cth_dem_tithe_derpy_hardtack_title	The Assessment: Hardtack	false
+derpy_chd_ex_cth_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_cth_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
+derpy_chd_ex_cth_dem_hunger_derpy_hardtack_title	Revised Assessment: Hardtack	false
+derpy_chd_ex_cth_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_cth_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Court has adjusted the assessment upward without consulting you, as is proper. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 12 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 8 turns.	false
+derpy_chd_ex_cth_dem_wrath_derpy_hardtack_title	Court Requisition: Hardtack	false
+derpy_chd_ex_cth_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_cth_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
 derpy_chd_ex_cth_dem_tithe_derpy_incense_title	The Assessment: Incense	false
 derpy_chd_ex_cth_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_cth_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
@@ -2820,6 +3022,15 @@ derpy_chd_ex_cth_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_cth_dem_wrath_derpy_kvas_title	Court Requisition: Kvas	false
 derpy_chd_ex_cth_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_cth_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
+derpy_chd_ex_cth_dem_tithe_derpy_leather_title	The Assessment: Leather	false
+derpy_chd_ex_cth_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_cth_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
+derpy_chd_ex_cth_dem_hunger_derpy_leather_title	Revised Assessment: Leather	false
+derpy_chd_ex_cth_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_cth_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Court has adjusted the assessment upward without consulting you, as is proper. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 12 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 8 turns.	false
+derpy_chd_ex_cth_dem_wrath_derpy_leather_title	Court Requisition: Leather	false
+derpy_chd_ex_cth_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_cth_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
 derpy_chd_ex_cth_dem_tithe_derpy_lustrian_plumes_title	The Assessment: Lustrian Plumes	false
 derpy_chd_ex_cth_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_cth_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
@@ -2964,6 +3175,15 @@ derpy_chd_ex_cth_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_cth_dem_wrath_derpy_tea_title	Court Requisition: Tea	false
 derpy_chd_ex_cth_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_cth_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
+derpy_chd_ex_cth_dem_tithe_derpy_tools_title	The Assessment: Tools	false
+derpy_chd_ex_cth_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_cth_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
+derpy_chd_ex_cth_dem_hunger_derpy_tools_title	Revised Assessment: Tools	false
+derpy_chd_ex_cth_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_cth_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Court has adjusted the assessment upward without consulting you, as is proper. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 12 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 8 turns.	false
+derpy_chd_ex_cth_dem_wrath_derpy_tools_title	Court Requisition: Tools	false
+derpy_chd_ex_cth_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_cth_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Court has read your ledgers, finds them out of harmony, and requisitions the difference. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 24 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 15 turns.	false
 derpy_chd_ex_cth_dem_tithe_derpy_warhorses_title	The Assessment: Warhorses	false
 derpy_chd_ex_cth_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_cth_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small levy, filed correctly and copied to every office that keeps your file. Pay the tithe on the Offerings tab of the Ivory Road within 3 turns for 6 turns of the Court's favour. Leave it unpaid and the Court's wrath lasts 4 turns.	false
@@ -3222,6 +3442,15 @@ derpy_chd_ex_dwf_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_dwf_dem_wrath_derpy_carpets_title	The Grudge Entered: Arabyan Carpets	false
 derpy_chd_ex_dwf_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_dwf_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
+derpy_chd_ex_dwf_dem_tithe_derpy_cloth_title	The Ancestors' Due: Cloth	false
+derpy_chd_ex_dwf_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_dwf_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
+derpy_chd_ex_dwf_dem_hunger_derpy_cloth_title	A Debt Recorded: Cloth	false
+derpy_chd_ex_dwf_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_dwf_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. More than the season's due, and the Guild has entered it against your name. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 12 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 8 turns.	false
+derpy_chd_ex_dwf_dem_wrath_derpy_cloth_title	The Grudge Entered: Cloth	false
+derpy_chd_ex_dwf_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_dwf_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
 derpy_chd_ex_dwf_dem_tithe_derpy_coal_title	The Ancestors' Due: Coal	false
 derpy_chd_ex_dwf_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_dwf_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
@@ -3276,6 +3505,15 @@ derpy_chd_ex_dwf_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_dwf_dem_wrath_derpy_gromril_title	The Grudge Entered: Gromril	false
 derpy_chd_ex_dwf_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_dwf_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
+derpy_chd_ex_dwf_dem_tithe_derpy_hardtack_title	The Ancestors' Due: Hardtack	false
+derpy_chd_ex_dwf_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_dwf_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
+derpy_chd_ex_dwf_dem_hunger_derpy_hardtack_title	A Debt Recorded: Hardtack	false
+derpy_chd_ex_dwf_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_dwf_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. More than the season's due, and the Guild has entered it against your name. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 12 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 8 turns.	false
+derpy_chd_ex_dwf_dem_wrath_derpy_hardtack_title	The Grudge Entered: Hardtack	false
+derpy_chd_ex_dwf_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_dwf_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
 derpy_chd_ex_dwf_dem_tithe_derpy_incense_title	The Ancestors' Due: Incense	false
 derpy_chd_ex_dwf_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_dwf_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
@@ -3312,6 +3550,15 @@ derpy_chd_ex_dwf_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_dwf_dem_wrath_derpy_kvas_title	The Grudge Entered: Kvas	false
 derpy_chd_ex_dwf_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_dwf_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
+derpy_chd_ex_dwf_dem_tithe_derpy_leather_title	The Ancestors' Due: Leather	false
+derpy_chd_ex_dwf_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_dwf_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
+derpy_chd_ex_dwf_dem_hunger_derpy_leather_title	A Debt Recorded: Leather	false
+derpy_chd_ex_dwf_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_dwf_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. More than the season's due, and the Guild has entered it against your name. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 12 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 8 turns.	false
+derpy_chd_ex_dwf_dem_wrath_derpy_leather_title	The Grudge Entered: Leather	false
+derpy_chd_ex_dwf_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_dwf_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
 derpy_chd_ex_dwf_dem_tithe_derpy_lustrian_plumes_title	The Ancestors' Due: Lustrian Plumes	false
 derpy_chd_ex_dwf_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_dwf_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
@@ -3456,6 +3703,15 @@ derpy_chd_ex_dwf_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_dwf_dem_wrath_derpy_tea_title	The Grudge Entered: Tea	false
 derpy_chd_ex_dwf_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_dwf_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
+derpy_chd_ex_dwf_dem_tithe_derpy_tools_title	The Ancestors' Due: Tools	false
+derpy_chd_ex_dwf_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_dwf_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
+derpy_chd_ex_dwf_dem_hunger_derpy_tools_title	A Debt Recorded: Tools	false
+derpy_chd_ex_dwf_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_dwf_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. More than the season's due, and the Guild has entered it against your name. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 12 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 8 turns.	false
+derpy_chd_ex_dwf_dem_wrath_derpy_tools_title	The Grudge Entered: Tools	false
+derpy_chd_ex_dwf_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_dwf_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Longbeards have stopped calling it a due and started calling it something with its own page. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 24 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 15 turns.	false
 derpy_chd_ex_dwf_dem_tithe_derpy_warhorses_title	The Ancestors' Due: Warhorses	false
 derpy_chd_ex_dwf_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_dwf_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small due, and the Guild enters it in the Book all the same. Pay the tithe on the Offerings tab of the Long Ledger within 3 turns for 6 turns of Grungni's favour. Leave it unpaid and Grungni's wrath lasts 4 turns.	false
@@ -3714,6 +3970,15 @@ derpy_chd_ex_emp_dem_hunger_derpy_carpets_secondary	Arabyan carpets are knotted 
 derpy_chd_ex_emp_dem_wrath_derpy_carpets_title	The Theogonist Asks: Arabyan Carpets	false
 derpy_chd_ex_emp_dem_wrath_derpy_carpets_primary	Pay 180 Arabyan Carpets	false
 derpy_chd_ex_emp_dem_wrath_derpy_carpets_secondary	Arabyan carpets are knotted in patterns older than the Empire. The rug-sellers have unrolled and priced every one of yours. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
+derpy_chd_ex_emp_dem_tithe_derpy_cloth_title	The Temple's Tithe: Cloth	false
+derpy_chd_ex_emp_dem_tithe_derpy_cloth_primary	Pay 30 Cloth	false
+derpy_chd_ex_emp_dem_tithe_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
+derpy_chd_ex_emp_dem_hunger_derpy_cloth_title	Sigmar's Need: Cloth	false
+derpy_chd_ex_emp_dem_hunger_derpy_cloth_primary	Pay 90 Cloth	false
+derpy_chd_ex_emp_dem_hunger_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. This is more than the collection plate takes, and the Temple says the war will not wait on your bookkeeping. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 12 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 8 turns.	false
+derpy_chd_ex_emp_dem_wrath_derpy_cloth_title	The Theogonist Asks: Cloth	false
+derpy_chd_ex_emp_dem_wrath_derpy_cloth_primary	Pay 180 Cloth	false
+derpy_chd_ex_emp_dem_wrath_derpy_cloth_secondary	Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
 derpy_chd_ex_emp_dem_tithe_derpy_coal_title	The Temple's Tithe: Coal	false
 derpy_chd_ex_emp_dem_tithe_derpy_coal_primary	Pay 30 Coal	false
 derpy_chd_ex_emp_dem_tithe_derpy_coal_secondary	Every forge and furnace burns coal. Yours is stacked in sacks while other fires go hungry. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
@@ -3768,6 +4033,15 @@ derpy_chd_ex_emp_dem_hunger_derpy_gromril_secondary	Gromril is the hardest metal
 derpy_chd_ex_emp_dem_wrath_derpy_gromril_title	The Theogonist Asks: Gromril	false
 derpy_chd_ex_emp_dem_wrath_derpy_gromril_primary	Pay 180 Gromril	false
 derpy_chd_ex_emp_dem_wrath_derpy_gromril_secondary	Gromril is the hardest metal there is and the scarcest. Nobody has forgotten that you hold some. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
+derpy_chd_ex_emp_dem_tithe_derpy_hardtack_title	The Temple's Tithe: Hardtack	false
+derpy_chd_ex_emp_dem_tithe_derpy_hardtack_primary	Pay 30 Hardtack	false
+derpy_chd_ex_emp_dem_tithe_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
+derpy_chd_ex_emp_dem_hunger_derpy_hardtack_title	Sigmar's Need: Hardtack	false
+derpy_chd_ex_emp_dem_hunger_derpy_hardtack_primary	Pay 90 Hardtack	false
+derpy_chd_ex_emp_dem_hunger_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. This is more than the collection plate takes, and the Temple says the war will not wait on your bookkeeping. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 12 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 8 turns.	false
+derpy_chd_ex_emp_dem_wrath_derpy_hardtack_title	The Theogonist Asks: Hardtack	false
+derpy_chd_ex_emp_dem_wrath_derpy_hardtack_primary	Pay 180 Hardtack	false
+derpy_chd_ex_emp_dem_wrath_derpy_hardtack_secondary	Hardtack keeps on long marches. The quartermasters have counted your sacks. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
 derpy_chd_ex_emp_dem_tithe_derpy_incense_title	The Temple's Tithe: Incense	false
 derpy_chd_ex_emp_dem_tithe_derpy_incense_primary	Pay 30 Incense	false
 derpy_chd_ex_emp_dem_tithe_derpy_incense_secondary	Incense burns in every temple and every tomb. Your sacks of it can be smelled from the street. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
@@ -3804,6 +4078,15 @@ derpy_chd_ex_emp_dem_hunger_derpy_kvas_secondary	Every stanitsa keeps a barrel o
 derpy_chd_ex_emp_dem_wrath_derpy_kvas_title	The Theogonist Asks: Kvas	false
 derpy_chd_ex_emp_dem_wrath_derpy_kvas_primary	Pay 180 Kvas	false
 derpy_chd_ex_emp_dem_wrath_derpy_kvas_secondary	Every stanitsa keeps a barrel of kvas. Yours are fuller than most, and the neighbours have noticed. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
+derpy_chd_ex_emp_dem_tithe_derpy_leather_title	The Temple's Tithe: Leather	false
+derpy_chd_ex_emp_dem_tithe_derpy_leather_primary	Pay 30 Leather	false
+derpy_chd_ex_emp_dem_tithe_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
+derpy_chd_ex_emp_dem_hunger_derpy_leather_title	Sigmar's Need: Leather	false
+derpy_chd_ex_emp_dem_hunger_derpy_leather_primary	Pay 90 Leather	false
+derpy_chd_ex_emp_dem_hunger_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. This is more than the collection plate takes, and the Temple says the war will not wait on your bookkeeping. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 12 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 8 turns.	false
+derpy_chd_ex_emp_dem_wrath_derpy_leather_title	The Theogonist Asks: Leather	false
+derpy_chd_ex_emp_dem_wrath_derpy_leather_primary	Pay 180 Leather	false
+derpy_chd_ex_emp_dem_wrath_derpy_leather_secondary	Leather binds shields, harness and armour. The tanners have priced your hides. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
 derpy_chd_ex_emp_dem_tithe_derpy_lustrian_plumes_title	The Temple's Tithe: Lustrian Plumes	false
 derpy_chd_ex_emp_dem_tithe_derpy_lustrian_plumes_primary	Pay 30 Lustrian Plumes	false
 derpy_chd_ex_emp_dem_tithe_derpy_lustrian_plumes_secondary	Lustrian plumes are worth their weight in gold at court. The courtiers have counted yours feather by feather. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
@@ -3948,6 +4231,15 @@ derpy_chd_ex_emp_dem_hunger_derpy_tea_secondary	Tea is poured at every audience 
 derpy_chd_ex_emp_dem_wrath_derpy_tea_title	The Theogonist Asks: Tea	false
 derpy_chd_ex_emp_dem_wrath_derpy_tea_primary	Pay 180 Tea	false
 derpy_chd_ex_emp_dem_wrath_derpy_tea_secondary	Tea is poured at every audience worth attending. Every tea-house knows what your chests of it weigh. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
+derpy_chd_ex_emp_dem_tithe_derpy_tools_title	The Temple's Tithe: Tools	false
+derpy_chd_ex_emp_dem_tithe_derpy_tools_primary	Pay 30 Tools	false
+derpy_chd_ex_emp_dem_tithe_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
+derpy_chd_ex_emp_dem_hunger_derpy_tools_title	Sigmar's Need: Tools	false
+derpy_chd_ex_emp_dem_hunger_derpy_tools_primary	Pay 90 Tools	false
+derpy_chd_ex_emp_dem_hunger_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. This is more than the collection plate takes, and the Temple says the war will not wait on your bookkeeping. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 12 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 8 turns.	false
+derpy_chd_ex_emp_dem_wrath_derpy_tools_title	The Theogonist Asks: Tools	false
+derpy_chd_ex_emp_dem_wrath_derpy_tools_primary	Pay 180 Tools	false
+derpy_chd_ex_emp_dem_wrath_derpy_tools_secondary	Tools equip the workshops and building yards. The foremen have counted your crates. The Temple has read your ledgers and wants what is written in them. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 24 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 15 turns.	false
 derpy_chd_ex_emp_dem_tithe_derpy_warhorses_title	The Temple's Tithe: Warhorses	false
 derpy_chd_ex_emp_dem_tithe_derpy_warhorses_primary	Pay 30 Warhorses	false
 derpy_chd_ex_emp_dem_tithe_derpy_warhorses_secondary	A warhorse eats every day it is not ridden. Your stables are full, and the horse-dealers have taken the count. A small tithe, and the Temple keeps a record of who pays it. Pay the tithe on the Offerings tab of the Imperial Bourse within 3 turns for 6 turns of Sigmar's favour. Leave it unpaid and Sigmar's wrath lasts 4 turns.	false
@@ -4206,6 +4498,15 @@ derpy_chd_ex_shockrise_derpy_carpets_secondary	The powers that buy Arabyan Carpe
 derpy_chd_ex_shockfall_derpy_carpets_title	The Map Shifts: Arabyan Carpets	false
 derpy_chd_ex_shockfall_derpy_carpets_primary	Prices Fall With Demand	false
 derpy_chd_ex_shockfall_derpy_carpets_secondary	The powers that buy Arabyan Carpets hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
+derpy_chd_ex_shock_derpy_cloth_title	Trade Disrupted: Cloth	false
+derpy_chd_ex_shock_derpy_cloth_primary	Prices Rise on the News	false
+derpy_chd_ex_shock_derpy_cloth_secondary	Burned settlements and armies on the caravan roads threaten the Cloth trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
+derpy_chd_ex_shockrise_derpy_cloth_title	The Map Shifts: Cloth	false
+derpy_chd_ex_shockrise_derpy_cloth_primary	Prices Climb With Demand	false
+derpy_chd_ex_shockrise_derpy_cloth_secondary	The powers that buy Cloth hold more of the world than they did, or the powers that sell it hold less. Traders mark the price up to match. The jump fades over a few turns, though the new borders keep their pull on the price while they stand: sell into it, or wait it out.	false
+derpy_chd_ex_shockfall_derpy_cloth_title	The Map Shifts: Cloth	false
+derpy_chd_ex_shockfall_derpy_cloth_primary	Prices Fall With Demand	false
+derpy_chd_ex_shockfall_derpy_cloth_secondary	The powers that buy Cloth hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
 derpy_chd_ex_shock_derpy_coal_title	Trade Disrupted: Coal	false
 derpy_chd_ex_shock_derpy_coal_primary	Prices Rise on the News	false
 derpy_chd_ex_shock_derpy_coal_secondary	Burned settlements and armies on the caravan roads threaten the Coal trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
@@ -4260,6 +4561,15 @@ derpy_chd_ex_shockrise_derpy_gromril_secondary	The powers that buy Gromril hold 
 derpy_chd_ex_shockfall_derpy_gromril_title	The Map Shifts: Gromril	false
 derpy_chd_ex_shockfall_derpy_gromril_primary	Prices Fall With Demand	false
 derpy_chd_ex_shockfall_derpy_gromril_secondary	The powers that buy Gromril hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
+derpy_chd_ex_shock_derpy_hardtack_title	Trade Disrupted: Hardtack	false
+derpy_chd_ex_shock_derpy_hardtack_primary	Prices Rise on the News	false
+derpy_chd_ex_shock_derpy_hardtack_secondary	Burned settlements and armies on the caravan roads threaten the Hardtack trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
+derpy_chd_ex_shockrise_derpy_hardtack_title	The Map Shifts: Hardtack	false
+derpy_chd_ex_shockrise_derpy_hardtack_primary	Prices Climb With Demand	false
+derpy_chd_ex_shockrise_derpy_hardtack_secondary	The powers that buy Hardtack hold more of the world than they did, or the powers that sell it hold less. Traders mark the price up to match. The jump fades over a few turns, though the new borders keep their pull on the price while they stand: sell into it, or wait it out.	false
+derpy_chd_ex_shockfall_derpy_hardtack_title	The Map Shifts: Hardtack	false
+derpy_chd_ex_shockfall_derpy_hardtack_primary	Prices Fall With Demand	false
+derpy_chd_ex_shockfall_derpy_hardtack_secondary	The powers that buy Hardtack hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
 derpy_chd_ex_shock_derpy_incense_title	Trade Disrupted: Incense	false
 derpy_chd_ex_shock_derpy_incense_primary	Prices Rise on the News	false
 derpy_chd_ex_shock_derpy_incense_secondary	Burned settlements and armies on the caravan roads threaten the Incense trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
@@ -4296,6 +4606,15 @@ derpy_chd_ex_shockrise_derpy_kvas_secondary	The powers that buy Kvas hold more o
 derpy_chd_ex_shockfall_derpy_kvas_title	The Map Shifts: Kvas	false
 derpy_chd_ex_shockfall_derpy_kvas_primary	Prices Fall With Demand	false
 derpy_chd_ex_shockfall_derpy_kvas_secondary	The powers that buy Kvas hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
+derpy_chd_ex_shock_derpy_leather_title	Trade Disrupted: Leather	false
+derpy_chd_ex_shock_derpy_leather_primary	Prices Rise on the News	false
+derpy_chd_ex_shock_derpy_leather_secondary	Burned settlements and armies on the caravan roads threaten the Leather trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
+derpy_chd_ex_shockrise_derpy_leather_title	The Map Shifts: Leather	false
+derpy_chd_ex_shockrise_derpy_leather_primary	Prices Climb With Demand	false
+derpy_chd_ex_shockrise_derpy_leather_secondary	The powers that buy Leather hold more of the world than they did, or the powers that sell it hold less. Traders mark the price up to match. The jump fades over a few turns, though the new borders keep their pull on the price while they stand: sell into it, or wait it out.	false
+derpy_chd_ex_shockfall_derpy_leather_title	The Map Shifts: Leather	false
+derpy_chd_ex_shockfall_derpy_leather_primary	Prices Fall With Demand	false
+derpy_chd_ex_shockfall_derpy_leather_secondary	The powers that buy Leather hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
 derpy_chd_ex_shock_derpy_lustrian_plumes_title	Trade Disrupted: Lustrian Plumes	false
 derpy_chd_ex_shock_derpy_lustrian_plumes_primary	Prices Rise on the News	false
 derpy_chd_ex_shock_derpy_lustrian_plumes_secondary	Burned settlements and armies on the caravan roads threaten the Lustrian Plumes trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
@@ -4440,6 +4759,15 @@ derpy_chd_ex_shockrise_derpy_tea_secondary	The powers that buy Tea hold more of 
 derpy_chd_ex_shockfall_derpy_tea_title	The Map Shifts: Tea	false
 derpy_chd_ex_shockfall_derpy_tea_primary	Prices Fall With Demand	false
 derpy_chd_ex_shockfall_derpy_tea_secondary	The powers that buy Tea hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
+derpy_chd_ex_shock_derpy_tools_title	Trade Disrupted: Tools	false
+derpy_chd_ex_shock_derpy_tools_primary	Prices Rise on the News	false
+derpy_chd_ex_shock_derpy_tools_secondary	Burned settlements and armies on the caravan roads threaten the Tools trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
+derpy_chd_ex_shockrise_derpy_tools_title	The Map Shifts: Tools	false
+derpy_chd_ex_shockrise_derpy_tools_primary	Prices Climb With Demand	false
+derpy_chd_ex_shockrise_derpy_tools_secondary	The powers that buy Tools hold more of the world than they did, or the powers that sell it hold less. Traders mark the price up to match. The jump fades over a few turns, though the new borders keep their pull on the price while they stand: sell into it, or wait it out.	false
+derpy_chd_ex_shockfall_derpy_tools_title	The Map Shifts: Tools	false
+derpy_chd_ex_shockfall_derpy_tools_primary	Prices Fall With Demand	false
+derpy_chd_ex_shockfall_derpy_tools_secondary	The powers that buy Tools hold less of the world than they did, or the powers that sell it hold more. Traders mark the price down to match. The drop fades over a few turns, though the new borders keep their pull on the price while they stand: buy into it, or wait it out.	false
 derpy_chd_ex_shock_derpy_warhorses_title	Trade Disrupted: Warhorses	false
 derpy_chd_ex_shock_derpy_warhorses_primary	Prices Rise on the News	false
 derpy_chd_ex_shock_derpy_warhorses_secondary	Burned settlements and armies on the caravan roads threaten the Warhorses trade. Traders mark the price up on the news alone, before any warehouse runs dry. The spike fades as the roads clear: sell into it, or wait it out.	false
@@ -4650,6 +4978,12 @@ effect_bundles_localised_title_derpy_chd_ex_stock_derpy_carpets_2	Warehouse: Ara
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_carpets_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_carpets_3	Vaults: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_carpets_3	More than the Conclave can use and more than it will admit to holding.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_cloth_1	Stockpile: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_cloth_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_cloth_2	Warehouse: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_cloth_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_cloth_3	Vaults: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_cloth_3	More than the Conclave can use and more than it will admit to holding.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_coal_1	Stockpile: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_coal_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_coal_2	Warehouse: Coal	false
@@ -4686,6 +5020,12 @@ effect_bundles_localised_title_derpy_chd_ex_stock_derpy_gromril_2	Warehouse: Gro
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_gromril_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_gromril_3	Vaults: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_gromril_3	More than the Conclave can use and more than it will admit to holding.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_hardtack_1	Stockpile: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_hardtack_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_hardtack_2	Warehouse: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_hardtack_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_hardtack_3	Vaults: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_hardtack_3	More than the Conclave can use and more than it will admit to holding.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_incense_1	Stockpile: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_incense_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_incense_2	Warehouse: Incense	false
@@ -4710,6 +5050,12 @@ effect_bundles_localised_title_derpy_chd_ex_stock_derpy_kvas_2	Warehouse: Kvas	f
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_kvas_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_kvas_3	Vaults: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_kvas_3	More than the Conclave can use and more than it will admit to holding.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_leather_1	Stockpile: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_leather_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_leather_2	Warehouse: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_leather_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_leather_3	Vaults: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_leather_3	More than the Conclave can use and more than it will admit to holding.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_lustrian_plumes_1	Stockpile: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_lustrian_plumes_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_lustrian_plumes_2	Warehouse: Lustrian Plumes	false
@@ -4806,6 +5152,12 @@ effect_bundles_localised_title_derpy_chd_ex_stock_derpy_tea_2	Warehouse: Tea	fal
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_tea_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_tea_3	Vaults: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_tea_3	More than the Conclave can use and more than it will admit to holding.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_tools_1	Stockpile: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_tools_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_tools_2	Warehouse: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_tools_2	The sheds are full and guarded, and the overseers have stopped rationing it.	false
+effect_bundles_localised_title_derpy_chd_ex_stock_derpy_tools_3	Vaults: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_stock_derpy_tools_3	More than the Conclave can use and more than it will admit to holding.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_warhorses_1	Stockpile: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_stock_derpy_warhorses_1	Enough of it stacked in the yards that the work no longer waits on a caravan.	false
 effect_bundles_localised_title_derpy_chd_ex_stock_derpy_warhorses_2	Warehouse: Warhorses	false
@@ -4846,6 +5198,8 @@ effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_brimstone	Consign
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_brimstone	The colleges take the glass and the wind runs deeper for those who paid.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_carpets	Consigned to the Temple: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_carpets	A house in good standing with the Compact is a house whose cargo clears the mole first.	false
+effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_cloth	Consigned to the Temple: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_cloth	Cloth delivered to the muster is a company clothed before it is paid, and cheaper for it.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_coal	Consigned to the Temple: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_coal	Materials pledged in advance are materials bought at last year's price.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_dragon_bone	Consigned to the Temple: Dragon Bone	false
@@ -4858,6 +5212,8 @@ effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_grain	Consigned t
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_grain	The surgeons are paid by the Compact and billeted with your companies.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_gromril	Consigned to the Temple: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_gromril	The metal goes to the armourers of Miragliano and comes back as plate, on schedule.	false
+effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_hardtack	Consigned to the Temple: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_hardtack	The surgeons are paid by the Compact and billeted with your companies.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_incense	Consigned to the Temple: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_incense	The colleges take the glass and the wind runs deeper for those who paid.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_ithilmar	Consigned to the Temple: Ithilmar	false
@@ -4866,6 +5222,8 @@ effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_jade	Consigned to
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_jade	A house in good standing with the Compact is a house whose cargo clears the mole first.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_kvas	Consigned to the Temple: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_kvas	The feast is held at the Compact's expense and the crowd is told whose expense it was.	false
+effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_leather	Consigned to the Temple: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_leather	The metal goes to the armourers of Miragliano and comes back as plate, on schedule.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_lustrian_plumes	Consigned to the Temple: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_lustrian_plumes	A house in good standing with the Compact is a house whose cargo clears the mole first.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_mead	Consigned to the Temple: Mead	false
@@ -4898,6 +5256,8 @@ effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_starwood	Consigne
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_starwood	The colleges take the glass and the wind runs deeper for those who paid.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_tea	Consigned to the Temple: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_tea	The feast is held at the Compact's expense and the crowd is told whose expense it was.	false
+effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_tools	Consigned to the Temple: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_tools	Materials pledged in advance are materials bought at last year's price.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_warhorses	Consigned to the Temple: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_teb_offering_derpy_warhorses	Furs, remounts and a courier's warrant: your columns keep the road in weather that closes it.	false
 effect_bundles_localised_title_derpy_chd_ex_teb_offering_derpy_whale_oil	Consigned to the Temple: Whale Oil	false
@@ -4958,6 +5318,8 @@ effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_brimstone	Given t
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_brimstone	The Convent takes the black glass, and the winds answer more readily than is wise.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_carpets	Given to the Temple: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_carpets	A house in favour at the temple is a house whose cargo is not looked at closely.	false
+effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_cloth	Given to the Temple: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_cloth	Tribute paid early buys a levy at the temple's rate, which stays low for exactly as long as you keep paying it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_coal	Given to the Temple: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_coal	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_dragon_bone	Given to the Temple: Dragon Bone	false
@@ -4970,6 +5332,8 @@ effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_grain	Given to th
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_grain	Medicine and salt for the host, and the ranks close up again.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_gromril	Given to the Temple: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_gromril	The iron goes to Hag Graef and comes back as plate, worked by hands that were not paid for it.	false
+effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_hardtack	Given to the Temple: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_hardtack	Medicine and salt for the host, and the ranks close up again.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_incense	Given to the Temple: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_incense	The Convent takes the black glass, and the winds answer more readily than is wise.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_ithilmar	Given to the Temple: Ithilmar	false
@@ -4978,6 +5342,8 @@ effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_jade	Given to the
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_jade	A house in favour at the temple is a house whose cargo is not looked at closely.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_kvas	Given to the Temple: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_kvas	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	false
+effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_leather	Given to the Temple: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_leather	The iron goes to Hag Graef and comes back as plate, worked by hands that were not paid for it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_lustrian_plumes	Given to the Temple: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_lustrian_plumes	A house in favour at the temple is a house whose cargo is not looked at closely.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_mead	Given to the Temple: Mead	false
@@ -5010,6 +5376,8 @@ effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_starwood	Given to
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_starwood	The Convent takes the black glass, and the winds answer more readily than is wise.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_tea	Given to the Temple: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_tea	The temple holds a rite, the city attends, and the city is quiet for a while afterwards.	false
+effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_tools	Given to the Temple: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_tools	Materials given up front are materials not requisitioned later, and the work goes cheaper for it.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_warhorses	Given to the Temple: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_def_offering_derpy_warhorses	Furs for the long marches, and the columns cross Naggaroth without losing a quarter of themselves.	false
 effect_bundles_localised_title_derpy_chd_ex_def_offering_derpy_whale_oil	Given to the Temple: Whale Oil	false
@@ -5070,6 +5438,8 @@ effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_brimstone	Tribute
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_brimstone	Saphery takes the black glass, and the winds run deeper for whoever gave it.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_carpets	Tribute to Asuryan: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_carpets	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	false
+effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_cloth	Tribute to Asuryan: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_cloth	Tribute rendered early is a levy raised cheaply. The Court remembers which houses were early.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_coal	Tribute to Asuryan: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_coal	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_dragon_bone	Tribute to Asuryan: Dragon Bone	false
@@ -5082,6 +5452,8 @@ effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_grain	Tribute to 
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_grain	Medicine reaches the host, and the host is whole again faster than it has any right to be.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_gromril	Tribute to Asuryan: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_gromril	The iron goes to the armourers of Lothern and comes back as something a mortal smith would not attempt.	false
+effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_hardtack	Tribute to Asuryan: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_hardtack	Medicine reaches the host, and the host is whole again faster than it has any right to be.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_incense	Tribute to Asuryan: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_incense	Saphery takes the black glass, and the winds run deeper for whoever gave it.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_ithilmar	Tribute to Asuryan: Ithilmar	false
@@ -5090,6 +5462,8 @@ effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_jade	Tribute to A
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_jade	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_kvas	Tribute to Asuryan: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_kvas	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	false
+effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_leather	Tribute to Asuryan: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_leather	The iron goes to the armourers of Lothern and comes back as something a mortal smith would not attempt.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_lustrian_plumes	Tribute to Asuryan: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_lustrian_plumes	A house in the Court's regard is a house whose cargo clears the Gate without being weighed twice.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_mead	Tribute to Asuryan: Mead	false
@@ -5122,6 +5496,8 @@ effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_starwood	Tribute 
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_starwood	Saphery takes the black glass, and the winds run deeper for whoever gave it.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_tea	Tribute to Asuryan: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_tea	The wine goes to the audience hall and the audience goes home satisfied, which is the whole art of it.	false
+effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_tools	Tribute to Asuryan: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_tools	Stone pledged in advance is stone at last century's price, and the masons of Chrace keep their word.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_warhorses	Tribute to Asuryan: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_hef_offering_derpy_warhorses	Furs for the northern watch, and the columns keep the pace they are famous for.	false
 effect_bundles_localised_title_derpy_chd_ex_hef_offering_derpy_whale_oil	Tribute to Asuryan: Whale Oil	false
@@ -5182,6 +5558,8 @@ effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_brimstone	Tribute
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_brimstone	Burnt black glass, and the Seers see further than is good for anyone.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_carpets	Tribute to the Council: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_carpets	A clan that pays promptly is a clan that is robbed last.	false
+effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_cloth	Tribute to the Council: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_cloth	Tribute paid up front buys clanrats at the lower rate.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_coal	Tribute to the Council: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_coal	Materials surrendered are materials not stolen twice, and the digging goes cheaper.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_dragon_bone	Tribute to the Council: Dragon Bone	false
@@ -5194,6 +5572,8 @@ effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_grain	Tribute to 
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_grain	The Council releases the breeding quotas and the swarm refills.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_gromril	Tribute to the Council: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_gromril	Skryre takes the iron and returns plate that mostly holds.	false
+effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_hardtack	Tribute to the Council: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_hardtack	The Council releases the breeding quotas and the swarm refills.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_incense	Tribute to the Council: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_incense	Burnt black glass, and the Seers see further than is good for anyone.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_ithilmar	Tribute to the Council: Ithilmar	false
@@ -5202,6 +5582,8 @@ effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_jade	Tribute to t
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_jade	A clan that pays promptly is a clan that is robbed last.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_kvas	Tribute to the Council: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_kvas	The feast goes to the warren and the squeaking stops for a while.	false
+effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_leather	Tribute to the Council: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_leather	Skryre takes the iron and returns plate that mostly holds.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_lustrian_plumes	Tribute to the Council: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_lustrian_plumes	A clan that pays promptly is a clan that is robbed last.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_mead	Tribute to the Council: Mead	false
@@ -5234,6 +5616,8 @@ effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_starwood	Tribute 
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_starwood	Burnt black glass, and the Seers see further than is good for anyone.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_tea	Tribute to the Council: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_tea	The feast goes to the warren and the squeaking stops for a while.	false
+effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_tools	Tribute to the Council: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_tools	Materials surrendered are materials not stolen twice, and the digging goes cheaper.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_warhorses	Tribute to the Council: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_skv_offering_derpy_warhorses	Furs for the deep tunnels, and the columns run further.	false
 effect_bundles_localised_title_derpy_chd_ex_skv_offering_derpy_whale_oil	Tribute to the Council: Whale Oil	false
@@ -5294,6 +5678,8 @@ effect_bundles_localised_title_derpy_chd_ex_offering_derpy_brimstone	Offering to
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_brimstone	The smoke of burnt obsidian opens the Sorcerer-Prophets' sight.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_carpets	Offering to Hashut: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_carpets	Treasure fed to the furnace buys favour in every market.	false
+effect_bundles_localised_title_derpy_chd_ex_offering_derpy_cloth	Offering to Hashut: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_offering_derpy_cloth	Goods offered up buy conscripts cheaper than gold does.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_coal	Offering to Hashut: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_coal	Timber and stone burn on the altar; the work goes cheaper.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_dragon_bone	Offering to Hashut: Dragon Bone	false
@@ -5306,6 +5692,8 @@ effect_bundles_localised_title_derpy_chd_ex_offering_derpy_grain	Offering to Has
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_grain	Hashut blesses the supply train and the armies fill again.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_gromril	Offering to Hashut: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_gromril	Hashut takes the iron and hardens every plate in the host.	false
+effect_bundles_localised_title_derpy_chd_ex_offering_derpy_hardtack	Offering to Hashut: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_offering_derpy_hardtack	Hashut blesses the supply train and the armies fill again.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_incense	Offering to Hashut: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_incense	The smoke of burnt obsidian opens the Sorcerer-Prophets' sight.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_ithilmar	Offering to Hashut: Ithilmar	false
@@ -5314,6 +5702,8 @@ effect_bundles_localised_title_derpy_chd_ex_offering_derpy_jade	Offering to Hash
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_jade	Treasure fed to the furnace buys favour in every market.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_kvas	Offering to Hashut: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_kvas	The feast is given to the flames, and the slaves are quiet.	false
+effect_bundles_localised_title_derpy_chd_ex_offering_derpy_leather	Offering to Hashut: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_offering_derpy_leather	Hashut takes the iron and hardens every plate in the host.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_lustrian_plumes	Offering to Hashut: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_lustrian_plumes	Treasure fed to the furnace buys favour in every market.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_mead	Offering to Hashut: Mead	false
@@ -5346,6 +5736,8 @@ effect_bundles_localised_title_derpy_chd_ex_offering_derpy_starwood	Offering to 
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_starwood	The smoke of burnt obsidian opens the Sorcerer-Prophets' sight.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_tea	Offering to Hashut: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_tea	The feast is given to the flames, and the slaves are quiet.	false
+effect_bundles_localised_title_derpy_chd_ex_offering_derpy_tools	Offering to Hashut: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_offering_derpy_tools	Timber and stone burn on the altar; the work goes cheaper.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_warhorses	Offering to Hashut: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_offering_derpy_warhorses	Furs burn, the Bull God warms the road, and columns march further.	false
 effect_bundles_localised_title_derpy_chd_ex_offering_derpy_whale_oil	Offering to Hashut: Whale Oil	false
@@ -5406,6 +5798,8 @@ effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_brimstone	Levied 
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_brimstone	Correct offerings at the correct hour; the winds answer on schedule.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_carpets	Levied by the Court: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_carpets	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	false
+effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_cloth	Levied by the Court: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_cloth	Levies raised under seal cost the treasury less.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_coal	Levied by the Court: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_coal	Materials correctly surrendered are materials correctly reissued, at a discount.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_dragon_bone	Levied by the Court: Dragon Bone	false
@@ -5418,6 +5812,8 @@ effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_grain	Levied by t
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_grain	The requisition clears and the garrisons are made whole.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_gromril	Levied by the Court: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_gromril	The Ministry of Works receives its iron and every lamellar plate is inspected and passed.	false
+effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_hardtack	Levied by the Court: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_hardtack	The requisition clears and the garrisons are made whole.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_incense	Levied by the Court: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_incense	Correct offerings at the correct hour; the winds answer on schedule.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_ithilmar	Levied by the Court: Ithilmar	false
@@ -5426,6 +5822,8 @@ effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_jade	Levied by th
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_jade	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_kvas	Levied by the Court: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_kvas	The banquet is given to the province and harmony is restored.	false
+effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_leather	Levied by the Court: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_leather	The Ministry of Works receives its iron and every lamellar plate is inspected and passed.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_lustrian_plumes	Levied by the Court: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_lustrian_plumes	A compliant house receives a favourable schedule. This is not a bribe; it is filing.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_mead	Levied by the Court: Mead	false
@@ -5458,6 +5856,8 @@ effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_starwood	Levied b
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_starwood	Correct offerings at the correct hour; the winds answer on schedule.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_tea	Levied by the Court: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_tea	The banquet is given to the province and harmony is restored.	false
+effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_tools	Levied by the Court: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_tools	Materials correctly surrendered are materials correctly reissued, at a discount.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_warhorses	Levied by the Court: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_cth_offering_derpy_warhorses	Furs for the northern roads, and the caravans keep pace.	false
 effect_bundles_localised_title_derpy_chd_ex_cth_offering_derpy_whale_oil	Levied by the Court: Whale Oil	false
@@ -5518,6 +5918,8 @@ effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_brimstone	Offered
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_brimstone	The runesmiths take the black glass, and something in the deep workings runs stronger.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_carpets	Offered to Grungni: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_carpets	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	false
+effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_cloth	Offered to Grungni: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_cloth	Goods pledged up front buy a muster at last decade's rate, which the Guild considers generous.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_coal	Offered to Grungni: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_coal	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_dragon_bone	Offered to Grungni: Dragon Bone	false
@@ -5530,6 +5932,8 @@ effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_grain	Offered to 
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_grain	Salt and medicine reach the throng, and the throng comes back up to strength.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_gromril	Offered to Grungni: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_gromril	The iron goes to the Guild's forges and comes back as plate, correctly, and a little late.	false
+effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_hardtack	Offered to Grungni: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_hardtack	Salt and medicine reach the throng, and the throng comes back up to strength.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_incense	Offered to Grungni: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_incense	The runesmiths take the black glass, and something in the deep workings runs stronger.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_ithilmar	Offered to Grungni: Ithilmar	false
@@ -5538,6 +5942,8 @@ effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_jade	Offered to G
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_jade	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_kvas	Offered to Grungni: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_kvas	The barrels go round the galleries and the grumbling drops to its usual level.	false
+effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_leather	Offered to Grungni: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_leather	The iron goes to the Guild's forges and comes back as plate, correctly, and a little late.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_lustrian_plumes	Offered to Grungni: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_lustrian_plumes	A hold in good standing with the Guild is a hold whose caravans are not weighed twice.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_mead	Offered to Grungni: Mead	false
@@ -5570,6 +5976,8 @@ effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_starwood	Offered 
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_starwood	The runesmiths take the black glass, and something in the deep workings runs stronger.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_tea	Offered to Grungni: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_tea	The barrels go round the galleries and the grumbling drops to its usual level.	false
+effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_tools	Offered to Grungni: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_tools	Stone pledged to the hold is stone the hold does not buy, and the masons revise their figures downward, once.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_warhorses	Offered to Grungni: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_dwf_offering_derpy_warhorses	Furs for the high passes, and the throng marches further before it stops to complain.	false
 effect_bundles_localised_title_derpy_chd_ex_dwf_offering_derpy_whale_oil	Offered to Grungni: Whale Oil	false
@@ -5630,6 +6038,8 @@ effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_brimstone	Tithe t
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_brimstone	Burnt offerings open the Celestial College's sight.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_carpets	Tithe to Sigmar: Arabyan Carpets	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_carpets	A generous house is a trusted house, and trusted houses are charged less.	false
+effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_cloth	Tithe to Sigmar: Cloth	false
+effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_cloth	A pious lord recruits cheaper than a rich one.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_coal	Tithe to Sigmar: Coal	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_coal	Timber and stone given to the Temple; the masons work for alms.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_dragon_bone	Tithe to Sigmar: Dragon Bone	false
@@ -5642,6 +6052,8 @@ effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_grain	Tithe to Si
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_grain	The Temple blesses the muster and the regiments fill again.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_gromril	Tithe to Sigmar: Gromril	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_gromril	Sigmar takes the iron and every plate in the host is blessed at the anvil.	false
+effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_hardtack	Tithe to Sigmar: Hardtack	false
+effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_hardtack	The Temple blesses the muster and the regiments fill again.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_incense	Tithe to Sigmar: Incense	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_incense	Burnt offerings open the Celestial College's sight.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_ithilmar	Tithe to Sigmar: Ithilmar	false
@@ -5650,6 +6062,8 @@ effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_jade	Tithe to Sig
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_jade	A generous house is a trusted house, and trusted houses are charged less.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_kvas	Tithe to Sigmar: Kvas	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_kvas	The feast is given to the poor and the province is quiet.	false
+effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_leather	Tithe to Sigmar: Leather	false
+effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_leather	Sigmar takes the iron and every plate in the host is blessed at the anvil.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_lustrian_plumes	Tithe to Sigmar: Lustrian Plumes	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_lustrian_plumes	A generous house is a trusted house, and trusted houses are charged less.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_mead	Tithe to Sigmar: Mead	false
@@ -5682,6 +6096,8 @@ effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_starwood	Tithe to
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_starwood	Burnt offerings open the Celestial College's sight.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_tea	Tithe to Sigmar: Tea	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_tea	The feast is given to the poor and the province is quiet.	false
+effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_tools	Tithe to Sigmar: Tools	false
+effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_tools	Timber and stone given to the Temple; the masons work for alms.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_warhorses	Tithe to Sigmar: Warhorses	false
 effect_bundles_localised_description_derpy_chd_ex_emp_offering_derpy_warhorses	Cloaks for the column, and the roads pass quicker.	false
 effect_bundles_localised_title_derpy_chd_ex_emp_offering_derpy_whale_oil	Tithe to Sigmar: Whale Oil	false

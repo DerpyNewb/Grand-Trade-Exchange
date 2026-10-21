@@ -97,12 +97,12 @@ def _gen():
 GG = "derpy_gg_"
 
 
-def our_files(prefix=GG):
-    return sorted(f for f in os.listdir(OURS)
+def our_files(prefix=GG, folder=OURS):
+    return sorted(f for f in os.listdir(folder)
                   if f.startswith(prefix) and f.endswith(".twui.xml"))
 
 
-def validate(prefix=GG):
+def validate(prefix=GG, folder=OURS):
     """Every hierarchy node must resolve to exactly one component definition.
 
     A GUID in <components> with no <hierarchy> node is a silent non-draw, and the reverse is
@@ -111,8 +111,8 @@ def validate(prefix=GG):
     """
     model, _r = _studio()
     out = []
-    for name in our_files(prefix):
-        src = io.open(os.path.join(OURS, name), encoding="utf-8").read()
+    for name in our_files(prefix, folder):
+        src = io.open(os.path.join(folder, name), encoding="utf-8").read()
         try:
             doc = model.Document(src)
         except Exception as exc:                                   # noqa: BLE001
@@ -130,7 +130,7 @@ def validate(prefix=GG):
     return out
 
 
-def extract_art(prefix=GG, extra=(), optional=()):
+def extract_art(prefix=GG, extra=(), optional=(), folder=OURS):
     """Pull only the art our files reference out of CA's packs, once, into the cache.
 
     TWUI Studio wants an extracted top-level `ui` folder and will not read .pack files. The
@@ -142,9 +142,10 @@ def extract_art(prefix=GG, extra=(), optional=()):
     from read_vanilla_loc import _decompress
 
     want = set(extra)
-    for f in our_files(prefix):
-        t = io.open(os.path.join(OURS, f), encoding="utf-8").read()
-        want |= set(re.findall(r'imagepath="([^"]+)"', t))
+    for f in our_files(prefix, folder):
+        t = io.open(os.path.join(folder, f), encoding="utf-8").read()
+        # an attribute value is XML-escaped: CA's own placeholder ability icon is named ..._abilitiy&spell.png
+        want |= set(p.replace("&amp;", "&") for p in re.findall(r'imagepath="([^"]+)"', t))
     # A CULTURE SKIN'S COPY of a generic file is what the game draws for that race - the
     # title plate is ui/skins/default/panel_title.png in the file and the reader's own
     # culture's plate on screen. Fetched where CA ships one; absence is not a fault.
@@ -494,6 +495,44 @@ IMG = re.compile(r"\[\[img:([^\]]*)\]\]\[\[/img\]\]")
 TOKENS = re.compile(r"\[\[(/?)col(?::([^\]]*))?\]\]|\[\[img:([^\]]*)\]\]\[\[/img\]\]")
 
 
+def _widths_lua(path):
+    """This size's text components' font sizes and this preview's advance for every
+    printable byte at each, as Lua, for the harness's TextDimensionsForText.
+
+    The engine measures the font it draws in, and the Lua sizes plates from that measure
+    (GGUI.show_need). The harness answered seven pixels a character whatever the font, so
+    at Small and Large a plate the game sizes to fit was drawn here 2-5px too narrow for
+    its own text (2026-10-12). Summed advances equal PIL's string length for this font:
+    load_default applies no kerning, measured on every label that was reported.
+    """
+    sizes = {}
+    for fn in sorted(os.listdir(OURS)):
+        if not (fn.startswith("derpy_gg_") and fn.endswith(".twui.xml")):
+            continue
+        sfx = re.search(r"(_sm|_lg)?\.twui\.xml$", fn).group(1) or ""
+        if sfx != DSIZE:
+            continue
+        x = io.open(os.path.join(OURS, fn), encoding="utf-8").read()
+        starts = [(m.start(), m.group(1))
+                  for m in re.finditer(r'<([A-Za-z_]\w*)\s[^>]*?\bid="\1"', x)]
+        for i, (at, cid) in enumerate(starts):
+            end = starts[i + 1][0] if i + 1 < len(starts) else len(x)
+            m = re.search(r'font_m_size="([\d.]+)"', x[at:end])
+            if m and cid not in sizes:
+                sizes[cid] = int(float(m.group(1)))
+    from PIL import ImageFont
+    lines = ["return {size = {"]
+    lines += ['  ["%s"] = %d,' % (cid, sz) for cid, sz in sorted(sizes.items())]
+    lines.append("}, w = {")
+    for sz in sorted(set(sizes.values())):
+        f = ImageFont.load_default(size=sz)
+        lines.append("  [%d] = {%s}," % (sz, ", ".join(
+            "[%d] = %.3f" % (b, f.getlength(chr(b))) for b in range(32, 127))))
+    lines.append("}}")
+    io.open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    return path
+
+
 def snapshot(tag="", help_page=None, page=None):
     """{tab: {key: row}} from the harness's GG_DUMP, read as `tag`'s race. `help_page`
     picks the Help chapter every tab is dumped on (GG_DUMP_HELP_PAGE); None is page 1.
@@ -502,7 +541,8 @@ def snapshot(tag="", help_page=None, page=None):
     import tempfile
     out = tempfile.mkdtemp()
     env = dict(os.environ, GG_DUMP=out.replace(os.sep, "/"), GG_DUMP_TAG=tag,
-               GG_DUMP_SIZE={"_sm": "small", "_lg": "large"}.get(DSIZE, "medium"))
+               GG_DUMP_SIZE={"_sm": "small", "_lg": "large"}.get(DSIZE, "medium"),
+               GG_DUMP_WIDTHS=_widths_lua(os.path.join(out, "widths.lua")).replace(os.sep, "/"))
     if help_page:
         env["GG_DUMP_HELP_PAGE"] = str(help_page)
     if page:
@@ -523,7 +563,8 @@ def snapshot(tag="", help_page=None, page=None):
                 i, p = part.split("=", 1)
                 imgs[int(i)] = p
             rows[f[0]] = dict(key=f[0], x=num(f[1]), y=num(f[2]), w=num(f[3]), h=num(f[4]),
-                              vis=f[5] == "true", text=f[6], img=imgs)
+                              vis=f[5] == "true", text=f[6], img=imgs,
+                              shader=f[8] if len(f) > 8 else "")
         got[tab] = rows
     return got
 
@@ -643,6 +684,14 @@ def write(P, key, box, text, ct):
     run(text[pos:])
 
 
+def greyscale_changed(canvas, before):
+    """Grey every pixel the last component drew - CA's set_greyscale_t0, text included."""
+    from PIL import ImageChops
+    moved = ImageChops.difference(canvas.convert("RGB"), before.convert("RGB")).convert("L")
+    mask = moved.point(lambda v: 255 if v else 0)
+    canvas.paste(canvas.convert("L").convert("RGBA"), mask=mask)
+
+
 def render_tab(tab, rows, tag="", path=None):
     """One tab, every part where the Lua put it and saying what the Lua wrote."""
     P = _setup(None, tag)
@@ -688,10 +737,13 @@ def render_tab(tab, rows, tag="", path=None):
             clip = (x, y, w, h)
         full_w = float(st.get("width") or w)
         crop = int(w) if r["w"] is not None and w < full_w else None
+        before = P.canvas.copy() if r.get("shader") == "set_greyscale_t0" else None
         P.paste(kind, xid, x, y, w, h, by_index=r["img"] or None, crop=crop)
         ct = st.child("component_text")
         if r["text"] and ct is not None:
             write(P, key, (x, y, w, h), r["text"], ct)
+        if before is not None:
+            greyscale_changed(P.canvas, before)
     # THE HEADER'S TWO CELLS SHARE ONE BAR: the heading from the left, the figures from the
     # right. Each fits its own box, so OVER cannot see them run into each other.
     head, stats = rows.get("P/gg_rank_line"), rows.get("P/gg_rank_stats")

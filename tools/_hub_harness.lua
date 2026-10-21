@@ -46,6 +46,7 @@ local function new_comp(name, w, h)
     function c:Visible() return self.vis end
     function c:Id() return self.name end
     function c:SetTooltipText(t) self.tip, self.tips = t, self.tips + 1 end
+    function c:SetImagePath(p, i) self.image, self.image_index = p, i end
     function c:ShaderTechniqueSet(t) self.shader = t end
     function c:ShaderVarsSet() end
     -- The ENGINE answers this from where the cursor is, whether or not the component is
@@ -113,16 +114,46 @@ local function reset(sw)
             return {get_open_blocking_panel = function() return W.panel end}
         end,
     }
-    -- false, not nil, for an absent component: that is what the engine returns.
-    find_uicomponent = function(_root, name) return W.comps[name] or false end
+    -- false, not nil, for an absent component: that is what the engine returns. A path is
+    -- found when every name on it exists; the last is returned.
+    find_uicomponent = function(_root, ...)
+        local c = false
+        for _, name in ipairs({...}) do
+            c = W.comps[name]
+            if not c then return false end
+        end
+        return c
+    end
     is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
     pulse_uicomponent = function(c, on, _s, _p, state) c.pulse[state or "?"] = on end
-    DERPY_HUB, DERPY_HUB_QUEUE = nil, nil
+    DERPY_HUB, DERPY_HUB_QUEUE, DERPY_HUB_LEFT_BAR = nil, nil, nil
+end
+
+-- CA's top-left bar, menu_bar > buttongroup: a HorizontalList, so the ENGINE places what is made
+-- in it. The stub lays a child out at BAR_X,BAR_Y at 38px, as CA's round_small_button, and
+-- keeps it out of the root's child list.
+local BAR_X, BAR_Y, BAR_SIZE = 300, 0, 38
+local function left_bar()
+    W.comps.menu_bar = new_comp("menu_bar", 300, 38)
+    local g = new_comp("buttongroup", 300, 38)
+    function g:CreateComponent(name, path)
+        W.created, W.paths[name] = W.created + 1, path
+        local c = new_comp(name, BAR_SIZE, BAR_SIZE)
+        c.x, c.y = BAR_X, BAR_Y
+        W.comps[name] = c
+    end
+    W.comps.buttongroup = g
 end
 
 local function load_text(path) return assert(io.open(path, "rb")):read("*a") end
 local function load_chunk(text, name) assert(loadstring(text, name))() end
 local function load_files(list) for _, f in ipairs(list) do load_chunk(load_text(f), f) end end
+-- The submod's copy: the file under test with its tag line set to "lb", as sync_derpy_hub does.
+local function lb_text()
+    local out, n = load_text(SOURCE):gsub('local HUB_TAG = "%w+"', 'local HUB_TAG = "lb"', 1)
+    assert(n == 1, "no HUB_TAG line to set")
+    return out
+end
 local function first_tick() for _, fn in ipairs(W.ticks) do fn() end end
 -- ONE POLL, through the registered callback when there is one, so a hub that never starts
 -- its poll fails rather than being driven by hand. Errors are not swallowed here: the
@@ -189,10 +220,11 @@ local GRACE = 100
 local function world(opts)
     opts = opts or {}
     reset(opts.sw)
+    if opts.bar then left_bar() end
     if opts.register_first then
         register("ex", "ex_btn", 3); register("ic", "ic_btn", 1); register("gg", "gg_btn", 2)
     end
-    load_files(opts.files or {SOURCE})
+    if opts.lb then load_chunk(lb_text(), "lb") else load_files(opts.files or {SOURCE}) end
     if not opts.register_first then
         register("ex", "ex_btn", 3); register("ic", "ic_btn", 1); register("gg", "gg_btn", 2)
     end
@@ -643,6 +675,96 @@ check("a ui manager that throws counts as the main screen", function()
     cm.get_campaign_ui_manager = function() error("no ui manager") end
     tick()
     assert(W.comps.derpy_hub.vis, "a broken ui manager hid the hub")
+end)
+
+-- THE LEFT BAR SUBMOD (author, 2026-10-11: "create a submod to all my ui mods that will place
+-- the button on the left bar"). Expected geometry written out, as above: the hub where CA's
+-- layout put it, 300,0 at 38px; the column PAD under it, inside the plate's top frame (which
+-- shows there, unlike beside the strip), each button centred on 38px.
+local LB_COL_Y = BAR_Y + BAR_SIZE + PAD                            -- 52
+local function lb_x(size) return BAR_X + math.floor((BAR_SIZE - size) / 2) end
+
+check("left bar: the hub is CA's small round button made in menu_bar's buttongroup, never moved",
+      function()
+    world({lb = true, bar = true})
+    tick()
+    assert(DERPY_HUB_LEFT_BAR == true, "the lb copy did not set the flag")
+    local hub = W.comps.derpy_hub
+    assert(hub, "no hub created")
+    assert(W.paths.derpy_hub == "ui/templates/round_small_button",
+           "hub made from " .. tostring(W.paths.derpy_hub))
+    assert(index_of(hub) == nil, "the hub was made on the root, not in the bar")
+    assert(hub.image == "ui/derpy_hub/icon_small.png" and hub.image_index == 0,
+           "hub icon " .. tostring(hub.image) .. " at " .. tostring(hub.image_index))
+    assert(hub.vis == true, "the hub was never shown")
+    tick(); tick()
+    assert(hub.moves == 0, "the hub was moved against CA's layout " .. hub.moves .. " times")
+    W.panel = "diplomacy_dropdown"; tick()
+    assert(hub.vis == false, "the hub shows in the bar over diplomacy")
+    W.panel = false; tick()
+    assert(hub.vis == true, "the hub did not come back to the bar")
+end)
+
+check("left bar: the column hangs under the hub where CA laid it out, and follows it", function()
+    world({lb = true, bar = true})
+    tick()
+    local ic, gg, ex = W.comps.ic_btn, W.comps.gg_btn, W.comps.ex_btn
+    assert(ic.x == lb_x(44) and ic.y == LB_COL_Y, "ic at " .. ic.x .. "," .. ic.y)
+    assert(gg.x == lb_x(44) and gg.y == LB_COL_Y + 48, "gg at " .. gg.x .. "," .. gg.y)
+    assert(ex.x == lb_x(48) and ex.y == LB_COL_Y + 96, "ex at " .. ex.x .. "," .. ex.y)
+    W.comps.derpy_hub.x = BAR_X + 40                 -- MCT's button made after ours, say
+    tick()
+    assert(ic.x == lb_x(44) + 40, "the column did not follow the hub: " .. ic.x)
+end)
+
+check("left bar: the plate hangs from the hub's lower edge, as wide as the widest button",
+      function()
+    world({lb = true, bar = true})
+    tick()
+    mouse("derpy_hub"); tick()
+    frames()
+    local plate = W.comps.derpy_hub_plate
+    assert(plate.vis, "the column is open and the plate is not")
+    -- ex, the last and widest (48), ends at 52 + 96 + 48 = 196; plate to 196 + PAD.
+    assert(plate.y == BAR_Y + BAR_SIZE, "the plate starts at " .. plate.y .. ", over the bar")
+    assert(plate.w == 48 + 2 * PAD and plate.x == BAR_X + math.floor((BAR_SIZE - plate.w) / 2),
+           "plate " .. plate.w .. " wide at x " .. plate.x)
+    assert(plate.h == 196 + PAD - plate.y, "plate is " .. plate.h .. " tall")
+end)
+
+check("left bar: one mod is enough, and hovering the hub shows its button", function()
+    world({lb = true, bar = true, gg = false, ex = false})
+    tick()
+    assert(DERPY_HUB.manages("ic"), "the lone button was left beside the strip")
+    local ic = W.comps.ic_btn
+    assert(W.comps.derpy_hub.vis and not ic.vis, "hub " .. tostring(W.comps.derpy_hub.vis)
+           .. ", ic " .. tostring(ic.vis))
+    mouse("derpy_hub"); tick()
+    frames()
+    assert(ic.vis and ic.x == lb_x(44) and ic.y == LB_COL_Y, "ic at " .. ic.x .. "," .. ic.y)
+end)
+
+check("left bar: pulses CA's template states, active and hover", function()
+    world({lb = true, bar = true})
+    DERPY_HUB_QUEUE[2].wants = function() return true end
+    tick()
+    local p = W.comps.derpy_hub.pulse
+    assert(p.active == true and p.hover == true, "no pulse on the template's own states")
+end)
+
+check("left bar: no menu bar, no hub; every mod keeps its own way in", function()
+    world({lb = true})
+    tick()
+    assert(W.created == 0, "a hub was made with nowhere to put it")
+    assert(not DERPY_HUB.manages("ic") and W.comps.ic_btn.vis, "a button was claimed or hidden")
+end)
+
+check("without the submod the bar is left alone", function()
+    world({bar = true})
+    tick()
+    assert(DERPY_HUB_LEFT_BAR == nil, "the flag is set with no lb copy loaded")
+    local hub = W.comps.derpy_hub
+    assert(index_of(hub) and hub.x == HUB_X and hub.y == HUB_Y, "the hub left the strip")
 end)
 
 check("manages() is false before the first tick and for an unknown key", function()

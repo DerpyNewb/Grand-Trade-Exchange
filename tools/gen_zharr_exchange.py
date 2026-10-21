@@ -1237,6 +1237,8 @@ ALL_GOODS = COMMODITIES + MR_COMMODITIES
 # does nothing. Chosen by what the good is FOR: food fills the ranks, metal hardens the plate,
 # luxuries buy favour in the markets, drink keeps the peace.
 MR_OFFERING = {
+    "hardtack": "res_rom_lead", "leather": "res_rom_iron",
+    "cloth": "res_rom_textiles", "tools": "res_rom_timber",
     "salted_fish": "res_rom_lead", "salted_meat": "res_rom_lead", "grain": "res_medicine",
     "whale_oil": "res_rom_wine", "rum": "res_rom_wine", "olive_oil": "res_rom_wine",
     "kvas": "res_rom_glass", "mead": "res_rom_glass", "pipeweed": "res_spices",
@@ -1262,6 +1264,10 @@ MR_OFFERING = {
 # these with nobody doing the counting. The counter is now someone from the good's own trade -
 # harbour-masters, rug-sellers, the ogre tribes - which names an actor without naming a patron.
 MR_FLAVOUR = {
+    "hardtack": "Hardtack keeps on long marches. The quartermasters have counted your sacks.",
+    "leather": "Leather binds shields, harness and armour. The tanners have priced your hides.",
+    "cloth": "Cloth supplies tents, bandages and uniforms. The cloth merchants have measured your bolts.",
+    "tools": "Tools equip the workshops and building yards. The foremen have counted your crates.",
     "salted_fish": "Salted fish feeds sailors, soldiers and the poor through the lean months. "
                    "The harbour-masters know how many barrels you hold.",
     "whale_oil": "Lamp oil burns in every hall that can afford the light. Yours is sitting in "
@@ -6340,7 +6346,10 @@ def check_lua_mp():
 
     # 4. THE TRANSPORT. Every op has a handler, and the two clickable paths go through it.
     ops = set(re.findall(r"EX\.MP_OPS\.(\w+)\s*=", code))
-    assert ops == {"buy", "sell", "offer", "ord", "ordx", "deal", "fwd", "idx", "bond"}, (
+    # intro IS A SAVE CHANGE, NOT A MODEL ONE: the introduction's seen-flag is in the save, and
+    # a click that set it on one machine left that machine's save different from the others'.
+    assert ops == {"buy", "sell", "offer", "ord", "ordx", "deal", "fwd", "idx", "bond",
+                   "intro"}, (
         "EX.MP_OPS carries %s. Every model change reachable from a click needs one, and "
         "nothing else belongs in it." % sorted(ops))
     # EVERY LITERAL IN THE ARGUMENT, not just one at the front: EX.trade picks its op with
@@ -8150,7 +8159,7 @@ def check_lua_orders():
     assert have["dup_logged"] == "true", (
         "a refused Place wrote nothing to the Log view. Every other refusal in this file "
         "pairs EX.say with EX.log_add; the Log is where a player goes to ask why nothing "
-        "happened")
+        "happened. The line is EX.MP_OPS.ord's, so the click has to send the refused order")
     assert have["ticket_off_side"] == "b" and have["ticket_off_left"] == "0", (
         "with the orders switch OFF the ticket still works: the side toggled to %r and a "
         "Place left %s orders. EX.place_order_check refuses the placement either way, so "
@@ -8447,7 +8456,7 @@ def check_lua_orders():
         % have["cancel_said"])
     assert have["refused_why"] != "nil" and have["refused_logged"] == "0", (
         "a REFUSED placement (why=%s) wrote %s Log lines. The refusal already reaches the "
-        "player through the return value, which the ticket prints and EX.ticket_click logs - "
+        "player through the return value, which the ticket prints and EX.MP_OPS.ord logs - "
         "a line here as well is two entries for one click"
         % (have["refused_why"], have["refused_logged"]))
     assert have["nocancel"] == "false" and have["nocancel_logged"] == "0", (
@@ -21704,6 +21713,9 @@ def check_more_resources(t):
     assert have["r1_median"] == "100", have["r1_median"]
 
     # WITH IT, per good: the one whose name does not resolve stays out.
+    assert have["r2_appetites"] == str(n_mr), "optional appetite coverage did not run"
+    assert have["r3_join"] == str(n_mr), "full-installation appetite coverage did not run"
+    assert have["r3_again"] == "%d %d" % (n_mr, n17 + n_mr), "full join was not idempotent"
     assert have["r2_join"] == str(n_mr - 1), (
         "joined %s, expected %d - the join is per good, by its own name" % (have["r2_join"], n_mr - 1))
     assert have["r2_again"] == "%d %d" % (n_mr - 1, n17 + n_mr - 1), (

@@ -106,6 +106,8 @@ DE16xxxx  derpy_chd_exchange_panel
 DE17xxxx  derpy_chd_exchange_row
 DE18xxxx  derpy_chd_exchange_button
 GG21xxxx  derpy_gg_panel / _card / _row   (The Great Guilds, claimed 2026-09-10)
+GG22xxxx  the Great Guilds files at Small (*_sm)   (claimed 2026-10-08)
+GG23xxxx  the Great Guilds files at Large (*_lg)   (claimed 2026-10-08)
 DH01xxxx  derpy_hub_ic   } the Derpy HUD hub, one copy per mod (claimed 2026-10-01)
 DH02xxxx  derpy_hub_gg   }
 DH03xxxx  derpy_hub_ex   }
@@ -114,6 +116,8 @@ DH05xxxx  derpy_hub_plate_gg  }
 DH06xxxx  derpy_hub_plate_ex  }
 DH07xxxx  derpy_hub_mr        } the hub copy and plate for Resource Overhaul (2026-10-02)
 DH08xxxx  derpy_hub_plate_mr  }
+DH09xxxx  derpy_hub_lb        } the left bar submod's hub copy and plate (2026-10-11)
+DH10xxxx  derpy_hub_plate_lb  }
 MR01xxxx  derpy_mr_stores_panel   } Resource Overhaul's Stores panel (claimed 2026-10-02)
 MR02xxxx  derpy_mr_stores_row     }
 MR03xxxx  derpy_mr_stores_button  }
@@ -154,8 +158,9 @@ MR06xxxx  derpy_mr_stores_bar     } the Stores panel's history-chart bar (claime
 </layout>
 ```
 
-Three things that are easy to get wrong here:
+Four things that are easy to get wrong here:
 
+- **The hierarchy must open with `<root>`.** The engine drops it and builds root's one child as the component `CreateComponent` makes, under the name you pass. A file without `<root>` makes `CreateComponent` answer `nil` and draw nothing, with no line in the script log. Measured 2026-10-14: the third-person HUD shipped without it and never appeared. `gen_third_person_hud.py --check` now refuses one.
 - The tag name **is** the component name in both sections. `id=` repeats it.
 - Width and height live on the **state**, not the component.
 - An image is declared twice: once in `<componentimages>` (the texture) and once in
@@ -656,6 +661,13 @@ mouse interactions like clicks and mouseovers."* A tooltip on a plain text cell 
 and invisible. Add `SetInteractive(true)` beside it. A cell that is not clickable can still be
 hoverable.
 
+**Write a runtime tooltip BEFORE the hover, never in a `ComponentMouseOn` listener.** That event
+does not reach a component made on the ui root. The Great Guilds' opener wrote its tooltip there
+from 2026-09-24 and showed none until 2026-10-11, with no error in the log. The HUD hub's v1
+hover failed the same way. Write it when drawing, or on the UI clock as the component goes from
+hidden to shown (`GGUI.tip_poll`, in the 300ms follow poll). If it reads loc, keep it out of
+turn handlers: a loc read there was a turn-1 CTD that `pcall` did not catch.
+
 **Length.** Over roughly 60 characters a tooltip without the `||` split renders in a box that
 does not grow and clips mid-glyph on line two. CA's own literal tooltips that skip the split run
 to a **median of 42 characters**.
@@ -724,7 +736,8 @@ flag in the one place visibility is written, from the same variable.
 
 ## Pinning UI to the campaign map
 
-Measured on the Iron Court's Governors view (2026-09-30). A pin that follows a settlement
+Measured on the Iron Court's Governors view (2026-09-30, builds 6D8BE636 to FBCCB439). A pin
+that follows a settlement
 as the camera moves is a component with one callback and a context, nothing more:
 
 ```xml
@@ -779,6 +792,30 @@ as the camera moves is a component with one callback and a context, nothing more
   (`wh_campaign_interventions.lua`). Unprobed.
 - **No script call tints a map region** - CA's docs and all 7,540 shipped scripts offer
   `highlight_*` and no colour. A party's colour went on the pin's name plate instead.
+
+**Over a battle unit** (Third-Person Battles' unit bars, measured 2026-10-19). It uses the
+same callback on
+`CcoBattleUnit.Position`, CA's own `template_3d_unit` in `ui/dev_ui/custom_dev_ui/common/example.twui.xml`.
+
+- **`cco` is not in `_G` in battle.** It is a callable table in `core:get_env()`, the environment a mod file runs in.
+  A module with a local of the same name must take the global first: `local context = cco` at file scope. The bar
+  went unbound and sat at the screen's corner on `_G.cco`. The id is `tostring(unit:unique_ui_id())`, and that works
+  for enemy units too.
+- **`offset_y` is metres above the unit**, a property of the callback itself (`child_m_user_properties`).
+  CA's callback doc lists `offset_x/y/z`, `depth_disabled`, `dock_top`, `show_offscreen` and the
+  `height_offset_*` distance scaling. A value set per unit means one layout per height.
+- **The engine hides the pin while its unit is off screen or behind the camera**, and stops refilling it.
+  On screen, the box's bottom centre stood on the projected point within 2 px.
+- **The engine owns the pinned component's own visibility.** It sets it every frame (shown while on screen), so a
+  `SetVisible` on it is undone: a probe flipped two pins and both were back 2 s later. Show and hide a plain parent
+  instead. `CreateComponent` returns the layout's top component, so the callback goes one level below it
+  (`root > derpy_tp_bar > pin > base`). Shipped wrong on 2026-10-19: the distance limit showed bars on units 300-500 m
+  off and hid the ones beside him, while the harness, which had no engine, passed.
+- **`ContextFillBar` uses its PARENT for 100%** (CA's doc), so the fills are children of the bar's base. Children of a
+  runtime-made component land at its corner, so give them the parent's box. Draw an edge as an image larger than the
+  box, at offset -1,-1, and not as an offset child. `ContextColourSetter` on `AllianceColour` colours a fill by side:
+  CA's `ui_colours` gives ours `#A2EC17`, an ally `#68CEFF` and an enemy `#FF2D2D`. `get_context_value` reads a
+  Colour as nil, so the drawn colour can only be checked by eye.
 
 ## Clicks
 
@@ -883,6 +920,13 @@ fight with a layout engine; it never gets to have one.
 Create on the UI root (the same parent a runtime panel uses, no `LayoutEngine`, always present)
 and only **read** coordinates off the anchor. Reading cannot be overridden; being a child can.
 
+The same ownership is the route when you **want** a slot in CA's group. Resource Overhaul's
+provisions button (2026-10-20) is a copy of
+CA's recruitment button under `button_group_army`; native `Layout()` grew that frame from 329 to
+388 logical pixels and recentred all four buttons, with no `MoveTo` at all. A copied CA button
+has ten states, and badge text written on one is gone on the next: write it on every state and
+put the current state back.
+
 ### A component's box is not its art
 
 Three HUD anchors have now been wrong, all the same way:
@@ -935,17 +979,32 @@ of the centre itself. The Guilds and Exchange buttons did this briefly on 2026-0
 player had it reverted: they want the buttons BESIDE the bar and accept that they move
 with it. Ask before moving an opener off the top row.
 
-**With two or three of the openers installed, a hub takes over (2026-10-01).** One 48px
+**With two or more of the four openers installed, a hub takes over (2026-10-01).** One 48px
 hub button sits in the Exchange's old slot, and hovering it shows the mods' own buttons in a
 COLUMN under it on a plate, unfolding out of the hub over 125ms and folding back into it when the mouse has been gone for one 100ms poll. **The plate is baked, not referenced:** drawn straight from CA's 256px `panel_stack`, the nine-slice squeezed the top and bottom frame 8:1 into a 76px box and both edges blurred in game. `tools/sync_derpy_hub.py` joins the file's edges down to 76x128 as `ui/derpy_hub/plate.png` (each pack ships the same bytes), so nothing is scaled across. The plate is interactive, so the gaps between buttons count as hovered, and it is `Adopt`ed in front of the hub and buttons in the root's child list so it draws behind them. **Hover is
 polled, not heard:** version 1 opened on `ComponentMouseOn`/`MouseOff` and in game the column
 only ever opened on a click (2026-10-01). Version 2 asks `IsMouseOverChildren()` every 100ms,
 on the hub and on the open column's buttons, and counts a hidden one as not hovered. The hub is `Modding Files/source/derpy_hub/derpy_hud_hub.lua`, copied into
-each pack as `derpy_hub_<ic|gg|ex>.lua` by `tools/sync_derpy_hub.py`, and the copy with the
-highest `HUB_VERSION` serves all three. Each mod appends `{key, button, order, label, live,
+each pack as `derpy_hub_<ic|gg|ex|mr|lb>.lua` by `tools/sync_derpy_hub.py`, and the copy with
+the highest `HUB_VERSION` serves all of them. Each mod appends `{key, button, order, label, live,
 wants}` to `DERPY_HUB_QUEUE` and has ONE guard: while `DERPY_HUB.manages(key)` is true it
 neither moves nor shows its button. The hub's poll only ever HIDES column buttons, because
 `ICUI.show_hud` restores every root child when the court closes.
+
+**The left bar submod (2026-10-11, `derpy_hub_left_bar.pack`, hub version 6).** Its copy,
+`derpy_hub_lb.lua`, sets `DERPY_HUB_LEFT_BAR`, and the hub then lives in CA's top-left
+`menu_bar > buttongroup` with even one mod installed. That group is a `HorizontalList` with
+`sizetocontent` (`ui/common ui/menu_bar.twui.xml`, ui3.pack), and the bar art and its end
+ornament are the group's own images, so a child made IN it is laid out by CA and the bar grows
+round it. MCT puts its button there the same way. The hub is `CreateComponent`ed there from
+CA's `ui/templates/round_small_button` (38px, resting state `active`, not `standard`), so it
+matches its neighbours and takes the culture skin. It is never `MoveTo`'d. `place()` reads its
+`Position()` each poll and hangs the column and plate under it. **The icon is baked:** that
+template draws image 0 at the full 38px and CA's icons for it are 38px files with a ~22px glyph,
+so the hub's 60px icon is shrunk to 24px on a 38px canvas (`ui/derpy_hub/icon_small.png`).
+With no menu bar the hub hands every button back, as it does with no strip. Build with
+`py tools/sync_derpy_hub.py --pack-left-bar`. The copy is a full hub at a higher version, so it
+serves packs still shipping version 5.
 
 **What they do instead is FOLLOW the end.** No event fires when a component changes size,
 so placement at load and turn start leaves the button where the end used to be, and it
@@ -1022,6 +1081,16 @@ position), never the component itself.
 
 `[[wh3-is-uicomponent-is-a-type-test]]`
 
+### `UIComponent()` casts an ADDRESS, never a component
+
+CA documents `UIComponent(address)` as casting "a component memory address, returned by several
+functions such as `uicomponent:Find`". Handing it a value that is already a UIComponent
+(`find_uicomponent`'s answer, or the result of an earlier cast) is outside that contract: a
+2026-10-20 bridge probe that did exactly that was the last command before a crash (null read,
+`Warhammer3.exe+0x1334F80`). Not traced to the
+instruction, but the fix costs nothing: cast only what `Find(i)`, `Parent()` or a context hands
+back as an address, and call methods on a component directly.
+
 ## Hover states
 
 Two separate things have to be right, and getting either wrong is silent.
@@ -1088,7 +1157,7 @@ states again for a control that a pair of arrow buttons and a page counter alrea
 ## Effects on a runtime panel
 
 What the Iron Court uses for "a seat was taken", each seen in game on 2026-09-28 on a component
-created at runtime.
+created at runtime, from a survey of which CA panel does what.
 
 - **A glowing edge is an image LAYER, swapped, not a state.** Ship the layer in the component's
   state holding `MASK_NONE` (a transparent image), then `SetImagePath(path, index)` writes the

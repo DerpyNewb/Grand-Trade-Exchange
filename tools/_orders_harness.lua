@@ -472,7 +472,7 @@ print("cancel_logged " .. EX.log_calls)
 print("cancel_said " .. tostring(EX.log_last))
 
 -- A REFUSED PLACEMENT IS NOT A PLACEMENT. The refusal already reaches the player through the
--- return value - the ticket prints it on the standing line and EX.ticket_click logs it - so a
+-- return value - the ticket prints it on the standing line and EX.MP_OPS.ord logs it - so a
 -- line here too would double up on one click.
 EX.log_calls, EX.log_last = 0, nil
 print("refused_why " .. tostring(EX.place_order("res_gems", "x", "le", 28)))
@@ -741,9 +741,10 @@ EX.ticket_click("ord_place")
 print("ticket_place_left " .. #EX.orders)
 print("ticket_place_order " .. tostring(EX.find_order("res_gems", "b", "le", 24) ~= nil))
 
--- THE DRY RUN REFUSES WITHOUT SENDING, and the button must not disagree with the op about
+-- THE DRY RUN AND THE OP REFUSE ALIKE, and the button must not disagree with the op about
 -- why: clicking Place again on the SAME order must add nothing, which is only true if
--- EX.place_order_check is the same guard EX.place_order itself uses.
+-- EX.place_order_check is the same guard EX.place_order itself uses. The click still sends
+-- the refused order, so the op writes the Log line on every machine (tools/check_mp_sim.py).
 EX.log_calls = 0
 EX.ticket_click("ord_place")
 print("ticket_place_dup_left " .. #EX.orders)

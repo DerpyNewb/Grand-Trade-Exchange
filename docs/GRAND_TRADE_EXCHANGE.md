@@ -10,8 +10,8 @@ This is the **reference for what shipped**.
 |---|---|
 | Pack | `Modding Files/Modpacks/derpy_zharr_exchange.pack` |
 | Size / md5 | 1,733,633 B / `c58588eb` (2026-09-30: contracts, the index, bonds and loans, the logic-sweep fixes, who caused a trade disruption with the located bulletin, the 09-30 fault fixes, the Houses/Deals sub-tabs, the index opening on load, No gold on the index and house Buy, and themed funds on the Funds tab with the listed fund in yellow, member counts and a Listing footer - §12, §11.1, §17, §18; deployed to the Workshop folder and the restore overlay, byte-verified; **uploaded to Steam 2026-09-30 23:48**, manifest 7189675962742021229) |
-| Rows | 681 DB across 10 tables, plus 1,776 loc = 2,457 |
-| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 15,169 lines, 488 `EX.*` functions (855 `EX.*` names in all, every one read: `check_no_orphans`) |
+| Rows | 681 DB across 10 tables, plus 1,776 loc = 2,457 (2026-09-30). `--check` on 2026-10-21: 1,747 DB across the same 10 tables, plus 6,142 loc, almost all of the growth being the 41 Resource Overhaul goods' rows |
+| Runtime | `script/campaign/mod/zzz_derpy_chd_exchange.lua`, 14,861 lines and 505 `function EX.*` definitions on 2026-10-21 (earlier 15,169 lines, 488 `EX.*` functions, 855 `EX.*` names in all, every one read: `check_no_orphans`) |
 | Races | 8 covered, of the game's 28 cultures (27 vanilla since game update 9.0 added Nagash's Undead Legions, plus the Southern Realms) |
 | Workshop | *Derpy's Grand Trade Exchange*, item 3798516851. In game it is still the Zharr Exchange |
 | Hard dependency | none |
@@ -3211,6 +3211,18 @@ state. It now freezes `qty` onto the order directly and falls back to `EX.amount
 it open showed the sender's slice. `EX.refresh_panel` and `EX.layout` now return while anyone
 but the local player is bound; the layout harness's `rival_draw` scene pins both halves.
 
+**Found by a lockstep simulation, FIXED 2026-10-21 (build `7DA8DCED`).** `tools/check_mp_sim.py`
+runs the shipped Lua on three simulated machines with different local players, MCT values,
+`math.random` streams and screens, presses every visible button on one machine at a time, and
+compares every model call and the save after each step. It found four faults. `EX.init`'s
+stockpile resync and `EX.strip_legacy_bundles()` ran unbound, so each machine resynced or stripped
+its own player's bundles. The introduction's seen-flag was set by the click, so it sat in one
+machine's save. A Place the ticket's dry run refused was written to the Log, which is saved, on
+the clicking machine alone. The first two walk `EX.humans()` now, the flag goes over an `intro`
+op, and a refused Place is sent anyway so `EX.MP_OPS.ord` logs the refusal on every machine (the
+ticket still prints it at once). The check also runs a planted fault, every op applied on the
+sender only, and fails if that goes unreported. It is still not a two-machine game.
+
 **Local on purpose:** the opener's placement, its 300ms follow poll, its greying and its
 tooltip, and the panel's size (`EX.fit` reads this client's screen) are all UI-only. None of
 them crosses the network, so none can desync. `EX.bulk` is the one piece of trade-path state that
@@ -3373,7 +3385,8 @@ also needs `EX.HEADERS` (a missing entry takes the whole refresh down), `EX.TIPS
 `EX.SORT_VALUE`, a `PANEL_LAYOUT_*` / `ROW_LAYOUT_*` pair and both `EX.panel_layout` /
 `EX.row_layout` branches, plus `TAB_MODES` and a `check_mode` call in `gen_exchange_ui.py`.
 
-**Resource Overhaul's goods (2026-10-01)** - Derpy Resource Overhaul adds 37 tradeable goods, and they
+**Resource Overhaul's goods (2026-10-01)** - Derpy Resource Overhaul adds 37 tradeable goods (41
+since 2026-10-21: Hardtack, Leather, Cloth and Tools, so 58 commodities with the vanilla 17), and they
 join this market only when that mod is installed. Without it, nothing below runs and the
 Exchange is the 17-good market it always was.
 
@@ -3388,6 +3401,12 @@ Exchange is the 17-good market it always was.
   `common.get_context_value("CcoCampaignSettlement", cqi, EX.MR_EXPR)` call per region. It reads
   `BuildingContext.EffectList`, which holds only the rows whose condition holds, at their real
   value. The call is pcall-wrapped. Measured on IEE: 749 regions in 0.064s.
+- **Hardtack is the one processed-only good (2026-10-21).** No building makes it passively, so
+  the effect-list read found no producer and the Buy refusal said nothing on the map made it.
+  `EX.region_goods` now also counts the region's last completed Campaign biscuits batch, read
+  from Resource Overhaul's saved paid stamp (`DERPY_MR_FLOWS.state.economy[region].paid.bake`),
+  for the current or previous turn and only while the recorded owner still holds the region.
+  An idle bakery, a stale stamp or a captured region adds nothing.
 - **The vanilla 17 stay the anchor.** The price median and trade income (Option B, §10) read
   only `EX.COMMODITIES[1..EX.BASE_COUNT]`. Most rare goods have no producer on turn one. If the
   median included them, it would fall towards zero and price every vanilla good as a glut. If
@@ -3416,9 +3435,13 @@ Exchange is the 17-good market it always was.
   measures the join, idempotence, the parsed supply string, a throwing read, the median, trade
   income, paging, the chart found by name, and the wrap and reset of the arrows. Mutation-tested
   2026-10-01 against the median, trade-income and paging guards.
-- **Not done.** No `EX.CULTURE_WANTS`, `WAR_APPETITE` or `BUILD_APPETITE` entry names these
-  goods, and no fund names them. All of those reads are nil-guarded, so the goods simply have no
-  appetite. Per-race demand flavour has not been written.
+- **Demand coverage (2026-10-20, all 41 goods since 2026-10-21).** Every optional good has
+  culture, war and construction appetite definitions, activated by the existing per-good join
+  gate. The 27 culture profiles feed existing pricing and AI desire; neutral entries still
+  participate in construction drift. Fixed and derived fund baskets are unchanged: no optional
+  good is in a fund. Full selftest and 110 mutation cases pass. **Quotes are recomputed on load**:
+  `EX.init` runs `rescan -> discover_houses -> restore -> apply_prices`, so after real turns some
+  rungs can differ from their pre-save values while every other saved record matches.
 
 ---
 

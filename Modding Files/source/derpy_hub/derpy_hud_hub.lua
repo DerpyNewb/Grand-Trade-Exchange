@@ -4,6 +4,10 @@
 -- installed, it only hides that mod's button off the main screen (HUB.on_map). Spec:
 -- docs/superpowers/specs/2026-10-01-derpy-hud-hub-design.md.
 --
+-- THE LEFT BAR SUBMOD (derpy_hub_left_bar.pack, tag "lb", 2026-10-11): its copy sets
+-- DERPY_HUB_LEFT_BAR, and the hub then sits in CA's top-left menu bar instead of beside the
+-- strip, with even one mod installed. Its copy is a full hub, so it serves older packs too.
+--
 -- ONE SOURCE, THREE SHIPPED COPIES. Edit Modding Files/source/derpy_hub/derpy_hud_hub.lua
 -- only. tools/sync_derpy_hub.py writes script/campaign/mod/derpy_hub_<tag>.lua into each mod
 -- under its own path, so every installed copy loads. The highest HUB_VERSION serves all of
@@ -16,7 +20,7 @@
 -- UI-ONLY AND LOCAL: nothing here touches the model or the save, so it cannot desync
 -- multiplayer. It moves, hides and shows the mods' buttons and nothing else. Each mod keeps
 -- its button's creation, click, tooltip, greying and pulse.
-local HUB_VERSION = 5            -- 5: off the main screen, every button of ours hides
+local HUB_VERSION = 6            -- 6: the left bar submod
 local HUB_TAG = "src"            -- rewritten per copy by tools/sync_derpy_hub.py
 
 local HUB = {
@@ -36,6 +40,12 @@ local HUB = {
     ANIM_STEPS = 5,              -- the unfold: five frames, 25ms apart
     ANIM_MS = 25,
     PULSE = 5,                   -- ICUI.PULSE_STRENGTH, the court's own look
+    -- In the left bar the hub is CA's own small round button, so it matches its neighbours
+    -- state for state. Its image 0 is the icon, drawn at 38px: the baked copy has the glyph
+    -- inset as CA's icons do. Shipped by the submod only, the one pack that turns this on.
+    BAR_TEMPLATE = "ui/templates/round_small_button",
+    BAR_ICON = "ui/derpy_hub/icon_small.png",
+    in_bar = false,              -- the hub was made inside menu_bar's buttongroup
     managed = {},                -- key -> true while the hub owns that button
     row = {},                    -- {reg, c} for each managed button, column order
     open = false,
@@ -92,14 +102,31 @@ function HUB.present(root)
     return out
 end
 
+-- THE LEFT BAR: CA's menu_bar buttongroup is a HorizontalList that sizes to its content, so a
+-- child made in it is placed by CA and the bar's art and end ornament grow round it. MCT puts
+-- its button there the same way. Nil unless the submod is installed.
+function HUB.left_bar(root)
+    if DERPY_HUB_LEFT_BAR ~= true then return nil end
+    local bar = find_uicomponent(root, "menu_bar", "buttongroup")
+    if is_uicomponent(bar) then return bar end
+    return nil
+end
+
 -- Created hidden: placed at the root's origin until the strip settles, it would draw in
 -- the corner of the screen.
 function HUB.button(root)
     local hub = find_uicomponent(root, HUB.NAME)
     if is_uicomponent(hub) then return hub end
-    pcall(function() root:CreateComponent(HUB.NAME, HUB.PATH) end)
+    local bar = HUB.left_bar(root)
+    if bar then
+        pcall(function() bar:CreateComponent(HUB.NAME, HUB.BAR_TEMPLATE) end)
+    else
+        pcall(function() root:CreateComponent(HUB.NAME, HUB.PATH) end)
+    end
     hub = find_uicomponent(root, HUB.NAME)
     if not is_uicomponent(hub) then return nil end
+    HUB.in_bar = bar ~= nil
+    if HUB.in_bar then pcall(function() hub:SetImagePath(HUB.BAR_ICON, 0) end) end
     hub:SetVisible(false)
     HUB.placed, HUB.grey, HUB.pulsing = false, nil, nil
     return hub
@@ -161,36 +188,50 @@ end
 -- centred on the hub (asked for 2026-10-01: "make it by column instead"). The column hangs
 -- below the top row, so it cannot run off the side of the screen.
 function HUB.place(root, hub, here)
-    local x, top, bh = HUB.anchor(root)
-    if not x then return end
-    local sw = core:get_screen_resolution()
-    if x + HUB.SIZE > sw then x = sw - HUB.SIZE end
-    local hy = centred(top, bh, HUB.SIZE)
-    move(hub, x, hy)
+    local x, hy, hw, hh
+    if HUB.in_bar then
+        -- CA's layout places it, so it is read and never moved; the column follows it.
+        x, hy = hub:Position()
+        hw, hh = hub:Dimensions()
+    else
+        local top, bh
+        x, top, bh = HUB.anchor(root)
+        if not x then return end
+        local sw = core:get_screen_resolution()
+        if x + HUB.SIZE > sw then x = sw - HUB.SIZE end
+        hy = centred(top, bh, HUB.SIZE)
+        hw, hh = HUB.SIZE, HUB.SIZE
+        move(hub, x, hy)
+    end
     if not HUB.placed then
         hub:SetVisible(true)
         HUB.placed = true
     end
     -- THE UNFOLD: every button starts at the hub and eases out to its place.
     local t = HUB.anim * (2 - HUB.anim)
-    local cy, bottom = hy + HUB.SIZE + HUB.GAP, hy + HUB.SIZE
+    -- In the bar the plate's top edge shows, so the column starts inside it, PAD down.
+    local cy = hy + hh + (HUB.in_bar and HUB.PAD or HUB.GAP)
+    local bottom, widest = hy + hh, hw
     for _, e in ipairs(here) do
         local w, h = e.c:Dimensions()
         local y = hy + math.floor((cy - hy) * t + 0.5)
-        move(e.c, x + math.floor((HUB.SIZE - w) / 2), y)
+        move(e.c, x + math.floor((hw - w) / 2), y)
         if y + h > bottom then bottom = y + h end
+        if w > widest then widest = w end
         cy = cy + h + HUB.GAP
     end
     local plate = find_uicomponent(root, HUB.PLATE)
     if is_uicomponent(plate) then
-        local py = hy + math.floor(HUB.SIZE / 2)
-        local pw = HUB.SIZE + 2 * HUB.PAD
+        -- In the bar the plate hangs from the hub's lower edge: from its middle, as beside the
+        -- strip, it would draw over CA's bar and the bottom half of the hub.
+        local py = HUB.in_bar and hy + hh or hy + math.floor(hh / 2)
+        local pw = widest + 2 * HUB.PAD
         local ph = math.max(HUB.PLATE_MIN, bottom + HUB.PAD - py)
         if pw ~= HUB.plate_w or ph ~= HUB.plate_h then
             pcall(function() plate:Resize(pw, ph, false) end)
             HUB.plate_w, HUB.plate_h = pw, ph
         end
-        move(plate, x - HUB.PAD, py)
+        move(plate, x + math.floor((hw - pw) / 2), py)
     end
 end
 
@@ -204,7 +245,8 @@ function HUB.paint(hub, here)
     end
     if wants ~= HUB.pulsing then
         HUB.pulsing = wants
-        for _, st in ipairs({"standard", "hover"}) do
+        -- CA's round_small_button names its resting state "active"; our own file "standard".
+        for _, st in ipairs(HUB.in_bar and {"active", "hover"} or {"standard", "hover"}) do
             pcall(function() pulse_uicomponent(hub, wants, HUB.PULSE, false, st) end)
         end
     end
@@ -406,8 +448,15 @@ function HUB.tick()
     HUB.unstow(root)
     -- NO STRIP, NO HUB. A CA rename or a HUD mod that drops resources_bar would leave a hub
     -- that is never placed hiding every button it holds; handed back instead, the Exchange
-    -- still reaches its faction_buttons_docker fallback.
-    if #here < 2 or not is_uicomponent(find_uicomponent(root, "resources_bar")) then
+    -- still reaches its faction_buttons_docker fallback. The left bar is the same rule with
+    -- the menu bar for the strip, and one button is enough: the author asked for the bar.
+    local anchored, need
+    if DERPY_HUB_LEFT_BAR == true then
+        anchored, need = HUB.left_bar(root) ~= nil, 1
+    else
+        anchored, need = is_uicomponent(find_uicomponent(root, "resources_bar")), 2
+    end
+    if #here < need or not anchored then
         HUB.release(root, here)
         return
     end
@@ -451,6 +500,8 @@ end
 -- serves. Only the serving copy starts, and only once.
 if not DERPY_HUB or (DERPY_HUB.version or 0) < HUB.version then DERPY_HUB = HUB end
 DERPY_HUB_QUEUE = DERPY_HUB_QUEUE or {}
+-- Set by the submod's copy whichever copy serves; read at every poll, so load order is moot.
+if HUB_TAG == "lb" then DERPY_HUB_LEFT_BAR = true end
 cm:add_first_tick_callback(function()
     if DERPY_HUB == HUB then HUB.start() end
 end)
