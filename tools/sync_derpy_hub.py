@@ -21,7 +21,6 @@ An unknown flag is refused: tools here have no --help, and a flag that was ignor
 built and deployed a pack nobody asked for.
 """
 import io
-import json
 import os
 import re
 import shutil
@@ -313,7 +312,7 @@ def pack_left_bar():
     """Build the left bar submod from scratch, then read the SAVED file back with RPFM shut out
     of the loop: every path present and byte for byte what the workspace holds."""
     import datetime
-    from check_skill_trees import _rpc, _call
+    from rpfm_client import call, ensure_game, new_pack
     from read_pack_index import entries
     found = check() + check_assets()
     if found:
@@ -325,15 +324,11 @@ def pack_left_bar():
         os.makedirs(os.path.dirname(backup), exist_ok=True)
         shutil.copy2(LB_PACK, backup)
         print("backed up the old pack to", os.path.relpath(backup, ROOT))
-    _rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
-                        "clientInfo": {"name": "sync_derpy_hub", "version": "1"}})
-    _rpc("notifications/initialized", notify=True)
-    _call("set_game_selected", {"game_name": "warhammer_3", "rebuild_dependencies": False})
-    key = _call("new_pack", {})["String"]
-    _call("set_pack_file_type", {"pack_key": key, "pack_file_type": '"Mod"'})
-    _call("add_packed_files", {"pack_key": key, "source_paths": [s for s, _d in files],
-                               "destination_paths": json.dumps([{"File": d} for _s, d in files])})
-    _call("save_pack_as", {"pack_key": key, "path": LB_PACK})
+    ensure_game()
+    key = new_pack()
+    call("add_files_from_disk", {"pack": key, "paths": [s for s, _d in files],
+                                 "pack_paths": [d for _s, d in files]})
+    call("save_pack", {"pack": key, "path": LB_PACK})
     fh, index = entries(LB_PACK)
     got = {}
     for path, size, offset, comp in index:

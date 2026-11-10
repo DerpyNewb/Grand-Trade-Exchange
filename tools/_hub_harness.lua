@@ -67,6 +67,11 @@ local function reset(sw)
         Position = function() return W.bar.x, W.bar.y end,
         Dimensions = function() return W.bar.w, W.bar.h end,
         Id = function() return "resources_bar" end,
+        -- A root child here, as the court sees it: show_hud(false) hides it with the rest.
+        vis = true,
+        SetVisible = function(self, v) self.vis = v end,
+        Visible = function(self) return self.vis end,
+        VisibleFromRoot = function(self) return self.vis end,
     }
     W.kids[1] = W.comps.resources_bar
     -- THE ROOT'S CHILD LIST IS THE DRAW ORDER: a later child draws over an earlier one.
@@ -553,15 +558,16 @@ check("show_hud: a hidden hovered button counts as left, and nothing hidden is r
     frames()
     mouse("ic_btn"); tick()                      -- open, mouse on the court's button
     local plate = W.comps.derpy_hub_plate
-    -- The court opens: show_hud(false) hides every visible root child, plate included.
-    W.comps.ic_btn.vis, W.comps.derpy_hub.vis, plate.vis = false, false, false
+    -- The court opens: show_hud(false) hides every visible root child, plate and strip included.
+    local strip = W.comps.resources_bar
+    W.comps.ic_btn.vis, W.comps.derpy_hub.vis, plate.vis, strip.vis = false, false, false, false
     wait(GRACE)
     frames()                                     -- the fold runs out under the court
     assert(W.comps.ic_btn.vis == false and W.comps.derpy_hub.vis == false and plate.vis == false,
            "the poll re-showed what the court hid")
     assert(W.comps.gg_btn.vis == false, "the column stayed open under the court")
     -- The court closes: restore, mouse still where the plate is.
-    W.comps.ic_btn.vis, W.comps.derpy_hub.vis, plate.vis = true, true, true
+    W.comps.ic_btn.vis, W.comps.derpy_hub.vis, plate.vis, strip.vis = true, true, true, true
     mouse("derpy_hub_plate")
     tick()
     assert(W.comps.ic_btn.vis == false and plate.vis == false,
@@ -668,6 +674,24 @@ check("one button: hidden off the main screen, given back unmoved, and never mad
     W.panel = "esc_menu"; tick()
     W.panel = false; tick()
     assert(ic.vis == false, "the return showed a button its mod never showed")
+end)
+
+-- Reported 2026-10-28 on the Great Guilds: the button gone mid-campaign with no way back.
+check("a placed hub hidden by something else comes back on the main screen, and not off it",
+      function()
+    world()
+    tick()
+    local hub = W.comps.derpy_hub
+    hub.vis = false                               -- another mod, or a CA screen we do not know
+    tick()
+    assert(hub.vis, "a hidden hub never came back")
+    W.comps.resources_bar.vis = false             -- a full-screen panel hid the HUD with it
+    hub.vis = false
+    wait(GRACE * 3)
+    assert(not hub.vis, "the hub came back over a panel that hid the strip")
+    W.comps.resources_bar.vis = true
+    tick()
+    assert(hub.vis and hub.x == HUB_X, "the hub did not come back with the strip")
 end)
 
 check("a ui manager that throws counts as the main screen", function()

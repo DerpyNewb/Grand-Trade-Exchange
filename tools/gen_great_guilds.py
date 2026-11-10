@@ -345,9 +345,14 @@ SERVICES = [
                  ("wh_main_effect_force_all_campaign_replenishment_rate", "region_to_force_own", -25)],
      "text": '{v0:+d} growth in the enemy province you select, and {v1:+d}% replenishment for armies there for {turns} turns.'},
     {"key": "granaries", "guild": "overseers", "rank": 2, "cost": 50, "cd": 8,
-     "kind": "settlement", "turns": 8, "name": "Fattened Herds",
+     "kind": "settlement", "turns": 8, "name": "Slave-Built",
      "effects": [("wh_main_effect_province_growth_events", "region_to_province_own", 25)],
-     "text": '{v0:+d} growth in the province of the settlement you select for {turns} turns.'},
+     "text": '{v0:+d} growth in the province of the settlement you select for {turns} turns.',
+     # Growth does nothing for the Chaos Dwarfs (RACE_UNWANTED_EFFECTS): the Overseers' own
+     # ladder effect, cheaper building, on that one settlement. 33 vanilla rows, up to 50.
+     "for_tag": {"": {
+         "effects": [("wh_main_effect_building_construction_cost_mod", "region_to_region_own", -25)],
+         "text": '{v0:+d}% construction cost in the settlement you select for {turns} turns.'}}},
     {"key": "road_gangs", "guild": "overseers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Road Gangs",
      "effects": [("wh_main_effect_force_all_campaign_movement_range", "faction_to_force_own", 10)],
@@ -369,7 +374,13 @@ SERVICES = [
      "kind": "bundle", "turns": 10, "name": "Monuments to Hashut",
      "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4),
                  ("wh_main_effect_province_growth_events", "faction_to_province_own", 30)],
-     "text": '{v0:+d} public order and {v1:+d} growth in every province you own for {turns} turns.'},
+     "text": '{v0:+d} public order and {v1:+d} growth in every province you own for {turns} turns.',
+     # Growth does nothing for the Chaos Dwarfs (RACE_UNWANTED_EFFECTS): CA's Workload, the
+     # pair the Iron Court's governors use, at vanilla's own largest (15, 4 rows).
+     "for_tag": {"": {
+         "effects": [("wh_main_effect_public_order_events", "faction_to_province_own", 4),
+                     ("wh3_dlc23_pooled_resource_chd_workload_modifier", "faction_to_province_own", -15)],
+         "text": '{v0:+d} public order and {v1:+d}% Workload for Raw Materials in every province you own for {turns} turns.'}}},
     {"key": "raiding_parties", "guild": "slavers", "rank": 2, "cost": 50, "cd": 8,
      "kind": "bundle", "turns": 8, "name": "Raiding Parties",
      "effects": [("wh_main_effect_force_all_campaign_raid_income", "faction_to_force_own", 50)],
@@ -2366,6 +2377,11 @@ RACE_UNWANTED_EFFECTS = {
         "wh_main_effect_force_stat_missile_damage_artillery":
             "its unit set all_land_artillery holds only their Hobgoblin Bolt Thrower - "
             "their cannons, mortars, rockets and Iron Daemons are class chariot",
+        # Reported in game (Xoatl, 2026-11-08); the Iron Court and the Resource Overhaul
+        # dropped theirs for the same reason.
+        "wh_main_effect_province_growth_events":
+            "growth does nothing for them - not one Chaos Dwarf building in vanilla's "
+            "building_effects_junction grants province growth",
     },
     "_ksl": {
         "wh_main_effect_force_stat_missile_damage_artillery":
@@ -4685,10 +4701,14 @@ def check_flavours():
     for r in one["effect_bundles_to_effects_junctions"]:
         base_fx.setdefault(r["effect_bundle_key"], []).append(
             (r["effect_key"], r["effect_scope"], r["value"]))
+    # A bundle aimed at an enemy lands on THAT faction, whatever race it is, so the buyer's
+    # race says nothing about it: Poisoned Wells' growth still hurts an Empire province.
+    on_enemy = set(service_bundle_key(s["key"]) for s in SERVICES
+                   if s["kind"] == "enemy_settlement" or s.get("hostile"))
     for tag, unwanted in sorted(RACE_UNWANTED_EFFECTS.items()):
         rows = one if not tag else _build_one(tag)
         for r in rows["effect_bundles_to_effects_junctions"]:
-            if r["effect_key"] in unwanted:
+            if r["effect_key"] in unwanted and r["effect_bundle_key"] not in on_enemy:
                 out.append("%s%s carries %s %s - %s"
                            % (r["effect_bundle_key"], tag, r["effect_key"], r["value"],
                               unwanted[r["effect_key"]]))

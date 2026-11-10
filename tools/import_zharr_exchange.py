@@ -3,8 +3,8 @@
     py tools/gen_zharr_exchange.py     # writes the TSVs
     py tools/import_zharr_exchange.py  # builds the pack (needs RPFM open)
 
-The MCP plumbing - session handling, SSE parsing, and the mandatory duplicate-combined-key scan
-that runs before anything is written - is imported from import_house_ancillaries rather than
+The MCP plumbing comes from tools/rpfm_client.py, and the mandatory duplicate-combined-key scan
+that runs before anything is written is imported from import_house_ancillaries rather than
 copied. That module does nothing at import time; its main() is under __main__.
 
 Table versions are NOT hardcoded here. gen_zharr_exchange.table_version() reads CA's own shipped
@@ -12,13 +12,12 @@ definition out of the cached RPFM dump, so a game patch that bumps a version can
 script writing rows in a shape the game no longer expects.
 """
 import io
-import json
 import os
 import sys
-import urllib.error
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from import_house_ancillaries import call, check_keys  # noqa: E402
+from import_house_ancillaries import check_keys  # noqa: E402
+from rpfm_client import call, db as db_kind, ensure_game, new_pack  # noqa: E402
 
 import gen_zharr_exchange as G  # noqa: E402
 
@@ -143,18 +142,17 @@ def main():
     db = sorted(k for k in tables if k != "loc")
     assert sorted(ORDER) == db, "ORDER and build() disagree:\n  %s\n  %s" % (sorted(ORDER), db)
 
-    # Every new MCP session must bind the schema itself - the game key is global and persisted,
-    # the schema binding is per-session. rebuild_dependencies=False skips the 105MB rebuild,
-    # which check_keys does not need since a combined key is intra-table.
-    call("set_game_selected", {"game_name": "warhammer_3", "rebuild_dependencies": False})
+    # No vanilla data needed: check_keys reads only the schema, since a combined key is
+    # intra-table.
+    ensure_game()
 
     plan = []
     for table in ORDER:
         plan.append(("db/%s/%s" % (table, G.FRAG),
-                     {"DB": [G.FRAG, table, G.table_version(table)]},
+                     db_kind(table, G.table_version(table)),
                      "%s__%s.tsv" % (table, G.FRAG),
                      G.OUT))
-    plan.append(("text/db/%s.loc" % G.FRAG, {"Loc": G.FRAG},
+    plan.append(("text/db/%s.loc" % G.FRAG, {"type": "loc"},
                  "loc__%s.tsv" % G.FRAG, G.OUT))
 
     for entry in plan:
@@ -198,15 +196,14 @@ def main():
                 % (name, len(on_disk), len(built)))
     print("  ui files match the generator")
 
-    pack = call("new_pack", {})["String"]
+    pack = new_pack()
     print("new pack: %s" % pack)
 
     total = 0
     for path, newfile, tsv, folder in plan:
         full = os.path.join(folder, tsv)
-        call("new_packed_file", {"pack_key": pack, "path": path,
-                                 "new_file": json.dumps(newfile)})
-        call("import_tsv", {"pack_key": pack, "table_path": path, "tsv_path": full})
+        call("create_file", {"pack": pack, "path": path, "kind": newfile})
+        call("import_tsv", {"pack": pack, "path": path, "tsv_path": full})
         rows = sum(1 for _ in open(full, encoding="utf-8")) - 2
         total += rows
         print("  %5d  %s" % (rows, path))
@@ -216,16 +213,12 @@ def main():
         if not os.path.isfile(src):
             raise SystemExit("missing %s" % src)
         assert rel == rel.lower(), "uppercase in a pack path crashes since 6.1"
-        call("add_packed_files", {"pack_key": pack, "source_paths": [src],
-                                  "destination_paths": json.dumps([{"File": rel}])})
+        call("add_files_from_disk", {"pack": pack, "paths": [src], "pack_paths": [rel]})
         print("  %5dB  %s" % (os.path.getsize(src), rel))
 
-    call("save_pack_as", {"pack_key": pack, "path": PACK})
+    call("save_pack", {"pack": pack, "path": PACK})
     print("\nsaved %s\n  %d files, %d rows" % (PACK, len(plan) + len(SCRIPTS), total))
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except urllib.error.URLError:
-        sys.exit("RPFM is not running - its MCP server only exists while RPFM is open")
+    main()

@@ -20,7 +20,7 @@
 -- UI-ONLY AND LOCAL: nothing here touches the model or the save, so it cannot desync
 -- multiplayer. It moves, hides and shows the mods' buttons and nothing else. Each mod keeps
 -- its button's creation, click, tooltip, greying and pulse.
-local HUB_VERSION = 6            -- 6: the left bar submod
+local HUB_VERSION = 7            -- 7: a hidden hub comes back on the main screen; 6: the left bar
 local HUB_TAG = "src"            -- rewritten per copy by tools/sync_derpy_hub.py
 
 local HUB = {
@@ -405,7 +405,10 @@ function HUB.on_map(root)
     local bar = find_uicomponent(root, "resources_bar")
     if not is_uicomponent(bar) then return true end
     local _, by = bar:Position()
-    return by >= -HUB.SIZE
+    -- A STRIP HIDDEN WITH THE HUD is off too: a full-screen mod panel (the Iron Court's) hides
+    -- every root child but its own. A probe that throws counts as drawn.
+    local ok_v, drawn = pcall(function() return bar:VisibleFromRoot() end)
+    return by >= -HUB.SIZE and not (ok_v and drawn == false)
 end
 
 -- This is the one file all four mods ship, so it hides a lone button as well as the hub and its
@@ -467,6 +470,10 @@ function HUB.tick()
     if not hub then return end
     local plate = HUB.plate(root, here)
     HUB.place(root, hub, here)
+    -- SHOWN AGAIN IF SOMETHING ELSE HID IT. place() shows the hub once and unstow gives back
+    -- only what stow hid, so any other hide was for good (the Great Guilds' opener, reported
+    -- 2026-10-28: gone mid-campaign with no way back). On the main screen a placed hub is up.
+    if HUB.placed and not hub:Visible() then hub:SetVisible(true) end
     HUB.hover(hub, here, plate)
     if not HUB.open and not HUB.folding then
         if is_uicomponent(plate) and plate:Visible() then plate:SetVisible(false) end

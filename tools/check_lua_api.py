@@ -66,7 +66,7 @@ def index_docs():
 # every run while CA's own find_uicomponent began missing silently.
 PLAIN_FIND = re.compile(
     r"""\bstring\s*\.\s*find\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)"""
-    r"""|(?<![\w.])[\w\]\)"']\s*:\s*find\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)""")
+    r"""|[\w\]\)"']\s*:\s*find\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)""")
 
 
 def _plain_flag(call_args, dotted):
@@ -363,6 +363,10 @@ def selftest():
         'local j = s:find("^a")\n'                       # 10 caught, anchored
         'local k = string.match(s, "^a")\n'              # 11 clean, match honours ^
         'local l = string.find(s, "a^")\n'               # 12 clean, ^ not first
+        # a receiver longer than one character: the method branch read only one-character receivers,
+        # and the third-person HUD's id:find("^slot_%d+_key") shipped past it (2026-10-23)
+        'local m = id:find("^a")\n'                      # 13 caught, anchored
+        'local o = name:find(p, 1, true)\n'              # 14 caught, plain flag
     )
     try:
         found = [(n, k) for n, k, _ in check(tmp2, docs)]
@@ -373,7 +377,8 @@ def selftest():
     # game for every load the mod ever did.
     assert found == [(1, "string-corruption"), (2, "string-corruption"),
                      (5, "find-init"), (6, "find-init"), (7, "find-init"),
-                     (9, "find-anchor"), (10, "find-anchor")], found
+                     (9, "find-anchor"), (10, "find-anchor"), (13, "find-anchor"),
+                     (14, "string-corruption")], found
 
     # explain() must reach BOTH doc shapes, and must carry the parameter text -
     # the half a signature-only read drops.

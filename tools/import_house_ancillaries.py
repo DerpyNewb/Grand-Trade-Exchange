@@ -4,21 +4,16 @@
     py tools/gen_commission_dilemmas.py          # writes the flow-A rite + dilemma TSVs
     py tools/import_house_ancillaries.py         # creates + fills the pack
 
-Needs RPFM open (its MCP server lives inside it). Talks raw HTTP so the huge decoded-table
-responses never have to be read back - import_tsv returns the entire table, which is 290 rows
-of JSON for the items fragment.
+Needs RPFM open (its MCP server lives inside it); talks to it through tools/rpfm_client.py.
 
 Re-runnable: the pack is created fresh each time and saved over the same path.
 """
-import json
 import os
 import glob
 import sys
-import urllib.request
 
-URL = "http://127.0.0.1:45127/mcp"
-HDR = {"Content-Type": "application/json",
-       "Accept": "application/json, text/event-stream"}
+from rpfm_client import call, db, ensure_game, new_pack
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TSV = os.path.join(ROOT, "Modding Files", "source", "house_ancillaries")
 PACK = os.path.join(ROOT, "Modding Files", "Modpacks", "derpy_chd_house_ancillaries.pack")
@@ -109,48 +104,6 @@ SCRIPTS = [
     "ui/campaign ui/derpy_chd_rite_fire.twui.xml",
 ]
 
-_sid = None
-
-
-def _post(payload, headers):
-    req = urllib.request.Request(URL, data=json.dumps(payload).encode(),
-                                 headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=300) as r:
-        return r.headers, r.read().decode()
-
-
-def _parse(body):
-    for line in body.splitlines():
-        if line.startswith("data: ") and line[6:].strip():
-            d = json.loads(line[6:])
-            if "result" in d:
-                return d["result"]
-            if "error" in d:
-                raise RuntimeError(d["error"])
-    raise RuntimeError(f"no result in response: {body[:300]}")
-
-
-def _session():
-    global _sid
-    if _sid is None:
-        h, _ = _post({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-                      "params": {"protocolVersion": "2024-11-05", "capabilities": {},
-                                 "clientInfo": {"name": "py", "version": "1"}}}, HDR)
-        _sid = h.get("mcp-session-id")
-        _post({"jsonrpc": "2.0", "method": "notifications/initialized"},
-              {**HDR, "mcp-session-id": _sid})
-    return {**HDR, "mcp-session-id": _sid}
-
-
-def call(tool, args):
-    _, body = _post({"jsonrpc": "2.0", "id": 9, "method": "tools/call",
-                     "params": {"name": tool, "arguments": args}}, _session())
-    res = _parse(body)
-    if res.get("isError"):
-        raise RuntimeError(f"{tool}: {json.dumps(res)[:400]}")
-    return json.loads(res["content"][0]["text"])
-
-
 def check_keys(plan):
     """Duplicated combined keys, before anything is written.
 
@@ -160,22 +113,22 @@ def check_keys(plan):
     says nothing at all - the second row is simply not there. Only RPFM's own
     "Duplicated combined keys" ever caught it, on the next manual open of the pack.
 
-    RPFM's MCP diagnostics_check CANNOT be used for this: it short-circuits to
-    DependenciesCacheNotGenerated unless the 105MB dependency cache is built, and building it
-    takes longer than the MCP session survives. This check needs no cache - a combined key is
-    intra-table. The key columns come from the schema (`is_key`), not a hardcoded list, so it
-    covers every table this script imports and keeps covering them across schema updates.
+    RPFM's diagnostics were written off for this in v1 (they short-circuited without the
+    dependency cache). This check needs no cache - a combined key is intra-table. The key
+    columns come from the schema (`is_key`), not a hardcoded list, so it covers every table
+    this script imports and keeps covering them across schema updates.
 
+    `plan` entries are (pack path, create_file kind, tsv name[, tsv dir]); the kind is
+    rpfm_client.db(table, version) for a table and {"type": "loc"} for a loc file.
     Loc files have no schema definition and are skipped; RPFM checks those itself on import.
     """
     bad = 0
     for entry in plan:
-        path, newfile, tsv = entry[:3]
-        if "DB" not in newfile:
+        path, kind, tsv = entry[:3]
+        if kind["type"] != "db":
             continue
-        _frag, table, ver = newfile["DB"]
-        fields = call("definition_by_table_name_and_version",
-                      {"name": table, "version": ver})["Definition"]["fields"]
+        table, ver = kind["table_name"], kind["version"]
+        fields = call("table_definition", {"table_name": table, "version": ver})["columns"]
         keys = [f["name"] for f in fields if f["is_key"]]
         if not keys:
             continue
@@ -220,27 +173,23 @@ def check_lua():
 
 def main():
     check_lua()
-    call("set_game_selected", {"game_name": "warhammer_3", "rebuild_dependencies": False})
+    ensure_game()
+    loc = {"type": "loc"}
     plan = []
     for frag in FRAGS:
         tables = DB_TABLES + (BANNER_TABLES if frag.endswith("banners") else [])
         for table, ver in tables:
-            plan.append((f"db/{table}/{frag}", {"DB": [frag, table, ver]},
-                         f"{table}__{frag}.tsv"))
-        plan.append((f"text/db/{frag}.loc", {"Loc": frag}, f"loc__{frag}.tsv"))
+            plan.append((f"db/{table}/{frag}", db(table, ver), f"{table}__{frag}.tsv"))
+        plan.append((f"text/db/{frag}.loc", loc, f"loc__{frag}.tsv"))
     for table, ver in SET_TABLES:
-        plan.append((f"db/{table}/{SETS}", {"DB": [SETS, table, ver]},
-                     f"{table}__{SETS}.tsv"))
+        plan.append((f"db/{table}/{SETS}", db(table, ver), f"{table}__{SETS}.tsv"))
     for table, ver in ABIL_TABLES:
-        plan.append((f"db/{table}/{ABIL_FRAG}", {"DB": [ABIL_FRAG, table, ver]},
+        plan.append((f"db/{table}/{ABIL_FRAG}", db(table, ver),
                      f"{table}__{ABIL_FRAG}.tsv", ABIL_TSV))
-    plan.append((f"text/db/{ABIL_FRAG}.loc", {"Loc": ABIL_FRAG},
-                 f"loc__{ABIL_FRAG}.tsv", ABIL_TSV))
+    plan.append((f"text/db/{ABIL_FRAG}.loc", loc, f"loc__{ABIL_FRAG}.tsv", ABIL_TSV))
     for table, ver in COMM_TABLES:
-        plan.append((f"db/{table}/{COMM_FRAG}", {"DB": [COMM_FRAG, table, ver]},
-                     f"{table}__{COMM_FRAG}.tsv"))
-    plan.append((f"text/db/{COMM_FRAG}.loc", {"Loc": COMM_FRAG},
-                 f"loc__{COMM_FRAG}.tsv"))
+        plan.append((f"db/{table}/{COMM_FRAG}", db(table, ver), f"{table}__{COMM_FRAG}.tsv"))
+    plan.append((f"text/db/{COMM_FRAG}.loc", loc, f"loc__{COMM_FRAG}.tsv"))
 
     for entry in plan:
         full = os.path.join(entry[3] if len(entry) > 3 else TSV, entry[2])
@@ -249,15 +198,14 @@ def main():
 
     check_keys(plan)
 
-    pack = call("new_pack", {})["String"]
+    pack = new_pack()
     print(f"new pack: {pack}")
 
     for entry in plan:
-        path, newfile, tsv = entry[:3]
+        path, kind, tsv = entry[:3]
         full = os.path.join(entry[3] if len(entry) > 3 else TSV, tsv)
-        call("new_packed_file", {"pack_key": pack, "path": path,
-                                 "new_file": json.dumps(newfile)})
-        call("import_tsv", {"pack_key": pack, "table_path": path, "tsv_path": full})
+        call("create_file", {"pack": pack, "path": path, "kind": kind})
+        call("import_tsv", {"pack": pack, "path": path, "tsv_path": full})
         rows = sum(1 for _ in open(full, encoding="utf-8")) - 2
         print(f"  {rows:5d}  {path}")
 
@@ -265,18 +213,14 @@ def main():
         src = os.path.join(ROOT, "Modding Files", "pack", *rel.split("/"))
         if not os.path.isfile(src):
             raise SystemExit(f"missing {src} - run its generator in tools/ first")
-        call("add_packed_files", {"pack_key": pack, "source_paths": [src],
-                                  "destination_paths": json.dumps([{"File": rel}])})
+        call("add_files_from_disk", {"pack": pack, "paths": [src], "pack_paths": [rel]})
         print(f"  {os.path.getsize(src):5d}B  {rel}")
 
-    call("save_pack_as", {"pack_key": pack, "path": PACK})
+    call("save_pack", {"pack": pack, "path": PACK})
     print(f"\nsaved {PACK}")
     # plan holds only the DB/loc imports; the loose script files are added separately
     print(f"  {len(plan) + len(SCRIPTS)} files")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except urllib.error.URLError:
-        sys.exit("RPFM is not running - its MCP server only exists while RPFM is open")
+    main()
